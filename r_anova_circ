@@ -1,0 +1,37 @@
+#!/bin/bash
+#  make a batch file for ANOVA using R
+
+if [ ! $3 ] ; then 
+echo "	---------------------------------------------------------"
+echo "	Perform one-way circular ANOVA using R"
+echo "	Format: r_anova_circ [filename] [data (dv)] [factor (iv)]"
+echo "	---------------------------------------------------------"
+exit
+fi
+
+infile=$1; dvcol=$2; ivcol=$3
+
+datafile="temp_r_anova_circ.txt"
+# STRIP OUT ANY LINES IF THE IMPORTANT COLUMNS DO NOT CONTAIN NUMBERS
+# FOR THIS ANALYSIS, DO NOT DEFINE AN ACCEPTED MISSING-VALUE - THERE ARE NONE! (HENCE SET -m TO xxxx)
+cat $infile | xe-checkisnum2 stdin -t 1 -f $dvcol,$ivcol -m xxxx > $datafile
+
+echo "Data= column "$dvcol
+echo "Predictor= column "$ivcol
+
+echo "
+library('circular')
+datamatrix <- read.table('"$datafile"', header = FALSE)
+attach(datamatrix)
+
+group<-factor(V"$ivcol")
+data<-circular(V"$dvcol",units=\"degrees\")
+rayleigh.test(data, mu = NULL)
+aov.circular(data,group)
+
+" > r_anova_circ_temp1.txt
+
+cat r_anova_circ_temp1.txt | R -q --no-save --slave
+
+echo
+#rm r_anova_circ_temp.txt

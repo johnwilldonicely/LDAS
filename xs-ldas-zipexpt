@@ -1,0 +1,110 @@
+#!/bin/bash
+# <TAGS> ldas file </TAGS>
+
+thisprog=`basename "$0"`
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+zipa="0"
+zipw="0"
+zipo="0"
+zipe="0"
+setdel="0"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": compress LDAS experiment folder structure to .zip files"
+	echo "USAGE: "
+	echo "	"$thisprog" [options]"
+	echo "VALID OPTIONS:"
+	echo "	-a: zip Data_Acquired folder (raw data from acquisition systems)"
+	echo "	-l: zip Data_Library folder  (LDAS-formatted Data folders)"
+	echo "	-w: zip Data_Working folder  (links to Data_Library for working-output)"
+	echo "	-y: zip Analysis folder"
+	echo "	-d: delete each folder after zipping"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" -alwyd"
+	echo "OUTPUT: "
+	echo "	LDAS_Data_Acquired.zip"
+	echo "	LDAS_Data_Library.zip"
+	echo "	LDAS_Data_Working.zip"
+	echo "	LDAS_Analysis.zip"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+logfile="log_"$thisprog
+rm -f $logfile
+
+echo >> $logfile
+echo $thisprog $@ >> $logfile
+date >> $logfile
+echo >> $logfile
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":awoed" flag ; do
+ 	case $flag in
+		a) setzip[1]=1;;
+		l) setzip[2]=1;;
+		w) setzip[3]=1;;
+ 		y) setzip[4]=1;;
+		d) setdel=1;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+name[1]="Data_Acquired"
+name[2]="Data_Library"
+name[3]="Data_Working"
+name[4]="Analysis"
+
+echo "--------------------------------------------------------------------------------"
+
+for index in 1 2 3 4 ; do
+	if [ "${setzip[$index]}" == "1" ] ; then
+		base=${name[$index]}
+		outfile="LDAS_"$base".zip"
+		echo "zipping $base folder to $outfile"
+		echo "--------------------------------------------------------------------------------" >> $logfile
+		echo "zipping $base folder to $outfile" >> $logfile
+		echo "--------------------------------------------------------------------------------" >> $logfile
+		# MAKE SURE DIRECTORY EXISTS
+		if [ ! -e $base ] ; then {
+			{ echo ; echo "--- Error ["$thisprog"]: $base folder not found" ; echo ; }
+			{ echo ; echo "--- Error ["$thisprog"]: $base folder not found" ; echo ; } >> $logfile
+			continue;
+		}
+		fi
+		# ZIP IT!
+		zip -ry $outfile $base >> $logfile
+		# MAKE SURE ZIP FILE WAS GENERATED AND POPULATED
+		if  [ ! -e $outfile ] || [ $(wc -c $outfile|cut -f 1 -d " ") -le 0 ] ; then
+			{ echo ; echo "--- Error ["$thisprog"]: failed to write file $outfile: folder $base will not be deleted" ; echo ; }
+			{ echo ; echo "--- Error ["$thisprog"]: failed to write file $outfile: folder $base will not be deleted" ; echo ; } >> $logfile
+			continue;
+		fi
+		# REMOVE ORIGINAL DIRECTORY
+		if [ $setdel == "1" ] ; then rm -rf $base ; fi
+	fi
+done
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo
+echo "FINISHED!"
+echo "FINISHED!" >> $logfile
+echo "Time to finish job: "$s" seconds = "$m" minutes"
+echo
+let errcount=$(grep -i error $logfile | grep -v "errors" |wc -l)
+if [ $errcount -gt 0 ] ; then echo "--- Errors found in $logfile - please check!" ; fi
+
+echo "--------------------------------------------------------------------------------"

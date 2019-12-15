@@ -1,0 +1,97 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+setxml=""
+setverb="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": check a database for integrity "
+	echo "- path defined in column 1 must exist "
+	echo "- a group must be defined in column 2"
+	echo "- database-file is converted from DOS to UNIX as an initial precaution"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [file] [options]"
+	echo "		[db]: database file in format <path> <group>"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--xml: specify name of XML section containing path & group columns [$setxml]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt data.txt --verb 1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="v:" ; vl="xml:,verb:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--xml ) setxml=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# QUICK DATABASE INTEGRITY CHECKS
+################################################################################
+if [ "$(dos2unix -q < $filedb | cmp -s - $filedb)" ] ; then dos2unix -q $filedb ; fi
+
+# if an XML section is specified, pull it out and use the temp file as the input
+if [ "$setxml" != "" ] ; then
+	xe-strxmlparse1 $filedb $setxml > $tempfile
+	infile=$tempfile
+# otherwise, the whole file is the input
+else
+	# remove blank lines or comment lines starting with a "#"
+	infile=$filedb
+fi
+
+# scan for non-empty, non-comment lines and contruct a list of compound path,group
+dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $infile | xe-delimit stdin -d comma)
+
+
+for dbline in $dblist ; do
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+	if [ ! -d "$path" ] ; then { echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; } fi
+	if [ "$group" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing group in $filedb for path $path" ; exit ; } fi
+done
+
+
+exit

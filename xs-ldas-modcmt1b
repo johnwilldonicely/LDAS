@@ -1,0 +1,134 @@
+#!/bin/bash
+
+thisprog="xs-ldas-modcmt1b"
+startdir=$(pwd)
+
+
+logfile=$startdir"/temp_"$thisprog".log" 
+errfile=$startdir"/temp_"$thisprog"_errors.txt" 
+
+setold1=""
+setnew1=""
+setold2=""
+setnew2=""
+setold3=""
+setnew3=""
+setold4=""
+setnew4=""
+setold5=""
+setnew5=""
+setgroup="all"
+setfileout="temp_"$thisprog".cmt"
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": substitute up to 5 text-patterns in .cmt files"
+	echo "	- uses group ID to determine what substitution should be"
+	echo "	- uses [basename].001.cmt as input"
+	echo "USAGE: "
+	echo "	"$thisprog" [database-file] [options]"
+	echo ""
+	echo "VALID OPTIONS - defaults in []:"
+	echo "	-g: group to change (all, number, or \"\"=none) ["$setgroup"]"
+	echo "	-o: name of output file  ["$setfileout"]"
+	echo "	-a, -b, -c, -d -e: old-patterns to be replaced (default: replace nothing)"
+	echo "	-A, -B, -C, -D -E: new patterns to replace them with"
+	echo ""
+	echo "EXAMPLE: recode left/right lever-comments with group-appropriate reward codes"
+	echo "	"$thisprog" db_all.txt -g 0 -a LLEVER -A LOW  -b RLEVER -B HIGH"
+	echo "	"$thisprog" db_all.txt -g 1 -a LLEVER -A HIGH -b RLEVER -B LOW"
+	echo "OUTPUT: new .cmt file $setfileout"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+
+########################################################################################
+# READ THE DATABASE FILE NAME FROM THE COMMAND LINE 
+########################################################################################
+filedb=$1 ; shift 
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filedb' missing" ; echo ; exit; } ; fi
+
+
+########################################################################################
+# READ THE OPTIONAL ARGUMENTS 
+########################################################################################
+while getopts  "a:A:b:B:c:C:d:D:e:E:g:o:" flag ; do
+ 	case $flag in
+		a) setold1=$OPTARG;;
+		A) setnew1=$OPTARG;;
+		b) setold2=$OPTARG;;
+		B) setnew2=$OPTARG;;
+		c) setold2=$OPTARG;;
+		C) setnew2=$OPTARG;;
+		d) setold2=$OPTARG;;
+		D) setnew2=$OPTARG;;
+		e) setold2=$OPTARG;;
+		E) setnew2=$OPTARG;;
+		g) setgroup=$OPTARG;;
+		o) setfileout=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+################################################################################
+# CRAWL THROUGH THE DATABASE AND RUN THE ANALYSIS
+################################################################################
+{
+	cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group everythingelse ; do 
+
+		# check for bad path - has to be saved to file because cannot exit from within while loop
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$filedb": "$path ; echo "1" >> $errfile ; echo ; exit ; } fi 
+		echo $path ; 
+		cd $path ; 
+
+		# perform substitutions for selected group, or all groups if setgroup = "" 
+		if [ "$setgroup" == "all" ] || [ "$group" == "$setgroup" ] ; then 
+
+			# generate a list of comment files to modify 		
+			base=$(basename $path) 
+			filecmt=$base".001.cmt"
+		
+			# check for missing comment file - has to be saved to file because cannot exit from within while loop
+			if [ ! -e $filecmt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filecmt' missing" ; echo ; exit; } ; fi
+
+			# otherwise, perform substitutions 
+			echo "
+			xe-strsub1 $filecmt \"$setold1\" \"$setnew1\" | 
+			xe-strsub1 stdin \"$setold2\" \"$setnew2\" | 
+			xe-strsub1 stdin \"$setold3\" \"$setnew3\" | 
+			xe-strsub1 stdin \"$setold4\" \"$setnew4\" | 
+			xe-strsub1 stdin \"$setold5\" \"$setnew5\"
+			"
+			xe-strsub1 $filecmt "$setold1" "$setnew1" | 
+			xe-strsub1 stdin "$setold2" "$setnew2" | 
+			xe-strsub1 stdin "$setold3" "$setnew3" | 
+			xe-strsub1 stdin "$setold4" "$setnew4" | 
+			xe-strsub1 stdin "$setold5" "$setnew5" > $setfileout
+		fi 
+
+		cd $startdir
+
+	done 
+	echo "Finished! :) " ; echo 
+	
+} &> $logfile
+
+let nwarnings=$(cat $logfile | grep -i warning | wc -l)
+let nerrors=$(cat $logfile | grep -i error | wc -l)
+if [ $nerrors -gt 0 ] ; then 
+	echo "*** ALERT!! "$nerrors" errors found  - check "$logfile 
+	if [ $nwarnings -gt 0 ] ; then echo "*** ALERT!! "$nwarnings" warnings found  - check "$logfile ; fi 
+	echo "---------------------------------------------------------"
+	echo 
+fi 
+
+
+exit
+
+

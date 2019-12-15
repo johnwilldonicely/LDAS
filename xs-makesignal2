@@ -1,0 +1,102 @@
+#!/bin/bash
+# <TAGS> synthetic_data </TAGS>
+
+thisprog="xs-makesignal2"
+tempfile="temp_"$thisprog
+rm -f tempfile*
+
+setminfreq="1"
+setmaxfreq="200"
+setbaserate="500000"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make multi-frequency signal for testing filters etc."
+	echo "- makes a temp file for each frequency (at base sampling-rate, below)"
+	echo "- then filters at Nyquist freq. for final output"
+	echo "- then decimates the signal to bring it to the desired sampling rate"
+	echo "- then sends the sum of all the individual signals to the output file"
+	echo "USAGE: "
+	echo "	"$thisprog" [dur] [rate] [OPTIONS]"
+	echo "		[dur]: duration of signal (seconds)"
+	echo "		[rate]: sample-rate of signal (samples/second)"
+	echo
+	echo "OPTIONS (in quotes) to be passed to xe-makedata1: "
+	echo "	-b: base sampling-rate [$setbaserate]"
+	echo "	-h: highest frequency to prodce [ [rate]/2 ]"
+	echo
+	echo "EXAMPLE: "
+	echo "	$thisprog 20 2000 -h 100"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+setdur=$1 ; shift
+setrate=$1 ; shift
+
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":h:b:" flag ; do
+
+ 	case $flag in
+		h) setmaxfreq=$OPTARG;;
+		b) setbaserate=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ -z "$setmaxfreq" ] ; then setmaxfreq=$(echo $setrate | awk '{print ($1/2)}' ) ; fi
+
+setdur=$(echo $setdur | awk '{printf("%03d",$1)}')
+setrate=$(echo $setrate | awk '{printf("%03d",$1)}')
+setminfreq=$(echo $setminfreq | awk '{printf("%03d",$1)}')
+setmaxfreq=$(echo $setmaxfreq | awk '{printf("%03d",$1)}')
+
+nyquist=$(echo $setrate | awk '{print $1/2.05}')
+
+binfactor=$(echo $setbaserate $setrate | awk '{print $1/$2}')
+
+outfile="makesignal2_"$setdur"s-"$setrate"Hz-"$setminfreq"-"$setmaxfreq".txt"
+
+echo
+echo "...parameters..."
+echo "setdur="$setdur
+echo "setrate="$setrate
+echo "setminfreq="$setminfreq
+echo "setmaxfreq="$setmaxfreq
+echo "setbaserate="$setbaserate
+echo "binfactor="$binfactor
+echo "nyquist="$nyquist
+echo "outfile="$outfile
+echo
+
+echo "...making individual components..."
+for i in $(seq $setminfreq $setmaxfreq) ; do
+	j=$(echo $i | awk '{printf("%03d",$1)}')
+	echo -n $j" " ;
+	tempout=$tempfile"."$j".txt"
+	list=$list" "$tempout
+
+	xe-makedata1 $setdur $setbaserate -f $i -fsd 0.0 -a 1 -n 0 -o 1 |
+		xe-filter_butterworth1 stdin -sf $setbaserate -high $nyquist -res 1.4142 -pad -1 -pt 1 -op 0 -int 0 |
+		xe-decimate1 stdin $binfactor > $tempout
+
+done
+echo
+echo "...making summed signal ..."
+paste $list | xe-statsrow1 stdin -t 2 > $outfile
+
+echo
+echo "xe-fftpow2 $outfile -sf $setrate -min $setminfreq -max $setmaxfreq -t 1 -v 1 | xe-plottable1 stdin -line 1 -ps 0 -colour 1 -xscale 1 -xmin 0 -ymin 0 -hline 1"
+echo
+
+xe-fftpow2 $outfile -sf $setrate -min $setminfreq -max $setmaxfreq -t 1 -v 0 |
+	xe-plottable1 stdin -line 1 -ps 0 -colour 1 -xscale 1 -xmin 0 -ymin 0 -hline 1 -vline 0,50 -xint 10
+
+rm -f $tempfile.*
+exit

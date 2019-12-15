@@ -1,0 +1,33 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-proglist"
+
+if [ $# -ne 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": build list of programs from the output of xs-progdep "
+	echo "Only outputs one line per script/program/function"
+	echo "Assumes: "
+	echo "	xs- = script, path= current directory"
+	echo "	xe- = program, path= source/"
+	echo "	xf- = function, path= source/functions"
+	echo "- USAGE: "$thisprog" [list]"
+	echo "- EXAMPLE: "$thisprog" dependencies.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+infile=$1
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+cat $infile |
+	awk '{
+		p=""; s="";
+		if($1~/^xs-/) 		{ p="./" ; c=""; }
+		else if($1~/^xe-/) 	{ p="source/" ; s=".c"; }
+		else if($1~/^xf_/) 	{ p="source/"; s=".c"; }
+		if(p!="") print p""$1"*"s
+	}' | sort -ru

@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": replace numbers in plot legend with alternative text"
+	echo "USAGE: "
+	echo "	"$thisprog" [psfile] [keyfile]"
+	echo "		[psfile]:  postscript output from program xe-plottable1"
+	echo "		[keyfile]: file containing replacement code-legend entries"
+	echo "			example:"
+	echo "				0 control"
+	echo "				1 dose1"
+	echo "				2 dose2"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" plotfile.ps legend.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+keyfile=$1 ; shift
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+if [ ! -e $keyfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$keyfile' missing" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="c:" ; vl="clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+########################################################################################
+# SAVE TOP OF FILE - UP TO FIRST CALL TO LEGEND FUNCTION AFTER LEGEND-BLCOK HEADER
+cat $infile |
+awk '
+BEGIN{start=0}
+{
+if($0~"% DRAW_PLOT_LEGEND") start=1
+if(start==1 && $5=="f_plotlegend") exit
+print $0
+}' > $tempfile.1
+
+########################################################################################
+# BUILD NEW LEGEND
+xe-cut2 $infile "% DRAW_PLOT_LEGEND" -s1 1 > $tempfile.2a
+
+sep="#"
+listsub=$(cat $keyfile | awk '{print "("$1")'$sep'("$2")\t"}')
+
+for i in $listsub ; do
+	old=$(echo $i | cut -f 1 -d "$sep")
+	new=$(echo $i | cut -f 2 -d "$sep")
+	xe-strsub1 $tempfile.2a $old $new > $tempfile.2b
+	mv $tempfile.2b $tempfile.2a
+done
+mv $tempfile.2a $tempfile.2
+
+########################################################################################
+# SAVE BOTTOM OF FILE - FIRST BANK LINE AFTER LEGEND BLOCK
+awk '
+	BEGIN{start=0}
+	{
+	if($0~"% DRAW_PLOT_LEGEND") start=1
+	if(start==1 && NF==0) start=2
+	if(start==2) print $0
+	}
+' $infile > $tempfile.3
+
+# NEW OUTPUT, INSERTING NEW LEGEND SECTION
+cat $tempfile.1 $tempfile.2 $tempfile.3 > $infile
+
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

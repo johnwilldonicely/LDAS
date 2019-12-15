@@ -1,0 +1,124 @@
+#!/bin/bash
+# <TAGS>string</TAGS>
+
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+let setfile=0
+let setsession=0
+let setpart=0
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": parse an LDAS file/folder name:"
+	echo "- format assumed to be [date][-session]_[subject][-part]"
+	echo "- must contain a date ans subject section separated by \"_\""
+	echo "- example: 20001231-001_12345-064"
+	echo " 		date=31.Dec.2000, session=1, subject=12345, channel=64"
+	echo "	date: typically in yyyymmdd format"
+	echo "	session: (optional): the recording session for that date"
+	echo "	subject: the unique subject ID"
+	echo "	part: (optional): sub-division of subject: channel, region, etc"
+	echo "	base: basename, combination of date, session(optional), and subject"
+	echo "USAGE: $thisprog [in] [field]"
+	echo "	[in]: name to parse"
+	echo "	[field]: field to extract - date, session, subject, part or base"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-f: flag as filename - if set, strips filetype extension [unset]"
+	echo "	-s: flag, require session to be defined [unset]"
+	echo "	-p: flag, require part to be defined [unset]"
+	echo "OUTPUT: the requested field (empty if not found)"
+	echo "EXAMPLE: "
+	echo "	$thisprog 20181231_12345.dat subject -f"
+	echo "	$thisprog 20181231-001_12345-016 subject"
+	echo "	$thisprog 20181231_12345-016.dat seession"
+	echo "	d=\$($thisprog 20181231_12345 date)"
+	echo "		if [[ \$d = *\"Error\"* ]]; then  echo \"\$d\" ; echo ; exit ; fi"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+################################################################################
+inname=$1 ; shift
+setfield=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="fsp" ; vl="file,session,part"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-f ) let setfile=1 ;;
+		-s ) let setsession=1 ;;
+		-p ) let setpart=1 ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# IF THIS IS A FILE NAME, STRIP THE EXTENSION
+if [ $setfile -eq 1 ] ; then inname=${inname%.*}; fi
+
+
+################################################################################
+# CHECK NAME FORMAT
+################################################################################
+let n=$(echo $inname | tr '_' '\n' | wc -l)
+if [ $n -ne 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" must contain exactly one underscore\n" ; exit ; } fi
+a=$(echo $inname | cut -f 1 -d _)
+b=$(echo $inname | cut -f 2 -d _)
+let n=$(echo $a | tr '-' '\n' | wc -l)
+if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$innam\" has >1 hyphen in the time-section\n" ; exit ; } fi
+let n=$(echo $b | tr '-' '\n' | wc -l)
+if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" has >1 hyphen in the subject-section\n" ; exit ; } fi
+
+################################################################################
+# OUTPUT SETFIELD - OR ERROR IF SETFIELD IS INAPPROPRIATE
+################################################################################
+case $setfield in
+	date    )
+		z=$(echo $inname | xe-cut1 stdin 1 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d -)
+		if [ "$z" ] ; then echo $z
+		else   echo -e "\n--- Error ["$thisprog"]: missing date field\n" ; exit
+		fi
+		;;
+	session )
+		z=$(echo $inname | xe-cut1 stdin 1 -n 1 -d _ | xe-cut1 stdin 2 -n 1 -d -)
+		if [ "$z" ] ; then echo $z
+		elif [ $setsession -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing session field\n" ;  exit
+		fi
+		;;
+	subject )
+		z=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d -)
+		if [ "$z" ] ; then echo $z
+		else   echo -e "\n--- Error ["$thisprog"]: missing subject field\n" ; exit
+		fi
+		;;
+	part    )
+		z=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 2 -n 1 -d -)
+		if [ "$z" ] ; then echo $z
+		elif [ $setpart -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing part field\n" ; exit
+		fi
+		;;
+	base    )
+		a=$(echo $inname | xe-cut1 stdin 1 -n 1 -d _)
+		b=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d '-')
+		echo $a"_"$b
+		;;
+	* ) echo -e "\n--- Error ["$thisprog"]: invalid field ($setfield) -  must be date, session, subject or part\n" ; exit ;;
+esac
+
+
+
+exit

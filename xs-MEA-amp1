@@ -1,0 +1,340 @@
+#!/bin/bash
+
+# <TAGS>MEA</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+setout=$(echo $thisprog | awk -F - '{print $NF}')
+logfile="log_"$thisprog".txt"
+
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setbin=60
+duration=""
+setnorm="1"
+setgauss="0"
+setnormtrial=""
+setverb="1"
+setclean="1"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog":(MEA) normalized event-amplitude changes across time, all channels"
+	echo "- requires a .notes file in folder defining recording parameters"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [map]"
+	echo "		[base]: input file basename - assumes directory contains:"
+	echo "			[base].clubt: binary (64-bit int) sample-numbers"
+	echo "			[base].club:  binary (16-bit int) channel-numbers"
+	echo "		[map]: text file describing electrode layout. Example:"
+	echo ""
+	echo "			11 21 31 41 51 61 71 81"
+	echo "			12 22 32 42 52 62 72 82"
+	echo "			13 23 33 43 53 63 73 83"
+	echo "			14 24 34 44 54 64 74 84"
+	echo "			15 25 35 45 55 65 75 85"
+	echo "			16 26 36 46 56 66 76 86"
+	echo "			17 27 37 47 57 67 77 87"
+	echo "			18 28 38 48 58 68 78 88"
+	echo ""
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-b: size of the block (seconds) to integrate amplitude ["$setbin"]"
+	echo "	-d: trial duration (if unset, default = time of last event) ["$duration"]"
+	echo "	-o: output file prefix ["$setout"]"
+	echo "	-g: Gaussian smoothing (plot only, bins apply to time ["$setgauss"]"
+	echo "	-n: normalization ["$setnorm"]"
+	echo "		-1: no normalization"
+	echo "		0: 0-1 range"
+	echo "		1: Z-score (mean & std.dev of normalization trial)"
+	echo "		2: change from sample-0 of normalization trial"
+	echo "		3: change from mean of normalization trial"
+	echo "		4: %change from mean of normalization trial"
+	echo "	-N: normalization trial (name contains) ["$setnormtrial"]"
+	echo "	-P: plot options, in quotes ["$setplotopts"]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20180101_000001 map_chans.txt -g 10 -b 40 -N aCSF -n 4"
+	echo ""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------
+"$thisprog" "$@"
+--------------------------------------------------------------------------------"
+echo "--------------------------------------------------------------------------------
+"$thisprog" "$@"
+--------------------------------------------------------------------------------" > $logfile
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setbase=$1 ; shift
+inmap=$1 ; shift
+
+inamp=$setbase"_amp.txt"
+innotes=$(ls 2>/dev/null *.notes | head -n 1)
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="b:d:o:n:g:N:P:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-b ) setbin=$2 ; shift ;;
+		-d ) duration=$2 ; shift ;;
+		-o ) setout=$2 ; shift ;;
+		-n ) setnorm=$2 ; shift ;;
+		-g ) setgauss=$2 ; shift ;;
+		-N ) setnormtrial=$2 ; shift ;;
+		-P ) setplotopts=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+# MISSING-FILE HANDLING
+if [ ! -e $inmap ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inmap' missing" ; echo ; exit; } fi
+let x=$(echo $innotes | wc -c) # because $innotes will be an empty string if there is no .notes file, and this will not fail the normal "! -e $innotes" test"
+if [ $x -lt 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$innotes' missing" ; echo ; exit; } fi
+
+
+################################################################################
+# GET RECORDING PARAMETERS
+################################################################################
+samprate=$(xe-getkey $innotes sample_rate=)
+dursec=$(xe-getkey $innotes duration_seconds=)
+dursamp=$(xe-getkey $innotes duration_samples=)
+# adjust the binning by the samplerate
+binsamps=$(echo $setbin $samprate | awk '{print $1*$2}')
+# shortened duration for density calculation to avoid undersampled last biun
+dursecshort=$(echo $dursec $setbin | awk '{print $1-$2}')
+dursampshort=$(echo $dursamp $binsamps | awk '{print $1-$2}')
+
+# DETERMINE THE START & STOP SAMPLE FOR NORMALIZATION
+if [ "$setnormtrial" != "" ] ; then
+	a=$(xe-dbmatch1 $innotes name $setnormtrial -m 1 -o 1 -oc start -xml TRIALS) # first sample in normalization trial
+	b=$(xe-dbmatch1 $innotes name $setnormtrial -m 1 -o 1 -oc stop -xml TRIALS) # last sample in normalization trial
+	# adjust by the binning factor
+	normstart=$(echo $a $binsamps | awk '{printf("%ld",($1/$2))}')
+	normstop=$(echo $b $binsamps | awk '{printf("%ld",($1/$2))}')
+else
+	normstart="-1"
+	normstop="-1"
+fi
+
+# GET LIST OF TRIAL START-STOPS FOR PLOTTING VERTICAL LINES
+listtrial=$(xe-strxmlparse1 $innotes TRIALS | awk 'NF>0{print $0}' | xe-cut1 stdin trial -o 1 | paste -s)
+liststart=$(xe-strxmlparse1 $innotes TRIALS | awk 'NF>0{print $0}' | xe-cut1 stdin start -o 1 | paste -s)
+liststop=$(xe-strxmlparse1  $innotes TRIALS | awk 'NF>0{print $0}' | xe-cut1 stdin stop -o 1 | paste -s)
+let count=0; for i in $listtrial ; do { let count=$count+1 ; artrial[$count]=$i ; } done
+let count=0; for i in $liststart ; do { let count=$count+1 ; arstart[$count]=$(echo $i $samprate $setbin | awk '{printf("%d",($1/($2*$3)))}') ; } done
+let count=0; for i in $liststop ; do { let count=$count+1 ; arstop[$count]=$(echo $i $samprate $setbin | awk '{printf("%d",($1/($2*$3)))}') ; } done
+ntrials=$count
+vlines=$(for i in $(seq 1 $ntrials) ; do echo ${arstart[$i]} ; done | paste -s | tr '\t' ',')
+
+echo
+echo "	inamp"=$inamp
+echo "	innotes="$innotes
+echo ""
+echo "	samprate="$samprate
+echo "	setbin="$setbin
+echo "	binsamps="$binsamps
+echo "	dursec="$dursec
+echo "	dursamp="$dursamp
+echo
+
+# DETERMINE TITLES ASSOCIATED WITH NORMALIZATION
+if [ $setnorm == "-1" ] ; then  { title="Amplitude (uV)" ;  }
+elif [ $setnorm == "0" ] ; then { title="Amplitude (0-1)" ;  }
+elif [ $setnorm == "1" ] ; then { title="Z-score (start-stop)" ;  }
+elif [ $setnorm == "2" ] ; then { title="Change (uV, from start)" ;  }
+elif [ $setnorm == "3" ] ; then { title="Change (uV, start-stop)" ;  }
+elif [ $setnorm == "4" ] ; then { title="% Change (uV, start-stop)" ;  }
+fi
+
+# ADJUST THE GAUSSIAN SMOOTING FACTOR IF SMOOTHING IS DONE BEFORE NORMALIZATION
+g2=$(echo $setgauss | awk '{print $1+$1+1}')
+
+# BUILD CHANNEL LIST
+listchans=$(cat $inmap | xe-delimit stdin | tr '\t' '\n')
+
+xlabel="Time ("$setbin"-s bins)"
+plotlist=""
+plotopts="-xscale .33 -yscale 0.3 -line 1 -ps 0 -colour 1 -lwd 2 -ypad 0 -xmin 0 -font 12 -ylabel Amplitude -lwa 0.25 -vline $vlines"
+if [ $setnorm == "4" ] ; then plotopts=$plotopts" -hline 1" ; fi
+
+
+################################################################################
+# PROCESS THE PER-CHANNEL DATA
+################################################################################
+echo "	Processing channel:"
+echo -n "	"
+let count=0;
+let row=0;
+for chan in $listchans ; do
+
+	# increment counter here so this step never gets skipped
+	# note that for the first channel, count=1
+	let count=$count+1
+
+	echo -n $chan" "
+	let row=$row+1
+	if [ $row -gt 7 ]  ; then { echo ; echo -n "	" ; let row=0 ; } fi
+
+	# define plotfile here because we may have to make an empty plot
+	plotfile=$tempfile"_plot_"$chan".ps"
+	plotlist=$plotlist" "$plotfile
+
+	# extract sample-numbers for current channel
+	xe-dbmatch1 $inamp channel $chan | xe-cut1 stdin sample,amp -o 1 > $tempfile.0
+
+	# for channels with no content, output a single NAN
+	let x=$(cat $tempfile.0 | wc -l)
+	if [ $x -eq 0 ] ; then
+		if [ $count -eq 1 ] ; then # if this is the first plot, the title will be the merged-plot title
+			echo "0 0" | xe-plottable1 stdin $plotopts -xlabel "$xlabel" -title "$title" -out $plotfile
+		else # otherwise, the title will be the channel ID
+			echo "0 0" | xe-plottable1 stdin $plotopts -xlabel "$xlabel" -title "Channel $chan" -out $plotfile
+		fi
+		echo "NAN" >> $tempfile.2
+		continue
+	fi
+
+	# get density in bins of width $binsamps
+	xe-density1 $tempfile.0 -f 2 -out 2 -w $binsamps -s 0 -xmin 0 -xmax $dursamp |
+	# correct density by bin-duration (result is therefore a rate - technically unnecessary as scores are normalized)
+	awk '{print $2/'$setbin'}' |
+	# normalize
+	xe-norm2 stdin -n $setnorm -start $normstart -stop $normstop |
+	# apply smoothing - alternatively apply after normalizing
+	xe-smoothgauss1 stdin $g2 > $tempfile.1
+	# plot results on a single line
+	xe-timestamp1 $tempfile.1 |
+	xe-plottable1 stdin $plotopts -xlabel "$xlabel" -title "Channel $chan" -out $plotfile
+
+	# save the line to a matrix
+	paste -s $tempfile.1 >> $tempfile.2
+
+done
+echo
+
+################################################################################
+# MAKE A MERGED LINE-GRAPH PLOT
+################################################################################
+plotfile1=$setout"_lines"
+xe-plotmerge1 -xmax 8 -xinc 225 -yinc 225 -ymax 9 -scale .25 $plotlist -xo 300 -yo 2900 -out $plotfile1
+rm -f $plotlist
+
+################################################################################
+# MAKE THE FINAL VERSION OF THE MATRIX FILE FROM TEMPFILE.2
+################################################################################
+# fill rows which begin with nan so all rows have the same number of entries
+outfile1=$setout"_matrix.txt"
+maxcols=$(awk '{print NF}' $tempfile.2 | xe-statsd1 stdin | grep MAX | cut -f 2 -d " ")
+awk '{if(NF=='$maxcols') print $0; else { for(i=1;i<'$maxcols';i++) printf("NAN\t"); printf("NAN\n"); }}' $tempfile.2 > $outfile1
+
+################################################################################
+# MAKE A  HEATMAP
+################################################################################
+# set parameters
+plotfile2=$(echo $outfile1 | xe-strsub1 stdin .txt .ps)
+mindur=$(echo $dursec | awk '{print $1/'$setbin'}')
+xlabel="Time ("$setbin"-s bins)"
+ylabel="Channel: top-bottom, by column"
+plotopts="-xmin 0 -xmax $mindur -ymin 0 -ymax 64 -font 6 -yint 1 -yscale .75 -ylabel -lwa .25 -uc 0 -hline 8,16,24,32,40,48,56 -vline $vlines"
+# plot the file */
+xe-plotmatrix1 $outfile1 $plotopts -ylabel "$ylabel" -xlabel "$xlabel" -title "$title" $setplotopts -out $plotfile2
+# fix the ytics labels to reflect channel numbers
+cat $inmap | xe-delimit stdin | tr '\t' '\n' | tac | awk 'BEGIN{n=0.5}{print $1,n; n++}' > $tempfile.3
+xs-plotmodtics $plotfile2 $tempfile.3 ytic
+
+
+################################################################################
+# MAKE THE MEAN
+################################################################################
+outfile2=$setout"_average.txt"
+xe-statscol1 $outfile1 > $outfile2
+
+################################################################################
+# PLOT THE MEAN
+################################################################################
+plotfile3=$(echo $outfile2 | xe-strsub1 stdin .txt .ps)
+plotopts="-line 1 -ps 0 -cx 1 -cy 2 -ce 3 -ew 0 -colour 1 -out $plotfile3 -vline $vlines"
+if [ $setnorm == "4" ] ; then plotopts=$plotopts" -hline 1" ; fi
+xe-cut1 $outfile2 col,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "$xlabel" -ylabel "Mean Rate" -title "$title"
+
+################################################################################
+# CALCULATE STATS
+################################################################################
+setendAUC=5
+outfile3=$setout"_AUC.txt"
+if [ "$setendAUC" == "" ] ; then
+	indices=$(for i in $(seq 1 $ntrials) ; do
+	echo ${arstart[$i]}
+	echo ${arstop[$i]} | awk '{print $1-1}'
+	done | paste -s | tr '\t' ',')
+else
+	indices=$(for i in $(seq 1 $ntrials) ; do
+	echo ${arstop[$i]} | awk '{print $1-'$setendAUC'}'
+	echo ${arstop[$i]} | awk '{print $1-1}'
+	done | paste -s | tr '\t' ',')
+
+fi
+xe-cut1 $outfile2 mean -o 1 | xe-curvestats1 stdin -index $indices > $outfile3
+
+################################################################################
+# BUILD MATRIX REPRESENTATION OF AUC (SUMS) FOR EACH CHANNEL & ZONE
+################################################################################
+zmax=$(xe-statsd1 $outfile1 | xe-getkey stdin MAX)
+let count=0;
+echo $indices |
+tr ',' '\n' |
+awk 'BEGIN{n=0}{printf $1; n++; if(n<2) printf " "; else {n=0; printf "\n"}}' |
+while read a z ; do
+	let count=$count+1
+	let a=$a+1
+	let z=$z+1
+	cut -f $a,$z $outfile1 |
+	xe-statsrow1 stdin -t 2  |
+	awk 'BEGIN{n=0}{printf $1; n++; if(n<8) printf " "; else {n=0; printf "\n"}}' |
+	xe-plotmatrix1 stdin -xscale .25 -yscale .25 -xint 1 -yint 1 -zmax $zmax -title "Trial $count" -out $tempfile.4.$count.ps
+done
+plotlist=$(ls $tempfile.4.*.ps)
+xe-plotmerge1 $plotlist -xmax 3 -xinc 180 -out $setout"_matrix2"
+plotfile4=$setout"_matrix2.001.ps" # set this for reporting, below
+
+################################################################################
+# REPORT OUTPUT
+################################################################################
+echo "	Output:"
+echo "	$outfile1"
+echo "	$outfile2"
+echo "	$outfile3"
+echo "	$plotfile1.001.ps"
+echo "	$plotfile2"
+echo "	$plotfile3"
+echo "	$plotfile4"
+echo "	$logfile"
+echo
+
+rm -f $tempfile*
+exit

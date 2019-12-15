@@ -1,0 +1,142 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog="xs-batch1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setxml=""
+setverb="0"
+setpad="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": run a command in directories specified in a database file "
+	echo "- command is run in each directory"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [com] [options]"
+	echo "		[db]: database file in format <path> <group>"
+	echo "		[com]: command to run"
+	echo "			- should be placed in double-quotes"
+	echo "			- wildcards should function normally"
+	echo "			- if com itself requires quotes, preceed with \\ (eg. \\\")"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--xml: specify database XML section containing path & group columns [$setxml]"
+	echo "	--out: redirect output to this file in each database directory [$setout]"
+	echo "		- affects only output normally sent to stdout"
+	echo "		- if command generates a file by default, this is not affected"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_all.txt \"echo \\\"ok\\\"\" --verb 1"
+	echo " 	$thisprog db_new.txt \"ls *notes\" 2>&1|tee logfile.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb="$1" ; shift
+setcom="$1" ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="o:v:"
+vl="xml:,out:,verb:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--xml ) setxml=$2 ; shift ;;
+		-o | --out ) setout=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+# - omit blank lines and lines beginning with "#"
+################################################################################
+if [ "$(dos2unix -q < $filedb | cmp -s - $filedb)" ] ; then dos2unix -q $filedb ; fi
+
+if [ "$setxml" == "" ] ; then
+	dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $filedb | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: are they in an xml-section?" ; echo ; exit; } ; fi
+else
+	xe-strxmlparse1 $filedb $setxml
+	dblist=$(xe-strxmlparse1 $filedb $setxml | xe-cut1 stdin path,group -o 1 -s 1 | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: is xml section $setxml present?" ; echo ; exit; } ; fi
+fi
+
+################################################################################
+# QUICK DATABASE INTEGRITY CHECKS
+################################################################################
+for dbline in $dblist ; do
+	path=$(echo $dbline | cut -f 1 -d ,)
+	if [ ! -d "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; exit ; } fi
+done
+
+################################################################################
+# PERFORM A FOR-LOOP USING ALL THE DIRECTORIES
+# - concatenate data using the filcat function
+################################################################################
+ if [ "$setverb" == "1" ] ; then echo "	COMMAND: "$setcom ; fi
+for dbline in $dblist ; do
+	cd $start_dir
+	path=$(echo $dbline | cut -f 1 -d ,)
+	cd $path ;
+
+	if [ "$setverb" == "1" ] ; then
+		echo "	"$path ;
+		echo "		"$setcom ;
+	fi
+
+
+	# RUN THE COMMAND
+	if [ "$setout" == "" ] ; then
+		$setcom
+	else
+		$setcom &> $setout
+	fi
+done
+cd $start_dir
+
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+
+exit

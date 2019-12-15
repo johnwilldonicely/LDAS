@@ -1,0 +1,43 @@
+#!/bin/bash
+
+thisprog="xs-ldas-matrixdiff1"
+tempfile="temp_"$thisprog
+rm -f $tempfile*
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate the matrix-difference for mulitiple subjects"
+	echo "USAGE: 	$thisprog [in1] [in2]"
+	echo "		[in1] reference multi-matrix file"
+	echo "		[in2] multi-matrix file from which [in1] will be subtracted"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" matrix1.txt matrix2.txt "
+	echo "OUTPUT: "
+	echo "	Matrices representing the [in2]-[in1] difference for each subject"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+in1=$1 ; shift 
+in2=$1 ; shift 
+
+if [ ! -e $in1 ] ; then { echo ; echo "	--- Error ["$thisprog"]: file '$in1' missing" ; echo ; exit ; } fi
+if [ ! -e $in2 ] ; then { echo ; echo "	--- Error ["$thisprog"]: file '$in2' missing" ; echo ; exit ; } fi
+
+list1=$(grep "#" $in1 | cut -d " " -f 2 | sort -nu ) 
+list2=$(grep "#" $in2 | cut -d " " -f 2 | sort -nu ) 
+
+for subj in $list1 ; do 
+	
+	xs-ldas-matrixcut1 $in1 $subj > $tempfile.1
+	xs-ldas-matrixcut1 $in2 $subj > $tempfile.2
+
+	echo
+	echo "# "$subj
+	xe-matrixdiff1 $tempfile.1 $tempfile.2 
+
+
+done 
+rm -f $tempfile 

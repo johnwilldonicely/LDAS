@@ -1,0 +1,97 @@
+#!/bin/bash
+# <TAGS> synthetic_data </TAGS>
+
+thisprog="xs-makesignal1"
+tempfile="temp_"$thisprog
+
+setunits=0
+
+deltaopts="-a 200.0 -f 02 -fsd 0.1"
+thetaopts="-a 100.0 -f 08 -fsd 1.0"
+gammaopts="-a 50.0 -f 75 -fsd 8.0"
+noiseopts="-a 0 -n 50 -g 1"
+eventopts=""
+eventband="g"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make an LFP-like signal with delta, theta and gamma oscillations"
+	echo
+	echo "USAGE: "
+	echo "	"$thisprog" [dur] [rate]"
+	echo "		[dur]: duration of signal (seconds)"
+	echo "		[rate]: sample-rate of signal (samples/second)"
+	echo
+	echo "OPTIONS (in quotes) to be passed to xe-makedata1: "
+	echo "	-D: delta options [$deltaopts]"
+	echo "	-T: theta options [$thetaopts]"
+	echo "	-G: delta options [$gammaopts]"
+	echo "	-N: noise options [$noiseopts]"
+	echo "		two noise signals will be added:"
+	echo "		1) the noise specified by the user"
+	echo "		2) a 10x version of the noise, HP filtered at 20 Hz"
+	echo "	-E: event options [$eventopts]"
+	echo "	-B: event band (d,t,g) [$eventband]"
+	echo
+	echo "EXAMPLE: "
+	echo "	$thisprog 20 2000 -G \"-a .05 -fsd 20\" -N \"-n 0\" "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+setdur=$1 ; shift
+setrate=$1 ; shift
+
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":D:T:G:N:E:B:" flag ; do
+
+ 	case $flag in
+		D) deltaopts=$deltaopts" "$OPTARG;;
+		T) thetaopts=$thetaopts" "$OPTARG;;
+		G) gammaopts=$gammaopts" "$OPTARG;;
+		N) noiseopts=$noiseopts" "$OPTARG;;
+		E) eventopts=$OPTARG;;
+		B) eventband=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# make the noise signal - this is a little complicated
+noiseamp1=$(echo $noiseopts | xe-getkey stdin -n | tail -n 1 ) # user specified noise level
+noiseamp2=$(echo $noiseamp1 | awk '{print $1*10}') # noise level which will be low-pass filtered at 20Hz
+
+if [ ! -z "$eventopts" ] ; then
+	if [ $eventband == "d" ] ; then deltaopts=$deltaopts" "$eventopts
+	elif [ $eventband == "t" ] ; then thetaopts=$thetaopts" "$eventopts
+	elif [ $eventband == "g" ] ; then gammaopts=$gammaopts" "$eventopts
+	else { echo ; echo "--- Error ["$thisprog"]: invalid event band \""$eventband"\" (should be d,t or g) " ; echo ; exit; }
+	fi
+fi
+
+topfreq=$(echo $setrate | awk '{a=$1/4.001; print a}')
+
+xe-makedata1 $setdur $setrate $noiseopts -n $noiseamp1 |
+	xe-filter_butterworth1 stdin -sf $setrate -high $topfreq -res 1.4142 > $tempfile.0
+#	xe-makedata1 $setdur $setrate $noiseopts -n $noiseamp1 | cut -f 2 > $tempfile.0a
+#	xe-makedata1 $setdur $setrate $noiseopts -n $noiseamp2 | cut -f 2 | xe-filter_butterworth1 stdin -sf $setrate -high 20 -res 1.4142 > $tempfile.0b
+#	paste $tempfile.0a $tempfile.0b | awk '{print $1+$2}'  > $tempfile.0
+
+xe-makedata1 $setdur $setrate $deltaopts > $tempfile.1
+xe-makedata1 $setdur $setrate $thetaopts > $tempfile.2
+xe-makedata1 $setdur $setrate $gammaopts > $tempfile.3
+
+#echo "xe-makedata1 $setdur $setrate $deltaopts"
+#echo "xe-makedata1 $setdur $setrate $thetaopts"
+#echo "xe-makedata1 $setdur $setrate $gammaopts"
+
+paste $tempfile.0 $tempfile.1 $tempfile.2 $tempfile.3 |
+	awk '{print $1+$2+$3+$4}' |
+	xe-timestamp1 stdin -sf $setrate > $tempfile
+
+rm -f $tempfile.*

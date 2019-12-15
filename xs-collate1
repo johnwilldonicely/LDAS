@@ -1,0 +1,207 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+allopts=$@
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+setverb="0"
+setpad="0"
+sethead="1"
+setxml=""
+setdname=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": collate files using a database file "
+	echo "- applies header to first output only"
+	echo "- pads missing values with \"-\""
+	echo "	- adds group designation from the database file"
+	echo "	- adds additional designations from the .notes file in each folder"
+	echo "		- must contain keywords subject= or SUBJECT followed by value"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [file] [options]"
+	echo "		[db]: database file in format <path> <group>"
+	echo "		[file]: file to collate"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--xml: specify database XML section containing path & group columns [$setxml]"
+	echo "	--pad:  insert lines padded with \"-\" for missing data (0=NO 1=YES) [$setpad]"
+	echo "	--head: do input files have headers (0=NO 1=YES) [$sethead]"
+	echo "		- if no, output a comment line indicating subject and group"
+	echo "		- if no, padding is not an option"
+	echo "	--dname: file defining date-names  [$setdname]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt data.txt --pad"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+infile=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="b:" ; vl="xml:,pad:,head:,dname:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--xml ) setxml=$2 ; shift ;;
+		--pad ) setpad=$2 ; shift ;;
+		--head ) sethead=$2 ; shift ;;
+		--dname ) setdname=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setpad" != "0" ] && [ "$setpad" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --pad ($setpad) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$sethead" != "0" ] && [ "$sethead" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --head ($sethead) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setpad" == "1" ] && [ "$sethead" == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: padding (--pad 1) incompatible with no header (--head 0) " ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setdname" != "" ] ; then
+	if [ ! -e "$setdname" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing date-name file $setdname\n" ;  exit; } ; fi
+	prehead="subject date dname group "
+	setdname=$startdir"/"$setdname
+else
+	prehead="subject date group "
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+################################################################################
+# DATABASE PRE-PROCESSING
+# - check database integrity
+# - construct a database list in format <path>,<group>
+################################################################################
+if [ "$setxml" == "" ] ; then
+	dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $filedb | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: are they in an xml-section?" ; echo ; exit; } ; fi
+else
+	dblist=$(xe-strxmlparse1 $filedb $setxml | xe-cut1 stdin path,group -o 1 -s 1 | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: is xml section $setxml present?" ; echo ; exit; } ; fi
+fi
+
+################################################################################
+# PERFORM A FOR-LOOP USING ALL THE DIRECTORIES
+# - concatenate data
+################################################################################
+outfile=$startdir"/"$infile
+let count=0
+for dbline in $dblist ; do
+
+	# EXTRACT PATH NAME AND CHANGE TO THE DIRECTORY
+	cd $startdir
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ ! -d "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; echo ; exit ; } fi
+
+	cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+
+	# GET THE SUBJECT FROM THE LOCAL NOTES FILE, IF PRESENT
+	subject=$(xe-getkey *notes subject= | head -n 1)
+	if [ "$subject" == "" ] ; then subject=$(xe-getkey *notes SUBJECT | head -n 1) ; fi
+	if [ "$subject" == "" ] ; then
+		subject="-" ;
+		if [ "$setverb" == "1" ] ; then  echo "--- Warning ["$thisprog"]: missing \"subject=\" or \"SUBJECT\" tag in notes file in $path" ; fi
+		continue ;
+	fi
+
+	# DETERMINE THE DATE AND DATE-NAME
+	start_date=$(xe-getkey *notes start_date= | head -n 1)
+	if [ "$start_date" != "" ] ; then
+		if [ "$setdname" != "" ] ; then
+			dname=$(xe-dbmatch1 $setdname date $start_date -oc name -o 1)
+			if [ "$dname" == "" ] ; then dname="-" ; fi
+		else dname="-"
+		fi
+	else
+		start_date="-"
+		dname="-"
+	fi
+
+	# IF THE INPUT FILE EXISTS....
+	if [ -f $infile ] ; then
+		# for the first iteration (count=0), output the header
+		if [ $count -eq 0 ] ; then
+			rm -f $outfile
+			head=$(xs-getheader $infile --delimit no)
+			ncols=$(echo $head | wc -w | awk '{print $1}')
+			if [ "$sethead" == "1" ] ; then echo -e $prehead $head | tr ' ' '\t' > $outfile ; fi
+		fi
+		# check that input has same number of columns as previous versions!
+		head=$(xs-getheader $infile --delimit no)
+		z=$(echo $head | wc -w | awk '{print $1}')
+		if [ "$z" != "$ncols" ] ; then { echo "--- Error ["$thisprog"]: $infile in $path has the wrong number of columns - collation cannot proceed" ; exit ; } fi
+
+		# output everything except the header (starting at line 2)
+		if [ "$sethead" == "1" ] ; then
+			if [ "$setdname" != "" ] ; then tail -n +2 $infile | awk '{print "'$subject'\t'$start_date'\t'$dname'\t'$group'\t"$0}' >> $outfile
+			else tail -n +2 $infile | awk '{print "'$subject'\t'$start_date'\t'$group'\t"$0}' >> $outfile
+			fi
+		else
+			if [ "$setdname" != "" ] ; then echo "# subject= $subject start_date= $start_date dname= $dname group= $group" >> $outfile
+			else echo "# subject= $subject start_date= $start_date group= $group" >> $outfile
+			fi
+			cat $infile >> $outfile
+		fi
+		# increment the counter if output is produced
+		let count=$count+1
+
+	# IF THE FILE IS MISSING, CREATE A PADDED OUTPUT LINE FOR THIS SUBJECT/DATE/GROUP...
+	else
+		if [ "$setverb" == "1" ] ; then echo "--- Warning ["$thisprog"]: missing input file $path/$infile" ; fi
+		if [ "$setpad" == "1" ] ; then
+			if [ $count -eq 0 ] ; then { echo "--- Error ["$thisprog"]: missing file is first in the list - no padding possible" ; exit ; } fi
+			if [ "$setdname" != "" ] ; then echo -ne "$subject\t$start_date\t$dname\t$group\t" >> $outfile
+			else echo -ne "$subject\t$start_date\t$group\t" >> $outfile
+			fi
+			for ii in $(seq 1 $ncols); do echo -ne "\t-" ; done >> $outfile ; echo "" >> $outfile
+		fi
+	fi
+
+done
+cd $startdir
+
+
+################################################################################
+# WARN IF NO FILES WERE COLLATED
+################################################################################
+if [ $count -eq 0 ] ; then echo "--- Warning ["$thisprog"]: no files named $infile found" ; fi
+
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+
+exit

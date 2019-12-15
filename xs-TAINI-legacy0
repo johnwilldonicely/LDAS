@@ -1,0 +1,132 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"." # define temp file name, incorporating current process-id
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setserial="0"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": invoke \"crackit process\" for multiple .datraw files "
+	echo "	- this legacy code uses Taini's legacy \"CRACKIT\" program output"
+	echo "	- detects and replaces missing samples"
+	echo "	- flips data to correct signal polarity"
+	echo "	- zeros the data by removing the mean"
+	echo "	- names the new output .dat"
+	echo "USAGE: "
+	echo "	"$thisprog" [pattern]"
+	echo "		[pattern]= file pattern to match, assumes filename ends in \".datraw\""
+	echo "	NOTE: for >4 files, processing is serial"
+	echo "	    : for <=4 files, processesing is parallel and control returned to terminal"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-s: force serial processing rather than parallel (0=NO 1=YES) ["$setserial"]"
+	echo "		NOTE: serial processing is used anyway for >4 files"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+pattern=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+while getopts  ":s:" flag ; do
+ 	case $flag in
+		s) setserial=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+
+################################################################################
+# FIRST CHECK AGAINST OVERWRITING EXISTING .DAT FILES
+################################################################################
+listraw=$(ls *$pattern*.datraw)
+found="" ; notfound=""
+for infile in $listraw ; do
+	base=${infile%%.dat*}
+	outfile=$base".dat"
+	if [ -e $outfile ] ; then
+		found=$found" "$outfile
+	else
+		notfound=$notfound" "$infile
+	fi
+done
+echo "New files to process:"
+echo $notfound | tr ' ' '\n' | awk '{printf "    "$1 ; n++; if(n%2==0) printf "\n"}END{printf "\n"}'
+if [ ! -z "$found" ] ; then
+	echo "Previously processed files: "
+	echo $found | tr ' ' '\n' | awk '{printf "    "$1 ; n++; if(n%2==0) printf "\n"}END{printf "\n"}'
+	read -p  "--- Warning: overwrite the preceeding .dat files? [y/n/q] " answer
+	while true ; do
+		case $answer in
+			[yY]* ) break ;;
+			[nN]* ) listraw=$notfound ; break  ;;
+			*) echo ; exit ;;
+		esac
+	done
+fi
+
+
+
+################################################################################
+# PROCESS THE FILES
+# PARALLEL PROCESS IF 4 OR LESS FILES ARE TO BE ANALYZED
+# OTHERWISE SERIAL PROCESS, AND ALL OUTPUT TO SCREEN
+################################################################################
+let nraw=$(echo $listraw | wc -w)
+if  [ $nraw -lt 5 ] && [ $setserial != "1" ] ; then
+	let count=0
+	echo "################################################################################"
+	echo "Parallel processing..."
+	for infile in $listraw ; do
+		base=${infile%%.dat*}
+		outfile=$base".dat"
+		logfile="log_"$thisprog"_"$base".txt"
+		rm -f $outfile
+		let count=$count+1
+		echo "	processing "$infile" (logfile $logfile ) "
+		crackit process $infile ./ &>  $logfile &
+	done
+	echo "################################################################################"
+	wait
+else
+	for infile in $listraw ; do
+		base=${infile%%.dat*}
+		outfile=$base".dat"
+		logfile="log_"$thisprog"_"$base".txt"
+		rm -f $outfile
+		echo "################################################################################"
+		echo "processing "$i" (logfile $logfile ) "
+		echo "################################################################################"
+		crackit process $infile ./  2>&1 | tee $logfile
+	done
+fi
+
+
+#REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

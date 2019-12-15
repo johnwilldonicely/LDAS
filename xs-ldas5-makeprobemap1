@@ -1,0 +1,140 @@
+#!/bin/bash
+
+
+thisprog="xs-ldas-makeprobemap1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+setformat="1"
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make a KlustaKwik probe map from the CHANNELS section in a file"
+	echo "USAGE: "
+	echo "	"$thisprog" [infile]"
+	echo "		[infile]: file with headered channels content"
+	echo "		- required headers: chan (channel), depth and good (0=exclude,1=include)"
+	echo "			- chan  (channel)"
+	echo "			- depth (0=shallow, depth increases with values)"
+	echo "			- good  (0=exclude,1=include)"
+	echo "		- headers must be on the first line or inside a <CHANNELS> section"
+	echo "		- example:"
+	echo "			<CHANNELS>"
+	echo "			chan	prbchan	depth	good	region"
+	echo "			7	16	0	1	x"
+	echo "			10	2	1	1	x"
+	echo "			6	15	2	1	x"
+	echo "			8	1	3	1	x"
+	echo "			13	8	13	1	x"
+	echo "			0	9	14	0	x"
+	echo "			15	7	15	1	x"
+	echo "			</CHANNELS>"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" ~/table_probe_16a.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+infile=$1
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":f:" flag ; do
+ 	case $flag in
+		f) setformat=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# DETERMINE IF FILE IS A SIMPLE TABLE OR CONTAINS A CHANNELS XML SECTION 
+xe-cut1 $infile depth,chan,good -s 1 > $tempfile 
+let z=$(cat $tempfile | wc -l)
+if [ $z -lt 1 ] ; then 
+	xe-strxmlparse1 $infile CHANNELS | xe-cut1 stdin depth,chan,good -s 1 > $tempfile 
+fi 
+let z=$(cat $tempfile | wc -l)
+if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile does not contain the required channel information" ; echo ; exit ; } fi
+
+
+# MAKE A SPACE-DELIMITED DEPTH-ORDERED LIST OF ALL POSSIBLE CHANNELS - ZERO-PADDED
+listall=$(xe-cut1 $tempfile depth,chan -s 1 | 
+	sort -g | 
+	xe-cut1 stdin chan -o 1 | 
+	awk '{printf("%04d\n",$1)}' |  
+	paste -s | 
+	tr '\t' ',')
+
+# MAKE A REVERSE-ORDER SPACE-DELIMITED VERSION OF THIS - UN-ZERO-PADDED  
+listrev=$(echo $listall | tr ',' '\n' | tac | awk '{printf("%d\n",$1)}' | paste -s)
+
+# GOOD CHANNELS ONLY 
+listgood=$(xe-dbmatch1 $tempfile good 1 | 
+	xe-cut1 stdin depth,chan | 
+	sort -g | 
+	xe-cut1 stdin chan -o 1 | 
+	paste -s | 
+	tr '\t' ',')
+let z=$(echo $listgood | tr '|' ' ' | wc -w)
+if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile does not specify any good channels" ; echo ; exit ; } fi 
+
+# BAD CHANNELS ONLY, WITH "|" AS SEPARATOR ( ZERO PADDED, FOR GREP REGULAR EXPRESSION )
+listbad=$(xe-dbmatch1 $tempfile good 0 | 
+	xe-cut1 stdin depth,chan | 
+	sort -g | 
+	xe-cut1 stdin chan -o 1 | 
+	awk '{printf("%04d\n",$1)}' |  
+	paste -s | 
+	tr '\t' '|')
+let z=$(echo $listbad | tr '|' ' ' | wc -w)
+if [ $z -lt 1 ] ; then listbad="xxx" ; fi 
+
+echo "channel_groups = {"
+echo "#"
+echo "# Shank index"
+echo "0: {"
+echo "# List of channels to keep for spike detection."
+echo "\"channels\": ["$listgood"],"
+echo "
+# Adjacency graph. Dead channels will be automatically discarded
+# by considering the corresponding subgraph."
+echo "\"graph\": ["
+echo $listall |
+	awk -F , '
+	{
+		for(i=1;i<NF;i++) {
+			if(i==(NF-1)) print "("$i","$(i+1)"),"
+			else print $i,$(i+1)"\n"$i,$(i+2)
+		}
+	}' | 
+	grep -vE "$listbad" | 
+	awk '{printf("(%d,%d),\n"),$1,$2}'
+echo "],"
+echo "
+# 2D positions of the channels, only for visualization purposes
+# in KlustaViewa. The unit doesn't matter."
+echo -n "\"geometry\": {"
+echo $listrev |
+	awk '
+	{
+		x=0
+		y=0
+		for(i=1;i<=NF;i++) {
+			printf("%d: (%d,%d)",$i,x,y)
+			if(i<NF) printf(",")
+			x+=1; if(x==2) x=0
+			y+=10
+		}
+		printf(",}\n")
+	}
+	'
+echo "}"
+echo "}"

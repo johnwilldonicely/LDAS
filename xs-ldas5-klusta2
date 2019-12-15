@@ -1,0 +1,121 @@
+#!/bin/bash
+
+
+thisprog="xs-ldas5-klusta2"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setsign="negative"
+setoptsklusta="--overwrite"
+
+if [ $# -lt 3 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": invoke klusta for spike-detection and clustering"
+	echo "	- this version is for klustkwik2"
+	echo "REQUIRES:"
+	echo "	- miniconda klusta2 environment and klustaviewa/spikedetect2"
+	echo "	- klustakwik2-0"
+	echo "USAGE: "
+	echo "	"$thisprog" [datfile] [params] [probes]"
+	echo "		[datfile]: multi-channel binary date-session-subject file to process"
+	echo "			- assumed to be interpolated to remove \"missing data\" holders"
+	echo "			- assumed to chunked to remove unwanted portions of data"
+	echo "		[params]: master paramter file for klustakwik"
+	echo "		[probes]: probe-mapping file"
+	echo "			- contains columns headered \"chan\" \"depth\" and \"good\""
+	echo "			- may be embeded in a file in an xml CHANNELS section"
+	echo "			- typically this is part of a .notes file"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-s: sign for detection (negative or positive) ["$setsign"]"
+	echo "	-K: klusta options (in quotes) [$setoptsklusta]: "
+	echo "		-h, --help      show this help message and exit"
+	echo "		--debug         run the first few seconds of data for debugging"
+	echo "		--overwrite     overwrite the KWIK files if they already exist"
+	echo "		--detect-only   run only SpikeDetekt"
+	echo "		--cluster-only  run only KlustaKwik (after SpikeDetekt has run)"
+	echo "		--convert-only  convert data to Kwik format, no spike detection"
+	echo "		--version       show program's version number and exit"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" test.dat ~/templates/param.txt *notes -s negative -K \"--cluster-only\""
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo $date1
+echo "--------------------------------------------------------------------------------"
+
+# REQUIRED ARGUMENT HANDLING
+filedat=$1 ; shift
+fileparams=$1 ; shift
+fileprobemap=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":s:K:" flag ; do
+ 	case $flag in
+		K) setoptsklusta=$setoptsklusta" "$OPTARG;;
+		s) setsign=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# MISSING-FILE HANDLING
+if [ ! -e $filedat ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filedat' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileparams ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileparams' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileprobemap ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileprobemap' missing" ; echo ; exit; } ; fi
+
+# PARAMETER CHECKS
+if [ "$setsign" != "negative" ] && [ "$setsign" != "positive" ] ; then { echo ; echo "--- Error ["$thisprog"]: sign (-s $setsign) must be \"negative\" or \"positive\"" ; echo ; exit; } ; fi
+
+# DEFINE BASENAME FOR KLUSTA SCRIPT _ ASSUMES ACTUAL INPUT ENDS IN .DAT
+base=${filedat%%.*}; 
+
+# MAKE A TEMPORARY PROBEMAP FILE 
+echo ; echo "	Building probe map file $tempfile.kkprobemap"
+xs-ldas5-makeprobemap1 $fileprobemap > $tempfile".kkprobemap"
+
+# MAKE A TEMPORARY PARAMS FILE, REPLACING THE DUMMY VALUES FOR SOME VARIABLES 
+echo "	Making a modified parameters file ($tempfile.kkparams)"
+cat $fileparams |
+	xe-strsub1 stdin  "experiment_name='dummy'" "experiment_name='$base'" | 
+	xe-strsub1 stdin  "raw_data_files=['dummy'" "raw_data_files=['$filedat'" | 
+	xe-strsub1 stdin  "detect_spikes='dummy'" "detect_spikes='$setsign'" | 
+	xe-strsub1 stdin  "prb_file='dummy'" "prb_file='$tempfile.kkprobemap'" > $tempfile".kkparams"
+
+# LAUNCH THE MINICONDA PYTHON ENVIRONMENT -  "SOURCE DEACTIVATE" TO SHUT IT DOWN 
+echo ; echo "	Activating klusta environment (command: activate klusta)"
+source deactivate &> /dev/null # deactivate first in case any environment is active
+source activate klusta2 &> /dev/null
+
+# TEMPORARILY DISABLE THE PYTHONPATH VARIABLE
+export PYTHONPATHBACKUP=$PYTHONPATH
+export PYTHONPATH=""
+
+# RUN KLUSTA USING THE TEMPORARY PARAMETER FILE
+echo "	Running klusta: klusta $tempfile.kkparams $setoptsklusta"
+klusta $tempfile".kkparams" $setoptsklusta
+
+# RESTORE THE PYTHONPATH VARIABLE
+export PYTHONPATH=$PYTHONPATHBACKUP
+
+# NOW DEACTIVATE THE ENVIRONMENT 
+echo "	Deactivating klusta environment (command: deactivate)"
+source deactivate &> /dev/null
+	
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"
+
+echo 

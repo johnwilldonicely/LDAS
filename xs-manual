@@ -1,0 +1,153 @@
+#!/bin/bash
+# <TAGS> programming ldas </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+
+listview="terminal,pdf,html"
+setview="terminal"
+listmake="pdf,html"
+setmake=""
+setverb="0"
+
+# generate arrays of programs ( path[] ) and abbreviated names ( prog[] )
+# basically, look in /opt/LDAS/docs for files called "manual_*.md"
+let count=0
+for i in $(find $progpath -name "manual_*.md" -printf '%P\n') ; do
+	let count++
+	path[$count]=$progpath"/"$i
+	prog[$count]=$(echo $i|rev|cut -f 1 -d /|rev| sed 's/'manual_'/''/g' | sed 's/'.md'/''/g')
+done
+
+# determine the nano command options, based on version (2.0=20, 2.3=23, etc)
+let vnano=$(nano --version | grep version --color=never | xe-getkey stdin version | cut -f 1-2 -d . | tr -d '.')
+optnano="--smooth"
+if [ $vnano -gt 20 ] ; then optnano=$optnano" --softwrap" ; fi
+if [ $vnano -ge 28 ] ; then optnano=$optnano" --atblanks" ; fi
+optnano=$optnano" --view"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": view (default) or make LDAS manuals"
+	echo "USAGE: $thisprog [manual] [options]"
+	echo "	available manuals: "
+	for i in $(seq 1 $count) ; do echo "		"${prog[$i]} ; done
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--view: view manual in $listview [$setview]"
+	echo "		NOTE: only \"terminal\" will work if logging in remotely"
+	echo "	--make: make different-format manual from .md original [$setmake]"
+	echo "		Format choices: "$listmake
+	echo "		NOTE: setting --make cancels viewing"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" ${prog[1]} --view $setview"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	if [ $count -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no manuals available in $progpath" ; echo ; exit; } ; fi
+	exit
+fi
+if [ $count -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no manuals available in $progpath" ; echo ; exit; } ; fi
+
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+setman=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="view:,make:,"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--view ) setview=$2 ; shift ;;
+		--make ) setmake=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+# CHECK THAT setview MATCHES THE PREDEFINED LIST
+let found=0
+for z in $(echo $listview|tr ',' ' ') ; do if [ "$setview" == "$z" ] ; then let found=1; fi ; done
+if [ $found -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --view ($setview) - choose from $listview" ; echo ; exit; } ; fi
+
+# CHECK THAT setmake MATCHES THE PREDEFINED LIST
+let found=0
+if [ "$setmake" != "" ] ; then
+	for z in $(echo $listmake|tr ',' ' ') ; do if [ "$setmake" == "$z" ] ; then let found=1; fi ; done
+	if [ $found -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --make ($setmake) - choose from $listmake" ; echo ; exit; } ; fi
+fi
+
+################################################################################
+# FIND THE RIGHT MANUAL ($path1) AND ALIAS ($prog1)
+################################################################################
+manual=""
+for i in $(seq 1 $count) ; do
+	a=${path[$i]}
+	b=${prog[$i]}
+	c=$(echo $a | rev | cut -f 2- -d / | rev)
+	if [ "$setman" == "$b" ] ; then manual=$a ; alias=$b ; outpath=$c ; break ; fi
+done
+if [ "$manual" == "" ] ; then
+	echo ; echo "--- Error ["$thisprog"]: invalid manual ($setman). Choose one of: "
+	for i in $(seq 1 $count) ; do echo "	"${prog[$i]} ; done
+	echo ; exit;
+fi
+
+################################################################################
+# MAKE OTHER VERSIONS OF THE MANUAL FROM THE .md ORIGINAL
+################################################################################
+if [ "$setmake" != "" ] ; then
+	if [ $setmake == "html" ] ; then
+		if [ "$(command -v pandoc)" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: pandoc is not installed on this machine: cannot convert to HTML" ; echo ; exit; } ; fi
+		make1=$outpath"/manual_"$alias".html"
+		command="pandoc -s --from markdown+hard_line_breaks --to html --toc $manual -o $make1 --metadata pagetitle=$manual"
+		echo "COMMAND: "$command
+		$command
+	elif [ $setmake == "pdf" ] ; then
+		if [ "$(command -v pandoc)" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: pandoc is not installed on this machine: cannot convert to pdf" ; echo ; exit; } ; fi
+		make1=$outpath"/manual_"$alias".pdf"
+		command="pandoc -s --from markdown+hard_line_breaks --to latex --toc $manual -o $make1"
+		echo "COMMAND: "$command
+		$command
+	fi
+	exit
+fi
+
+
+################################################################################
+# VIEW THE MANUAL
+################################################################################
+if [ $setview == "terminal" ] ; then
+	command="nano $manual $optnano"
+	echo "COMMAND: "$command
+	$command
+elif [ $setview == "html" ] ; then
+	view1="manual_"$alias".html"
+ 	firefox $outpath"/"$view1 &
+elif [ $setview == "pdf" ] ; then
+	view1="manual_"$alias".pdf"
+ 	evince $outpath"/"$view1 &
+fi
+
+
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+exit

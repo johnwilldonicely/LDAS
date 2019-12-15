@@ -1,0 +1,143 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+setformat="1"
+settag=""
+setanalysis="ALL"
+
+rm -f COR1_*
+rm -f COR2_*
+
+if [ $# -lt 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Run xs-O2-X1b and xs-O2-COR1b on a dataset for correlation analysis"
+	echo "- designed to analyse two brain regions"
+	echo "USAGE: "
+	echo "	"$thisprog" [db1] [db2] [reg1] [reg2] \"[X1opts]\" \"[COR1opts]\" [options]"
+	echo "		[db1]: datbase for region 1"
+	echo "		[db2]: datbase for region 2"
+	echo "		[reg1]: name of region 1"
+	echo "		[reg2]: name of region 2"
+	echo "		[options]: additional options:"
+	echo "			-X [opts1]: options (in quotes) for xs-O2-X1b"
+	echo "			-C [opts2]: options (in quotes) for xs-O2-COR1"
+	echo "			-S [opts3]: options (in quotes) for xs-O2-CORSUMMARIZE1"
+	echo "			-M [opts4]: options (in quotes) for summary matrix plots"
+	echo "			-T: tag for output filenames (renames output to save results) [$settag]"
+	echo "			-A: analysis (X1, COR1 or ALL) [$setanalysis]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog"  dbNAC.txt dbHIP.txt  dbPFC.txt dbRSC.txt  HPC PFC -X \"-s Inj1 -d 900\"  -C \"-a 300\" -S _tr1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+database1=$1 ; shift
+database2=$1 ; shift
+reg1=$1 ; shift
+reg2=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":X:C:S:M:T:A:" flag ; do
+	case $flag in
+		X) opts1=$OPTARG;;
+		C) opts2=$OPTARG;;
+		S) opts3=$OPTARG;;
+		M) opts4=$OPTARG;;
+		T) settag=$settag""$OPTARG;;
+		A) setanalysis=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# SAVE COMMAND TO LOG FILE _ HAS TO BE DONE THIS WAY TO PRESERVE QUOTATION MARKES AROUND COMPLEX ARGUMENTS
+echo "--------------------------------------------------------------------------------" > COR2_log.txt
+echo $thisprog $database1 $database2 $database3 $database4 $reg1 $reg2 $reg3 $reg4 -X "\"$opts1\"" -C "\"$opts2\"" -S "\"$opts3\""  -T "\"$settag\"" -A "\"$setanalysis\"" >> COR2_log.txt
+echo "--------------------------------------------------------------------------------" >> COR2_log.txt
+echo "" >> COR2_log.txt
+echo
+
+
+# TRY TO CATCH INAPPROPRIATE COMBINATIONS OF BINNING AND UPPER-FREQUENCY
+bin=$(echo $opts1 | xe-getkey stdin -b) ;
+if [ -z $bin ] ; then
+	bin=0
+	path=$(cat $database1 | grep -v "#" | grep [0-9] | head -n 1 | cut -f 1) # take the first non-commented path from the database file
+	if [ $path ] ; then # if path is valid....
+		infile=$path/*time;  # take the first time-file in the path as the input
+		if [ -e $infile ] ; then # if the timefile is present, calculate the sample interval
+			bin=$(head -n 1000 $infile | xe-getdelta1 stdin | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50)
+fi ; fi ; fi
+# if -u is not set assume default upper-frequency is 0.1 Hz
+upper=$(echo $opts2 | xe-getkey stdin -u) ; if [ -z $upper ] ; then upper=0.1 ; fi
+# set the error flag if the binning factor is longer than 1/10th the wavelength of the highest freuency
+error=$(echo $bin $upper | awk '{if($1>(.1/$2)) print "error"}')
+if [ ! -z $error ] ; then { echo ; echo "	--- Error ["$thisprog"]: -b $bin sets resolution for xs-O2-X1 output too low to analyze upper frequency $upper" ; echo ; exit ; } fi
+
+
+################################################################################
+# RUN xs-O2-X1b FOR EACH REGION
+################################################################################
+
+if [ $setanalysis == "X1" ] || [ $setanalysis == "ALL" ]  ; then
+
+	# Run X1b, rename the output in each Data_Working folder, and store the Analysis output in named folders
+	rm -f X1_*
+	echo
+	echo "STEP1: RUNNING xs-O2-X1b ON $reg1"
+	xs-O2-X1b $database1 $reg1 all $opts1
+	if [ $(grep -i error X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Error ["$thisprog"]: errors processing $reg1 - check X1_log.txt" ; echo ; exit ; } fi
+	if [ $(grep -i warning X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Warnings processing $reg1" ; grep -i warning X1_log.txt ; } fi
+	a="X1_" ; b="X1-1"$reg1""$settag"_"
+	xs-rename $a $b "$a*"
+	xs-batch1 $database1 "xs-rename $a $b $a -w 1"
+
+	rm -f X1_*
+	echo
+	echo "STEP2: RUNNING xs-O2-X1b ON $reg2"
+	xs-O2-X1b $database2 $reg2 all $opts1
+	if [ $(grep -i error X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Error ["$thisprog"]: errors processing $reg1 - check X1_log.txt" ; echo ; exit ; } fi
+	if [ $(grep -i warning X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Warnings processing $reg1" ; grep -i warning X1_log.txt ; } fi
+	a="X1_" ; b="X1-2"$reg2""$settag"_"
+	xs-rename $a $b "$a*"
+	xs-batch1 $database1 "xs-rename $a $b $a -w 1"
+fi
+
+################################################################################
+# NOW RUN xs-O2-COR1b
+################################################################################
+
+if [ $setanalysis == "COR1" ] || [ $setanalysis == "ALL" ]  ; then
+
+	echo
+	echo "STEP3: Correlation $reg1 $reg2"
+	echo
+
+	xs-O2-COR1b $database1 "X1-1"$reg1""$settag"_aligned.txt"  "X1-2"$reg2""$settag"_aligned.txt" $opts2
+	a=COR1_ ; b="COR1-"$reg1"-"$reg2""$settag"_"
+	xs-batch1 $database1 "xs-rename $a $b $a -w 1"
+	for fish in corr fcorr ; do
+		xs-O2-CORSUMMARIZE1 "COR1_broad_bin_"$fish"_trans.txt" $opts3 > $tempfile
+		let z=$(cat $tempfile | wc -l) ; if [ $z -gt 0 ] ; then { cat $tempfile ; exit ; } fi
+		echo >> "COR2_SUMMARY_"$fish".csv"
+		echo $reg1"_v_"$reg2""$settag >> "COR2_SUMMARY_"$fish".csv"
+		cat output_CORSUMMARIZE1.csv >> "COR2_SUMMARY_"$fish".csv"
+		xe-cut1 output_CORSUMMARIZE1.csv label,grp,mean -d , -o 1 |
+			awk -F , '$1!="-"{print $0}' | tr ',' '\t' |
+			while read label grp mean ; do
+				echo $reg1 $reg2 $mean >> "COR2_temp_"$label"_"$grp"_"$fish".txt"
+			done
+	done
+	mkdir -p "output_COR1_1_"$reg1"_v_"$reg2""$settag
+	mv COR1_* "output_COR1_1_"$reg1"_v_"$reg2""$settag
+
+fi
+
+rm -f COR2_temp_*txt

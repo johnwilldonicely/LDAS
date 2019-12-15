@@ -1,0 +1,209 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+# for batch scripts...
+progbase1="XRIP2"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setaflag=0
+setbflag=0
+setformat="auto"
+setverb="0"
+setclean="1"
+setskip="-"
+setoutbase="TEMPLATE"
+setopt1=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-run xs-ldas5-"$progbase1
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [trial1] [trial2]"
+	echo "		[db]: database file specifying path and group on each line"
+	echo "		trial1: first trial for comparison (baseline)"
+	echo "		trial2: second trial for comparison (response)"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--opts1: quoted options to pass to xs-ldas5-"$progbase1
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_react.txt SLEEP2 SLEEP3 --opts \"-v nan -V 0.5 -d 60\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+settrial1=$1; shift
+settrial2=$1; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+vs="v:c:" ; vl="opts1:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--opts1 ) setopts=$setopts" "$2 ; shift ;;
+		--skip ) setskip=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+if [ $setverb == 1 ] ; then
+	echo ; echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+fi
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+
+################################################################################
+# PERFORM A LOOP ON A DATABASE FILE WITHOUT USING WHILE READ
+# - concatenate data using the filcat function
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN PROGRAMS
+		xs-ldas5-$progbase1 $base $settrial1 $settrial2 $setopts
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb $progbase1"_repeated.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_diff.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_wavemean.txt" --verb 0
+fi
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+listgroup=$(xe-cut1 $progbase1"_wavemean.txt" group -o 1 | sort -nu)
+listblock=$(xe-cut1 $progbase1"_wavemean.txt" block -o 1 | sort -nu)
+stats=$(xe-cut1 $progbase1"_wavemean.txt" uV -o 1 | xe-statsd1 stdin)
+ymin=$(echo $stats | xe-getkey stdin MIN)
+ymax=$(echo $stats | xe-getkey stdin MAX)
+plotopts="-line 1 -ps 0 -cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -xscale .45 -ymin $ymin -ymax $ymax -legend 1"
+
+let count=0
+plotlist=""
+# PLOT THE MEAN RIPPLES
+echo "...plotting the mean ripple waveforms..."
+echo $listblock
+for group in $listgroup ; do
+	let count=$count+1
+	title="Group"$group": colour=block"
+	plotfile=$tempfile.$count".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 $progbase1"_wavemean.txt" group $group |
+	xe-cut1 stdin block,time,uV |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Time (ms)" -ylabel "Amp (uV)" -title "$title" -out $plotfile
+done
+for block in $listblock ; do
+	let count=$count+1
+	title="Block"$block": colour=group"
+	plotfile=$tempfile.$count".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 $progbase1"_wavemean.txt" block $block |
+	xe-cut1 stdin group,time,uV |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Time (ms)" -ylabel "Amp (uV)" -title "$title" -out $plotfile
+done
+xe-plotmerge1 -xmax 2 -xinc 280 -yinc 250 $plotlist -out $progbase1"_wavemean"
+#rm -f $plotlist
+
+exit
+
+# PLOT THE DIFFERENCE SCORES
+infile=$progbase1"_diff.txt"
+optA="-ew 0 -pt box -xscale .175"
+optB="-xscale .175"
+let count=0
+plotlist=""
+for var in rate amp lenms freq ; do
+	let count=$count+1
+	plotfile=$tempfile.$count.ps
+	plotlist=$plotlist" "$plotfile
+	ylabel="Delta $var"
+	xs-plotmeans1 $infile group $var -y "$ylabel" -A "$optA" -B "$optB" -o $plotfile
+done
+xe-plotmerge1 -xmax 4 $plotlist -out $progbase1"_summary"
+rm -f $plotlist
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+
+exit

@@ -1,0 +1,316 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+
+thisprog=`basename "$0"`
+allopts="$@"
+tempfile="temp_"$thisprog #"."$$"."
+rm -f $tempfile*
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setskip="-"
+setchantemplate="/opt/LDAS/docs/templates/table_channels_taini_2.txt"
+setdestbase="../../Data_Library/"
+setbinsf="1000"
+setdemean="100"
+setconv="0"
+setverb="0"
+setclean="1"
+setbatch=""
+setfileplan=""
+setexpt=""
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Process a Taini-Live ephys recording session"
+	echo "- run in [experiment]/Data_Aquired/[date] - folder for one experiment-type"
+	echo "- renames TAINI_*.dat and *.sync files to the LDAS standard"
+	echo "- creates [yyyymmdd]-[session]_[subject] folders"
+	echo "	- copies or links .dat files"
+	echo "	- copies .sync files"
+	echo "	- downsamples each .dat channel to a separate 1KHz .bin file"
+	echo "	- creates lost-packet lost.ssp files"
+	echo "	- builds (overwrites) the .notes file"
+	echo "		- adds CHANNELS section based on one of:"
+	echo "			- local table_channel_[subject].txt"
+	echo "			- local table_channel_template.txt"
+	echo "			- ../../table_channels_[subject].txt"
+	echo "			- ../../table_channels_template.txt"
+	echo "			- $setchantemplate"
+	echo ""
+	echo "USAGE: $thisprog [dat] [options]"
+	echo "		[dat]: quoted list of .dat files (wildcards allowed)"
+	echo "VALID OPTIONS:"
+	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
+	echo "		NOTE: use \"*.plan\" as the plan name - the quotes matter!"
+	echo "	--expt: name of experiment, for .notes file  [$setconv]"
+	echo "	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [$setconv]"
+	echo "	--chans: template to use if table_channels_[subject].txt is missing"
+	echo "	 	["$setchantemplate"]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		p: lost-packet-finding (-lost.ssp)"
+	echo "		d: dat file copying (make link instead)"
+	echo "		b: make downsampled (1KHz) .bin files"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" \"*.dat\" -s d 2>&1| tee log_$thisprog.txt"
+	echo "	"$thisprog" \"*.dat\" --skip pd --batch dir1,dir2,dir3"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "################################################################################"
+echo $thisprog "$allopts"
+date
+echo "################################################################################"
+
+################################################################################
+# ARGUMENT HANDLING
+################################################################################
+listinfiles=$(ls $1 2>/dev/null) ; shift
+let ninfiles=$(echo $listinfiles | wc -w)
+if [ $ninfiles -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no files found matching \"$1\"\n" ;  exit; } ; fi
+let nametaini=$(echo $listdatinfiles | tr ' ' '\n' | grep --color=never TAINI | wc -l)
+
+# OPTIONAL ARGUMENT HANDLING
+vs="v:" ; vl="batch:,expt:,conv:,skip:,chans:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--batch ) setbatch=$2 ; shift ;;
+		--expt ) setexpt=$2 ; shift ;;
+		--conv ) setconv=$2 ; shift ;;
+		--skip ) setskip=$2 ; shift ;;
+		--chans ) setchantemplate=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setconv" != "0" ] && [ "$setconv" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --conv ($setconv) -  must be 0 or 1\n" ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit; } ; fi
+
+
+################################################################################
+# IS THIS ACTUALLY A BATCH JOB?
+# - if so, make recursive calls to this script, omitting --batch arguments
+################################################################################
+if [ "$setbatch" != "" ] ; then
+	list=$(echo $setbatch | tr ',' ' ') # convert from CSV to whitespace-delimited list
+	z=2; # define the starting-field for options - ie. exclude required arguments
+	opts=$(echo $allopts|awk '{for(i='$z';i<=NF;i++){if($i=="--batch"){i++;continue};a=a" "$i}}END{print a}') # build options excluding --batch
+	cd $startdir # confirm start in the start directory
+	for dir in $list ; do # for each batch-directory...
+		if [ -d "$dir" ]; then
+			cd $dir
+			if [ "$setverb" != "0" ] ; then echo -e "\n$dir\n" ; fi
+			$thisprog "$listinfiles" $opts 2>&1| tee "log_"$thisprog".txt"
+			cd $startdir
+		else
+			{ echo -e "\n--- Error ["$thisprog"]: missing directory $dir\n" ;  exit; } ;
+		fi
+	done
+	exit # DO NOT DO ANYTHING ELSE!
+fi
+
+
+################################################################################
+# DETERMINE PRESENCE AND NAMING CONVENTION OF .DAT FILES
+################################################################################
+echo "CHECKING .dat FILES..."
+listdat0=$(ls --color=never *.dat)
+let ndat0=$(echo $listdat0 | wc -w)
+if [ $ndat0 -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: no .dat files in this folder\n" ; exit; } ; fi
+let nametaini=$(echo $listdat0 | tr ' ' '\n' | grep --color=never TAINI | wc -l)
+# if [ $nametaini -ne 0 ] ; then xs-TAINI-tools rename ; fi
+
+################################################################################
+# SAVE THE GENERAL CONFIGURATION
+# - where possible, data should come from the .yaml config files
+# - in the absence of a .yaml file, xs-TAINI-tools will used defaults and .dat file statistics
+# - values should be identical for all subjects
+################################################################################
+in1=$(echo $listdat0 | cut -f 1 -d ' ')
+xs-TAINI-tools config --file $in1 > $tempfile".config0"
+let z=$(grep Error $tempfile".config0" | wc -l)
+if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config0" ; exit; } fi
+# extract key recording parameters
+setsf=$(xe-getkey $tempfile".config0" sample_rate=)
+setnchans=$(xe-getkey $tempfile".config0" n_channels=)
+setdatbits=$(xe-getkey $tempfile".config0" datbits=)
+bindec=$(echo "scale=12; $setsf/$setbinsf" | bc | awk '{printf("%f",$1)}')
+colalias=$(grep --color=never "filename_field_alias=" $tempfile".config0" | awk '{print $2}' )
+colyear=$(grep --color=never "filename_field_year=" $tempfile".config0" | awk '{print $2}' )
+colmonth=$(grep --color=never "filename_field_month=" $tempfile".config0" | awk '{print $2}' )
+colday=$(grep --color=never "filename_field_day=" $tempfile".config0" | awk '{print $2}' )
+
+################################################################################
+# MAKE LIST OF SUBJECTS - FOR CHANNELS TABLE-SEARCH
+################################################################################
+if [ $nametaini -gt 0 ] ; then
+	listsubjects=$(echo $listdat0 | tr ' ' '\n' | tr '_' ' ' | tr '-' ' ' | tr '.' ' ' | cut -f $colalias -d ' ')
+else
+	listsubjects=$(echo $listdat0 | tr ' ' '\n' | tr '_' ' ' | tr '-' ' ' | tr '.' ' ' | cut -f 3 -d ' ')
+fi
+
+################################################################################
+# PRE-CHECK FOR CHANNEL-TABLE FILES
+# - this step also applies to any Taini recording - channels must be defined
+# 1. check for date/subject-specific table: ./table_channels_$subject.txt
+# 2. check for subject-specific template:   ../../table_channels_$subject.txt
+# 3. check experiment-specific template:    ../../table_channels_template.txt
+# 4. check for standard template:           $setchantemplate
+################################################################################
+echo "ANALYZING CHANNELS..."
+for subject in $listsubjects ; do
+	echo "	"$subject
+	filechan="table_channels_"$subject".txt"
+	in1=$filechan
+
+	if [ ! -e "$filechan" ] ; then
+		if [ "$setverb" == "1" ] ; then echo "--- Warning ["$thisprog"]: no local $subject-specific channel-table" ; fi
+		in1="table_channels_template.txt"
+	fi
+	if [ ! -e "$in1" ] ; then
+		if [ "$setverb" == "1" ] ; then echo "--- Warning ["$thisprog"]: no local channel-table template" ; fi
+		in1="../../table_channels_"$subject".txt"
+	fi
+	if [ ! -e "$in1" ] ; then
+		if [ "$setverb" == "1" ] ; then echo "--- Warning ["$thisprog"]: no experiment-wide $subject-specific channel-table" ; fi
+		in1=$"../../table_channels_template.txt" ;
+	fi
+	if [ ! -e "$in1" ] ; then
+		if [ "$setverb" == "1" ] ; then echo "--- Warning ["$thisprog"]: no experiment-wide channel-table template" ; fi
+		in1=$setchantemplate ;
+	fi
+	if [ ! -e "$in1" ] ; then { echo -e "\n--- Error ["$thisprog"]: no channel-table options found\n" ; exit; } fi
+
+	if [ "$in1" != "$filechan" ] ; then
+		z=$(echo $in1|xe-strsub1 stdin template $subject|rev|cut -f 1 -d /|rev)
+		echo "- copying $in1 to "./"$filechan"
+		cp  $in1 ./$filechan
+	fi
+
+	# check integrity of final channel-table
+	let z=$(xe-cut1 $filechan chan,depth,good,region -o 1 -s 1 | wc -l)
+	if [ $z -lt 1 ] ; then  { echo -e "\n--- Error ["$thisprog"]: $filechan lacks headered entries\n" ; exit; } fi
+
+	# build <CHANNELS> section for .notes file
+	out1=$tempfile.notes.channels.$subject
+	echo "<CHANNELS>" > $out1
+	xe-cut1 $filechan chan,depth,good,region -s 1 >> $out1
+	echo "</CHANNELS>" >> $out1
+
+done
+
+########################################################################################
+# BUILD THE LIBRARY-FOLDERS FOR THE EXPERIMENT
+# - copy/create the files to populate those folders - depending on --skip settings
+########################################################################################
+mkdir -p $setdestbase
+
+for filedat in $listdat0 ; do
+
+	echo -e "--------------------------------------------------------------------------------"
+	echo -e "PROCESSING $filedat"
+
+	if [ ! -s $filedat ] ; then { echo -e "\n--- Error ["$thisprog"]: empty .dat file $filedat\n" ; exit; } ; fi
+
+	# DETERMINE THE DATE, SESSION AND SUBJECT
+	xs-TAINI-tools config --file $filedat > $tempfile".config1"
+	let z=$(grep Error $tempfile".config1" | wc -l)
+	if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config1" ; exit; } fi
+
+	date1=$(grep --color=never "start_date= " $tempfile".config1" | awk '{print $2}')
+	date2=$(echo $date1 | tr -d '/')
+	session=$(grep --color=never "session= " $tempfile".config1" | awk '{print $2}')
+	subject=$(grep --color=never "subject= " $tempfile".config1" | awk '{print $2}')
+	base=$date2"-"$session"_"$subject
+	dest=$setdestbase"/"$base
+	mkdir -p $dest
+	filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
+	filenotes=$dest"/"$base".notes"
+
+	# DETERMINE THE EXPERIMENT NAME - --expt option is the ultimate override
+	if [ "$setexpt" == "" ] ; then
+		# first check for settings in a .plan file if specified
+		if [ "$setfileplan" != "" ] ; then setexpt=$(grep "experiment=" $setfileplan --color=never | awk '{print $2}') ; fi
+		# if experiment is STILL not defined, check the YAML
+		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $tempfile".config1" | awk '{print $2}') ; fi
+	fi
+
+
+
+	# BUILD THE NOTES FILE -------------------------------------------------
+	# add keywords, NOTES, and CHANNELS channels sections
+	echo "...BUILDING NOTES FILE"
+	echo "experiment= "$setexpt >  $filenotes
+	# insert the config output from xs-TAINI-tools
+	awk 'NF>1{print $0}' $tempfile".config1" |
+		grep -v filename_field_ |
+		grep -v file_yaml >> $filenotes
+	echo "bin_decimation= "$bindec >> $filenotes
+	echo "bin_sample_rate= "$setbinsf >> $filenotes
+
+	if [ "$setfileplan" != "" ] ; then
+		xe-strxmlparse1 $fileplan NOTES -ok 1 >> $filenotes
+	fi
+	echo "" >> $filenotes
+	cat $tempfile".notes.channels."$subject >> $filenotes
+	echo "" >> $filenotes
+
+	# FIND LOST PACKETS ----------------------------------------------------
+	if [ "$(echo $setskip | grep -v p)" ] ; then
+		echo "...COMMAND: xe-ldas5-packetloss2 $filedat -nch 16 -bad 1 -min 0 -out 2"
+		opts=""
+		xe-ldas5-packetloss2 $filedat -nch 16 -bad 1 -min 0 -out 2 > $dest/$base"-lost.ssp"
+	fi
+
+	# DOWNSAMPLE THE .DAT FILE -------------------------------------------------
+	if [ "$(echo $setskip | grep -v b)" ] ; then
+		echo "...COMMAND: xs-dat2bin $filedat $setnchans $setsf --srout 1000 --bad 1 --verb 1"
+		xs-dat2bin $filedat $setnchans $setsf --verb 1 --base $base --bad 1 --srout $setbinsf --mean $setdemean
+		mv -f $base"-"???".bin" $dest/
+	fi
+
+	# DAT COPY, OR CREATE SYMBOLIC LINK ----------------------------------------
+	cp $filesync $dest/$base".sync"
+	if [ "$(echo $setskip | grep -v d)" ] ; then
+		if [ "$setconv" == "0" ] ; then
+			echo "...COPYING DAT FILE TO $dest..."
+			rm -f $dest/$base".dat"
+			cp -f $filedat $dest/$base".dat"
+		else
+			echo "...COMMAND: xe-ldas5-readdat1 $filedat -verb 1 -bad 1 -u 1 -adj 12 -nch $setnchans -out 1"
+			xe-ldas5-readdat1 $filedat -verb 1 -bad 1 -u 1 -adj 12 -nch $setnchans -out 1 > $dest/$base".dat"
+		fi
+	else
+		cd $dest
+		rm -f $base".dat"
+		ln -sf $startdir/$filedat $base".dat"
+		cd $startdir
+	fi
+
+done
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo -e "\n\tTime to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

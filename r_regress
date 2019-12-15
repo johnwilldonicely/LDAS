@@ -1,0 +1,98 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+
+if [ ! $3 ] ; then
+echo
+echo "Perform multiple regression using R"
+echo "Specify filename and list of columns containing data and predictors"
+echo "Format: "
+echo "	r_regress [filename] [y column] [x1 column] [x2 column]... etc"
+echo
+exit
+fi
+
+infile=$1; dvcol=$2; shift; shift
+scriptfile="temp_r_anova.R"
+datafile="temp_r_regress.txt"
+awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $infile > $datafile
+
+echo "
+datamatrix <- read.table('"$datafile"', header = FALSE)
+attach(datamatrix)
+Y"$dvcol"<-(V"$dvcol")
+" > $scriptfile
+
+let xtot=0; for i in $@ ; do
+	k=$((xtot++))
+	echo "X"$i" = (V"$i")" >> $scriptfile
+	predictors=$predictors""$separator"X"$i
+	predlist=$predlist""$listsep"X"$i
+	report=$report""$listsep""$i
+	separator="+"
+	listsep=","
+done
+
+# Calculate correlation and partial correlation matrix
+echo "
+cat(\"\\n***********************************************************\\n\")
+cat(\"DATA COLUMN: "$dvcol", PREDICTOR COLUMNS "$report"\\n\");
+cat(\"CORRELATION MATRIX\\n\")
+cat(\"***********************************************************\\n\")
+RMX= cor(cbind(Y"$dvcol","$predlist")); RMX	# produce correlation matrix
+
+cat(\"\\n**********************************************************\\n\")
+cat(\"PARTIAL CORRELATION MATRIX\\n\")
+cat(\"***********************************************************\\n\")
+RMXinv= solve(RMX)
+D= diag(1/sqrt(diag(RMXinv)))
+-D %*% RMXinv %*% D " >> $scriptfile
+
+# Calculate SEMI-partial correlation - predictor LAST controlling for others
+echo "
+cat(\"\\n**********************************************************\\n\")
+cat(\"FULL MODEL\\n\")
+cat(\"**********************************************************\")
+out.lm= lm(Y"$dvcol" ~ "$predictors") 	# generate linear model
+summary(out.lm)			# Get regression equation and overal ANOVA results
+out.anova= anova(out.lm)		# calculate ANOVA results for lm (semi-partial)
+
+SSTOT=sum(out.anova[[2]])
+SSPART=out.anova[[2]][["$xtot"]]
+PART=sqrt(SSPART/SSTOT)
+
+cat(\"**********************************************************\\n\")
+cat(\"SEMI-PARTIAL CORRELATION, LAST-X CONTROLLING FOR OTHERS\\n\")
+cat(\"***********************************************************\\n\")
+out.anova
+
+cat(\"\\nSEMI-PARTIAL R (last X controlling for others): \"); cat(PART); cat(\"\\n\")
+
+#anova(step(out.lm))
+
+" >> $scriptfile
+
+########################################################################################
+# RUN THE ANALYSIS - SAVE TO FILE
+########################################################################################
+cat $scriptfile | R -q --no-save --slave  > $tempfile
+
+########################################################################################
+# PROCESS THE FILE
+########################################################################################
+cat $tempfile
+r=$(xe-getkeyline1 $tempfile "CORRELATION MATRIX" -n 3 | tail -n 1 | awk '{print $3}')
+r2=$(echo "scale=4; $r*$r" | bc)
+summarystats=$(cat $tempfile | grep F-statistic --color=never )
+F=$(echo $summarystats | cut -d ' ' -f 2)
+p=$(echo $summarystats | cut -d ' ' -f 9)
+df1=$(echo $summarystats | cut -d ' ' -f 4)
+df2=$(echo $summarystats | cut -d ' ' -f 6)
+echo
+echo "Overview: F("$df1","$df2")= "$F" , r=" $r" , R2=" $r2" , p= "$p
+echo
+
+rm -f $tempfile*

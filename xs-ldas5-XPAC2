@@ -1,0 +1,312 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$
+allopts=$@
+
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+let tlimit1=4
+let tlimit2=12
+
+setskip="-"
+setverb="0"
+setclean="1"
+twidth="3";
+settheta="auto"
+setstat="auc"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Determine optimal theta and high-freqbands for PAC analysis"
+	echo "- run this program on the multi-subject-matrix output from xs-ldas5-XPAC1b"
+	echo "- low-frequency (phase-modulating) range: "$pmin1"-"$pmax1" Hz"
+	echo "- high-frequency (amplitude-modulated) range: "$pmin2"-"$pmax2" Hz"
+	echo "USAGE: "
+	echo "	"$thisprog" [ref]"
+	echo "		[ref]: reference group (or \"all\") for estimating bands [$setref]"
+	echo "ADDITIONAL ARGUMENTS (default in []):"
+	echo "	--twidth: fixed width of auto=-detected theta-band (Hz) [$twidth]"
+	echo "	--theta: CSV list specifying theta-range, or auto ["$settheta"]"
+	echo "			NOTE: this overrides --twidth"
+	echo "	--stat: statistic to use to summarize high-frequency PAC band [$setstat]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	$thisprog all"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+setref=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="w:v:c:" ; vl="theta:,twidth:,stat:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--theta ) settheta=$2 ; shift ;;
+		--twidth ) twidth=$2 ; shift ;;
+		--stat ) setstat=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean"################################################################################
+ != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# READ MATRIX PARAMETERS FROM THE LOG FILE
+################################################################################
+inlog="XPAC1_log.txt"
+if [ ! -e $inlog ] ; then { echo ; echo "	--- Error ["$thisprog"]: log file '$inlog' missing" ; echo ; exit ; } fi
+pmin1=$(xe-getkey2 $inlog -min1 | head -n 1)
+if [ "$pmin1" == "" ] ; then { echo ; echo "	--- Error ["$thisprog"]: log file '$inlog' does not specify -min1" ; echo ; exit ; } fi
+pmax1=$(xe-getkey2 $inlog -max1 | head -n 1)
+if [ "$pmax1" == "" ] ; then { echo ; echo "	--- Error ["$thisprog"]: log file '$inlog' does not specify -max1" ; echo ; exit ; } fi
+pmin2=$(xe-getkey2 $inlog -min2 | head -n 1)
+if [ "$pmin2" == "" ] ; then { echo ; echo "	--- Error ["$thisprog"]: log file '$inlog' does not specify -min2" ; echo ; exit ; } fi
+pmax2=$(xe-getkey2 $inlog -max2 | head -n 1)
+if [ "$pmax2" == "" ] ; then { echo ; echo "	--- Error ["$thisprog"]: log file '$inlog' does not specify -max2" ; echo ; exit ; } fi
+
+################################################################################
+# MAKE SURE ALL THE MATRICES ARE PRESENT, INCLUDING THE REFERENCE
+################################################################################
+in1="XPAC1_matrix.txt"
+echo "... reading $in1 ..."
+if [ ! -e $in1 ] ; then { echo ; echo "	--- Error ["$thisprog"]: matrix file '$in1' missing" ; echo ; exit ; } fi
+
+listgrp=$(grep subject= $in1 | xe-getkey stdin group= | sort -nu)
+z="0"
+for grp in $listgrp ; do
+	a="XPAC1_matrix_"$grp".txt"
+	echo "		... checking "$a" ..."
+	if [ ! -e $a ] ; then { echo ; echo "	--- Error ["$thisprog"]: matrix file '$a' missing" ; echo ; exit ; } fi
+	if [ "$grp" == "$setref" ] || [ "$setref" == "all" ] ; then z="1";  fi
+done
+if [ "$z" == "0" ] ; then { echo ; echo "	--- Error ["$thisprog"]: reference group $setref not found " ; echo ; exit ; } fi
+
+
+################################################################################
+# DERIVE MATRIX DIMENSIONS NAD RESOLUTION (COLUMNS AND ROWS)
+################################################################################
+# read a single matrix to confirm dimensions
+sub=$(grep --color=never subject= $in1 -m 1 | xe-getkey stdin subject=)
+let n1=$(xe-matrixcut1 $in1 -idcol 2 -id $sub -head 0 | head -n 1 | wc -w) # width
+let n2=$(xe-matrixcut1 $in1 -idcol 2 -id $sub -head 0 | wc -l) # width
+# determine the horizontal & vertical "sample frequency" for the matrix
+sf1=$(echo "scale=12; ($n1-1)/($pmax1-$pmin1)" |bc|awk '{printf("%g"),$1}')
+sf2=$(echo "scale=12; ($n2-1)/($pmax2-$pmin2)" |bc|awk '{printf("%g"),$1}')
+echo "... matrix dimensions: $n1 x $n2"
+echo "... sampfreq= $sf1 x $sf2"
+
+# DEFINE REFERENCE (CONTROL) MATRIX
+if [ "$setref" == "all" ] ; then infile=$in1 ; else infile="XPAC1_matrix_"$setref".txt" ; fi
+
+# GET LOW-FREQ AVG.-PAC BY AVERAGING ACROSS HIGH-FREQ. (ROWS) - SAVE AS $TEMPFILE.1
+xe-matrixavg2 $infile |
+		xe-statscol1 stdin |
+		xe-cut1 stdin mean -o 1 |
+		xe-timestamp1 stdin $tempfile.1 -sf $sf1 -o $pmin1 > $tempfile.1
+
+# DEFINE THETA MIN MAX AND MID ("THETA") - MUST BETWEEN TLIMIT1 AND TLIMIT2, >4HZ WIDTH AND REASONABLE AUC
+if [ "$settheta" == "auto" ] ; then
+	theta=$(xe-ldas5-spectproc1 $tempfile.1 -out 2 -filt 0 |xe-cut1 stdin min,mid,max,auc -o 1|awk '$2>='$tlimit1' && $2<='$tlimit2' && ($3-$1)>4 && $4>.001{print$2}')
+	tmin=$(echo "scale=12;$theta-($twidth/2.0)"|bc|awk '{printf("%g"),$1}')
+	tmax=$(echo "scale=12;$theta+($twidth/2.0)"|bc|awk '{printf("%g"),$1}')
+else
+	# define theta range
+	let z=$(echo $settheta | tr , ' ' |wc -w)
+	if [ $z -ne 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --theta ($settheta) must specify a pair of values " ; echo ; exit ; } fi
+	tmin=$(echo $settheta | cut -f 1 -d ,)
+	tmax=$(echo $settheta | cut -f 2 -d ,)
+	theta=$(echo "scale=1; ($tmin+$tmax)/2.0"| bc)
+	twidth=$(echo "scale=1; ($tmax-$tmin)"| bc)
+fi
+# make sure we're within the limits
+if [ $(echo "$tmin < $tlimit1" |bc) -gt 0 ] ; then tmin=$tlimit1 ; fi
+if [ $(echo "$tmax > $tlimit2" |bc) -gt 0 ] ; then tmax=$tlimit2 ; fi
+
+# DETERMINE COLUMNS TO EXTRACT (UNITY-OFFSET)
+let col=$(xe-ldas5-spectproc1 $tempfile.1 -filt 0 -out 1 | tail -n +2 | awk 'BEGIN{n=0}{n++; if($1>="'$theta'") print n}')
+let c1=$(echo "1+($tmin-$pmin1)*$sf1"|bc|awk '{printf("%d"),$1}')
+let c2=$(echo "1+($tmax-$pmin1)*$sf1"|bc|awk '{printf("%d"),$1}')
+if [ $c1 -lt 1 ] ; then c1=1; fi
+if [ $c2 -gt $n1 ] ; then c2=$n1; fi
+echo "... best theta peak: $theta Hz = column $col"
+echo "... new theta band (width=$twidth): $tmin-$tmax Hz = columns $c1-$c2"
+
+# GET THE AVERAGE HIGH-FREQUENCY BANDS IN THE REFERENCE INPUT FILE
+# save the mean high-freq spectrum (theta-band average) for the theta-band
+xe-matrixavg2 $infile |
+	cut -f $c1-$c2 |
+	xe-statsrow1 stdin |
+	tac |
+	xe-timestamp1 stdin -sf $sf2 -o $pmin2 > $tempfile.2
+
+# detect and save the bands
+xe-ldas5-spectproc1 $tempfile.2 -filt 0 -out 2 > $tempfile.3
+# get the lines
+vlines=$(xe-cut1 $tempfile.3 min,max -o 1 | xe-delimit stdin | paste -s | tr '\t' ',')
+# plot the spectrum for future reference
+xe-ldas5-spectproc1 $tempfile.2 -filt 0 -out 1 |
+	xe-plottable1 stdin -line 1 -ps 0 -xint 50 -vline $vlines
+# save the band-triples
+bands=$(xe-cut1 $tempfile.3 min,mid,max -o 1 | xe-delimit stdin | paste -s | tr '\t' ',')
+bandmids=$(xe-cut1 $tempfile.3 mid -o 1 | paste -s | tr '\t' ',')
+echo "... bands: $bandmids"
+
+# FOR EACH SUBJECT, EXTRACT THE STATS FOR COLUMNS CORRESPONDING TO THETA, ADD FREQUENCY-VALUES, SUBJECT AND GROUP
+outfile1=$progbase1"_spect.txt"
+outfile2=$progbase1"_summary.txt"
+echo "subject group freq amp" | xe-delimit stdin > $outfile1
+echo "subject group band $setstat" | xe-delimit stdin > $outfile2
+for grp in $listgrp ; do
+	infile="XPAC1_matrix_"$grp".txt"
+	sublist=$(grep subject= $infile --colour=never | xe-getkey stdin subject=)
+	for sub in $sublist ; do
+		# extract the theta AUC - apply smoothing
+		xe-matrixcut1 $infile -idcol 2 -id $sub -head 0 |
+		xe-delimit stdin |
+		cut -f $c1-$c2 |
+		xe-statsrow1 stdin |
+		tac |
+		xe-timestamp1 stdin -sf $sf2 -o $pmin2 |
+		xe-ldas5-spectproc1 stdin -filt 0 -out 1 |
+		tail -n +2 > $tempfile
+		# add this smoothed spectrum to the lot
+		awk '{print "'$sub' '$grp'",$1,$2}' $tempfile |
+		xe-delimit stdin >> $outfile1
+		# extract the stats values for the bands - do not re-smooth or filter!
+		xe-ldas5-spectproc1 $tempfile -filt 0 -div 0 -bands $bands -out 2 |
+		xe-cut1 stdin mid,$setstat -o 1 |
+		awk '{print "'$sub' '$grp'",$1,$2}' |
+		xe-delimit stdin >> $outfile2
+	done
+done
+
+################################################################################
+# PLOTS
+################################################################################
+# plot the input matrices
+# first find the largest value in the averaged matrices
+echo "... plotting input matrices ... "
+listmin=""
+listmax=""
+for grp in $listgrp ; do
+	infile="XPAC1_matrix_"$grp".txt"
+	x=$(xe-matrixavg2 $infile | xe-statsd1 stdin)
+	y=$(echo $x | xe-getkey stdin MIN)
+	z=$(echo $x | xe-getkey stdin MAX)
+	listmin=$listmax" "$y
+	listmax=$listmax" "$z
+done
+matrixmin=$(echo $listmin | xe-statsd1 stdin | xe-getkey stdin MIN)
+matrixmax=$(echo $listmax | xe-statsd1 stdin | xe-getkey stdin MAX)
+hlines=$(xe-cut1 $tempfile.3 min,max -o 1 | xe-delimit stdin | paste -s | tr '\t' ',')
+plotopts="-xmin $pmin1 -xmax $pmax1 -xint 5 -ymin $pmin2 -ymax $pmax2 -yint 25 -frame 0 -tics 0 -zmin $matrixmin -zmax $matrixmax -font 10 -xscale .11 -yscale .3 -lwa .25 -vline $tmin,$tmax -hline $hlines "
+xl="Low freq."
+yl="High freq. (modulated)"
+
+plotlist=""
+for grp in $listgrp ; do
+	base="XPAC1_matrix_"$grp
+	plotfile=$base.ps
+	plotlist=$plotlist" "$plotfile
+	xe-matrixavg2 $base.txt |
+		xe-plotmatrix1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "Group: $grp" -out $plotfile -zmax $matrixmax
+done
+xe-plotmerge1 $plotlist -xmax 4 -xinc 150 -out $progbase1"_matrices"
+
+# plot the theta-pac spectrum
+echo "... plotting theta-pac spectrum ... "
+plotfile=$progbase1"_spect.ps"
+plotopts="-line 1 -ps 0 -cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -xint 50 -vline $bandmids -out $plotfile"
+xe-statsgrp2 $outfile1 -cg1 2 -cg2 3 -cy 4 |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -title "PA-Coupling: Theta-band" -xlabel "Modulated Frquency (Hz)" -ylabel "Modulation (AUC)"
+
+# plot the mean results
+echo "... plotting mean results ... "
+listbands=$(xe-cut1 XPAC2_summary.txt band -o 1 | sort -nu)
+plotopts="-cg 1 -cx 1 -cy 3 -ce 5 -ew 0 -pt box -xint 1 -xlabel Group -ylabel PAC-$setstat -xscale .15 -bz 0 "
+let count=0
+plotlist=""
+for band in $listbands ; do
+	let count=$count+1
+	plotfile=$tempfile"_plot_"$count".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 XPAC2_summary.txt band $band |
+	xe-cut1 stdin group,$setstat -o 1 |
+	xe-statsgrp1 stdin |
+	xe-plottable1 stdin $plotopts -title "Band: "$band"Hz" -out $plotfile
+done
+xe-plotmerge1 $plotlist -out $progbase1"_summary"
+
+# plot individual stat curves
+echo "... plotting individual $setstat curves ... "
+xe-plottable1 XPAC2_spect.txt -cg 2 -cx 3 -cy 4 -lb 2 -line 1 -ps 0 -out $progbase1"_individual_$setstat.ps"
+
+
+
+# # plot the relationship with tau burden
+# echo "... plotting relationship with tau ... "
+# in2="../Histology/Summary_Histology.txt"
+# let count=0
+# plotlist=""
+# for band in $listbands ; do
+# 	let count=$count+1
+# 	plotfile=$tempfile"_plot_"$count".ps"
+# 	plotlist=$plotlist" "$plotfile
+# 	xs-dbmatch2 $progbase1"_summary.txt" $in2 subject --out hpc-avg |
+# 	xe-dbmatch1 stdin band $band |
+# 	xe-cut1 stdin group,hpc-avg,auc |
+# 	xe-plottable1 stdin -cg 1 -cx 2 -cy 3 -xlabel "% Tau burden" -ylabel "PAC-AUC" -title "Band: "$band"Hz" -out $plotfile
+# done
+# xe-plotmerge1 $plotlist -out $progbase1"_tau_v_auc" -xinc 200
+
+# stats for 50Hz
+#xe-dbmatch1 $outfile1 freq 50.000000 > jjm
+#r_anova jjm amp group | grep Overview:
+
+
+################################################################################
+# CLEANUP & FINISH
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -1,0 +1,154 @@
+#!/bin/bash
+# <TAGS> plot </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setformat="jpg"
+setres="300"
+setcrop="1"
+setopts=""
+setverb="1"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert LDAS postscript plots to other formats"
+	echo "USAGE: "$thisprog" [ps] [options]"
+	echo "	[ps]: postscript plot file"
+	echo "		- wildcards accepted, if quoted"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--format: set output format (jpg,png,tiff or pdf) [$setformat]"
+	echo "		- for multi-page plots, use --format pdf --crop 0"
+	echo "		- other formats will only include the first page"
+	echo "	--res: set resolution (DPI) [$setres]"
+	echo "	--crop: crop output to actual drawing (0=NO 1=YES) [$setcrop]"
+	echo "	--opts: ghostscript options [$setopts]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" \"output_*.ps\" --format png"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+listfiles=$(ls 2>/dev/null $1)
+let z=$(echo $listfiles | wc -w)
+if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no files found matching \"$1\"" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="format:,res:,crop:,opts:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--format ) setformat=$2 ; shift ;;
+		--res ) setres=$2 ; shift ;;
+		--crop ) setcrop=$2 ; shift ;;
+		--opts ) setopts=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setcrop" != "0" ] && [ "$setcrop" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --crop ($setcrop) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# CONVERT FILES
+################################################################################
+
+for infile in $listfiles ; do
+
+	# check that file is not empty
+	if [ ! -s $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
+	# determine file base name (verything before the last dot)
+	base=${infile%%.*};
+	# determine output file name
+	outfile=$base"."$setformat
+
+	# build basic options list
+	if [ "$setcrop" == "0" ] ; then
+		opts=" -r$setres -sPAPERSIZE=a4 -dBATCH -dNOPAUSE -sOutputFile=$outfile "
+	elif [ "$setcrop" == "1" ] ; then
+		# determine appropriate bounding box - stderr must be redirected to stdout
+		coords=$(gs -q -sDEVICE=bbox -dBATCH -dNOPAUSE $infile  2>&1 | grep %%BoundingBox)
+		let x1=$(echo $coords | cut -f 2 -d ' ')
+		let y1=$(echo $coords | cut -f 3 -d ' ')
+		let x2=$(echo $coords | cut -f 4 -d ' ')
+		let y2=$(echo $coords | cut -f 5 -d ' ')
+		let width=x2-x1
+		let height=y2-y1
+		# options include media dimensions
+		opts=" -r$setres -dDEVICEWIDTHPOINTS=$width -dDEVICEHEIGHTPOINTS=$height -dBATCH -dNOPAUSE -sOutputFile=$outfile"
+		# also set flag to translate output to align plot to the imposed bounding box
+		cflag="<</Install {-$x1 -$y1 translate}>> setpagedevice"
+	fi
+
+	if [ "$setverb" == "1" ] ; then echo "	converting: $infile  >>  $outfile" ;  fi
+
+	if [ "$setformat" == "jpg" ] ; then
+		if [ "$setcrop" == "0" ] ; then
+			gs -q -sDEVICE=jpeg $opts $setopts -f $infile
+		else
+			gs -q -sDEVICE=jpeg $opts -c "$cflag" $setopts -f $infile
+		fi
+	elif [ "$setformat" == "png" ] ; then
+		if [ "$setcrop" == "0" ] ; then
+			gs -q -sDEVICE=png16m $opts $setopts -f $infile
+		else
+			gs -q -sDEVICE=png16m $opts -c "$cflag" $setopts -f $infile
+		fi
+	elif [ "$setformat" == "tiff" ] ; then
+		if [ "$setcrop" == "0" ] ; then
+			gs -q -sDEVICE=tiff12nc $opts $setopts $infile
+		else
+			gs -q -sDEVICE=tiff12nc $opts -c "$cflag" $setopts -f $infile
+		fi
+	elif [ "$setformat" == "pdf" ] ; then
+		if [ "$setcrop" == "0" ] ; then
+			gs -q -sDEVICE=pdfwrite $opts $setopts -f $infile
+		else
+			gs -q -sDEVICE=pdfwrite $opts -c "$cflag" $setopts -f $infile
+		fi
+	else { echo ; echo "--- Error ["$thisprog"]: invalid output format ($setformat): select jpg,png,tiff or pdf" ; echo ; exit ; }
+	fi
+
+done
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -1,0 +1,303 @@
+#!/bin/bash
+# <TAGS> O2 </TAGS>
+
+setdate=$(date +%y%m%d)
+startdir=$(pwd)
+startdirshort=$(basename $startdir)
+thisprog="xs-O2-makex5b"
+logfile=$startdir/"log_"$thisprog"_"$setdate".txt"
+
+
+# define default recommended integration-window size for calculating RMS power
+# 4 is recommended for oxygen-sensing assays
+# this variable is passed to xs-ldas-preproc1
+rmsint=4
+# set y-range for diagnostic plots
+plotbottom=-500
+plottop=0
+autoscale=0
+copycomments="0"
+# set time-units for diagnostic plots
+setunits=min
+set_start=""
+set_pre=0
+set_dur=0
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": set up experiment directories & transfer data"
+	echo "---------------------------------------------------------"
+	echo "- creates Analysis, Data_Library, & Data_Working folders"
+	echo "- copies data from remote location to Data_Library"
+	echo "- only newer versions of files will be copied"
+	echo "- extracts the [base].txt file to .time .dat .cmt and .notes files"
+	echo "- creates a plot of the traces for each channel"
+	echo "- most problems with the data or folder locations reported immediately"
+	echo "- other reports will go to the log file: "$logfile
+	echo "- for each subject-date..."
+	echo "		xs-ldas-preproc1"
+	echo "			xe-ldas-readchart1"
+	echo "- then..."
+	echo "		xs-O2-makelink"
+	echo "		xs-dbmake1"
+	echo "		xs-O2-copycomments"
+	echo "		xs-plotcollate"
+	echo "		xs-O2-checkchansb"
+	echo
+	echo "USAGE: "$thisprog" [source] [options]"
+	echo "	[source]: full path to folder with CHART export files"
+	echo "		NOTE: files must match pattern [num]-[yymmdd].txt"
+	echo "		where [num] is 3-digits, eg. 019-991231"
+	echo "	[options]: general"
+	echo "		-c: copy comments from channel-1 to other channels (unset by default)"
+	echo "	[options]: to control diagnostics"
+	echo "		-w: window-size (s) to calc. RMS power on channels (default "$rmsint")"
+	echo "		-b: bottom of y-axis for diagnostic plots (default "$plotbottom")"
+	echo "		-t: top of y-axis for diagnostic plots (default "$plottop")"
+	echo "		-a: autoscale y-axis (overrides -b and -t) (unset by default)"
+	echo "		-u: time-units (hour,min,sec,ms) for diagnostic plots (default "$setunits")"
+	echo "		...diagnostic plotmarkers..."
+	echo "		-s:	start signal from comment file"
+	echo "		-d:	time after start signal"
+	echo "		-p: time before start signal"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" /media/UDISK/data/ -c "
+	echo "	"$thisprog" /media/UDISK/data/ -w 4 "
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+user_arguments=$@
+echo
+echo "------------------------------------------------------------------------------"
+echo $thisprog $user_arguments
+echo "------------------------------------------------------------------------------"
+
+################################################################################
+# READ ARGUMENTS
+################################################################################
+source=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING FOR xs-ldas-preproc1
+################################################################################
+while getopts  "acw:b:t:u:s:p:d:" flag ; do
+	case $flag in
+		c) copycomments="1";;
+		a) let autoscale=1;;
+		w) rmsint=$OPTARG;;
+		b) plotbottom=$OPTARG;;
+		t) plottop=$OPTARG;;
+		u) setunits=$OPTARG;;
+		s) set_start=$OPTARG;;
+		p) set_pre=$OPTARG;;
+		d) set_dur=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+	done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CHECK ARGUMENTS FOR VALIDITY
+if [ $(echo $rmsint|awk '{printf("%d",$1)}' ) -lt 2  ] ; then { echo ; echo "--- Error ["$thisprog"]: -w ("$rmsint") must be >2" ; echo ; exit; } ; fi
+if [ $setunits != "hour" ] && [ $setunits == "min" ] && [ $setunits == "sec" ] && [ $setunits == "ms" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid time-units ("$setunits") - must be hour,min,sec or ms" ; echo ; echo ; exit ; } ; fi
+
+################################################################################
+echo "Checking current location is appropriate to make new database"
+################################################################################
+cd $startdir
+
+word=Analysis ; flag=$(echo $startdir | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; exit; } fi
+word=Data_Library ; flag=$(echo $startdir | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; exit; } fi
+word=Data_Working ; flag=$(echo $startdir | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; exit; } fi
+
+################################################################################
+echo "Checking source path for valid .txt files"
+# Check that folder contains files matchin [sub]-[yymmdd]*.txt format
+# If diagnostic option is run with -r, check that the named region is
+# specified in the ChannelTitle= header line in the input file
+################################################################################
+cd $startdir
+if [ ! -e "$source" ] ; then { echo ; echo "--- Error ["$thisprog"]: source '$source' not found" ; echo ; exit; } ; fi
+badsource=$(echo $source | awk 'NF>1{print "bad"}')
+if [ $badsource ] ; then { echo ; echo "--- Error ["$thisprog"]: source path contains spaces. Rename or move data to another location for transfer" ; echo ; exit; } ; fi
+
+# make list of files matching [sub-yymmdd*.txt]
+listfiles=$(ls $source/???-??????*.txt 2>/dev/null)
+
+# how many files to check?
+let nfiles=$(echo $listfiles | wc -w )
+
+# error if no such files exist in the data-path
+if [ $nfiles -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no files matching ???-?????*.txt in '$source'" ; echo ; exit; } ; fi
+
+# check that each file and each channel has a valid hemisphere specified in the ChannelTitle line
+errorfound=""
+
+for infile in $listfiles ; do
+
+	infile2=$(echo $infile | awk -F / '{print $NF}')
+
+	# DEFINE THE CHANNEL TITLES: convert multiple-spaces to single underscore, take field#2 onwards and remove Windows carriage returns
+	titles=$(grep ChannelTitle= $infile | head -n 1 | xe-strsub1 stdin " " "_" | xe-delimitkiller stdin -d underscore | cut -f 2- | tr -d '\r')
+	let ntitles=$(echo $titles | wc -w)
+	# DETERMINE NUMBER OF CHANNELS: take last 10 lines, remove lines with non-numerics, take the last of the remaining lines and do word-count
+	let nchans=$(tail $infile | xe-checkisnum2 stdin | tail -n 1 | cut -f 2- | tr -d '\r' | wc -w )
+	# CHECK DATA INTEGRITYcut -f 2- |
+	if [ $ntitles -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: "$infile2" contains no channel titles" ; errorfound="1" ;  continue ; } ; fi
+	if [ $nchans -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: "$infile2" contains no valid data on last lines: fix and re-run" ; errorfound="1" ;  continue ; } ; fi
+	if [ $ntitles -ne $nchans ] ; then  { echo "	--- Error ["$thisprog"]: $infile2 contains unequal number of titles ($ntitles) and channels ($nchans on the last valid data line)" ; errorfound="1" ;  continue ; } ; fi
+
+	for ch in $(seq 1 $nchans) ; do
+		# find the channel label
+		label=$(echo "$titles" | awk '{print $'$ch'}')
+		# read hemisphere and region specified by the label
+		hemis=$(echo $label | awk -F "_" '{print $(NF-1)}')
+		region=$(echo $label | awk -F "_" '{print $(NF)}')
+		if [ $hemis != "R" ] && [ $hemis != "L" ] ; then { echo "	--- Error ["$thisprog"]: invalid hemisphere \""$hemis"\" for channel title "$ch" in "$infile2" header" ; errorfound="1" ; continue ; } ; fi
+	done
+
+done
+
+
+if [ $errorfound ] ; then { echo ; exit ; } fi
+echo "Finished - all OK" ; echo $nfiles" files to extract"
+
+################################################################################
+# Make directories
+# This sets up the standard database structure for data analysis
+################################################################################
+cd $startdir
+if [ ! -e Analysis ] ; then  { echo "Making sub-directory: Analysis" ; mkdir -p Analysis ; chmod a+xr Analysis ; } fi
+if [ ! -e Data_Working ] ; then  { echo "Making sub-directory: Data_Working" ; mkdir -p Data_Working ; chmod a+xr Data_Working ; } fi
+if [ ! -e Data_Library ] ; then  { echo "Making sub-directory: Data_Library" ; mkdir -p Data_Library ; chmod a+xr Data_Library ; } fi
+
+################################################################################
+echo
+echo "Extracting files from "$source" to Data_Library" ;
+echo "NOTE: an error/warning summary will follow completion..."
+echo "This could take some time: check "$(basename $logfile)" for progress"
+echo
+# this process uses rsync, which can transfer data from networked machines,
+# performs checksums, and only copies files which are newer or a different
+# size from the same file in the Data_Library directory. Hence the output is
+# a list of the files copied. Piping the output to grep to search for the
+# [base].txt allows us to use the log as a list of [base].txt files needing
+# re-extraction. The objective is to avoid unnecessary copying and extraction
+# of previously processed files when copying new data recently added to the
+# source folder.
+################################################################################
+{
+
+	# EVERYTHING FROM HERE IS OUTPUT TO THE LOG FILE
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog $user_arguments
+	echo "------------------------------------------------------------------------------"
+
+	################################################################################
+	echo ; echo "Extracting data from CHART export files" ; echo
+	# From log file, determine which (if any) [base].txt files were copied
+	# 	- i.e., which [base].txt files have changed
+	#	- only changed files will have been transferred
+	# Then extract the data from the [base].txt file for those directories
+	################################################################################
+	cd $startdir
+	for infile in $listfiles ; do
+		basefile=$(basename $infile)
+		base=${basefile%%.*}
+		mkdir -p Data_Library/$base
+		cd Data_Library/$base
+
+		opts="-w $rmsint -b $plotbottom -t $plottop -u $setunits"
+
+		if [ ! -z $set_start ] ; then opts=$opts" -s $set_start -p $set_pre -d $set_dur" ; fi
+		if [ $autoscale -eq  1 ] ; then opts=$opts" -a " ;  fi
+
+		xs-ldas-preproc1 $infile $opts
+
+		# if comments are not to be copied, or report a warning if no comments were found
+		list=$(ls $base.???.cmt)
+		if [ $copycomments == "0" ] ; then
+			for i in $list ; do
+				 j=$(cat $i|wc -l);
+				 if [ $j -lt 1 ] ; then echo "	--- Warning ["$thisprog"]: no comments in "$i ; fi
+			done
+		fi
+
+		cd $startdir
+	done
+
+	################################################################################
+	echo ; echo "Building working directories with links to Data_Library" ; echo
+	# Makes links only to folders matching ???-??????* pattern
+	# Links are made to [base].txt, .time, .dat, .cmt and .notes files
+	# build initial database
+	################################################################################
+	cd $startdir
+	xs-O2-makelinksData_Library Data_Working ???-??????
+
+
+	# CREATE MASTER DATABASE FILE
+	cd $startdir/Analysis
+	listdirs=$(ls -d ../Data_Working/???-??????)
+	echo "# Experiment:" > database_all.db
+	echo "# comments" >> database_all.db
+	echo "# comments" >> database_all.db
+	echo "# comments" >> database_all.db
+	echo "#" >> database_all.db
+	echo "# path	group	hemis" >> database_all.db
+	echo "#" >> database_all.db
+	for path in $listdirs ; do
+		# identify the notes file
+		base=$(basename $path)
+		notesfile=$path"/"$base".notes" ; if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' missing" ; echo ; echo ; exit ; }  fi
+		# identify the column specifying the hemisphere
+		let colhemis=$(grep "#CHANNEL" $notesfile | xe-getkeycol stdin hemis)
+		if [ -z $colhemis ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' has no \"hemis\" header for CHANNEL records" ; echo ; echo ; exit ; }  fi
+		# take hemisphere for channel #1 as representative
+		hemis=$(awk '$1=="CHANNEL"{print $0; exit}'  $notesfile | cut -f $colhemis)
+		echo $path" 0 "$hemis | xe-delimit stdin >> database_all.db
+	done
+
+
+	################################################################################
+	# Copy comments from channel-1 to other channels?
+	################################################################################
+	cd $startdir/Analysis
+	if [ $copycomments == "1" ] ; then
+		echo ; echo "Copy comments from channel-1 to all other channels" ; echo
+		xs-O2-copycomments database_all.db
+	fi
+
+	################################################################################
+	echo ; echo "Collating diagnostic plots"  ; echo
+	################################################################################
+	cd $startdir/Analysis
+	xs-plotcollate database_all.db *rawplot.ps -xo 80 -yo 725  -xmax 4 -ymax 10 -xinc 130 -yinc 70 -scale 1 -out rawplots
+
+	################################################################################
+	echo ; echo "Performing diagnostics on channels"  ; echo
+	################################################################################
+	cd $startdir/Analysis
+	regions=$(xs-batch1 database_all.db cat "*"notes | grep CHANNEL | cut -f 5 | sort -u)
+	for i in $regions ; do xs-O2-checkchansb database_all.db $i ; done
+
+	echo ; echo $thisprog ": finished!"
+
+}  &> $logfile
+
+let nwarnings=$(cat $logfile | grep -i warning | wc -l)
+let nerrors=$(cat $logfile | grep -i error | wc -l)
+cd $startdir
+
+echo
+if [ $nerrors -gt 0 ] ; then echo "ALERT!! "$nerrors" errors found  - check "$logfile ; else echo "No errors" ; fi
+if [ $nwarnings -gt 0 ] ; then echo "ALERT!! "$nwarnings" warnings found  - check "$logfile ; else echo "No Warnings" ; fi
+echo "---------------------------------------------------------"
+echo
+exit

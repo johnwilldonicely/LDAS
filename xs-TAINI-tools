@@ -1,0 +1,774 @@
+#!/bin/bash
+# <TAGS> taini plot </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+tempfile="temp_"$thisprog #"."$$"."
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+mydate=$(date +'%Y%m%d')
+template_plan="$progpath/docs/templates/template.plan"
+template_channels="$progpath/docs/templates/table_channels_taini_2.txt"
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+sample_rate="19531.25" # samples per second
+n_channels="16" # number of interlaced channels
+datbits="16" # 16 bit integer = short
+datinvalid="32767" # placeholder for missing data-packets
+setfiltlow="0.35"
+setfilthigh="9700"
+bit_depth="12" # bits actually used by TAINI to encode data
+
+setexpt=""
+setfile=""
+setinput="ab"
+setbatch="all"
+setpre="SYNC_"
+setseq0="1,0,2,0"
+setblank0="0"
+setcount="0"
+setappend=""
+
+setverb="0"
+setclean="1"
+
+nboxes=4
+fileplan=$(ls *.plan 2>/dev/null)
+filenotes=$(ls *.notes 2>/dev/null | head -n 1)
+fileconfig=$(ls *.yaml 2>/dev/null)
+fileplot="plot_traces_"$thisprog".ps"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": run TAINI scripts for data setup, acquisition and testing"
+	echo "	- some modes require a .plan file with MAPPING and TRIALS sections"
+	echo "	- TAINI sync-records typically begin with a \"blank\" sync-0"
+	echo ""
+	echo "USAGE: $thisprog [mode] [options]"
+	echo ""
+	echo "VALID MODES (followed by options starting with --):"
+	echo "	setup"
+	echo "		Set up an acquisition directory (requires --expt)"
+	echo "		Creates a [date]_[expt] directory"
+	echo "		Adds a [date].plan file"
+	echo "		Copies channel-table template $template_channels"
+	echo "		--expt: name of experiment [$setexpt]"
+	echo "	fft"
+	echo "		Run spectrum viewer"
+	echo "		--input: receiver input to show (ab or cd) [$setinput]"
+	echo "	live"
+	echo "		Run TainiLive"
+	echo "	sync"
+	echo "		Check a sync-file and extract start-stop pairs"
+	echo "		--file: sync file to check & extract [$setfile]"
+	echo "		--pre: the sync-record prefix [$setpre]"
+	echo "		--seq: CSV list of valid sync-number sequence [$setseq]"
+	echo "		--blank: required sync-record which is not output [$setblank0]"
+	echo "		--count: use timestamps to count trials in blocks (0=NO 1=YES) [$setcount]"
+	echo "			- uses mean interval + 5 s.d. as threshold"
+	echo "	trials"
+	echo "		List .plan TRIALS matched to MAPPING subject & session"
+	echo "		--batch: .plan MAPPING batch to check (#, or \"all\") [$setbatch]"
+	echo "		--append: CSV list MAPPING columns to append to trials [$setappend]"
+	echo "		--file: add sync-file records to trials - see \"sync\" above"
+	echo "	check"
+	echo "		Compare batch trial-counts with subject sync-records"
+	echo "		--seq: [see above]"
+	echo "		--batch: [see above]"
+	echo "	config"
+	echo "		Output configuration settings (from .yaml)"
+	echo "		--file: you MUST specify a .dat or .yaml file"
+	echo "		--expt: override-name of experiment from .yaml [$setexpt]"
+	echo "	rename"
+	echo "		Rename files from TaiNi default to LDAS format"
+	echo "		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat"
+	echo "		LDAS standard: [yyyymmdd]-[session]_[alias].dat"
+	echo "	unrename"
+	echo "		As above, but restore original TAINI filenames"
+	echo "		.yaml files required"
+	echo "	plot"
+	echo "		Generate a 1-second trace-plot for all .dat files"
+	echo "		Looks for table_channels_[subject].txt"
+	echo ""
+	echo "EXTRA OPTIONS (defaults in []):"
+	echo "	--plan: specify a plan file (if there is more than one in the folder) [$setplan]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo ""
+	echo "EXAMPLES: "
+	echo "	"$thisprog" fft --input 2"
+	echo "	"$thisprog" setup --expt hargreaves_wk3"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setmode=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,plan:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--expt )  setexpt=$2 ; shift ;;
+		--batch ) setbatch=$2 ; shift ;;
+		--count ) setcount=$2 ; shift ;;
+		--verb )  setverb=$2 ; shift ;;
+		--input ) setinput=$2 ; shift ;;
+		--file )  setfile=$2 ; shift ;;
+		--pre ) setpre=$2 ; shift ;;
+		--seq ) setseq0=$2 ; shift ;;
+		--blank ) setblank0=$2 ; shift ;;
+		--plan ) setplan=$2 ; shift ;;
+		--append ) setappend=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setcount" != "0" ] && [ "$setcount" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --count ($setcount) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setinput" != "ab" ] && [ "$setinput" != "cd" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --input ($setinput) -  must be ab or cd" ; echo ; exit; } ; fi
+if [ "$setfile" != "" ]  && [ ! -e "$setfile" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --file $setfile$NC\n"; exit; } fi
+if [ "$setplan" != "" ] ; then
+	fileplan=$setplan
+	if [ ! -e "$fileplan" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --plan $setplan$NC\n"; exit; } fi
+fi
+
+# INITIAL CLEANUP
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+# UPDATE SETBLANK WITH PREFIX AND COUNT ELEMENTS
+setblank=$setpre""$setblank0
+# update setseq and setblank with proper sync-names
+setseq=$(echo $setseq0 | sed 's/[^,]* */'$setpre'&/g')
+let nseq=$(echo $setseq0 | tr ',' ' ' | wc -w)
+
+# DEFINE DEFAULT COLUMNS FOR TAINI NAME TEMPLATES
+coldev="2" ; colalias="3" ; colyear="4" ; colmonth="5" ; colday="6" ; colinc="7"
+# if a yaml file is present, set the fields containing the subject (ALIAS) and session (INC)
+fileyaml=$(ls *yaml 2>/dev/null | head -n 1)
+if [ "$fileyaml" != "" ] ; then
+nametemplate=$(grep filename_template: --color=never $fileyaml | awk '{print $2}')
+	if [ "$nametemplate" == "" ] ; then { echo -e $RED"\n--- Error: filename_template not defined in $fileyaml $NC\n"; exit ; }  fi
+	coldev=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ID' -n --color=never | cut -f 1 -d ':')
+	colalias=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ALIAS' -n --color=never | cut -f 1 -d ':')
+	colinc=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$INC' -n --color=never | head -n 1 | cut -f 1 -d :)
+	colyear=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%Y' -n --color=never | head -n 1 | cut -f 1 -d :)
+	colmonth=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%m' -n --color=never | head -n 1 | cut -f 1 -d :)
+	colday=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%d' -n --color=never | head -n 1 | cut -f 1 -d :)
+	if [ "$colalias" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (ALIAS) undefined in $fileyaml $NC\n"; exit ; }  fi
+	if [ "$colinc" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (INC) undefined in $fileyaml $NC\n"; exit ; }  fi
+	if [ "$colyear" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (Y) undefined in $fileyaml $NC\n"; exit ; }  fi
+	if [ "$colmonth" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (m) undefined in $fileyaml $NC\n"; exit ; }  fi
+	if [ "$colday" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (d) undefined in $fileyaml $NC\n"; exit ; }  fi
+else
+	echo -e "$RED--- Warning [$thisprog]: missing .yaml file to define filename fields - using defaults instead$NC" >&2
+fi
+
+# DETERMINE THE DATE, SESSION AND SUBJECT BASED ON FILENAME
+# FOR TAINI FILENAMES, IF POSSIBLE, USE THE YAML FILE TO DETERMINE THE FILENAME TEMPLATE
+if [ "$setfile" != "" ] ; then
+	date1=""
+	session=""
+	subject=""
+	# make a temporary "filefields" variable with - _ and . replaced by spaces to facilitate extraction of fields
+	filefields=$(echo $setfile | tr '_' ' ' | tr '-' ' ' | tr '.' ' ')
+	z=$(echo $filefields | cut -f 1 -d ' ')
+	if [ "$z" == "TAINI" ] ; then
+		# TAINI format (typical): TAINI-[DEV]_[subject]-[yyyyy]_[mm]_[dd]-[sess].sync
+		filename="taini"
+		date1=$(echo $filefields | cut -f $colyear,$colmonth,$colday -d ' ' | tr -d ' ')
+		date2=$(echo $filefields | cut -f $colyear,$colmonth,$colday -d ' ' | tr ' ' '/')
+		session=$(echo $filefields | cut -f $colinc -d ' ')
+		subject=$(echo $filefields | cut -f $colalias -d ' ')
+		device=$(echo $filefields | cut -f $coldev -d ' ')
+	else
+		# LDAS format: [yyyymmdd]-[sess]_[subject].sync
+		filename="ldas"
+		date2=$(echo $filefields | cut -f 1 -d ' ')
+		date1=$(echo $date2 | xe-dateconv1 stdin -i 4 -o 3)
+		subject=$(echo $filefields | cut -f 3 -d ' ')
+		session=$(echo $filefields | cut -f 2 -d ' ')
+		device="-"
+	fi
+
+	if [ "$subject" == "" ] ; then subject="xxx" ; fi
+	if [ "$session" == "" ] ; then session="xxx" ; fi
+
+	filebatch=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin subject,session,batch -s 1 | awk '$1=='$subject'&&$2=='$session'{print $3}')
+	if [ "$filebatch" == "" ] && [ "$setmode" == "trials" ] ; then { echo -e $RED"\n--- Error: no matching batch record for $setfile in $fileplan - this is required for running in \"trials\" mode$NC\n"; exit ; }  fi
+
+fi
+
+
+########################################################################################
+# OPERATING MODES
+########################################################################################
+#-------------------------------------------------------------------------------
+if [ "$setmode" == "setup" ] ; then
+	in1=$template_channels
+	if [ ! -e "$in1" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: missing file $in1$NC" ; echo ; exit; } ; fi
+	if [ "$setexpt" == "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: must define experiment (--expt) to make setup folder$NC"; echo; exit; } fi
+	if [ "$fileplan" != "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: there is a plan in this folder ($fileplan) - cannot create a new acquisition folder here$NC"; echo; exit; } fi
+	dest=$mydate"_"$setexpt
+	echo "CREATING FOLDER $dest"
+	if [ -d "$dest" ]; then
+		tput bel
+		echo -en "$RED--- Warning: folder $dest exists$NC: " >&2
+		read -p  "- overwrite contents? [y/n] " answer
+		while true ; do case $answer in
+			[yY]* ) break ;;
+			*) exit ;;
+	esac ; done ; fi
+	mkdir -p $dest
+	if [ ! -d "$dest" ]; then { echo ; echo -e "$RED--- Error ["$thisprog"]: unable to create folder $dest $NC" ; echo ; exit; } ; fi
+	echo "COPYING CHANNELS TEMPLATE FROM"
+	echo "	- source: $in1"
+	cat $in1 > $dest/"table_channels_template.txt"
+	echo "BUILDING EMPTY PLAN:  $mydate.plan"
+	echo "	- destination: $mydate.plan"
+echo "
+date= $mydate
+experiment= $setexpt
+
+<NOTES>
+
+- freeform comments here
+
+</NOTES>
+
+<MAPPING>
+batch	box	session	subject	device	band	comments
+1	1	000	-	-	A	-
+1	2	000	-	-	B	-
+1	3	000	-	-	C	-
+1	4	000	-	-	D	-
+</MAPPING>
+
+<TRIALS>
+batch	box	time	comments
+1	1	-	-
+1	2	-	-
+1	3	-	-
+1	4	-	-
+</TRIALS>
+" > $dest/$mydate.plan
+
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "live" ] ; then
+	command="/opt/tainitec/bin/launch tainilive"
+	echo "COMMAND: "$command
+	sudo $command
+
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "fft" ] ; then
+	case $setinput in
+		ab ) command="/opt/tainitec/bin/launch fft ab rfa" ;;
+		cd ) command="/opt/tainitec/bin/launch fft cd rfb" ;;
+	esac
+	echo "COMMAND: "$command
+	sudo $command
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "rename" ] ; then
+	# Rename TAINI files to LDAS format
+	# TAINI format (typical): TAINI-[DEV]_[ALIAS]-[yyyyy]_[mm]_[dd]-[sess].sync
+	# - note that the field columns are defined at the top of this program using the first YAML file found
+	listin1=$(ls TAINI* 2>/dev/null)
+	if [ "$listin1" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no TAINI* files - perhaps they've already been renamed$NC\n" ; exit ; fi
+	for in1 in $listin1 ; do
+		ext1=${in1##*.}
+		filefields=$(echo $in1 | tr '_' ' ' | tr '-' ' ' | tr '.' ' ')
+		date1=$(echo $filefields | cut -f $colyear,$colmonth,$colday -d ' ' | tr -d ' ')
+		date2=$(echo $filefields | cut -f $colyear,$colmonth,$colday -d ' ' | tr ' ' '/')
+		dev1=$(echo $filefields | cut -f $coldev -d ' ')
+		session=$(echo $filefields | cut -f $colinc -d ' ')
+		subject=$(echo $filefields | cut -f $colalias -d ' ')
+		out1=$date1"-"$session"_"$subject"."$ext1
+
+		mv $in1 $out1 -iv
+	done
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "unrename" ] ; then
+
+	listyaml=$(ls *.yaml 2> /dev/null)
+	if [ "$listyaml" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml files - cannot restore filenames$NC\n" ; exit ; fi
+
+	# REPAIR THE YAML FILES IF TEY HAVE BEEN MODIFIED
+	for in1 in $listyaml ; do
+
+		# fix the filename template - note - assumes the correct format is TAINI_$ID_$ALIAS-%Y_%m_%d-$INC.dat
+		oldtemplate=$(grep filename_template: $in1 | awk '{print $2}')
+		newtemplate='TAINI_$ID_$ALIAS-%Y_%m_%d-$INC'
+		xe-cut2 $in1 "recording:" > $tempfile".0"
+		xe-strsub1 $tempfile".0" $oldtemplate $newtemplate > $tempfile".x"
+		let z=$(cat $tempfile".x" | wc -l)
+		if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: \"recording:\" section in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
+
+		# initialize the temporary yaml output
+		echo "transmitters:" > $tempfile".yaml"
+		# repair the name for each device
+		date1=$(grep " start_datetime:" $in1 --color=never | awk '{print $2}' | tr '-' '_')
+		listdevid=$(grep -- "- id:" $in1 | awk '{print $3}')
+
+		for devid in $listdevid ; do
+			xe-cut2 $in1 "- id: $devid" -s4 1 > $tempfile.$devid
+			let z=$(cat $tempfile.$devid | wc -l)
+			if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: device section \"- id: dev$devid\" in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
+
+			oldname=$(grep output_destination: $tempfile.$devid | awk -F / '{print $NF}')
+			# DETERMINE CORRECT $INC VALUE _ SHOULD BE 4-DIGITS
+			# depends on if filename in yaml is ldas or taini format
+			let z=$(echo $oldname | grep TAINI | wc -l)
+			if [ $z -eq 1 ] ; then
+				inc=$(echo $oldname | awk -F [-_.] '{x=$(NF-1) ; printf("%04d",x)}')
+			else
+				inc=$(echo $oldname | awk -F [-_.] '{x=$2 ; printf("%04d",x)}')
+			fi
+			# DETERMINE CORRECT DEVICE-NAME, ALIAS AND DATE
+			dev=$(grep   " id:" $tempfile.$devid --color=never | rev | cut -c 1 | awk '{printf("D%03d",$1)}')
+			alias=$(grep " alias:" $tempfile.$devid --color=never | awk '{print $2}')
+			newname="TAINI_"$dev"_"$alias"-"$date1"-"$inc".dat"
+			xe-strsub1 $tempfile.$devid $oldname $newname >> $tempfile".yaml"
+		done
+	done
+	# add the bottom, with repaired filename template
+	cat $tempfile".x" >> $tempfile".yaml"
+	# replace the original yaml
+	mv $tempfile".yaml" $in1
+
+	# UN-RENAME THE .YAML FILES
+	for in1 in $listyaml ; do
+		# pull out first output dat-file referred to the yaml - this will have ben the file name template for the original yaml
+		out1=$(grep --color=never  output_destination: $in1 -m 1 | awk -F / '{print $NF}' | cut -f 1 -d . | awk '{print $1"_configuration.yaml"}')
+		if [ "$out1" != "" ] ; then
+			if [ $in1 != $out1 ] ; then mv $in1 $out1 -iv ; fi
+		else
+			echo -e "\n$RED--- Error ["$thisprog"]: no output entries in $in1 $NC\n" ; exit
+		fi
+	done
+
+	# UN-RENAME THE .DAT AND .SYNC FILES
+	listin1=$(ls 20??????-*_*.dat 2>/dev/null)
+	if [ "$listin1" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no LDAS-format .dat files - perhaps the files were not yet renamed$NC\n" ; exit ; fi
+	rm -f $tempfile".1"
+	rm -f $tempfile".2"
+	for in1 in $listin1 ; do
+		date1=$(xs-ldas-parsename $in1 date -f)
+		session1=$(xs-ldas-parsename $in1 session -f)
+		subject1=$(xs-ldas-parsename $in1 subject -f)
+		year1=$(echo $date1 | cut -c 1-4)
+		month1=$(echo $date1 | cut -c 5-6)
+		day1=$(echo $date1 | cut -c 7-8)
+		date2=$year1"_"$month1"_"$day1
+		# output filename is the .yaml entry matching on date, session and subject
+		out1=$(grep "output_destination:" *.yaml | awk -F / '{print $NF}' | tr -d ' ' | grep -- "_"$subject1 | grep -- "-"$date2 | grep -- "-"$session1)
+		let z=$(echo $out1 | wc -w)
+		if [ $z -eq 0 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml entries matching $in1 $NC\n" ; exit ; fi
+		if [ $z -gt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: more than one .yaml entry matching $in1 $NC\n" ; exit ; fi
+		# build the rename pairs
+		echo $in1 >> $tempfile".1"
+		echo $out1 >> $tempfile".2"
+	done
+	# build old/new filnemae list - generate matching .sync file names on the fly
+	paste $tempfile".1" $tempfile".2" |
+		while read in1 out1 ; do
+			in2=$(echo $in1 | xe-strsub1 stdin .dat .sync)
+			out2=$(echo $out1 | xe-strsub1 stdin .dat .sync)
+			mv $in1 $out1 -iv
+			mv $in2 $out2 -iv
+	done
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "sync" ] ; then
+
+	# is --file set?
+	if [ "$setfile" == "" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: please set a sync input file (--file) $NC\n"; exit; } fi
+	# is it a sync file?
+	ext=$(echo $setfile | rev | cut -f 1 -d . | rev)
+	if [ "$ext" != "sync" ] ; then { echo -e $RED"\n--- Error: for mode \"trials\", --file ($setfile) must refer to a .sync file  $NC\n" ; exit ; }  fi
+
+	seq2=$(echo $setseq | tr ',' ' ')
+	let nseq2=$(echo $seq2 | tr ',' ' ' | wc -w)
+	seq3=$(echo $setseq | tr ',' '\n' | grep -v $setblank)
+	let nseq3=$(echo $seq3 | wc -w)
+
+	# extract non-comment >=2-column rows with a second column matching $setpre ($tempfile.1)
+	awk '$0!~/^#/ && NF>=2 && $2~/^'$setpre'/ {print $0}' $setfile | xe-delimit stdin > $tempfile.1
+	if [ ! -s $tempfile.1 ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: no \"$setpre*\" records in $setfile $NC\n" ; exit; } ; fi
+	# remove first sync if it is a zero, save the rest to $tempfile.2
+	z=$(head -n 1 $tempfile.1 | awk '{print $2}' )
+	if [ "$z" == $setblank ] ; then tail -n +2 $tempfile.1 > $tempfile.2 ; else cp $tempfile.1 $tempfile.2 ; fi
+	# save the header
+	echo $seq3 | xe-delimit stdin > $tempfile.3
+	# extract the sequences - assumes the timestamp is in column-1
+	xe-getsequence1 $tempfile.2 2 exact $seq2 | awk 'NF>0&&$0!~/^#/{print $0}' | grep -v $setblank | cut -f 1 | awk 'ORS=NR%'$nseq3'?"\t":"\n" {print $0}' >> $tempfile.3
+
+	# CHECK IF THERE ARE NO SEQUENCES OR BAD SEQUENCES
+	let w=$(wc -l $tempfile.3 | cut -f 1 -d ' ')	#
+	let x=$(cat $tempfile.2 | wc -l) 		# all 2-column lines in sync file containing $setpre, minus a permissable starting-blank
+	let y=$(tail -n +2 $tempfile.3 | wc -l)		# total sequence-sets (trials)
+	let z=$(echo $y*$nseq2 | bc)			# sequence-sets times the number of items in the sync-sequence
+	if [ $w -lt 2 ] ; then
+		echo -e $RED"\n--- Error: no valid sequences ($setseq) in $setfile $NC\n"
+		if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
+		exit
+	elif [ $x -ne $z ] ; then
+		echo -e "$RED--- Warning: additional, different sequences in $setfile" >&2
+		echo -e "	- is that ok?" >&2
+		echo -e "	- is --seq ($setseq) correctly defined?" >&2
+		echo -e "	- is --blank ($setblank0) correctly defined?\n$NC" >&2
+	fi
+
+	if [ "$setcount" == "0" ] ; then cat $tempfile.3
+	else {
+		tail -n +2 $tempfile.3 > $tempfile.4
+		# save the intervals
+		xe-getdelta1 $tempfile.4 -t 1 > $tempfile.5
+		# get the stats
+		stats=$(xe-statsd1 $tempfile.5)
+		mean=$(echo $stats | xe-getkey2 stdin MEAN)
+		stddev=$(echo $stats | xe-getkey2 stdin STDDEV)
+		# define the interval threshold
+		thresh=$(echo "5 * $stddev + $mean" | bc | xe-math_round1 stdin -b 1)
+		# count syncs by block
+		paste $tempfile.4 $tempfile.5 |
+			awk '
+			BEGIN{ tot=0; m=0; block=1 ; thresh="'$thresh'"+0 ; print "TIME\tINT\tSYNC\tTOT"}
+			{
+				b=$2+0
+				if(b>thresh) {block++ ; sync=0; print "" }
+				sync++ ; tot++;
+				print $1"\t"b"\t"sync"\t"tot
+
+			}
+			END {print "\nBLOCKS: "block}'
+	}
+fi
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "trials" ] ; then
+
+	# DETERMINE THE EXPECTED BATCH FROM SYNC FILE-NAME, IF SPECIFIED
+	if [ "$setfile" != "" ] ; then
+		if [ "$setbatch" == "all" ] ; then  setbatch=$filebatch
+		elif [ "$filebatch" != "$setbatch" ] ; then
+				echo -e $RED"\n--- Error: specified batch ($setbatch) does not match the .plan file MAPPING batch entry ($filebatch) for subject $subject and session $session, as derived from --file $setfile"
+				xe-strxmlparse1 $fileplan MAPPING
+				echo -e "$NC"
+				exit
+		fi
+	fi
+
+	# BUILD A LIST OF ALL TRIALS
+	listcols=$(xe-strxmlparse1 $fileplan TRIALS | awk 'NF>0&&$0!~/^#/{print $0;exit}' | tr '\t' '\n' | grep -vE 'batch|box' | paste -s | tr '\t' ',')
+	xe-strxmlparse1 $fileplan TRIALS | xe-cut1 stdin batch,box -s 1 -d '\t' | awk '{print $1"#"$2}' > $tempfile.0
+	xe-strxmlparse1 $fileplan TRIALS | xe-cut1 stdin $listcols -s 1 -d '\t' | paste $tempfile.0 - > $tempfile.1
+	xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin batch,box -s 1 -d '\t' | awk '{print $1"#"$2}' > $tempfile.0
+	xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin session,subject,$setappend -s 1 -d '\t' | paste $tempfile.0 - > $tempfile.2
+	# apply subject & session to trials according to the batch/box combination in the mapping section
+	if [ "$setappend" != "" ] ; then
+		xe-dbmatch2 $tempfile".1" batch#box $tempfile".2" subject |    # add subject
+		xe-dbmatch2 stdin batch#box $tempfile".2" session  | # add session
+		xe-dbmatch2 stdin batch#box $tempfile".2" $setappend > $tempfile.3 # append the extra column from the MAPPING section
+	else
+		xe-dbmatch2 $tempfile".1" batch#box $tempfile".2" subject |    # add subject
+		xe-dbmatch2 stdin batch#box $tempfile".2" session > $tempfile.3  # add session
+	fi
+
+	# BREAK BATCH-BOX FIELD AND ADD TRIAL NUMBERS
+	cat $tempfile.3 |
+		tr '#' '\t' | # restore delimiter for subject & session
+		xe-cut1 stdin batch,box,subject,session,$listcols,$setappend -d '\t' | # reorder columns
+		awk 'NF>0{print $0}' |
+		xe-timestamp1 stdin -sf 1 -o 1 -p 0 -head trial > $tempfile.4
+
+	# FILTER TRIALS BY BATCH IF REQUIRED
+	if [ "$setbatch" != "all" ] ; then
+		xe-dbmatch1 $tempfile.4 batch $setbatch > $tempfile
+		mv $tempfile $tempfile.4
+	fi
+
+	# ADD SYNC RECORDS IF A SYNC FILE IS SPECIFIED
+	let x=0 ; let y=0 ; let z=0;
+	if [ "$setfile" != "" ] ; then
+		mv $tempfile.4 $outbase.2
+		# call back to this program to generate syc record
+		if [ "$setverb" == "1" ] ; then echo "$thisprog  sync --file $setfile --seq $setseq0 --blank $setblank0 --batch $setbatch" ; fi
+
+		# call this program in sync-mode
+		$thisprog  sync --file $setfile --seq $setseq0 --blank $setblank0 --batch $setbatch > $outbase.3
+
+		mv $outbase.2 $tempfile.2
+		mv $outbase.3 $tempfile.3
+		let x=$(tail -n +2 $tempfile.2 | wc -l) # number of trials
+		let y=$(tail -n +2 $tempfile.3 | wc -l) # number of syncs
+		let z=$(grep Error $tempfile.3 | wc -l)
+
+		if [ $z -gt 0 ] ; then
+			cat $tempfile.3
+			if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
+			exit
+		elif [ $x -ne $y ] ; then
+			echo -e $RED
+			echo "--- Error ["$thisprog"]: batch $setbatch mismatch between sync pulses($y) and trials($x)"
+			echo "	- check batches match in the MAPPING and TRIALS sections of $fileplan"
+			echo "	- if they do, this error suggests that TRIALS may have been incorrectly recorded"
+			echo -e $NC
+			if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
+			exit
+		else paste $tempfile.2 $tempfile.3 |
+			xe-dbmatch1 stdin subject $subject > $tempfile.4
+		fi
+	fi
+
+	# OUTPUT
+	cat $tempfile.4
+
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "check" ] ; then
+	if [ "$fileplan" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no file matching *.plan in this directory" ; echo ; exit; } ; fi
+	# make sure mapping section is present
+	xe-strxmlparse1 $fileplan MAPPING | awk 'NF>0&&$0!~/^#/{print $0}' > $tempfile
+	if [ ! -s $tempfile ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: empty or missing MAPPING section in $fileplan$NC" ; echo ; exit; } ; fi
+	# make sure subject-ids are entered
+	xe-cut1 $tempfile session,subject,batch,box -s 1 -d '\t' | awk -F'[- \t]+' 'NF!=4{print $0}' > $tempfile".error"
+	if [ -s $tempfile.error ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: missing field (session,subject,batch,box) in MAPPING section of $fileplan$NC" ; xe-delimit $tempfile ; echo ; exit; } ; fi
+	# check for within-session duplicate subjects
+	xe-cut1 $tempfile session,subject -o 1 | uniq -d > $tempfile".error"
+	if [ -s $tempfile.error ] ; then { echo ; echo -e "$RED*** duplicate session-subject combination in $fileplan: $NC" ; cat $tempfile".error" ; echo ; exit; } ; fi
+	listbatch1=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin batch -s 1 -o 1 -d '\t' |sort -nu| grep [0-9] --color=never | paste -s | tr '\t' ' ')
+	listbatch2=$(xe-strxmlparse1 $fileplan TRIALS | xe-cut1 stdin batch -s 1 -o 1 -d '\t' |sort -nu| grep [0-9] --color=never | paste -s | tr '\t' ' ')
+	if [ "$listbatch1" != "$listbatch2" ] ; then { echo ; echo "--- Error ["$thisprog"]: batches in MAPPING ($listbatch1) differ from batches in TRIALS ($listbatch2)" ; echo ; exit; } ; fi
+	if [ "$listbatch1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no batches identified in MAPPING or TRIALS sections" ; echo ; exit; } ; fi
+	if [ $setbatch == "all" ] ; then listbatch3=$listbatch1 ; else listbatch3=$setbatch ; fi
+	for batch in $listbatch3 ; do
+		echo "Checking sync/plan correspondence for batch #"$batch"..."
+		# output the registered trials for each box
+		xe-dbmatch1 $fileplan batch $batch -xml TRIALS |
+			xe-cut1 stdin batch,box -o 1 -d '\t' |
+			awk '
+			BEGIN {tot=0}
+			{ tot++ ; if($2=="x"||$2=="-") n[0]++ ; else n[$2]++ }
+			END {
+				for(i=1;i<='$nboxes';i++) print "batch '$batch' box "i": "n[i]
+				print "invalid trials: "n[0]
+				print "TOTAL: "tot
+			}'
+		# output the sync-pulse count for files matching the batch subject-ids
+		listsub=$(xe-dbmatch1 $fileplan batch $batch -xml MAPPING -oc subject -o 1)
+		x=$(echo $setseq | tr ',' ' ')
+		for i in $listsub ; do
+			in1=$(ls -1 *_$i*.sync | head -n 1)
+			z=$(xe-getsequence1 $in1 2 exact $x | grep "#" --colour=never | cut -f 3 -d " ")
+			echo $in1": "$z
+		done
+		echo
+	done
+
+
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "config" ] ; then
+	# THIS OPTION WILL ONLY PARTLY WORK IF FILES WERE RENAMED
+	# NOTE THAT SUBJECT AND SESSION SHOULD ALREADY BE DEFINED UP TOP
+
+	if [ "$setfile" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: please set a .dat or .yaml input file (--file)$NC\n";  exit; } fi
+	ext=$(echo $setfile | rev | cut -f 1 -d . | rev)
+
+	filesource="$setfile"; fileyaml=""
+	start_date=""; start_time=""; stop_date=""; stop_time=""; stop_secs="";
+	nbytes=""; datasize=""; datsamps=""; dursecs=""; duration="";
+	if [ "$ext" == "dat" ] ; then
+		# SET DEFAULT START/STOP DATE AND TIME
+		# get the estimated start-date & time
+		z=$(date -du --date="$stop_date $stop_time $dursecs seconds ago" +"%Y/%m/%d %H:%M:%S.%3N")
+		start_date=$(echo $z | cut -f 1 -d ' ' )
+		start_time=$(echo $z | cut -f 2 -d ' ' )
+		start_secs=$(echo $start_time | xe-timeconv1 stdin)
+		# use defaults for datbits, n_channels, and sample_rate
+		# this uses the last-write-time of the .dat file as the reference time to count backwards using the number of bytes-written
+		filesource=$setfile # this may be changed if a matching .yaml file is found
+		stop_date=$(stat -L $setfile | grep Modify: | cut -f 2 -d ' ' | tr '-' '/')
+		stop_time=$(stat -L $setfile | grep Modify: | cut -f 3 -d ' ')
+		stop_secs=$(echo $stop_time | xe-timeconv1 stdin)
+		nbytes=$(du -bL $setfile | cut -f 1)
+		datasize=$(echo "$datbits/8"|bc) # bytes per datum, eg for 16bit integer
+		datsamps=$(echo "scale=1; $nbytes/($datasize*$n_channels)" | bc)
+		dursecs=$(echo "scale=12;$datsamps/$sample_rate" |bc)
+		duration=$(echo $dursecs | xe-timeconv1 stdin -f 2)
+		sample_rate=$(echo "scale=3; $datsamps / $dursecs" | bc)
+		# avoid invalid result from "date" command by ensuring duration is at least 1-second
+		let x=$(echo "$dursecs<1" | bc)
+		if [ $x -eq 1 ] ; then dursecs="1"; duration="" ; fi
+		# identify the matching .yaml file - note that subject session etc are defined at the top if --file was set
+		fileyaml=$(grep $setfile *yaml -l --color=never 2>/dev/null)
+	elif [ "$ext" == "yaml" ] ; then
+		fileyaml=$setfile
+		subject=$(grep "alias:" $fileyaml --color=never | awk '{print $2}' | paste -s | tr '\t' ',')
+	else
+		{ echo -e $RED"\n--- Error: for mode \"config\", --file ($setfile) must be a .dat or .yaml file $NC\n" ; exit ; }
+	fi
+
+	# ADD EXTRA DATA AND UPDATE SOME VALUES BASED ON YAML CONTENTS IF POSSIBLE
+	# NOTE THAT IF THE .dat FILE WAS COPIED, IT'S POSSIBLE THE START/STOP/DURATION VALUES ARE INCORRECT
+	if [ "$fileyaml" != "" ] ; then
+
+		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $fileyaml | awk '{print $2}') ; fi
+		start_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
+		start_time=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 3 | tr '-' '/')
+		stop_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep finish_datetime --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
+		stop_time=$(xe-cut2 $fileyaml recording: -s4 1 | grep finish_datetime --color=never | xe-delimit stdin | cut -f 3 | tr '-' '/')
+		s1=$(date -d "$start_date $start_time" '+%s')
+		s2=$(date -d "$stop_date $stop_time" '+%s')
+		duration=$(echo $s2 - $s1 | bc | xe-timeconv1 stdin -f 2)
+		datinvalid=$(xe-cut2 $fileyaml recording: -s4 1 | grep lost_data_symbol: --color=never | xe-delimit stdin | cut -f 2)
+		sample_rate=$(xe-cut2 $fileyaml transmitters: -s4 1 | xe-getkey stdin nominal_sample_frequency: | head -n 1)
+		n_channels=$(xe-cut2 $fileyaml transmitters: -s4 1 | xe-getkey stdin no_channels: | head -n 1)
+		bit_depth=$(xe-cut2 $fileyaml transmitters: -s4 1 | xe-getkey stdin bit_depth: | head -n 1)
+		a=$(xe-cut2 $fileyaml transmitters: -s4 1 | xe-getkey stdin prefilt_hp: | head -n 1)
+		b=$(xe-cut2 $fileyaml transmitters: -s4 1 | xe-getkey stdin prefilt_lp: | head -n 1)
+		# check validity of low-and high-pass filters - in previous versions of TAINI-live, the values were reversed
+		if [ $(echo "$a > $b" | bc) -eq 1 ] ; then z=$a; a=$b ; b=$z ; fi
+		setfiltlow=$a
+		setfilthigh=$b
+		# get extra values per recording
+		grep --color=never -E -- ' id:' $fileyaml | tr -d ' '| cut -f 2 -d : > $tempfile".1"
+		grep --color=never -E -- ' band_id:' $fileyaml | tr -d ' '| cut -f 2 -d : > $tempfile".2"
+		grep --color=never -E -- ' output_destination:' $fileyaml | tr -d ' '| cut -f 2 -d : | awk -F / '{print $NF}' > $tempfile".3"
+		paste $tempfile".1" $tempfile".2" $tempfile".3" > $tempfile".4"
+		if [ "$ext" == "dat" ] ; then
+			device=$(grep $setfile $tempfile".4" | cut -f 1)
+			band=$(grep $setfile $tempfile".4" | cut -f 2)
+		else
+			device=$(cut -f 1 $tempfile".4" | paste -s | tr '\t' ',')
+			band=$(cut -f 2 $tempfile".4" | paste -s | tr '\t' ',')
+		fi
+
+	else
+		echo -e "$RED--- Warning ["$thisprog"]: no matching .yaml file \n\t- using file-characteristics & defaults for some parameters$NC" >&2
+	fi
+
+	# calculate max dat value based on bit-depth and assuming signed integers
+	datmax=$(echo "2^($bit_depth-1)-1" | bc)
+
+	echo "file_source= "$filesource
+	echo "file_yaml= "$fileyaml
+	echo "experiment= "$setexpt
+	echo ""
+	echo "subject= "$subject
+	echo "session= "$session
+	echo "device= "$device
+	echo "band= "$band
+	echo ""
+	echo "start_date= "$start_date
+	echo "stop_date= "$stop_date
+	echo "start_time= "$start_time
+	echo "stop_time= "$stop_time
+	echo "duration= "$duration
+	echo ""
+	echo "datinvalid= "$datinvalid
+	echo "sample_rate= "$sample_rate
+	echo "n_channels= "$n_channels
+	echo "datbits= "$datbits
+	echo "datmax= "$datmax
+	echo "filt_low= "$setfiltlow
+	echo "filt_high= "$setfilthigh
+	echo ""
+	echo "filename_field_alias= "$colalias
+	echo "filename_field_year= "$colyear
+	echo "filename_field_month= "$colmonth
+	echo "filename_field_day= "$colday
+	echo "filename_field_inc= "$colinc
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "plot" ] ; then
+
+	list=$(ls *.dat)
+	plotlist=""
+	for in1 in $list ; do
+		echo
+		# DETERMINE FILE-NAME TYPE FOR THIS FILE- TAINI OR LDAS
+		if [ "$filename" == "taini" ] ; then
+			subject=$(echo $in1 | cut -f 1 -d '-' | cut -f 3 -d '_')
+		else
+			subject=$(echo $in1 | cut -f 2 -d '_' | cut -f 1 -d '.')
+		fi
+
+		# DETERMINE WHAT TO USE AS THE CHANNEL-TABLE
+		x="table_channels_"$subject".txt"
+		y="table_channels_template.txt"
+		if [ "$filenotes" != "" ] ; then table=$filenotes
+		elif [ -e $x ] ; then table=$x
+		elif [ -e $y ] ; then table=$y
+		else table=$template_channels
+		fi
+		echo "plotting using channel-table: $table"
+
+		# DETERMINE START-TIME: 2 SECONDS BEFORE THE END OF THE FILE
+		opts1="-c good -f $sample_rate -l 10 -h 0 -w 1 -m 0 -v 0 -d 1000 -t $table"
+		start=$(xe-filesize1 $in1 -sf $sample_rate -dt 2 -nch $n_channels | xe-getkey2 stdin nseconds= | awk '{a=$1-2.0; if(a<0.0) a=0; print a}')
+		if [ "$fileplan" != "" ] ; then
+			box=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc box -o 1    2>/dev/null)
+			band=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc band -o 1  2>/dev/null)
+			dev=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc device -o 1 2>/dev/null)
+			title=$in1"_box:"$box"_band:"$band"_device:"$dev"_start:"$start
+		else
+			title=$in1"_start:"$start
+		fi
+		plotfile=$tempfile"_"$in1".ps"
+		plotlist=$plotlist" "$plotfile
+		echo "xs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\""
+		xs-ldas5-plotdata1 $in1 $opts1 -s $start -P "-yscale .25 -frame 15 -title $title -out $plotfile" &>/dev/null
+	done
+	xe-plotmerge1 -xmax 1 -ymax 4 $plotlist
+	rm -f $plotlist
+	xe-plotmerge2 temp_xe-plotmerge1.*.ps > $fileplot
+	rm -f temp_xe-plotmerge1.*.ps
+	evince $fileplot &
+
+
+#-------------------------------------------------------------------------------
+else
+	{ echo -e "\n$RED--- Error ["$thisprog"]: invalid mode ($setmode)$NC\n" ; exit; }
+fi
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

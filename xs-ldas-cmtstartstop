@@ -1,0 +1,50 @@
+#!/bin/bash
+thisprog="xs-ldas-cmtstartstop"
+tempfile="temp_"$thisprog
+rm -f $tempfile*
+
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": pull out the first & last comment in a .cmt file"
+	echo "- first comment will be labelled \"SESSION_START\""
+	echo "- last comment will be labelled \"SESSION_END\""
+	echo "- only considers lines: "
+	echo "	- with at least two fields"
+	echo "	- with a numeric value (time) in the first field"
+	echo "	- for which time is larger than the preceeding line"
+	echo "USAGE: "$thisprog" [comment-file] "
+	echo "	[comment-file]: file in format <time> <event>"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 002-991231_001.cmt > new_cmt.txt"
+	echo "------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filecmt=$1 ; shift 
+
+################################################################################
+# CHECK VALIDITY OF ARGUMENTS
+################################################################################
+if [ ! -e $filecmt ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filecmt' missing" ; echo ; exit ; } fi
+
+
+echo "time event" | xe-delimit stdin 
+head $filecmt | 
+	xe-checkisnum2 stdin -f 1 | 
+	head -n 1 |
+	awk '{print $1"\tSESSION_START"}'
+
+cat $filecmt | 
+	xe-checkisnum2 stdin -f 1 | 
+	awk 'BEGIN{p=-1} {if(NF>1 && $1>p) print $0 ; p=$1}' |
+	tail -n 1 |
+	awk '{print $1"\tSESSION_STOP"}' 
+
+exit

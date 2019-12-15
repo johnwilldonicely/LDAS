@@ -1,0 +1,79 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+thisprog="xs-dbmatch1"
+let matchstyle=0
+setprefilter=""
+
+if [ $# -lt 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Extract a column from a file if another column matches a value"
+	echo "- USAGE: "$thisprog" [in] [col1] [match] [col2]"
+	echo "	[in]: file containing data"
+	echo "	[col1]: column containing key to be matched"
+	echo "	[match]: the value which must match [col1]"
+	echo "	[col2]: column containing the required output"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-p: prefilter database for lines beginning with a keyword"
+	echo "		- allows searching files with multiple record types"
+	echo "	-m: match style [default=exact]"
+	echo "		0=exact"
+	echo "		1=contains (case-sensitive)"
+	echo "		2=case-insensitive (exact)"
+	echo "		3=numeric unpadded"
+	echo "EXAMPLE: "$thisprog" database.txt region pfc channel -m 2 "
+	echo "EXAMPLE: "$thisprog" 005-999999.notes region hip_ca1pyr channel -m 0 -p CHANNEL"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+infile=$1 ; shift
+matchcol=$1 ; shift
+matchval=$1 ; shift
+outcol=$1 ; shift
+
+# CHECK INFILE IS PRESENT
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; echo ; exit ; } fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":m:p:" flag ; do
+ 	case $flag in
+ 		m) let matchstyle=$OPTARG;;
+ 		p) setprefilter=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ $matchstyle -lt 0 ] || [ $matchstyle -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid match-style (-m $matchstyle)" ; echo ; echo ; exit ; } fi
+
+# EXTRACT VALUE USING SELECTED MATCHING STYLE
+if [ -z $setprefilter ] ; then
+	if [ $matchstyle == 0 ] ; then
+		xe-cut1 $infile $matchcol,$outcol -o 1 | awk '$1=="'$matchval'"{print $2}'
+	elif [ $matchstyle == 1 ] ; then
+		xe-cut1 $infile $matchcol,$outcol -o 1 | awk '$1~"'$matchval'"{print $2}'
+	elif [ $matchstyle == 2 ] ; then
+		newmatch=$(echo $matchval | awk '{print toupper($1)}' )
+		xe-cut1 $infile $matchcol,$outcol -o 1 | awk 'toupper($1)=="'$newmatch'"{print $2}'
+	elif [ $matchstyle == 3 ] ; then
+		newmatch=$(echo $matchval | awk '{printf("%g",$1)}' )
+		xe-cut1 $infile $matchcol,$outcol -o 1 | awk '$1=='$newmatch'{print $2}'
+	fi
+else
+	if [ $matchstyle == 0 ] ; then
+		awk '$1=="'$setprefilter'"{print $0}' $infile | cut -f 2- | xe-cut1 stdin $matchcol,$outcol -o 1 | awk '$1=="'$matchval'"{print $2}'
+	elif [ $matchstyle == 1 ] ; then
+		awk '$1=="'$setprefilter'"{print $0}' $infile | cut -f 2- | xe-cut1 stdin $matchcol,$outcol -o 1 | awk '$1~"'$matchval'"{print $2}'
+	elif [ $matchstyle == 2 ] ; then
+		newmatch=$(echo $matchval | awk '{print toupper($1)}' )
+		awk '$1=="'$setprefilter'"{print $0}' $infile | cut -f 2- | xe-cut1 stdin $matchcol,$outcol -o 1 | awk 'toupper($1)=="'$newmatch'"{print $2}'
+	elif [ $matchstyle == 3 ] ; then
+		newmatch=$(echo $matchval | awk '{printf("%g",$1)}' )
+		awk '$1=="'$setprefilter'"{print $0}' $infile | cut -f 2- | xe-cut1 stdin $matchcol,$outcol -o 1 | awk '$1=='$newmatch'{print $2}'
+	fi
+fi

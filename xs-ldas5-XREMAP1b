@@ -1,0 +1,188 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="XREMAP1"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setopt1=""
+setskip="-"
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process remapping analysis"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [trial1] [trial2]"
+	echo "		[db]: database file specifying path and group on each line"
+	echo "		trial1: first trial for comparison (baseline)"
+	echo "		trial2: second trial for comparison (response)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: calculation of values"
+	echo "		c: collate results"
+	echo "		p: plot results"
+	echo "	--opt1: options (in quotes) for xs-ldas5-$progbase1 [$setopt1]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: calculation of values"
+	echo "		c: collate results"
+	echo "		p: plot results"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_25HOUR.txt -O \"-t FAM1\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+################################################################################
+# ARGUMENT HANDLING
+################################################################################
+# REQUIRED
+filedb=$1 ; shift
+settrial1=$1; shift
+settrial2=$1; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+# OPTIONS
+vs="s:v:c:" ; vl="opt1:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-s | --skip ) setskip=$2 ; shift ;;
+		--opt1 ) setopt1=$setopt1" "$2 ; shift ;;
+		-s | --skip ) setskip=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+rm -f $tempfile*
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+################################################################################
+# RUN THE ANALYSIS FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	echo "	...running analysis..."
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN THE ANALYSIS IN THE CURRENT DIRECTORY (IF THIS STEP IS NOT PART OF THE SKIP FLAG)
+		xs-ldas5-$progbase1 $base $settrial1 $settrial2 $setopt1
+	done
+fi
+cd $startdir
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	rm -f $progbase1*
+	xs-collate1 $filedb $progbase1"_cellstats.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_cofiring.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_behaviour.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_ripples_diff.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_ripples_rep.txt" --verb 0
+fi
+
+
+
+################################################################################
+# GENERATE THE PLOTS
+################################################################################
+if [ "$(echo $setskip | grep -v p)" ] ; then
+	echo "################################################################################"
+
+	in1=$progbase1"_behaviour.txt"
+	listvar=$(head $in1 -n 1  | tr '\t' '\n' | grep -v subject  | grep -v group)
+	plotoptsA="-xscale .175 -pt box -lwd 1 -pf 1 -ew 0.5 -ymin 0 -hline 1"
+	plotoptsB="-xscale .175 -colour 0 -pf -1 -ps 2 -ymin 0 "
+
+	listplots=""
+	for var in $listvar ; do
+
+		fileplot=$tempfile"_"$var".ps"
+		listplots=$listplots" "$fileplot
+		xe-cut1	$in1 group,"$var" > $tempfile
+		xs-plotmeans1 $tempfile group "$var" -t "$title" -A "$plotoptsA"  -B "$plotoptsB" -o $fileplot
+	done
+	xe-plotmerge1 $listplots -out $progbase1"_behaviour"
+
+
+
+	# SUMMARY STATISTIC PLOTS
+	# echo "	...plotting pyr & int summary stats ("$progbase1"_summary2.ps)..."
+	# plotoptsA="-xscale .175 -ymin 0 -pt box -lwd 1 -pf 1 -ew 0.5"
+	# plotoptsB="-xscale .175 -colour 0 -ymin 0 -pf -1 -ps 2"
+	# # get variable list (excluding subject, group and class)
+	# listvar=$(head $progbase1"_cellstats.txt" -n 1 | cut -f 4-)
+	# for class in 1 2 ; do
+	# 	let count=0;
+	# 	listplots=""
+	# 	for var in $listvar ; do
+	# 		let count=$count+1
+	# 		if [ $count -eq 1 ] ; then title="Cell class $class" ; else title="" ; fi
+	# 		xe-dbmatch1 $progbase1"_summary2.txt" class $class | xe-cut1 stdin group,$var > $tempfile
+	# 		fileplot=$tempfile"_"$var".ps"
+	# 		listplots=$listplots" "$fileplot
+	# 		xs-plotmeans1 $tempfile group $var -y "$var" -t "$title" -A "$plotoptsA"  -B "$plotoptsB" -o $fileplot
+	# 	done
+	# 	xe-plotmerge1 $listplots -out $tempfile"_class"$class
+	# done
+	#
+	# xe-plotmerge2 $tempfile"_class"*"ps" >  $progbase1"_summary2.ps"
+fi
+
+
+# CLEAN UP
+rm -f $tempfile*
+
+# REPORT TIME TO FINISH THE JOB
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

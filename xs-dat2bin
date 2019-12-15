@@ -1,0 +1,151 @@
+#!/bin/bash
+# <TAGS>file ldas</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setbase=""
+setsrout="1000"
+setmean="0"
+setbad="1"
+setverb="1"
+setclean="1"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": downsample an interlaced .dat file"
+	echo "	- uses xe-ldas5-readdat2 to interpolate, filter(anti-alias), and decimate"
+	echo "	- outputs multiple 1-channel .bin files (binary 32-bit float)"
+	echo "	- basename is everything before the last dot in the input file name"
+	echo "USAGE: $thisprog [infile] [nchans] [srin]"
+	echo "	[infile]: interlaced multi-channel binary file (16-bit short-integer)"
+	echo "	[nchans]: number of channels in infile"
+	echo "	[srin]: sample-rate of infile"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--base: basename for output (if unset, infile minus extension) [$setbase]"
+	echo "	--mean: window size (seconds) for de-meaning data (0=SKIP) [$setmean]"
+	echo "	--srout: output sample-rate (Hz) [$setsrout]"
+	echo "	--bad: invalid value (0,-1, or 1=SHRT_MAX) [$setbad]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20180101_123456.dat 64 20000"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setnchans=$1 ; shift
+setsrin=$1 ; shift
+
+# check file exists and is not empty
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+if [ ! -s $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="base:,mean:,srout:,bad:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--base ) setbase=$2 ; shift ;;
+		--mean ) setmean=$2 ; shift ;;
+		--srout ) setsrout=$2 ; shift ;;
+		--bad ) setbad=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setbad" != "0" ] && [ "$setbad" != "-1" ] && [ "$setbad" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --bad ($setbad) -  must be 0,-1, or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ "$setbase" != "" ] ; then base=$setbase ; else base=${infile%.*} ; fi
+ext=${infile#*.}
+let maxchan=$(echo "$setnchans-1" | bc)
+decimate=$(echo "scale=6; $setsrin/$setsrout" | bc)
+
+let z=$(echo "$setsrin > $setsrout" | bc)
+if [ $z -eq 0 ] ; then
+	echo
+	echo "--- Warning ["$thisprog"]: input sample rate ($setsrin) <= output sample rate ($setsrout)"
+	echo "	- sample rate will remain unchanged"
+	echo
+	setsrout=$setsrin
+	decimate=0;
+fi
+
+# assign bad-value
+bval=$setbad ; if [ "$bval" == "1" ] ; then bval="32767" ; fi
+
+echo "infile= "$infile
+echo "n_channels= "$setnchans
+echo "demean_window= "$setmean" seconds"
+echo "sr_in= "$setsrin" Hz"
+echo "sr_out= "$setsrout" Hz"
+echo "decimate= "$decimate
+echo "invalid_value= "$bval
+
+#echo "base="$base
+#echo "ext="$ext
+
+########################################################################################
+# 2. MAKE INTERPOLATED .bin FILES - FOR EEG-TYPE ANALYSIS
+# - downsample to exactly 1000Hz
+# - save downsampling factor to notes file
+# - save directly to output path
+########################################################################################
+echo "...making interpolated .bin files..."
+# adjust demean-value to samples
+if [ "$setmean" != "0" ] ; then demean=$(echo "$setmean*$setsrin" | bc | xe-math_round2 stdin ) ; else demean="0" ; fi
+
+for setchan in $(seq 0 $maxchan) ; do
+	chan2=$(echo $setchan | awk '{printf("%03d",$1)}')
+	outfile=$base"-"$chan2".bin"
+	echo "	downsampling $chan2 to $outfile"
+	xe-ldas5-readdat2 $infile -sf $setsrin -nch $setnchans -ch $setchan -bad $setbad -int 1 -mean $demean -dec $decimate -con 1 -out 1 -verb $setverb  > $outfile
+	echo
+done
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

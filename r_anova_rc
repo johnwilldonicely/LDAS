@@ -1,0 +1,171 @@
+#!/bin/bash
+#  make a batch file for ANOVA using R
+
+thisprog="r_anova_rc"
+tempfile="temp_"$thisprog
+scriptfile=$tempfile"_script"
+datafile=$tempfile"_data"
+
+if [ $# -lt 4 ] ; then 
+echo "-----------------------------------------------------------"
+echo "Perform repeated-measures ANOVA using R"
+echo "Specify filename and list of columns"
+echo "Format: "$thisprog" [file] [data] [sub] [rep] [options]"
+echo "	[file] = input file"
+echo "	[data] = column containing dependent variable"
+echo "	[sub] = subject-number column"
+echo "	[rep] = repeated-measures column"
+echo "	[options]: optional arguments..."
+echo "		-b [between-subjects factors]"
+echo "			Specify factor-columns(in quotes)"
+echo "		-c [planned comparisons]"
+echo "			Specify comparisons (in quotes) to be performed"
+echo "			Run without -c to see available contrasts"
+echo "			Example: -c \"0 0 0 -1 0 0 1\""
+echo "		-l : list possible planned comparisons"
+echo "		-d : Dunnetts posthoc comparisons"
+echo "		-t : Tukeys posthoc comparisons"
+echo "Examples:"
+echo "	"$thisprog" file.txt 5 1 3"
+echo "	"$thisprog" file.txt 5 1 3 -d"
+echo "	"$thisprog" file.txt 5 1 4 -b \"3 2 \" -c 0,0,-1,1,0,0,0"
+echo ""
+echo "NOTE: proper planned comparisons require specifying orthogonal "
+echo "	contrast-coefficient sets - do manually using temp file?"
+echo "-----------------------------------------------------------"
+exit
+fi
+
+infile=$1; shift
+dvcol=$1; shift
+subcol=$1; shift
+repeatedcol=$1; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  "ldtb:c:" flag ; do
+	case $flag in
+	l) listcons=1;;
+	d) dunnetts=1;;
+	t) tukeys=1;;
+	b) between=$OPTARG;;
+	c) contrasts=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# STRIP OUT ANY LINES IF THE IMPORTANT COLUMNS DO NOT CONTAIN NUMBERS
+# FOR THIS ANALYSIS, DO NOT DEFINE AN ACCEPTED MISSING-VALUE - THERE ARE NONE! (HENCE SET -m TO xxxx)
+cat $infile | xe-checkisnum2 stdin -t 1 -f $dvcol,$subcol,$repeatedcol -m xxxx > $datafile
+
+# MAKE SURE EACH SUBJECT CONTRIBUTES THE SAME REPEATED_MEASURES VALUES (TYPICALLY TRIAL) 
+list_repeated=$(awk '{print $'$repeatedcol'}' $datafile | sort -u)
+list_subj=$(awk '{print $'$subcol'}' $datafile | sort -u)
+echo
+
+flag=""
+for i in $list_subj ; do 
+	missing=""
+	awk '$'$subcol'=="'$i'"{print $'$subcol'"\t"$'$repeatedcol'}' $datafile > $tempfile
+	for j in $list_repeated ; do 
+		if [ ! $(awk '$2=="'$j'"{print $1; exit}' $tempfile) ] ; then missing=$missing" "$j ; fi
+	done
+	if [ "$missing" ] ; then 
+		flag="y"
+		echo "--- Warning ["$thisprog"]: subject "$i" missing repeated measures level "$j
+	fi
+done
+
+
+# PRINT ANALYSIS SUMMARY
+echo ; echo "Columns... Data:"$dvcol" Subj:"$subcol" Repeated:"$repeatedcol" Factors:"$between ; 
+
+# LOAD REQUIRED LIBRARIES. IF MISSING, START R AND USE THIS: install.packages()
+echo "
+library(nlme)
+" > $scriptfile
+
+# READ MAIN DATA INTO A MATRIX
+echo "
+datamatrix <- read.table('"$datafile"', header = FALSE)
+attach(datamatrix)
+data<-(V"$dvcol")
+subjects<-factor(V"$subcol")
+repeated<-factor(V"$repeatedcol")
+" >> $scriptfile
+
+# BUILD A DATA FRAME
+# - READ BETWEEN-SUBJECTS FACTORS IF REQUIRED BY -b
+if [ "$between" ] ; then 
+	echo "# BETWEEN-SUBJECTS FACTORS:" >> $scriptfile
+	for i in $between ; do 
+		echo "col_"$i"<-factor(V"$i")" >> $scriptfile
+		starfactors=$starfactors"*col_"$i	# a string for defining models
+		factors=$factors""$separator"col_"$i	# a string for building the data frame
+		separator=","
+	done
+	echo "" >> $scriptfile
+	echo "# BUILD THE DATA FRAME" >> $scriptfile
+	echo "gDATA=data.frame(data,subjects,repeated,"$factors")"  >> $scriptfile
+	echo "" >> $scriptfile
+else
+	echo "# BUILD THE DATA FRAME" >> $scriptfile
+	echo "gDATA=data.frame(data,subjects,repeated)"  >> $scriptfile
+	echo "" >> $scriptfile
+fi 
+
+echo "# GROUP THE DATA" >> $scriptfile
+echo "gDATA<-groupedData( data ~ 1 | subjects,data = as.data.frame( gDATA ))" >> $scriptfile
+echo "" >> $scriptfile
+
+echo "# BUILD THE MODEL TO BE TESTED" >> $scriptfile
+echo "MODEL.lme=(lme(data~repeated"$starfactors", random = ~1 | subjects,data=gDATA)) " >> $scriptfile
+echo "" >> $scriptfile
+
+echo "# PERFORM THE OVERALL ANOVA" >> $scriptfile
+echo "anova(MODEL.lme) " >> $scriptfile
+echo "" >> $scriptfile
+
+if [ $listcons ] || [ "$contrasts" ] || [ $tukeys ] || [ $dunnetts ] ; then 
+	echo ""  >> $scriptfile
+	echo "library(multcomp)" >> $scriptfile
+	echo ""  >> $scriptfile
+fi 
+
+if [ $listcons ] ; then 
+	echo "# PRINT THE POSSIBLE CONTRASTS"  >> $scriptfile
+	echo "colnames(coef(MODEL.lme))" >> $scriptfile
+	echo "" >> $scriptfile
+fi 
+
+if [ "$contrasts" ] ; then 
+	echo "# PLANNED COMPARISONS"  >> $scriptfile
+	echo "COEFS <- rbind(c("$contrasts"))" >> $scriptfile
+	echo "COEFS" >> $scriptfile
+	echo "summary(glht(MODEL.lme,COEFS))"  >> $scriptfile
+	echo "" >> $scriptfile
+fi 
+
+if [ $tukeys ] ; then 
+	echo "# PERFORM POST-HOC TESTS - TUKEY'S" >> $scriptfile
+	echo "summary(glht(MODEL.lme, linfct = mcp(repeated = \"Tukey\")))" >> $scriptfile
+	echo "" >> $scriptfile
+
+fi 
+
+if [ $dunnetts ] ; then 
+	echo "# PERFORM POST-HOC TESTS - DUNNETT'S" >> $scriptfile
+	echo "summary(glht(MODEL.lme, linfct = mcp(repeated = \"Dunnett\")))" >> $scriptfile
+	echo "" >> $scriptfile
+fi  
+
+# RUN THE ANALYSIS!
+cat $scriptfile | R -q --no-save --slave 
+
+
+echo
+#rm -f "temp_"$thisprog*
+exit
+

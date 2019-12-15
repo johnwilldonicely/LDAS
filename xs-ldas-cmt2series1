@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+thisprog="xs-ldas-cmt2series1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert a comment-file to a time series"
+	echo "USAGE: "
+	echo "	"$thisprog" [infile] [samplefreq]"
+	echo "		[infile]: input file in format <time><TAB><comment>"
+	echo "			- assumes each comment marks the start of a given state"
+	echo "			- assumes this state continues until the next comment"
+	echo "		[samplefreq]: sampling frequency for output"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-f: format (0=simple 1=verbose) ["$setformat"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "OUTPUT: "
+	echo "	continuous time-series with comments repeated until next comment occurs: "
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+in1=$1 ; shift 
+samplefreq=$1 ; shift 
+
+int=$(echo $samplefreq | awk '{printf("%.4f",(1.0/$1))}' )
+
+cat $in1 | awk '
+	BEGIN{t1=0.0; code="NULL"; i='$int'}
+	{
+		t2=$1 
+		while(t1<t2) {
+			printf("%.4f\t%s\n",t1,comment)
+			t1+=i
+		}
+		comment=$2
+	}
+	END {printf("%.4f\t%s\n",t1,code)}
+	' 

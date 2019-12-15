@@ -1,0 +1,83 @@
+#!/bin/bash
+# <TAGS>string database</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+setverb="0"
+setclean="1"
+setskip="-"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": check that file contains a list of keywords"
+	echo "USAGE: $thisprog [in] [keys] [options]"
+	echo "	[in]: input file"
+	echo "	[keys]: CSV list of keywords to find"
+	echo "		- if keys contain whitespace, use quotes"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.notes freq=,\"high cut\",nchans=,date="
+	echo "OUTPUT: "
+	echo "	- no output if all keys are found"
+	echo "	- outputs error messages if keys are missing"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setkeys=$1 ; shift
+
+# check file exists & isn't empty
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+if [ ! -s $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="s:b:v:c:" ; vl="skip:,base:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# CHECK THE KEYS
+################################################################################
+if [ "$tempfile" != "" ] ; then rm -f $tempfile ; fi
+IFS=$','
+for key in $setkeys ; do
+	let z=$(grep --color=never "$key" $infile | wc -l)
+	if [ $z -eq 0 ] ; then
+		echo "--- Error ["$thisprog"]: no key \"$key\" in $infile" >> $tempfile
+	fi
+done
+unset IFS
+
+################################################################################
+# OUTPUT AND EXIT
+################################################################################
+if [ -e $tempfile ] ; then cat $tempfile ; fi
+exit

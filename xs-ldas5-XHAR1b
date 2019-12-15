@@ -1,0 +1,635 @@
+#!/bin/bash
+# <TAGS>taini signal_processing spectra</TAGS>
+
+thisprog=`basename "$0"`
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+progbase0=$(echo $progbase1 | rev | cut -c 2- | rev)  # trim the last "b"
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+allopts=$@
+
+setopts=""
+setskip="-"
+
+setnorm="-1"
+setn1="0"
+setn2="1"
+setbin="5"
+
+setverb="0"
+setclean="1"
+setfilenames="table_groupnames.txt"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-run $thatprog"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: $thisprog [db] [options]"
+	echo "	[db]: database file specifying path and group on each line"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--opt1: quoted options to pass to $thatprog [$setopt1]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "...options by-date plots"
+	echo "	--norm: normalisation (see xe-normrow2) [$setnorm]"
+	echo "	--n1: start of normalisation zone (week-number)) [$setn1]"
+	echo "	--n2: end of normalisation zone (week-number) [$setn2]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt  2>&1 | tee log_"$thisprog".txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo -e "\n--- Error ["$thisprog"]: database file '$filedb' missing\n" ; exit ; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="s:v:c:" ; vl="opt1:,bin:,norm:,n1:,n2:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--opt1 ) setopt1=$2 ; shift ;;
+
+		--bin ) setbin=$2 ; shift ;;
+		--norm ) setnorm=$2 ; shift ;;
+		--n1 ) setn1=$2 ; shift ;;
+		--n2 ) setn2=$2 ; shift ;;
+
+		-s | --skip ) setskip=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit ; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit ; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+# extract settrials from $setopt - to determine if plotting of power/coherence by second within a trial should be skipped
+settrials=$(echo $setopt1 | xe-getkey stdin --trials)
+
+################################################################################
+# DATABASE PRE-PROCESSING
+# perform if --skip does not contain both x and c
+################################################################################
+if [ "$(echo $setskip | grep -vE 'x.*c|c.*x')" ] ; then
+	# check if file needs dos2unix conversion
+	if [ "$(dos2unix -q < $filedb | cmp -s - $filedb)" ] ; then dos2unix -q $filedb ; fi
+	# check database integrity
+	xs-dbcheck1 $filedb --verb 0 --xml PATHS > $tempfile
+	# report any errors
+	if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+	# construct a database list in format <path>,<group>
+	dblist=$(xe-strxmlparse1 $filedb PATHS | awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' | xe-delimit stdin -d comma)
+fi
+
+################################################################################
+# PERFORM A PROCESSING LOOP
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN PROGRAMS
+		command="$thatprog $base $setopt1"
+		if [ "$setverb" == "1" ] ; then
+			echo "################################################################################"
+			echo $path
+			echo $command $setopt1
+		fi
+		$command
+	done
+	cd $startdir
+fi
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase0" != "" ] ; then rm -f $progbase0* ; fi
+
+	collateopts="--xml PATHS --verb $setverb --dname table_datenames.txt"
+
+	xs-collate1 $filedb $progbase0"_BEHAV_summary.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_POW_summary_bands.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_POW_summary_avg.txt" $collateopts
+
+	# get the list of regions - everything after the "freq" header the power summary
+	x=$(head -n 1 $progbase0"_POW_summary_avg.txt" | xe-delimit stdin)
+	y=$(echo $x | xe-getkeycol stdin freq | awk '{print $1+1}')
+	listregions=$(echo $x | cut -f $y- -d ' ')
+	for region in $listregions ; do
+		xs-collate1 $filedb $progbase0"_POW_"$region"_bands.txt" $collateopts
+		xs-collate1 $filedb $progbase0"_POW_"$region"_matrix.txt" --head 0 $collateopts
+	done
+
+	xs-collate1 $filedb $progbase0"_COH_summary_bands.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_COH_summary_avg.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_COH_prefrontal_amygdala.central_bands.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_COH_prefrontal_insular.agranular_bands.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_COH_amygdala.central_insular.agranular_bands.txt" $collateopts
+	xs-collate1 $filedb $progbase0"_COH_prefrontal_amygdala.central_matrix.txt" --head 0 $collateopts
+	xs-collate1 $filedb $progbase0"_COH_prefrontal_insular.agranular_matrix.txt" --head 0 $collateopts
+	xs-collate1 $filedb $progbase0"_COH_amygdala.central_insular.agranular_matrix.txt" --head 0 $collateopts
+
+fi
+
+
+################################################################################
+################################################################################
+# PLOT BEHAVIOUR
+################################################################################
+###############################################################################
+echo -e "\n################################################################################\n"
+# extract group-labels (eg. # group_[no]= name )
+xs-getgroupnames1 $filedb --names $setfilenames --xml PATHS --head 1 > $tempfile".groupnames"
+
+# BEHAVIOUR ####################################################################
+in1=$progbase0"_BEHAV_summary.txt"
+out1=$progbase0"_BEHAV_summary_means.txt"
+plotfile=$(echo $out1 | xe-strsub1 stdin .txt .ps)
+echo -e "...plotting behaviour:"
+echo -e "\tinput= "$in1
+echo -e "\toutput= "$out1
+echo -e "\tplot= "$plotfile
+let z=$(cat $in1 | wc -l)
+
+if [ $z -gt 1 ] ; then
+	# average within-day and within-dname trials
+	if [ $setnorm == "-1" ] ; then yrange="-ymin 0 -ymax 30" ; else yrange="" ; fi
+	echo -e "subject\tgroup\tdname\tlatency" > $out1
+	xe-statsgrp3 $in1 -cg1 1 -cg2 4 -cg3 3 -cy 7 | xe-cut1 stdin grp1,grp2,grp3,mean -o 1 >> $out1
+	xs-plotsubgrptime $out1 dname latency --norm $setnorm --xlabel "Week post-SNL" --plotopts "-xint 1 $yrange"
+	xe-plotmerge2 "plot_xs-plotsubgrptime."*"ps" > $plotfile
+else
+	echo -e "\n\t--- Warning: ["$thisprog"]: no behavioural results, skipping analysis\n"
+fi
+
+
+
+
+################################################################################
+################################################################################
+# PLOT EPHYS - POWER ###########################################################
+# region list is all of the columns in the header of XHAR1_POW_summary_avg.txt , after subject|date|group|freq
+################################################################################
+################################################################################
+
+# define regions, region-pairs and list of date-names
+in1=$progbase0"_POW_summary_avg.txt"
+listregions=$(head $in1 -n 1 | tr '\t' '\n' | grep -v -E 'subject|date|dname|group|freq')
+let nregions=$(echo $listregions | wc -w)
+listregions2=$(echo $listregions | tr ' ' '\n' | grep -vE 'FRO|OCC|SOM|EMG.L|EMG.R')
+listregionpairs=$(echo $listregions2 | tr ' ' ',' | xe-makepairs1 stdin)
+let nregionpairs=$(echo $listregionpairs | wc -w)
+listdname=$(xe-cut1 $in1 dname -o 1 | sort -nu)
+fftmin=$(xe-cut1 $in1 freq -o 1  | sort -nu | head -n 1)
+fftmax=$(xe-cut1 $in1 freq -o 1  | sort -nu | tail -n 1)
+listgroups=$(xe-cut1 $in1 group -o 1 | sort -nu)
+
+
+# PLOT THETA-POWER DIAGNOSTIC ##################################################
+in1=$progbase0"_POW_summary_avg.txt"
+plotfile3=$progbase0"_POW_diagnostic.ps"
+echo -e "\n...plotting theta-power diagnostic, by date"
+echo -e "\tinput= "$in1
+echo -e "\tplot= "$plotfile3
+
+nrowsmax=$(echo "scale=3;$nregions/2" | bc | awk '{a=$1; if($1!=int($1)) a++; printf"%d\n",a}')
+templist=""
+for region in $listregions ; do
+	xe-cut1 $in1 subject,dname,freq,$region | xe-transpose4 stdin -gint 1 | tail -n +2  > $tempfile".1"
+	cut -f 3- $tempfile".1" |
+		xe-curvestats2 stdin -avg 0 -min $fftmin -max $fftmax -index 4,12 |
+		xe-cut1 stdin AUC -o 1 > $tempfile".2"
+	# save results from this region - to allow calculation of range
+	cut -f 1-2 $tempfile".1" | paste - $tempfile".2" > $tempfile"."$region
+	templist=$templist" "$tempfile"."$region
+done
+# determine the total range of power values
+z=$(cat $templist | cut -f 3 | xe-statsd1 stdin | xe-getkey stdin MAX)
+# set plot options for all plots
+plotopts="-cg 1 -cx 2 -cy 3 -legend 2 -xint 1 -line 1 -ymin 0 -ymax $z"
+xl="Week"
+yl="Theta power"
+plotlist1=""
+for region in $listregions ; do
+	plotfile1="temp_"$region".ps"
+	plotlist1=$plotlist1" "$plotfile1
+	xe-plottable1 $tempfile"."$region $plotopts -xlabel "$xl" -ylabel "$yl" -title $region -out $plotfile1
+done
+xe-plotmerge1 $plotlist1 -xmax 2 -ymax $nrowsmax -xinc 270 -yinc 225
+xe-plotmerge2 "temp_xe-plotmerge1."*".ps"  > $plotfile3
+rm -f $templist
+rm -f $plotlist1
+rm -f "temp_xe-plotmerge1."*".ps"
+
+
+# PLOT POWER SPECTRUM (SUBJECT) BY DATE AND REGION #########################
+# log10 frequency and amplitude scale
+
+in1=$progbase0"_POW_summary_avg.txt"
+plotfile3=$progbase0"_POW_avg_subjects.ps"
+echo -e "\n...plotting power spectra (subject)..."
+echo -e "\tinput= "$in1
+echo -e "\tplot= "$plotfile3
+nrowsmax=$(echo "scale=3;$nregions/2" | bc | awk '{a=$1; if($1!=int($1)) a++; printf"%d\n",a}')
+listsubjects=$(xe-cut1 $in1 subject -o 1| sort -nu)
+xl="Log-Frequency (Hz)"
+yl="Log-Amplitude"
+stats=$(xe-cut1 $in1 $(echo $listregions | tr ' ' ',') -o 1 | tr '\t' '\n' | xe-norm2 stdin -n 7 | xe-statsd1 stdin)
+ymin=$(echo $stats | xe-getkey stdin MIN)
+ymax=$(echo $stats | xe-getkey stdin MAX)
+#vlines="4,12,30,70" # vlines for log valies of 4,12,30,80
+vlines=".602,1.079,1.477,1.845" # vlines for log valies of 4,12,30,80
+plotopts="-cg 1 -cx 2 -cy 3 -line 1 -ps 0 -xpad 0 -xscale .4 -yscale .25 -ymin $ymin -ymax $ymax -legend 1 -vline $vlines -legend 2 "
+plotlist2=""
+for subject in $listsubjects ; do
+	echo "	"$subject"..."
+	let count=0;
+	plotlist1=""
+	for region in $listregions ; do
+		let count=$count+1
+		plotfile1="temp_"$count".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		xe-dbmatch1 $in1 subject $subject |
+			xe-cut1 stdin dname,freq,$region |
+			xe-norm2 stdin -cy 2 -n 7 |
+			xe-norm2 stdin -cy 3 -n 7 |
+			xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$subject:$region" -out $plotfile1
+		let z=0; for d in $listdname; do xs-plotmod1 $plotfile1 --cswap $d,$z --out 1 ; let z=$z+1; done
+	done
+	plotfile2=$tempfile"_"$subject
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax $nrowsmax -out $plotfile2 -xinc 290  -yinc 225
+	plotlist2=$plotlist2" "$plotfile2".001".ps
+	rm -f $plotlist1
+done
+xe-plotmerge2 $plotlist2  > $plotfile3
+rm -f $plotlist2
+rm -f "temp_xe-plottable1.ps"
+rm -f "temp_xe-plotmerge1."*".ps"
+
+
+# PLOT POWER SPECTRUM (GROUP-MEAN), BY DATE AND REGION ###########################
+# log10 frequency and amplitude scale
+
+in1=$progbase0"_POW_summary_avg.txt"
+plotfile3=$progbase0"_POW_avg_groups.ps"
+echo -e "\n...plotting power spectra (group)..."
+echo -e "\tinput= "$in1
+echo -ne "\tplot= "$plotfile3
+nrowsmax=$(echo "scale=3;$nregions/2" | bc | awk '{a=$1; if($1!=int($1)) a++; printf"%d\n",a}')
+xl="Frequency (Hz)"
+yl="Mean Amplitude"
+#vlines="4,12,30,70" # vlines for log valies of 4,12,30,80
+vlines=".602,1.079,1.477,1.845" # vlines for log valies of 4,12,30,80
+plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -line 1 -ps 0 -ew 0 -xpad 0 -xscale .4 -yscale .25 -ymin -.6 -ymax 1.5 -vline $vlines -legend 2"
+for region in $listregions ; do echo -e "group\tfreq\t"$region"\tsubject\tdname" >  $tempfile"."$region ; done
+plotlist2=""
+let count=0;
+for dname in $listdname ; do
+	plotlist1=""
+	echo -en "\n\t"$dname":"
+	for region in $listregions ; do
+		echo -en " "$region
+		let count=$count+1
+		plotfile1="temp_"$region".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		xe-dbmatch1 $in1 dname $dname |
+			xe-cut1 stdin group,freq,$region |
+			xe-norm2 stdin -cy 2 -n 7 |
+			xe-norm2 stdin -cy 3 -n 7 |
+			xe-statsgrp2 stdin |
+			xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "Week $dname: $region"
+		xs-plotmod1 "temp_xe-plottable1.ps" --legend $tempfile".groupnames" > $plotfile1
+	done
+	plotfile2="pow_week_"$dname".ps"
+	plotlist2=$plotlist2" "$plotfile2
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax $nrowsmax -xinc 290 -yinc 225
+	mv "temp_xe-plotmerge1.001.ps" $plotfile2
+	rm -f $plotlist1
+done
+echo ""
+xe-plotmerge2 $plotlist2 > $plotfile3
+rm -f $plotlist1
+rm -f $plotlist2
+rm -f "temp_xe-plotmerge1."*".ps"
+
+# PLOT POWER BANDS (DATE) BY REGION > BAND #####
+# NOTE: must configure the plot so it is contained on a single page!
+listbands="delta theta gamma"
+plotfile3=$progbase0"_POW_avg_date.ps"
+echo -e "\n...plotting power (group-avg.) by by date..."
+echo -e "\tplot= "$plotfile3
+plotlist1=""
+let count=0
+for region in $listregions ; do
+ 	in1=$progbase0"_POW_"$region"_bands.txt"
+	echo -e "\tinput= "$in1
+	let z=$(cat $in1 | wc -l)
+	if [ $z -gt 1 ] ; then
+		for band in $listbands ; do
+			let count=$count+1
+			plotfile1=$tempfile"_"$count # omit extension because xs-plotsubgrptime may produce multiple files
+			plotlist1=$plotlist1" "$plotfile1".001.ps"
+			plotopts=" $tempfile dname $band --subject subject --group group --out $plotfile1"
+			echo -e "subject\tgroup\tdname\t$band" > $tempfile
+			# average band across trial-time
+			xe-cut1 $in1 subject,group,dname,time,$band |
+				xe-statsgrp3 stdin -cy 5 |
+				xe-cut1 stdin grp1,grp2,grp3,mean -o 1 |
+				xe-norm3 stdin grp1 grp2 grp3 mean -norm $setnorm -n1 $setn1 -n2 $setn2 >> $tempfile
+			#plot this band
+			xs-plotsubgrptime $plotopts --xlabel "Week post-SNL" --title "POWER: $region ($band)" --plotopts "-xint 1 -legend 1"
+		done
+	else
+		echo -e "\n\t--- Warning: ["$thisprog"]: no data in $in1, skipping analysis\n"
+	fi
+done
+xe-plotmerge2 $plotlist1 > $plotfile3
+
+
+# PLOT POWER MATRIX  ###########################################################
+plotfile3=$progbase0"_POW_matrix.ps"
+echo -e "\n...plotting power matrices..."
+echo -e "\tplot= "$plotfile3
+in1=$(ls $progbase0"_COH_"*"bands.txt" | head -n 1)
+xmin=$(xe-cut1 $in1 "time" -o 1 | head -n 1)
+xmax=$(xe-cut1 $in1 "time" -o 1 | tail -n 1)
+yl="Freq. (Hz)"
+xl="Time (s)"
+
+plotlist2=""
+for region in $listregions ; do
+
+	in1=$progbase0"_POW_"$region"_matrix.txt"
+	stats=$(xe-statsd1 $in1)
+	# zmin will not work yet because gamma and theta scales are different
+	# zmin=$(echo $stats | xe-getkey stdin MIN)
+	# zmax=$(echo $stats | xe-getkey stdin MIN)
+	echo -e "\t"$in1
+	let dcol=$(head -n 1 $in1 | xe-getkeycol stdin dname=)+1
+	let gcol=$(head -n 1 $in1 | xe-getkeycol stdin group=)+1
+	plotlist1=""
+	let count=0;
+	for dname in $listdname ; do
+	for group in $listgroups ; do
+		let count=$count+1
+		title="g"$group:"w"$dname":"$region
+		echo -e "\t\t"$title
+		plotfile1="temp_"$count".ps"
+
+		plotlist1=$plotlist1" "$plotfile1
+		xe-matrixcut2 $in1 -col $dcol -id $dname -match 3 |
+		xe-matrixcut2 stdin -col $gcol -id $group -match 3 |
+		xe-matrixavg2 stdin > $tempfile
+
+		xs-plotmatrixsplit1 $tempfile --mod "-r -90 -sx 2 -sy 2" --xrange $xmin,$xmax --xl "$xl" --yl "$yl" --title "$title" --out $plotfile1
+	done
+	done
+	plotfile2=$tempfile"_"$region
+	plotlist2=$plotlist2" "$plotfile2".001.ps"
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax 5 -xinc 270 -yinc 150 -out $plotfile2
+	rm -f $plotlist1
+done
+xe-plotmerge2 $plotlist2 > $plotfile3
+rm -f $plotlist1 $plotlist2 "temp_xe-plottable1.ps" "temp_xe-plotmerge1."*".ps"
+
+
+
+
+###############################################################################
+###############################################################################
+# PLOT EPHYS - COHERENCE #######################################################
+# regionpair list is all of the columns in the header of XHAR1_POW_summary_avg.txt , after subject|date|group|freq
+###############################################################################
+###############################################################################
+
+# PLOT COHERENCE SPECTRUM (SUBJECT) BY DATE AND REGION #########################
+# log10 frequency scale, coherence kept at original scale 0-1
+
+in1=$progbase0"_COH_summary_avg.txt"
+plotfile3=$progbase0"_COH_avg_subjects.ps"
+echo -e "\n...plotting coherence spectra (subject)..."
+echo -e "\tinput= "$in1
+echo -e "\tplot= "$plotfile3
+nrowsmax=$(echo "scale=3;$nregionpairs/2" | bc | awk '{a=$1; if($1!=int($1)) a++; printf"%d\n",a}')
+listsubjects=$(xe-cut1 $in1 subject -o 1| sort -nu)
+xl="Log-Frequency (Hz)"
+yl="Coherence"
+#vlines="4,12,30,70" # vlines for log valies of 4,12,30,80
+vlines=".602,1.079,1.477,1.845" # vlines for log valies of 4,12,30,80
+plotopts="-cg 1 -cx 2 -cy 3 -line 1 -ps 0 -xpad 0 -xscale .4 -yscale .25 -ymin 0 -ymax 1 -legend 1 -vline $vlines -legend 2 "
+plotlist2=""
+for subject in $listsubjects ; do
+	echo "	"$subject"..."
+	let count=0;
+	plotlist1=""
+	for regionpair in $listregionpairs ; do
+		region1=$(echo $regionpair | cut -f 1 -d ,)
+		region2=$(echo $regionpair | cut -f 2 -d ,)
+		let count=$count+1
+		plotfile1="temp_"$count".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		xe-dbmatch1 $in1 subject $subject |
+			xe-cut1 stdin dname,freq,$region1"_"$region2 |
+			xe-norm2 stdin -cy 2 -n 7 |
+			xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$subject: $region1":"$region2" -out $plotfile1
+		let z=0; for d in $listdname; do xs-plotmod1 $plotfile1 --cswap $d,$z --out 1 ; let z=$z+1; done
+	done
+	plotfile2=$tempfile"_"$subject
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax $nrowsmax -out $plotfile2 -xinc 290  -yinc 225
+	plotlist2=$plotlist2" "$plotfile2".001.ps"
+	rm -f $plotlist1
+done
+xe-plotmerge2 $plotlist2  > $plotfile3
+rm -f $plotlist2
+rm -f "temp_xe-plottable1.ps"
+rm -f "temp_xe-plotmerge1."*".ps"
+
+# PLOT COHERNENCE SPECTRUM (GROUP-MEAN), BY DATE AND REGION ###########################
+# log10 frequency scale, coherence kept at original scale 0-1
+
+in1=$progbase0"_COH_summary_avg.txt"
+plotfile3=$progbase0"_COH_avg_groups.ps"
+echo -e "\n...plotting coherence spectra (group)..."
+echo -e "\tinput= "$in1
+echo -ne "\tplot= "$plotfile3
+nrowsmax=$(echo "scale=3;$nregions/2" | bc | awk '{a=$1; if($1!=int($1)) a++; printf"%d\n",a}')
+xl="Log-Frequency (Hz)"
+yl="Mean Coherence"
+#vlines="4,12,30,70" # vlines for log valies of 4,12,30,80
+vlines=".602,1.079,1.477,1.845" # vlines for log valies of 4,12,30,80
+plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -line 1 -ps 0 -ew 0 -xpad 0 -xscale .4 -yscale .25 -ymin 0 -ymax 1 -vline $vlines -legend 2"
+for region in $listregions ; do echo -e "group\tfreq\t"$region"\tsubject\tdname" >  $tempfile"."$region ; done
+plotlist2=""
+let count=0;
+for dname in $listdname ; do
+	plotlist1=""
+	echo -en "\n\t"$dname":"
+ 	for regionpair in $listregionpairs ; do
+ 		region1=$(echo $regionpair | cut -f 1 -d ,)
+ 		region2=$(echo $regionpair | cut -f 2 -d ,)
+		echo -en " "$region
+		let count=$count+1
+		plotfile1="temp_"$count".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		xe-dbmatch1 $in1 dname $dname |
+			xe-cut1 stdin group,freq,$region1"_"$region2 |
+			xe-norm2 stdin -cy 2 -n 7 |
+			xe-statsgrp2 stdin |
+			xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "Week $dname: $region1 v $region2"
+		xs-plotmod1 "temp_xe-plottable1.ps" --legend $tempfile".groupnames" > $plotfile1
+	done
+	plotfile2="coh_week_"$dname".ps"
+	plotlist2=$plotlist2" "$plotfile2
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax $nrowsmax -xinc 290 -yinc 225
+	mv "temp_xe-plotmerge1.001.ps" $plotfile2
+	rm -f $plotlist1
+done
+echo ""
+xe-plotmerge2 $plotlist2 > $plotfile3
+rm -f $plotlist1
+rm -f $plotlist2
+rm -f "temp_xe-plotmerge1."*".ps"
+
+
+# PLOT COHERENCE BANDS (DATE) BY REGION > BAND #####
+# NOTE: must configure the plot so it is contained on a single page!
+listbands="delta theta gamma"
+plotfile3=$progbase0"_COH_avg_date.ps"
+echo -e "\n...plotting coherence (group-avg.) by by date..."
+echo -e "\tplot= "$plotfile3
+plotlist1=""
+let count=0
+for regionpair in $listregionpairs ; do
+	region1=$(echo $regionpair | cut -f 1 -d ,)
+	region2=$(echo $regionpair | cut -f 2 -d ,)
+	in1=$progbase0"_COH_"$region1"_"$region2"_bands.txt"
+	echo -e "\tinput= "$in1
+	let z=$(cat $in1 | wc -l)
+	if [ $z -gt 1 ] ; then
+		for band in $listbands ; do
+			let count=$count+1
+			plotfile1=$tempfile"_"$count # omit extension because xs-plotsubgrptime may produce multiple files
+			plotlist1=$plotlist1" "$plotfile1".001.ps"
+			echo -e "subject\tgroup\tdname\t$band" > $tempfile
+			# average band across trial-time
+			xe-cut1 $in1 subject,group,dname,time,$band |
+				xe-statsgrp3 stdin -cy 5 |
+				xe-cut1 stdin grp1,grp2,grp3,mean -o 1 |
+				xe-norm3 stdin grp1 grp2 grp3 mean -norm $setnorm -n1 $setn1 -n2 $setn2 >> $tempfile
+			#plot this band
+			xs-plotsubgrptime $tempfile dname $band --subject subject --group group --out $plotfile1 --xlabel "Week post-SNL" --title "COHERENCE: $region1 v $region2 ($band)" --plotopts "-xint 1 -legend 1"
+		done
+	else
+		echo -e "\n\t--- Warning: ["$thisprog"]: no data in $in1, skipping analysis\n"
+	fi
+done
+xe-plotmerge2 $plotlist1 > $plotfile3
+
+
+# PLOT COHERENCE MATRIX  ################################################################
+plotfile3=$progbase0"_COH_matrix.ps"
+echo -e "\n...plotting coherence matrices..."
+echo -e "\tplot= "$plotfile3
+in1=$(ls $progbase0"_COH_"*"bands.txt" | head -n 1)
+xmin=$(xe-cut1 $in1 "time" -o 1 | head -n 1)
+xmax=$(xe-cut1 $in1 "time" -o 1 | tail -n 1)
+yl="Freq. (Hz)"
+xl="Time (s)"
+plotlist2=""
+for regionpair in $listregionpairs ; do
+ 	region1=$(echo $regionpair | cut -f 1 -d ,)
+ 	region2=$(echo $regionpair | cut -f 2 -d ,)
+	in1=$progbase0"_COH_"$region1"_"$region2"_matrix.txt"
+	stats=$(xe-statsd1 $in1)
+	# zmin will not work yet because gamma and theta scales are different
+	# zmin=$(echo $stats | xe-getkey stdin MIN)
+	# zmax=$(echo $stats | xe-getkey stdin MIN)
+	echo -e "\t"$in1
+	let dcol=$(head -n 1 $in1 | xe-getkeycol stdin dname=)+1
+	let gcol=$(head -n 1 $in1 | xe-getkeycol stdin group=)+1
+	plotlist1=""
+	let count=0;
+	for dname in $listdname ; do
+	for group in $listgroups ; do
+		let count=$count+1
+		title="g"$group:"w"$dname":"$regionpair
+		echo -e "\t\t"$title
+		plotfile1="temp_"$count".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		xe-matrixcut2 $in1 -col $dcol -id $dname -match 3 |
+		xe-matrixcut2 stdin -col $gcol -id $group -match 3 |
+		xe-matrixavg2 stdin > $tempfile
+		xs-plotmatrixsplit1 $tempfile --opts1 "-zmin .2 -zmax .6 " --mod "-r -90 -sx 2 -sy 2" --xrange $xmin,$xmax --xl "$xl" --yl "$yl" --title "$title" --out $plotfile1
+	done
+	done
+	plotfile2=$tempfile"_"$region1"_"$region2
+	plotlist2=$plotlist2" "$plotfile2".001.ps"
+	xe-plotmerge1 $plotlist1 -xmax 2 -ymax 5 -xinc 270 -yinc 150 -yo 700 -out $plotfile2
+	rm -f $plotlist1
+done
+xe-plotmerge2 $plotlist2 > $plotfile3
+rm -f $plotlist1 $plotlist2 "temp_xe-plottable1.ps" "temp_xe-plotmerge1."*".ps"
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

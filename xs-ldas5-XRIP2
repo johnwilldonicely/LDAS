@@ -1,0 +1,161 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setvelint="0.4"
+setvelmax="0.5"
+setvelmin="nan"
+setveldur="300"
+setregion="hipp.dorsal.ca1.pyr"
+let settype=2
+setstat="MEAN"
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": detect changes in ripples across blocks of trials "
+	echo "	- to quatntify changes in response to a minupulation (eg. novelty)"
+	echo "	- makes use of:"
+	echo "		xs-ldas5-XRIP1"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [trial1] [trial2]"
+	echo "		base: base-name in format yyyymmdd-ses_subject"
+	echo "		trial1: first trial for comparison (baseline)"
+	echo "		trial2: second trial for comparison (response)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-r: region ["$setregion"]"
+	echo "	-i: integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	-v: velocity minimum (cm/s) ["$setvelmin"]"
+	echo "	-V: velocity maximum (cm/s) ["$setvelmax"]"
+	echo "	-d: minimum duration (s) for velocity criteria ["$setveldur"]"
+	echo "	--type: type of comparison (see xe-math_doublet) [$settype]"
+	echo "		1: add"
+	echo "		2: subtract"
+	echo "		3: multiply"
+	echo "		4: divide"
+	echo "	--stat: summary statistic to use (single value per column) [unset]"
+	echo "		options: MIN,MAX,SUM,MEAN,RANGE,STDDEV,SEM,PERCENTILE_50"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20001231-001_000001.data.txt"
+	echo "OUTPUT: "
+	echo "	"$progbase1"_repeated.txt"
+	echo "	"$progbase1"_diff.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+base=$1; shift
+settrial1=$1; shift
+settrial2=$1; shift
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="r:i:v:V:d:t:s:v:c:" ; vl="type:,stat:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-r ) setregion=$2 ; shift ;;
+		-i ) setvelint=$2 ; shift ;;
+		-v ) setvelmin=$2 ; shift ;;
+		-V ) setvelmax=$2 ; shift ;;
+ 		-d ) setveldur=$2 ; shift ;;
+		-t | --type ) let settype=$2 ; shift ;;
+		-s | --stat ) setstat=$2 ; shift ;;
+		-v | --verb  ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+################################################################################
+# SET FILE NAMES (.bin FILE MUST BE DEFINED AFTER CHANNEL IS DETERMINED)
+# - this is really just a check before proceeding - XRIP1 performs the same checks
+################################################################################
+filenotes=$base".notes"
+fileclub=$base".club"
+fileclubt=$base".clubt"
+filexydt=$base".xydt"
+filexyd=$base"-nose.xyd"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit ; } fi
+if [ ! -e $filexydt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexydt' missing" ; echo ; exit ; } fi
+if [ ! -e $filexyd ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexyd' missing" ; echo ; exit ; } fi
+
+# CLEANUP FILES BEFORE PROCEDING
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+
+########################################################################################
+# GET THE SAMPLE FREQUENCY AND VIDEO RANGE FROM NOTES FILE
+########################################################################################
+sf=$(xe-getkey $filenotes sample_rate=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+x=$(xe-getkey $filenotes xyd_xmax=)
+y=$(xe-getkey $filenotes xyd_ymax=)
+range="0,0,$x,$y"
+
+
+########################################################################################
+# PERFORM THE ANALYSIS
+########################################################################################
+# define options for XRIP1
+opts="-r $setregion -i $setvelint -v $setvelmin -V $setvelmax -d $setveldur"
+
+# ripple-detectuion for block-1
+xs-ldas5-XRIP1 $base $opts -t $settrial1
+mv XRIP1_summary.txt $tempfile.1
+if [ -e XRIP1_wavemean.txt ] ; then
+	cat XRIP1_wavemean.txt | awk '{x=1; if(++n==1) x="block" ; print x"\t"$0}' > $progbase1"_wavemean.txt"
+else
+	echo "block time uV" | xe-delimit stdin > $progbase1"_wavemean.txt"
+fi
+
+# ripple-detection for block-2
+xs-ldas5-XRIP1 $base $opts -t $settrial2
+mv XRIP1_summary.txt $tempfile.2
+if [ -e XRIP1_wavemean.txt ] ; then
+	tail -n +2 XRIP1_wavemean.txt | awk '{print "2\t"$0}' >> $progbase1"_wavemean.txt"
+fi
+
+# output coded summary for both blocks, to allow repeated-masures analysis
+outfile=$progbase1"_repeated.txt"
+cut -f 2- $tempfile.1 | awk '{if($1!~/[a-z]/) p="1" ; else p="block"; print p"\t"$0 } ' > $outfile
+cut -f 2- $tempfile.2 | awk '{if($1!~/[a-z]/) print "2\t"$0 } ' >> $outfile
+# calculate change in ripple-parameters
+outfile=$progbase1"_diff.txt"
+xs-dbcomp1 $tempfile.1 $tempfile.2 chan --type $settype --round 0.001 --list dur,rate,amp,lenms,freq > $outfile
+
+
+########################################################################################
+# CLEANUP AND EXIT
+########################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

@@ -1,0 +1,141 @@
+#!/bin/bash
+
+# ripple-detection reference:
+#	Sullivan D, Csicsvari J, Mizuseki K, Montgomery S, Diba K, Buzsaki G (2011)
+#	Relationships between hippocampal sharp waves, ripples, and fast gamma oscillation: influence of dentate and entorhinal cortical activity.
+#	J Neurosci 31:8605–8616.
+
+thisprog="xs-ldas5-ripdet2"
+
+tempfile="temp_"$thisprog #"_"$$
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setstart=0  # define start-time for analysis (seconds)
+setdur=0  # define duration for analysis (seconds)
+setdec=1    # decimate to 2000 Hz
+dechz=2000
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": profile ripples in .dat files to aid in electrode positioning"
+	echo "	- ripple power (140-220 Hz) calculated using xe-ldas5-ripdet1"
+	echo "REQUIRES: "
+	echo "	- corresponding .syn file"
+	echo "USAGE: "
+	echo "	"$thisprog" [dat] [options]"
+	echo "		[dat]:  name of multi-channel binary 16-bit .dat file"
+	echo "VALID OPTIONS:"
+	echo "	-s: set read start-time (seconds) [$setstart]:"
+	echo "	-n: set read duration (seconds, 0=whole-file) [$setdur]:"
+	echo "	-d: decimate to $dechz Hz (for plotting only: 0=NO 1=YES) [$setdec]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20100208-010_000019.dat"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+date
+echo "--------------------------------------------------------------------------------"
+
+# REQUIRED ARGUMENT HANDLING
+filedat=$1 ; shift
+base=${filedat%%.dat}
+subject=$(echo $base | cut -f 2 -d _ | cut -f 1 -d -)
+filesyn=$base".syn"
+filetable="table_channels_"$subject".txt"
+filesummary=$outbase""$base"_summary.txt"
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":s:n:d:" flag ; do
+ 	case $flag in
+		s) setstart=$OPTARG;;
+		n) setdur=$OPTARG;;
+		d) setdec=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+################################################################################
+# MISSING-FILE HANDLING
+################################################################################
+if [ ! -e "$filedat" ] ; then { echo ; echo "--- Error ["$thisprog"]: .dat file '$filedat' missing" ; echo ; exit; } ; fi
+if [ ! -e "$filesyn" ] ; then { echo ; echo "--- Error ["$thisprog"]: no matching .syn file '$filesyn'" ; echo ; exit; } ; fi
+
+################################################################################
+# GET CRACK-IT LOG INFORMATION, INCLUDING START/STOP SYNC PULSE TIMES (SAMPLES)
+################################################################################
+sr=$(xe-getkey $filesyn sample_rate=) ; if [ -z "$sr" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify sample_rate" ; echo ; exit; } ; fi
+nchan=$(xe-getkey $filesyn num_channels=) ; if [ -z "$nchan" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify num_channels" ; echo ; exit; } ; fi
+
+start0=$(echo $setstart $sr | awk '{printf("%ld",($1*$2))}')  # start-sample in input file
+n0=$(echo $setdur $sr | awk '{printf("%ld",($1*$2))}') # number of samples to read from input file
+end0=$(echo $start0 $n0 | awk '{prnt $1+$2}')
+
+maxchan=$(echo $nchan | awk '{print $1-1}') # the highest channel number
+
+# decimation factor to reduce sample rate to 1000 Hz
+if [ "$setdec" == "1" ] ; then decimate=$(echo $sr | awk '{printf("%.8f",($1/'$dechz'))}') ; else decimate=1 ; fi
+
+
+################################################################################
+# GET CHANNEL LIST (IN DEPTH ORDER) AND RECORD IF CHANNEL IS GOOD
+################################################################################
+if [ -z $filetable ] ; then
+	for i in $(seq 0 $maxchan) ; do { chanlist[$i]=$i ; changood[$i]=1 ; } done
+else
+	list=$(xe-cut1 $filetable depth,chan -o 1 -s 1 | sort -n | cut -f 2)
+	let count=0 ; for i in $list ; do { chanlist[$count]=$i ; let count=$count+1; } done
+	list=$(xe-cut1 $filetable depth,good -o 1 -s 1 | sort -n | cut -f 2)
+	let count=0 ; for i in $list ; do { changood[$count]=$i ; let count=$count+1; } done
+	if [ $count -ne $nchan ] ; then { echo ; echo "--- Error ["$thisprog"]: expecting $nchan channels, not $count, in $filetable" ; echo ; exit; } ; fi
+	#for i in $(seq 0 $maxchan) ; do echo ${chanlist[$i]}" "${changood[$i]}" " ; done
+fi
+
+########################################################################################
+# PERFORM RIPPLE DETECTION ON ALL CHANNELS
+########################################################################################
+echo "...detecting ripples..."
+echo "	xe-ldas5-ripdet1 $filedat -s $start0 -n $n0 -nch $nchan -ch -1 -out 4"
+xe-ldas5-ripdet1 $filedat -scrl $start0,$end0 -nch $nchan -ch -1 -out 4 > $tempfile
+# identify the channel with the largest amplitude ripples
+chanref=$(xe-cut1 $tempfile chan,amp | xe-statsgrp1 stdin | xe-cut1 stdin mean,grp1 -o 1 | sort -g | tail -n 1 | cut -f 2)
+# count the number of ripples on the best channel
+n_ripples=$(xe-dbmatch1 $tempfile chan $chanref | tail -n +2 | wc -l)
+# get the top 10 amplitude ripples from the above channel
+listpeaks=$(xe-dbmatch1 $tempfile chan $chanref | xe-cut1 stdin amp,peak -o 1 | sort -r | head -n 5 | cut -f 2)
+
+echo "best_channel= $chanref"
+echo "n_ripples= $n_ripples"
+
+########################################################################################
+# MAKE SUMMARY PLOTS OF THE RIPPLES ALIGNED TO EVENTS ON THE MOST ACTIVE CHANNEL
+########################################################################################
+echo "...visualizing largest ripples...."
+plotopts="-line 1 -ps 0 -xscale .45 -yscale .175 -font 6 -vline 0 -ymin $ymin -ymax $ymax -xpad 0 -ypad 0 "
+
+let count=0
+for peak in $listpeaks ; do
+	count2=$(echo $count | awk '{printf("%04d",$1)}')
+	plotfile=$tempfile"_"$count2".ps"
+	plotlist=$plotlist" "$plotfile
+	echo "	xs-ldas5-plotdata1 $filedat -d $decimate -a $peak -m 1 -c all -P \"-out $plotfile\""
+	xs-ldas5-plotdata1 $filedat -d $decimate -a $peak -m 1 -c all -P "-out $plotfile"
+	let count=$count+1
+done
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

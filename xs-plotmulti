@@ -1,0 +1,77 @@
+#!/bin/bash
+# <TAGS>plot</TAGS>
+
+thisprog="xs-plotmulti"
+tempfile="temp_"$thisprog
+plotopts="-cx 2 -cy 3 "
+mergeopts="-xmax 3 -ymax 4 -xinc 180 -yinc 200"
+setnotitle=""
+setverb=""
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make multiple plots from a file defining plot-groups"
+	echo
+	echo "USAGE: "
+	echo "	"$thisprog" [infile] [col] [options]"
+	echo "		[infile]: input file with a column defining the plot-id"
+	echo "		[col]: the column number (or label) defining the plot-ids"
+	echo "OPTIONS (defaults in []):"
+	echo "	-t: flag - remove title"
+	echo "	-v: flag - verbose output"
+	echo "	-P: individual plot options (in quotes) for xe-plottable1"
+	echo "	-M: plot merge options (in quotes) for xe-plotmerge1"
+	echo "OUTPUT: postscript code to stdout (must redirect to file) "
+	echo "EXAMPLE: "
+	echo "	$thisprog table.txt trial -P \"-cx 5 -cy 6 -line 1 -ps 0\" > plot.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+infile=$1 ; shift
+setcol=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":tvP:M:" flag ; do
+ 	case $flag in
+		t) setnotitle="1";;
+		v) setverb="1";;
+		P) setplotopts=$OPTARG;;
+		M) setmergeopts=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# determine if column definition is numeric (1) or not (0)
+let setnumeric=$(echo $setcol | awk '{if($1~/[a-zA-Z]/)print "0" ; else print "1"}')
+
+# get the list of groups - exclude header
+list=$(xe-cut1 $infile $setcol -n $setnumeric -o 1 | sort -u)
+
+# create the individual plots
+plotlist=""
+for item in $list ; do
+	if [ $setverb ] ; then echo "plot column $setcol: $item" ; fi
+	if [ $setnotitle ] ; then title="" ; else title="$item" ; fi
+	plotfile=$tempfile"_"$item".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 $infile $setcol $item -cn $setnumeric -m 2 -o 1 |
+	xe-plottable1 stdin $plotopts -title "$title" $setplotopts -out $plotfile
+done
+
+# merge the plots
+xe-plotmerge1 $plotlist $mergeopts -out $tempfile"_summary" $setmergeopts
+rm -f $plotlist
+
+# make a single multi-page document - output to stdout
+xe-plotmerge2 temp_xs-plotmulti_summary.*.ps
+
+# remove the temp files
+rm -f $tempfile*
+exit

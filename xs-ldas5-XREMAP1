@@ -1,0 +1,295 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+let settype=2
+setstat="MEAN"
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": remapping tests and related measures"
+	echo "	- to quatntify changes in response to a minupulation (eg. novelty)"
+	echo "	- makes use of:"
+	echo "		xs-ldas5-cellstats1"
+	echo "		xs-ldas5-XPLACE1"
+	echo "		xs-ldas5-XBEHAV1"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [trial1] [trial2]"
+	echo "		base: base-name in format yyyymmdd-ses_subject"
+	echo "		trial1: first trial for comparison (baseline)"
+	echo "		trial2: second trial for comparison (response)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--type: type of comparison (see xe-math_doublet) [$settype]"
+	echo "		1: add"
+	echo "		2: subtract"
+	echo "		3: multiply"
+	echo "		4: divide"
+	echo "	--stat: summary statistic to use (single value per column) [unset]"
+	echo "		options: MIN,MAX,SUM,MEAN,RANGE,STDDEV,SEM,PERCENTILE_50"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20001231-001_000001.data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+base=$1; shift
+settrial1=$1; shift
+settrial2=$1; shift
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="t:s:v:c:" ; vl="type:,stat:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-t | --type ) let settype=$2 ; shift ;;
+		-s | --stat ) setstat=$2 ; shift ;;
+		-v | --verb  ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+################################################################################
+# SET FILE NAMES (.bin FILE MUST BE DEFINED AFTER CHANNEL IS DETERMINED)
+################################################################################
+filenotes=$base".notes"
+fileclub=$base".club"
+fileclubt=$base".clubt"
+filexydt=$base".xydt"
+filexyd=$base"-nose.xyd"
+filecellstats=$base".cellstats"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit ; } fi
+if [ ! -e $filexydt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexydt' missing" ; echo ; exit ; } fi
+if [ ! -e $filexyd ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexyd' missing" ; echo ; exit ; } fi
+if [ ! -e $filecellstats ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filecellstats"; echo; exit; } fi
+
+# CLEANUP FILES BEFORE PROCEDING
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+
+########################################################################################
+# GET THE SAMPLE FREQUENCY AND VIDEO RANGE FROM NOTES FILE
+########################################################################################
+sf=$(xe-getkey $filenotes sample_rate=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+x=$(xe-getkey $filenotes xyd_xmax=)
+y=$(xe-getkey $filenotes xyd_ymax=)
+range="0,0,$x,$y"
+
+########################################################################################
+# MAKE AN SSP LIST-FILE FOR SCREENING FILES BY TRIAL AND RUNNING-SPEED
+########################################################################################
+echo "	...getting start/stop times for specified trials ($settrial1 vs. $settrial2)"
+# save trial SSPs to file
+xs-ldas-gettrials1 $filenotes $settrial1 -o ssp > $tempfile"_trial1.ssp"
+xs-ldas-gettrials1 $filenotes $settrial2 -o ssp > $tempfile"_trial2.ssp"
+# make sure at least one trial was found
+let z=$(xe-ldas5-readssp1 $tempfile"_trial1.ssp" | wc -l)
+if [ $z -gt 0 ] ; then echo "		$z blocks of data found matching $settrial1"
+else { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial1 in $filenotes" ; echo ; exit ; }
+fi
+let z=$(xe-ldas5-readssp1 $tempfile"_trial2.ssp" | wc -l)
+if [ $z -gt 0 ] ; then echo "		$z blocks of data found matching $settrial2"
+else { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial2 in $filenotes" ; echo ; exit ; }
+fi
+
+
+
+########################################################################################
+# CELL STATISTICS - BASIC STATS AND SPATIAL FIRING
+# - final output is $tempfile.ssp
+########################################################################################
+echo "	...calculating basic and spatial firing characteristics"
+listvar1="rate,burst"
+listvar2="rmed,rpeak,info,spar,coh,fsize"
+dummy1=$(echo $listvar1 | tr ',' '\n' | awk '{print "nan"}')
+dummy2=$(echo $listvar2 | tr ',' '\n' | awk '{print "nan"}')
+outfile=$progbase1"_cellstats.txt"
+
+
+# FOR EACH CELL CLASS....
+let count=0
+for class in 1 2 0 ; do
+	let count=$count+1
+	listout=""
+
+	# DEFINE THE CLUSTER LIST
+	listclass=$(xe-dbmatch1 $filecellstats class $class -oc cluster -o 1 | paste -s | tr '\t' ',')
+	if [ "$listclass" == "" ] ; then
+		if [ $count -eq 1 ] ; then echo "class" $listvar1 $listvar2 | xe-delimit stdin > $outfile ; fi
+		echo $class $dummy1 $dummy2 | xe-delimit stdin >> $outfile
+		continue
+	fi
+
+	# GET BASIC CELL STATS FOR EACH TRIAL
+	tempout=$tempfile".class_"$class".stats"
+	listout=$listout" "$tempout
+	xs-ldas5-cellstats1 $base -t $settrial1 --verb 0 | xe-dbmatch1 stdin cluster $listclass > $tempfile.1
+	xs-ldas5-cellstats1 $base -t $settrial2 --verb 0 | xe-dbmatch1 stdin cluster $listclass > $tempfile.2
+	let z1=$(cat $tempfile.1 | wc -l)
+	let z2=$(cat $tempfile.2 | wc -l)
+
+	# COMPARE THE BASIC RESULTS-TABLES FOR EACH TRIAL
+	if [ $z1 -gt 1 ] && [ $z2 -gt 1 ] ; then
+		# compare the tables and replace cluster with class in output
+		xs-dbcomp1 $tempfile.1 $tempfile.2 cluster --list $listvar1 --type $settype --stat $setstat |
+		xe-strsub1 stdin cluster class |
+		xe-strsub1 stdin avg $class > $tempout
+	else
+		# if cellstats fails it means there was no firing of any cells on both trials
+		# hence no comparisons are possible
+		if [ $count -eq 1 ] ; then echo "class" $listvar1 $listvar2 | xe-delimit stdin > $outfile ; fi
+		echo $class $dummy1 $dummy2 | xe-delimit stdin >> $outfile
+		continue
+	fi
+
+	# GET PLACE FIELD STATS
+	tempout=$tempfile".class_"$class".place"
+	listout=$listout" "$tempout
+	xs-ldas5-XPLACE1 $base --trial $settrial1 -c $listclass --skip p > $tempfile
+	mv XPLACE1_summary1.txt $tempfile.1
+	xs-ldas5-XPLACE1 $base --trial $settrial2 -c $listclass --skip p > $tempfile
+	mv XPLACE1_summary1.txt $tempfile.2
+
+	# COMPARE THE TABLES AND REMOVE CLUSTER COLUMN
+	xs-dbcomp1 $tempfile.1 $tempfile.2 cluster --list $listvar2 --type $settype --stat $setstat |
+		xe-cut1 stdin $listvar2 > $tempout
+
+	# COMBINE THE SUMMARIES
+	if [ $count -eq 1 ] ; then paste  $listout > $outfile
+	else paste  $listout | tail -n +2 >> $outfile
+	fi
+
+done
+
+
+########################################################################################
+# COFIRING MEASURE
+# 	Only pyramidal cells are included
+# 	Cells must fire >=0.05 Hz in both sleep sessions and in the running session.
+# 	Cell-pairs from ALL probes are analysed (not just cross-probes - optional using -x )
+# 	Only cell-pairs contributing >50 spikes each to co-firing correlations are included
+# 	Only animals contributing >10 cell pairs are included
+# 	On sleep trials only spikes during 100ms windows centred on SWR events
+# 	SWR events must be >7sd above the average RMS power on the channel
+# 	Ripple channels are referenced against a cortical electrode (non-ripple)
+# 	Animals must run >5cm/s for 100ms in the running trial for data to be included.
+# 	Speed must be <5cm/s for >10 seconds for a SWR event to be included
+########################################################################################
+echo "	...calculating cofiring"
+
+outfile=$progbase1"_cofiring.txt"
+setvelmin=5
+setvelmax=999999
+setminspikes=50
+
+# ??? note this is still not working as a selection criterion i thimk
+# ??? some very low firing cells are nevertheless output
+# ??? need to check cofiring program
+
+setwin1a=1.00 # define run-speed binning-window size in seconds
+setwin1b=$(echo "scale=3; $setwin1a*$sf" | bc) # define window size in fractional samples for binning purposes
+setwin1c=$(echo "scale=3; $setwin1a*$sf" | bc | xe-math_round1 stdin) # integer value for defining the end of each window
+
+setwin2a=0.2 # define window for cofiring measure (seconds)
+setwin2c=$(echo "scale=3; $setwin2a*$sf" | bc | xe-math_round1 stdin)
+
+listvar1a="r r2 fa dfb F prob"
+listvar1b=$(echo $listvar1a | tr ' ' ',')
+
+listpyr1a=$(xe-dbmatch1 $filecellstats class 1 -oc cluster -o 1)
+listpyr1b=$(echo $listpyr1a | tr ' ' ',')
+
+let z=$(echo $listpyr1a | wc -w)
+if [ $z -lt 2 ] ; then
+	echo $listvar1a | xe-delimit stdin > $outfile
+	echo $listvar1a | tr ' ' '\n' | awk '{print "nan"}' | paste -s  >> $outfile
+else
+	# IDENTIFY 1-SECOND WINDOWS WHERE MEAN RUNNING SPEED EXCEEDS THRESHOLD
+	# note that we do not use the readxyd's internal mechanism, as it invalidates window if an exception occurs within the window
+	# note that this could be sped-up with a mod to xe-ldas5-readxyd
+	xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile"_trial1.ssp" |
+		xe-cut1 stdin xyd_t,vel -o 1 |
+		xe-bin2 stdin -t $setwin1b  |
+		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |
+		xe-math_add1 stdin -cy 2 -v $setwin1c -long 1 |
+		xe-writebinary1 stdin -dt 7 > $tempfile".1.ssp"
+
+	xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile"_trial2.ssp" |
+		xe-cut1 stdin xyd_t,vel -o 1 |
+		xe-bin2 stdin -t $setwin1b  |
+		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |
+		xe-math_add1 stdin -cy 2 -v $setwin1c -long 1 |
+		xe-writebinary1 stdin -dt 7 > $tempfile".2.ssp"
+
+	xe-ldas5-cofiring1 $fileclubt $fileclub $tempfile".1.ssp" -clu $listpyr1b -win $setwin2c -ms $setminspikes > $tempfile.cofir.1
+	xe-ldas5-cofiring1 $fileclubt $fileclub $tempfile".2.ssp" -clu $listpyr1b -win $setwin2c -ms $setminspikes > $tempfile.cofir.2
+
+	xe-cut1 $tempfile.cofir.1 r -o 1 > $tempfile.1
+	xe-cut1 $tempfile.cofir.2 r -o 1 > $tempfile.2
+
+	paste $tempfile.1 $tempfile.2 |
+		xe-correlate stdin -verb 1 |
+		xe-cut1 stdin $listvar1b > $outfile
+
+
+fi
+
+########################################################################################
+# BEHAVIOURAL CHANGES
+########################################################################################
+outfile=$progbase1"_behaviour.txt"
+
+# GENERATE THE TABLES - NO PLOTS
+xs-ldas5-XBEHAV1 $base body -t $settrial1 -p 0
+awk '{print "dummy\t"$0}' XBEHAV1_summary.txt > $tempfile.1
+xs-ldas5-XBEHAV1 $base body -t $settrial2 -p 0
+awk '{print "dummy\t"$0}' XBEHAV1_summary.txt > $tempfile.2
+
+# COMPARE THE TABLES AND REMOVE CLUSTER COLUMN
+listvar3="%run,%immob,vmean,vmedian,avel"
+xs-dbcomp1 $tempfile.1 $tempfile.2 dummy --list $listvar3 --type $settype --stat $setstat |
+	xe-cut1 stdin $listvar3 > $outfile
+
+
+########################################################################################
+# GET EEG STATS
+########################################################################################
+
+
+########################################################################################
+# CLEANUP AND EXIT
+########################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

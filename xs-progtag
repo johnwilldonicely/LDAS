@@ -1,0 +1,436 @@
+#!/bin/bash
+# 2018.10.28
+# <TAGS> programming </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+ct0="SteelBlue"
+#ct1="MediumVioletRed"
+#ct2="Red"
+#ct3="Firebrick"
+ct1="Black"
+ct2="Black"
+ct3="Black"
+
+setverb="1"
+setpath="/opt/LDAS/"
+setmode="list"
+settags=""
+outfile=$(which $thisprog | rev | cut -f 2- -d / | rev)"/docs/PROGTAG.html"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": find tags associated with LDAS scripts, programs and functions"
+	echo " - assumes tags fall between a <TAGS> </TAGS> XML block in the code"
+	echo " - tags in the source code must be comma or white-space separated"
+	echo "USAGE: "$thisprog" [mode] [options]"
+	echo "	view: view the overview - requires graphical interface + firefox"
+	echo "	list: list all the tags mentioned in code"
+	echo "	find [tags]: find code matching a CSV list of tags"
+	echo "	replace [old] [new]: find and replace particular tags (exact match)"
+	echo "	html [file]: build web-page summarising all tagged code"
+	echo "		default output file = "$outfile
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLES: "
+	echo "	"$thisprog" view"
+	echo "	"$thisprog" list"
+	echo "	"$thisprog" find math,FFT"
+	echo "	"$thisprog" replace statistics stats"
+	echo "	"$thisprog" html output.html"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# CONFIGURE FOR DIFFERENT MODES
+########################################################################################
+setmode=$1; shift
+
+if [ "$setmode" == "view" ] ; then firefox $outfile ; exit  # launch in firefox and exit
+elif [ "$setmode" == "list" ] ; then z=0 # no further action
+elif [ "$setmode" == "find" ] ; then settags="$1" ; shift ; # CSV list of tags
+elif [ "$setmode" == "replace" ] ; then setold="$1" ; shift ; setnew="$1" ; shift ; # replacement
+elif [ "$setmode" == "html" ] ; then if [ "$1" != "" ] ; then setout="$1" ; fi ; shift ;
+else { echo ; echo "--- Error ["$thisprog"]: invalid mode ($setmode) -  must be \"list\" \"find\" \"replace\" or \"html\"" ; echo ; exit; }
+fi
+
+if [ "$setmode" == "find" ] && [ "$settags" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: \"$setmode\" mode requires a CSV list of tags" ; echo ; exit; } fi
+if [ "$setmode" == "replace" ] && [ "$setold" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: \"$setmode\" mode requires an [old] [new] pair" ; echo ; exit; } fi
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+
+# BUILD FILE LIST
+if [ "$setverb" == "1" ] ; then echo ; echo "BUILDING FILE LIST" ; fi
+cd $setpath
+listfile0=""
+listfile0=$listfile0" "$(ls xs-*)
+listfile0=$listfile0" "$(ls source/x*.c)
+# SAVE TAB-DELIMITED LIST OF FILES AND ASSOCIATED TAGS TO TEMPFILE.0
+if [ "$setverb" == "1" ] ; then echo "SCANNING TAGS" ; fi
+cd $setpath
+for infile in $listfile0 ; do
+	echo -n $infile" "
+	xe-strxmlparse1 $infile TAGS | tr ',' ' '
+	echo
+done | awk 'NF>0{print $0}' | xe-delimit stdin > $startdir/$tempfile.0
+# PULL OUT FILES WITH TAGS
+cd $startdir
+awk 'NF>1{print $0}' $tempfile.0 > $tempfile.1
+# BUILD LIST OF ONLY FILES WITH TAGS
+listfile1=$(cut -f 1 $tempfile.1)
+
+
+################################################################################
+# MODE: LIST ALL THE TAGS IN THE REPOSITORY
+# - tempfile.1: $file $tag1 $tag2 $tag3 etc
+################################################################################
+if [ "$setmode" == "list" ] ; then
+	echo
+	cut -f 2- $tempfile.1 |
+		paste -s |
+		tr '\t' '\n' |
+		sort -u
+	echo
+fi
+
+################################################################################
+# MODE FIND CODE MATCHING ALL THE SPECIFIED TAGS
+################################################################################
+if [ "$setmode" == "find" ] && [ "$settags" != "" ] ; then
+	if [ "$setverb" == "1" ] ; then echo "FINDING \"$settags\" IN FILES" ; fi
+	prevprefix=""
+	# BUILD TAG LIST
+	listtags=$(echo $settags | tr ',' ' ')
+	let ntags=$(echo $listtags | tr ',' ' ' | wc -w)
+
+	for infile in $listfile1 ; do
+		name=$(echo $infile | rev | cut -f 1 -d "/" | rev | cut -f 1 -d ".")
+		prefix=$(echo $name | cut -c 1-2)
+		x=$(grep --color=never $infile $tempfile.1)
+		if [ "$x" == "" ] ; then continue ; fi
+		let z=0;
+		for tag in $listtags ; do
+			let y=$(echo $x | grep --color=never -w $tag | wc -l)
+			if [ $y -gt 0 ] ; then let z=$z+1 ; fi
+		done
+		if [ $z == $ntags ] ; then
+			if [ "$prefix" != "$prevprefix" ] ; then
+				echo
+				if [ "$prefix" == "xs" ] ; then
+					echo "Scripts"
+				elif [ "$prefix" == "xe" ] ; then
+					echo "Programs"
+				elif [ "$prefix" == "xf" ] ; then
+					echo "Functions"
+				fi
+			fi
+			prevprefix=$prefix
+			echo "	"$name
+		fi
+	done
+	echo
+fi
+
+################################################################################
+# MODE REPLACE <TAGS> ENTRIES MATCHING A PATTERN
+################################################################################
+if [ "$setmode" == "replace" ]  && [ "$setold" != "" ] ; then
+	if [ "$setverb" == "1" ] ; then echo "REPLACING \"$setold\" TAGS WITH \"$setnew\"" ; fi
+	prevprefix=""
+	for infile in $listfile1 ; do
+		name=$(echo $infile | rev | cut -f 1 -d "/" | rev | cut -f 1 -d ".")
+		prefix=$(echo $name | cut -c 1-2)
+		x=$(grep --color=never0 $setpath/$infile $tempfile.1)
+		if [ "$x" == "" ] ; then continue ; fi
+		let z=$(xe-strxmlparse1 $setpath/$infile TAGS | grep --color=never -w "$setold" | wc -l)
+		if [ $z -gt 0 ] ; then
+			if [ "$prefix" != "$prevprefix" ] ; then
+				echo
+				if [ "$prefix" == "xs" ] ; then
+					echo "Scripts"
+				elif [ "$prefix" == "xe" ] ; then
+					echo "Programs"
+				elif [ "$prefix" == "xf" ] ; then
+					echo "Functions"
+				fi
+			fi
+			prevprefix=$prefix
+			echo "	"$name
+			sed '/<TAGS>/s/\<'$setold'\>/'$setnew'/g' $setpath/$infile > $tempfile
+			mv $tempfile $setpath/$infile
+		fi
+	done
+	echo
+	cd $startdir
+fi
+
+
+
+################################################################################
+# MODE: HTML-SUMMARY
+################################################################################
+if [ "$setmode" == "html" ] ; then
+	if [ "$setverb" == "1" ] ; then echo "BUILDING HTML SUMMARY (may take a few minutes)..." ; fi
+	if [ "$outfile" != "" ] ; then rm -f $outfile ; fi
+
+	# MAKE TAG LIST
+	if [ "$setverb" == "1" ] ; then echo "	- building tag-list..." ; fi
+	listtags=$(cut -f 2- $tempfile.1 | paste -s | tr '\t' '\n' | sort -u)
+
+# BUILD FILE HEADER
+echo "
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+h2,h3, h4, h5, h6{  margin-top:20px;  margin-bottom:0px; }
+table, th, td { pading: 5px; border: 5px solid white; border-collapse: collapse; background-color:#dddddd; vertical-align: top; }
+</style>
+</head>
+" >> $outfile
+
+# BUILD OVERVIEW WITH LINKS TO MAIN SECTIONS
+echo "
+<body>
+<font face=\"helvetica\">
+<hr id=\"TOP\">
+<h1 align=\"center\"><font color=\"$ct0\">LDAS Components</font></h1>
+
+LDAS is a suite of Linux data analysis tools, comprised of:
+<ul style=\"list-style-type:disc\">
+  <li><b>Programs</b> (xe-): executables (compiled C) which do the \"heavy lifting\" of things like mathematical calculations and signal processing.</li><br>
+  <li><b>Scripts</b> (xs-):  executable shell (BASH) scripts which invoke and link multiple programs to do complex jobs and manage file-system operations.</li><br>
+  <li><b>Functions</b> (xf_): C-language components of programs which do specific jobs, and are used in multiple programs.</li><br>
+</ul>
+This guide is generated by the <a href=\"#code-xs-progtag\"><b><font color=\"$ct1\">xs-progtag</font></b></a> tool, which makes use of the
+&#60<b>TAGS</b>&#62 label in the LDAS source code. Tags in the code
+indicate the categories the code belongs to - for example statistics, or
+plotting. These categories are entered when the code is created, and are
+subject to change.
+<br><br>
+The rest of this guide is divided into three sections:
+<ul style=\"list-style-type:disc\">
+<li><b><a href=\"#CATEGORIES\">CATEGORIES</a></b></li>
+<li><b><a href=\"#CODE-LINKS\">CATEGORICAL CODE-LINKS</a></b></li>
+<li><b><a href=\"#CODE\">CODE</a></b></li>
+</ul>
+" >> $outfile
+
+# BUILD AN INDEX TO ALL TAGS-CATEGORIES
+echo "" >> $outfile
+echo "<br><br>" >> $outfile
+echo "<hr id=\"CATEGORIES\">" >> $outfile
+echo "<h2><font color=\"$ct0\"><a href=\"#TOP\">&#8679</a> CATEGORIES</font></h2>" >> $outfile
+echo "
+<br>
+LDAS uses tags to help you find code to perform particular tasks. A given script, program or function may have multiple tags, as they may have overlapping functions. This is a list of every category-tag found in the LDAS code:
+<br><br>
+" >> $outfile
+for tag in $listtags ; do
+	echo "<a href=\"#tag-$tag\">$tag</a> " >> $outfile
+done
+echo "
+<h3><font color=\"$ct0\">files</font></h3>
+<blockquote>
+<b>database</b>: working with database tables<br>
+<b>file</b>: reading and converting files of different formats<br>
+<b>matrix</b>: working with 2D matrices of numbers<br>
+</blockquote>
+
+<h3><font color=\"$ct0\">describe data</font></h3>
+<blockquote>
+<b>detect</b>: detect events, features, etc. in a signal<br>
+<b>math</b>: get descriptive values (cartesian, means, etc.)<br>
+<b>stats</b>: calculating summary statistics for data<br>
+<b>spectra</b>: FFT-based timeseries analysis (spectral power, coherence, PAC etc)<br>
+</blockquote>
+
+<h3><font color=\"$ct0\">transform data</font></h3>
+<blockquote>
+<b>transform</b>: binning, rotating, or other changes to data format<br>
+<b>signal_processing</b>: transformation of a series (filter,bin,rectify, etc.)<br>
+<b>screen</b>: extract subsets of data<br>
+<b>filter</b>: remove components of a signal: filtering, interpolating, de-meaning etc.<br>
+<b>time</b>: working with time-series, timestamps, dates, etc<br>
+<b>noise</b>: removing noise from data<br>
+</blockquote>
+
+<h3><font color=\"$ct0\">miscelaneous</font></h3>
+<blockquote>
+<b>misc</b>:<br>
+<b>plot</b>: generate, modify or transform postscript plots<br>
+<b>programming</b>: development tools for LDAS<br>
+<b>spikes</b>: analysis of discrete events like action-potentials<br>
+<b>string</b>: character-string detecting and processing<br>
+<b>electrophysiology</b>: relating to neuronal electrical signal processing<br>
+<b>synthetic_data</b>: create numbers, datasets, timestamps etc.<br>
+</blockquote>
+
+<h3><font color=\"$ct0\">platform-specific</font></h3>
+<blockquote>
+<b>ldas</b>: code assuming an LDAS data structure and folder contents<br>
+<b>SLICE</b>: for slice electrophysiology experiments (WinLTP software)<br>
+<b>O2</b>: for oxygen-amperometry experiments (CHART software)<br>
+<b>MEA</b>: for slice multi-electrode-array electrophysiology (MES software)<br>
+<b>taini</b>: Taini wireless transmitter data (TainiLive software)<br>
+<b>MED</b>: MED-PC data processing<br>
+<b>SCORE</b>: SCORE data processing (CLB files from 3EG)<br>
+<b>neuralynx</b>: Neuralynx file processing (.ncs)<br>
+</blockquote>
+" >> $outfile
+
+# FOR EACH TAG, BUILD A TABLE LISTING MATCHING CODE
+if [ "$setverb" == "1" ] ; then echo "	- building file-list tables for each tag..." ; fi
+echo "" >> $outfile
+echo "<br><br>" >> $outfile
+echo "<hr id=\"CODE-LINKS\">" >> $outfile
+echo "<h2><font color=\"$ct0\"><a href=\"#TOP\">&#8679</a> CATEGORICAL CODE-LINKS</font></h2>" >> $outfile
+echo "
+<br>
+This section provides links to any code containing one or more of the
+possible category-tags. The links are organised in one column for each
+of scripts, programs, and functions.
+<br>
+" >> $outfile
+
+for tag in $listtags ; do
+	if [ "$setverb" == "1" ] ; then echo "		- $tag" ; fi
+	echo "<h3 id=\"tag-$tag\"><a href=\"#CODE-LINKS\">&#8679</a><font color=\"$ct0\"> CATEGORY: $tag</font></h3>" >> $outfile
+	echo "<table><tr>" >> $outfile
+	# find all files listed in $tempfile.1 which match the current tag
+	prevprefix=""
+	for infile in $listfile1 ; do
+		let z=$(grep $infile $tempfile.1 | grep --color=never -w $tag | wc -l)
+		if [ $z -eq 0 ] ; then continue ; fi
+		name=$(echo $infile | rev | cut -f 1 -d "/" | rev | cut -f 1 -d ".")
+		prefix=$(echo $name | cut -c 1-2)
+		if [ "$prefix" != "$prevprefix" ] ; then
+			if [ "$prefix" == "xs" ] ; then
+				echo "<td><b><font color=\"$ct1\">Scripts</font></b><br><br>" >> $outfile
+			elif [ "$prefix" == "xe" ] ; then
+				echo "</td><td><b><font color=\"$ct2\">Programs</font></b><br><br>" >> $outfile
+			elif [ "$prefix" == "xf" ] ; then
+				echo "</td><td><b><font color=\"$ct3\">Functions</font></b><br><br>" >> $outfile
+			fi
+		fi
+		prevprefix=$prefix
+		listfilewithtag=$listfilewithtag" "$infile
+		echo "<a href=\"#code-$name\">$name</a><br>" >> $outfile
+	done
+	echo "</td></table></tr>" >> $outfile
+done
+
+# BUILD THE CODE SUMMARIES - REMOVE ITEMS WHICH MAY CONFUSE HTML: < and >
+if [ "$setverb" == "1" ] ; then echo "	- building code summaries..." ; fi
+echo "" >> $outfile
+echo "<br><br>" >> $outfile
+echo "<hr id=\"CODE\">" >> $outfile
+echo "<h2><font color=\"$ct0\"><a href=\"#TOP\">&#8679</a> CODE</font></h2>" >> $outfile
+echo "
+<br>
+This section lists the LDAS code in it's entirety, and the category-tags
+associated with the code. The entries are not broken down into sections,
+but scripts (xs-) come first, then programs (xe-) then functions (xf_).
+<br><br>
+Each entry is also accompanied by a description. In the case of scripts
+and programs, the description comes from the help-output generated when
+the script or program is invoked without any arguments. In LDAS, this is
+how users access instructions.
+<br><br>
+Functions are a little different, as they are not executables. Here the
+description comes from the comments at the top of the code, beginning
+with a section labelled \"DESCRIPTION\", and ending with the next \"*/\"
+. If these features are not found in the code for the function, nothing
+will be printed by way of a description.
+<br><br>
+" >> $outfile
+	prevprefix=""
+	for infile in $listfile0 ; do
+		echo >> $outfile
+		name=$(echo $infile | rev | cut -f 1 -d "/" | rev | cut -f 1 -d ".")
+		prefix=$(echo $name | cut -c 1-2)
+
+		# build tag-links for this file
+		tagcode=""
+		x=$(grep --color=never $infile $tempfile.1| cut -f 2-)
+		for tag in $x ; do
+			tagcode=$tagcode"[<a href=\"#tag-$tag\">$tag</a>]"
+		done
+
+		if [ "$prefix" == "xs" ] ; then
+			echo "<font color=\"$ct1\"><h3 id=\"code-$name\"><a href=\"#CODE\">&#8679</a> $name</h3></font>" >> $outfile
+			if [ "$tagcode" != "" ] ; then echo $tagcode"<br>" >> $outfile ; fi
+			echo -n "<blockquote><pre>" >> $outfile
+			$name &> $tempfile.2
+			cat $tempfile.2 |
+				xe-strsub1 stdin "<" "&#60"  |
+				xe-strsub1 stdin ">" "&#62" >> $outfile
+			echo "</blockquote></pre>" >> $outfile
+		elif [ "$prefix" == "xe" ] ; then
+			echo "<font color=\"$ct2\"><h3 id=\"code-$name\"><a href=\"#CODE\">&#8679</a> $name</h3></font>" >> $outfile
+			if [ "$tagcode" != "" ] ; then echo $tagcode"<br>" >> $outfile ; fi
+			echo -n "<blockquote><pre>" >> $outfile
+			$name &> $tempfile.2
+			cat $tempfile.2 |
+			xe-strsub1 stdin "<" "&#60"  |
+			xe-strsub1 stdin ">" "&#62" >> $outfile
+			echo "</blockquote></pre>" >> $outfile
+		elif [ "$prefix" == "xf" ] ; then
+			echo "<font color=\"$ct3\"><h3 id=\"code-$name\"><a href=\"#CODE\">&#8679</a> $name</h3></font>" >> $outfile
+			if [ "$tagcode" != "" ] ; then echo $tagcode"<br>" >> $outfile ; fi
+			echo -n "<blockquote><pre>" >> $outfile
+			xe-cut2 $setpath/$infile 'DESCRIPTION' -s3 '*/' |
+			xe-strsub1 stdin "<" "&#60"  |
+			xe-strsub1 stdin ">" "&#62" >> $outfile
+			echo "</blockquote></pre>" >> $outfile
+		fi
+		prevprefix=$prefix
+	done
+
+	# FINISH THE CODE
+	echo "</font>" >> $outfile
+	echo "</body>" >> $outfile
+	echo "</html>" >> $outfile
+	echo "OUTPUT SENT TO $outfile"
+fi
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+exit

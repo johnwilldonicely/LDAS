@@ -1,0 +1,72 @@
+#!/bin/bash
+thisprog="xs-ldas-coherence_demo"
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": generate a pseudo-dataset for coherence analysis"
+	echo "USAGE: "
+	echo "	"$thisprog" [infile1] [infile2]"
+	echo "		input files:"
+	echo "			jjj1: reference data  "
+	echo "			jjj2: high frequency phase-shifted"
+	echo "			jjj3: low frequency phase-shifted"
+	echo "			jjj4: high frequency different "
+	echo "			jjj5: low frequency different"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" jjj1 jjj5"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+in1=$1
+in2=$2
+
+sn=0.0
+
+xe-makedata1 1200 1 -f .02 -n $sn -a 1.0 -o 0 > jj1 	# reference data low
+xe-makedata1 1200 1 -f .08 -n 0.0 -a .25 -o 0 > jj2	# reference data high
+xe-makedata1 1200 1 -f .02 -n $sn -a 1.0 -o 180 > jj3	# low-shifted
+xe-makedata1 1200 1 -f .08 -n 0.0 -a .25 -o 180 > jj4	# high shifted
+xe-makedata1 1200 1 -f .019 -n $sn -a 1.0 -o 0 > jj5	# low different
+xe-makedata1 1200 1 -f .09 -n 0.0 -a .25 -o 0 > jj6	# high different
+
+echo "time nA" | xe-delimit stdin > jjj1
+echo "time nA" | xe-delimit stdin > jjj2
+echo "time nA" | xe-delimit stdin > jjj3
+echo "time nA" | xe-delimit stdin > jjj4
+echo "time nA" | xe-delimit stdin > jjj5
+echo "time nA" | xe-delimit stdin > jjj6
+paste jj1 jj2 | cut -f 1,2,4 |tail -n +2| awk '{if($1=="time") print $0 ; else print $1"\t"$2-$3}' >> jjj1  # reference data
+paste jj1 jj4 | cut -f 1,2,4 |tail -n +2| awk '{if($1=="time") print $0 ; else print $1"\t"$2-$3}' >> jjj2  # high frequency phase-shifted
+paste jj3 jj2 | cut -f 1,2,4 |tail -n +2| awk '{if($1=="time") print $0 ; else print $1"\t"$2-$3}' >> jjj3  # low frequency phase-shifted
+paste jj1 jj6 | cut -f 1,2,4 |tail -n +2| awk '{if($1=="time") print $0 ; else print $1"\t"$2-$3}' >> jjj4  # high frequency different
+paste jj5 jj2 | cut -f 1,2,4 |tail -n +2| awk '{if($1=="time") print $0 ; else print $1"\t"$2-$3}' >> jjj5  # low frequency different
+
+plotopts="-line 1 -ps 0 -xint 300 -yint .25 -xpad 0 -ypad 0 -xscale .75 -yscale 0.15 -ylabel \"Current_(nA)\""
+
+xe-plottable1 jjj1 $plotopts -xlabel "Time_(s)_[0.01 Hz + 0.08 Hz]" -out $tempfile"_1.ps"
+xe-plottable1 jjj2 $plotopts -xlabel "Time_(s)_[0.08_Hz_out_of_phase]" -out $tempfile"_2.ps"
+xe-plottable1 jjj3 $plotopts -xlabel "Time_(s)_[0.01_Hz_out_of_phase]" -out $tempfile"_3.ps"
+xe-plottable1 jjj4 $plotopts -xlabel "Time_(s)_[high_freq_differs]" -out $tempfile"_4.ps"
+xe-plottable1 jjj5 $plotopts -xlabel "Time_(s)_[low_freq_differse]" -out $tempfile"_5.ps"
+
+xe-plotmerge1 $tempfile"_1.ps" $tempfile"_2.ps" $tempfile"_3.ps" $tempfile"_4.ps" $tempfile"_5.ps" -xmax 1 -yinc 150 -out $tempfile"_4"
+
+paste $in1 $in2 | cut -f 2,4 |
+	xe-fftcoh3 stdin -sf 1 -min 0.01 -max 0.1 -s 10 |
+	xe-plottable1 stdin -line 1 -ps 0 -xscale .5 -vline 0.08,0.01
+
+paste $in1 $in2 | cut -f 2,4 |
+	xe-fftcoh3 stdin -sf 1 -min 0.01 -max 0.1 -s 10 -o 1 | 
+	xe-matrixmod1 stdin -r -90 |
+	xe-plotmatrix1 stdin -zmin 0 -zmax 1
+
+
+xs-ldas-COH2.2 $in1 $in2 -a 300
+exit

@@ -1,0 +1,255 @@
+#!/bin/bash
+thisprog="xs-ldas5-XBEHAV1"
+outbase="XBEHAV1"
+
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# parameters for immobility detection
+setvelint=0.4
+setvel1=".5"
+setdur1="10"
+# parameters for running detection
+setvel2="5"
+setdur2="0.1"
+
+settrial="all"
+setplot="1"
+setplotbin="10"
+setplotdec=""
+setplotopts=""
+sfxyd=25
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Behavioural analysis for REACT trials"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [part] [options]"
+	echo "	[base]= [yyyymmdd]-[ses]_[subject]"
+	echo "	[part]= \"nose\" or \"body\""
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "	-i: set integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	-v: set velocity max (cm/s) for immobility ["$setvel1"]"
+	echo "	-V: set velocity min (cm/s) for running ["$setvel2"]"
+	echo "	-d: set min duration (s) for immobility ["$setdur1"]"
+	echo "	-D: set min duration (s) for running ["$setdur2"]"
+	echo "plot options:"
+	echo "	-p: generate plots?  (0=NO 1=YES) [$setplot]"
+	echo "	-b: plot bin-size (sec) for averaging (0= no binning) ["$setplotbin"]"
+	echo "	-x: plot decimation (sec - will override -b if set) ["$setplotdec"]"
+	echo "	-P: extra plot options for xe-plottable1 (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000_2881801 body -t all -b .4 -P \"-ymax 10\""
+	echo "OUTPUT: "
+	echo "	velocity data (from 12AM) : "$outbase"_velocity.txt"
+	echo "	optional plot of velocity : "$outbase"_velocity.ps"
+	echo "	plot of path : "$outbase"_path_[base].ps"
+	echo "	summary : "$outbase"_summary.txt"
+	echo "		trial: trial name"
+	echo "		dur: total trial duration (seconds)"
+	echo "		%run: percentage of \"dur\" spent running (-v,-d)"
+	echo "		%immob: percentage of \"dur\" spent immobile (-V -D)"
+	echo "		bout: median immobility bout length (seconds)"
+	echo "		vmean: mean overall velocity (cm/s)"
+	echo "		vmedian: median overall velocity (cm/s)"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+part=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="t:i:v:V:d:D:b:x:p:P:" ; vl="verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-t ) settrial=$2 ; shift ;;
+  		-i ) setvelint=$2 ; shift ;;
+		-v ) setvel1=$2 ; shift ;;
+ 		-V ) setvel2=$2 ; shift ;;
+ 		-d ) setdur1=$2 ; shift ;;
+ 		-D ) setdur2=$2 ; shift ;;
+		-p ) setplot=$2 ; shift ;;
+		-b ) setplotbin=$2 ; shift ;;
+		-x ) setplotdec=$2 ; shift ;;
+		-P ) setplotopts=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# MISSING-FILE HANDLING
+in1=$base".xydt"
+in2=$base"-"$part".xyd"
+filenotes=$base".notes"
+if [ ! -e $in1 ] ; then { echo ; echo "--- Error ["$thisprog"]: .xydt file '$in1' missing" ; echo ; exit; } ; fi
+if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: .xyd file '$in2' missing" ; echo ; exit; } ; fi
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit; } ; fi
+
+rm -f $tempfile*
+rm -f $outbase*
+
+
+################################################################################
+# GET DATE, SUBJECT, AND NOTESFILE DATA
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+
+# DETERMINE TRIAL START-STOP PAIRS (MAKE A LIST)
+screenlist=$(xs-ldas-gettrials1 $filenotes $settrial)
+echo "	in1="$in1
+echo "	in2="$in2
+echo "	date="$date
+echo "	subject="$subject
+echo "	settrial="$settrial
+echo "	screenlist="$screenlist
+
+########################################################################################
+# DETERMINE TOTAL TIME SPENT IMMOBILE OR RUNNING IN THE PERIOD DEFINED ABOVE
+########################################################################################
+echo "	...generating times_immobile.ssp"
+xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
+echo "	...generating times_running.ssp"
+xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+
+########################################################################################
+# DETERMINE DURATION AND MEAN & MEDIAN RUNNING SPEED - USE LIST TO SCREEN DATA
+########################################################################################
+echo "	...calculating mean and median running speed"
+z=$(xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 0)
+duration=$(echo $z | xe-getkey stdin dur=)
+velmean=$(echo $z | xe-getkey stdin vmean=)
+velmed=$(echo $z | xe-getkey stdin vmedian=)
+
+
+# echo "	...calculating angular velocity"
+# xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
+# 	xe-cut1 stdin xyd_t -o 1 > $tempfile.1
+# xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
+# 	xe-cut1 stdin xyd_x,xyd_y -o 1 |
+# 	xe-posstats1 stdin -sf $sfxyd |
+# 	xe-cut1 stdin avel -o 1 > $tempfile.2
+# avel=$(
+# 	paste $tempfile.1 $tempfile.2 |
+# 	cut -f 2 |
+# 	xe-statsd1 stdin |
+# 	xe-getkey stdin MEAN |
+# 	awk '{printf("%.3f",$1)}')
+
+# ??? LIGHT-DARK DIFFERENTIAL IN RUNNING SPEED OR TIME RUNNING
+# ??? MAKE ANGULAR VELOCITY SELECTIVE FOR MOVEMENT
+
+# CALCULATE TOTAL AND PERCENTAGE OF TIME SPENT RUNNING OR IMMOBILE
+echo "	...calculating time spent running or immobile"
+
+if [ -s "times_running.ssp" ] ; then
+	running1=$(xe-ldas5-readssp1 times_running.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -v $sf)
+	running2=$(echo $running1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
+else
+	running1="0"
+	running2="0.000"
+fi
+if [ -s "times_immobile.ssp" ] ; then
+	immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -v $sf)
+	immobile2=$(echo $immobile1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
+	immobile3=$(xe-ldas5-readssp1 times_immobile.ssp | xe-getdelta2 stdin -t 1 | xe-math_div1 stdin -v $sf | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | xe-math_round2 stdin -b .001)
+else
+	immobile1="0"
+	immobile2="0.00"
+	immobile3="0.00"
+fi
+
+
+# GENERATE DWELLTIME MARTRIX (UNSMOOTHED)
+echo "	...calculating dwell-time density matrix"
+xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1 |
+	xe-cut1 stdin xyd_x,xyd_y -o 1 |
+	xe-densitymatrix1 stdin -f 1 -x 50 -y 50 > $outbase"_matrix.txt"
+
+
+################################################################################
+# OUTPUT A SUMMARY
+################################################################################
+echo "trial dur %run %immob bout vmean vmedian" | xe-delimit stdin > $outbase"_summary.txt"
+echo $settrial $duration $running2 $immobile2 $immobile3 $velmean $velmed | xe-delimit stdin  >> $outbase"_summary.txt"
+
+
+################################################################################
+# GENRATE PLOTS
+################################################################################
+if [ $setplot == "1" ] ; then
+
+	# THE MOVEMENT TRACE
+	echo "	...plotting the position trace"
+	plotfile=$outbase"_path_"$base".ps"
+	xe-ldas5-readxyd1 $in1 $in2 |
+		xe-cut1 stdin xyd_x,xyd_y |
+		xe-plottable1 stdin -line 1 -ps 0 -xscale 1 -yscale 1 -out $plotfile
+
+	# BIN THE VELOCITY TIME-SERIES, SAVE AND PLOT THE DATA
+	echo "	...plotting running speed"
+	outfile=$outbase"_velocity.txt"
+	plotfile=$outbase"_velocity.ps"
+	echo "time velocity" | xe-delimit stdin > $outfile
+	# calculate binning factor, in samples
+	if [ $setplotbin != 0 ] ; then newbin=$(echo $setplotbin $sfxyd | awk '{print $1*$2}') ; else newbin=1 ; fi
+	# make a list of underscore-delimited SSPs which can then be parsed by a single loop
+	listpairs=$(echo $screenlist| awk -F , '{for(i=1;i<=NF;i+=2) print $i"_"$(i+1)}')
+	vlines=""
+	for pair in $listpairs ; do
+		# re-parse the start & stop values
+		start1=$(echo $pair | cut -f 1 -d _)
+		stop1=$(echo $pair | cut -f 2 -d _)
+		# convert to seconds since midnight
+		start2=$(echo $start1 | awk '{print '$start_secs' + $1/'$sf'}')
+		stop2=$(echo $stop1   | awk '{print '$start_secs' + $1/'$sf'}')
+		echo "		"$start1"	"$stop1
+		vlines=$vlines","$start2","$stop2
+		# pull out the timestamps, decimate, and adjust by start-time and sample-rate
+		xe-ldas5-readxyd1 $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
+		xe-cut1 stdin xyd_t -o 1 |
+		xe-decimate1 stdin $newbin |
+		awk '{print '$start_secs' + $1/'$sf'}' > $tempfile.1
+		# pull out the data, and bin it
+		xe-ldas5-readxyd1 $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
+		xe-cut1 stdin vel -o 1 |
+		xe-bin1 stdin $newbin > $tempfile.2
+		# build the velocity timecourse record
+		paste $tempfile.1 $tempfile.2  >> $outfile
+	done
+
+	# determine the vertical lines for the plot
+	let nlines=$(echo $vlines | tr ',' ' ' | wc -w)
+	if [ $nlines -gt 0 ] ; then vlinecom="-vline $vlines" ; else vlinecom="" ; fi
+	plotopts="-line 1 -lwd 0.25 -ps 0 -xscale 1 -yscale 0.5 -hline 0,$setvel1,$setvel2 -colour 2 -out $plotfile"
+	xe-plottable1 $outfile $plotopts $vlinecom -title "$in2: trial "$settrial" ($name)" -xlabel "Time (s)" -ylabel "Velocity (cm/s)" $setplotopts
+fi
+
+rm -f $tempfile*

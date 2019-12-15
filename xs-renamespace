@@ -1,0 +1,31 @@
+#!/bin/bash
+# <TAGS> file string </TAGS>
+thisprog="xs-renamespace"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": replace spaces in filenames"
+	echo "	- consecutive spaces will undergo a single replacement"
+	echo "USAGE: "
+	echo "	"$thisprog" [in] [new]"
+	echo "		in: input file(s) - quote multiple filenames or wildcards"
+	echo "		new: the replacement - can be a single character or a string"
+	echo "EXAMPLE: "
+	echo "	$thisprog \"Track.*txt\"  \"_\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+in1=$1
+new=$2
+
+ls -1 $in1 | while read x ; do
+	y=$(echo ${x}|sed 's/ \+/'$new'/g')
+	if [ "$x" != "$y" ] ; then
+		echo "renaming \"$x\" to \"$y\""
+		mv "${x}" ${y}
+	fi
+done

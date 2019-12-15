@@ -1,0 +1,220 @@
+#!/bin/bash
+
+thisprog="xs-ldas-scorecoh1b"
+outbase="SCORECOH1_"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_time=$(date +'%s')
+startdir=$(pwd)
+
+setprehours=24
+setdur1=""
+setsf=400
+setfilter="RNWT"
+setcohopts="-sf $setsf -min 0.5 -max 100 -w 800 -s 2 -t 1 -a 10"
+setlow="4"
+sethigh="12"
+setplotonly=0
+
+# ??? TO DO: check combinations of window size, sample-frequency and min/max settings?
+
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate coherence change using a database file"
+	echo "	- this version is for reading 7-day SCORE files"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [options]"
+	echo "	[db]: database file in <base> <time> <group> format"
+	echo "VALID OPTIONS :"
+	echo "	-n: baseline time (hours before start2) ["$setprehours"]"
+	echo "	-a: duration of baseline (hours) [unset: same as -b, below] "
+	echo "	-b: duration of main block (hours) ["$setdur2"]"
+	echo "	-f: filter results using behavioural state SCORES ["$setfilter"]"
+	echo "		R= REM sleep"
+	echo "		N= non-REM sleep"
+	echo "		W= wake"
+	echo "		T= wake, theta"
+	echo "	-C: coherence options (in quotes) [$setcohopts]"
+	echo "	-p: plot only (0=NO, 1=YES) [$setplotonly]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_all.txt -n 24 -a 5 -b 5"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+
+# PARSING PATHS AND FILENAMES
+filedb=$1 ; shift
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":n:a:b:C:f:l:h:p" flag ; do
+ 	case $flag in
+		n) setprehours=$OPTARG;;
+		a) setdur1=$OPTARG;;
+		b) setdur2=$OPTARG;;
+		f) setfilter=$OPTARG;;
+		C) setcohopts=$setcohopts" "$OPTARG;;
+		l) setlow=$OPTARG;;
+		h) sethigh=$OPTARG;;
+		p) setplotonly=1;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# IF UNSET, DURATION OF BASELINE IS THE SAME AS THE DURATION OF THE MAIN BLOCK
+if [ "$setdur1" == "" ] ; then setdur1=$setdur2 ; fi
+
+
+################################################################################
+# BATCH-ANALYZE THE DATA
+################################################################################
+if [ $setplotonly == "0" ] ; then
+
+rm -f $outbase*
+rm -f $tempfile*
+
+let count=0
+cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read dbbase dbtime1 grp comp eegqc fftqc rest ; do
+
+	echo $dbbase
+	subj=$(echo $dbbase | cut -f 1 -d .)
+
+	inA=$dbbase.hpc4
+	inB=$dbbase.pfc4
+
+	# run the analysis
+	xs-ldas-scorecoh1 $inA $inB $dbtime1 -n $setprehours -a $setdur1 -b $setdur2 -x 1 -p 0 -f $setfilter -l $setlow -h $sethigh # ??? -C "$setcohopts"
+
+	# collate the spectrum files
+	infile=$outbase"spectrum.txt"
+	outfile=$startdir"/"$outbase"spectrum_all.txt"
+	header=$(xs-getheader $infile) ; header="subj grp "$header ;
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+	cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subj' '$grp' "$0}' | xe-delimit stdin >> $outfile
+
+	# collate the AUC files
+	infile=$outbase"AUC.txt"
+	outfile=$startdir"/"$outbase"AUC_all.txt"
+	header=$(xs-getheader $infile) ; header="subj grp "$header ;
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+	cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subj' '$grp' "$0}' | xe-delimit stdin >> $outfile
+
+	# collate the theta timecourse files
+	infile=$outbase"theta.txt"
+	outfile=$startdir"/"$outbase"theta_all.txt"
+	header=$(xs-getheader $infile) ; header="subj grp "$header ;
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+	cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subj' '$grp' "$0}' | xe-delimit stdin >> $outfile
+
+	# make a diagnostic plot of the spectrum file
+	plotopts1="-line 1 -ps 0 -cx 1 -cg 2 -cy 3 -ymin 0 -xmin 0 -xmax 100 -xint 10 ymin 0 -ymax 1.0"
+	plotopts2="-xpad 0 -ypad 0 -xscale .2 -yscale .1 -font 6 -lwa .25 -lwd .5 -vline $setlow,$sethigh "
+	# make a temporary plot with bue line
+	xe-cut1 $outbase"spectrum.txt" freq,coh1,coh2 -o 1 |
+		xe-transpose1 stdin -start 2 |
+		awk '{print $1,$2-2,$3}' |
+		xe-plottable1 stdin $plotopts1 $plotopts2 -xlabel "Freq $dbbase" -ylabel "Coherence" -out $tempfile".ps"
+	# make 3-digit variables for convenient sorting
+	count2=$(echo $count | awk '{ printf("%03d",$1) }')
+	# copy plot to start-directory, but first reassign colour in plot to reflect group membership
+	plotfile=$startdir"/"$tempfile"."$count2".ps"
+	echo $plotfile
+	xe-strsub1 $tempfile".ps" "c1 setrgbcolor" "c$grp setrgbcolor" > $plotfile
+
+	let count=$count+1
+	cd $startdir
+
+done
+
+# PLOT THE DIAGNOSTIC PLOTS (TIME1 VS TIME2 COHERENCE)
+plotlist=$(ls $tempfile"."???".ps")
+xe-plotmerge1 -xo 80 -yo 700 -xmax 4 -ymax 8 -xinc 130 -yinc 80 -out $outbase"diagnostic_all" $plotlist
+rm -f $plotlist
+
+fi # end of if [ $setplotonly == "0" ] condition
+
+################################################################################
+# PLOT THE DATA
+echo "PLOTTING THE SUMMARY DATA"
+################################################################################
+plotlist=""
+plotfreqmax=50
+
+echo "outbase="$outbase
+echo "setlow="$setlow
+echo "sethigh="$sethigh
+
+# PLOT THE COHERENCE SPECTRUM AT TIME 1
+plotopts="-line 1 -ps 0 -ew 0 -cg 1 -cx 2 -cy 3 -ce 4 -xscale .4 -xmin 0 -xmax $plotfreqmax -xint 10 -xpad 0 -ypad 0 -ymax 0.5 -lwd 1"
+plotfile="temp_"$thisprog"_0a.ps"
+plotlist=$plotlist" "$plotfile
+xe-cut1 $outbase"spectrum_all.txt" grp,freq,coh1 -o 1 |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Frequency (Hz)" -ylabel "Coherence" -title "PRE" -out $plotfile
+
+# PLOT THE COHERENCE SPECTRUM AT TIME 2
+plotfile="temp_"$thisprog"_0b.ps"
+plotlist=$plotlist" "$plotfile
+xe-cut1 $outbase"spectrum_all.txt" grp,freq,coh2 -o 1 |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Frequency (Hz)" -ylabel "Coherence" -title "POST" -out $plotfile
+
+# PLOT THE COHERENCE SPECTRUM CHANGE
+plotfile="temp_"$thisprog"_1.ps"
+plotlist=$plotlist" "$plotfile
+plotopts="-line 1 -ps 0 -ew 0 -cg 1 -cx 2 -cy 3 -ce 4 -xscale 0.4 -xpad 0 -xmin 0 -xmax $plotfreqmax -xint 10 -lwd 1"
+xe-cut1 $outbase"spectrum_all.txt" grp,freq,diff |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xmin 0 -vline $setlow,$sethigh -xlabel "Frequency (Hz)" -ylabel "Coherence" -title "DIFF" -out $plotfile
+
+# PLOT THE THETA COHERENCE TIMECOURSE
+plotfile="temp_"$thisprog"_2.ps"
+plotlist=$plotlist" "$plotfile
+plotxmin="-"$setdur1
+plotxmax=$setdur2
+plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -line 1 -ps 0 -xscale .45 -lwd .5 -vline 0 -xpad 0 -xmin $plotxmin -xmax $plotxmax -xint 1"
+xe-cut1 $outbase"theta_all.txt" grp,time,ztheta -o 1 |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Time (Hours)" -ylabel "Coherence Z-score" -title "Timecourse ("$setlow"-"$sethigh" Hz)" -out $plotfile
+
+# PLOT THE AUC
+plotfile="temp_"$thisprog"_3.ps"
+plotlist=$plotlist" "$plotfile
+plotopts="-cg 1 -cx 1 -cy 2 -ce 3 -ew 0 -pt box -xscale .45 -lwd .5 -xint 1"
+xe-cut1 $outbase"AUC_all.txt" grp,AUC -o 1 |
+	xe-statsgrp1 stdin |
+	xe-cut1 stdin grp1,mean,sem | 
+	xe-plottable1 stdin $plotopts -xlabel "Group" -ylabel "Delta-coherence" -title "DIFF AUC ("$setlow"-"$sethigh" Hz)" -out $plotfile
+
+xe-plotmerge1 -xmax 2 -xinc 250 $plotlist -out $outbase"summary_all"
+
+
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+set "tempfile"=$tempfile
+set "plotmin"=$plotmin
+set "plotmax"=$plotmax
+set "outbase"=$outbase
+set "thisprog"=$thisprog
+set "setdur"=$setdur
+
+
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

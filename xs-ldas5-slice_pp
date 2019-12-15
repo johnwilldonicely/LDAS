@@ -1,0 +1,191 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+let setfout="2"
+setplot1=""
+setplot2=""
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Analyze slice electrophysiology paired-pulse (PP) experiment"
+	echo " - reads the .notes file to get experiment stats and session file-names"
+	echo " - calls xs-ldas5-slice1 for the paired-pulse sweep"
+	echo " 	- gets the POP-spike and fEPSP stats for the relevant .APO file(s)"
+	echo " - summarizes and plots the data for each session"
+	echo "USAGE: $thisprog [notes]"
+	echo "		[notes]:  .notes file"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--fout: filter output traces? (0=NO_FILTER, or 1,2,3) [$setfout]"
+	echo "		1= POP-spike and fEPSP-artefact"
+	echo "		2= POP-spike and fEPSP-fiber-volley"
+	echo "		3= POP-spike and fEPSP-trough"
+	echo "	--plot1: quoted options for POP-spike plot [unset]"
+	echo "	--plot2: quoted options for EPSP plot [unset]"
+	echo "	--clean: remove temporary files on completion (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo ""
+	echo "OUTPUT:"
+	echo "	"$progbase1"_traces.ps     : plots of the individual traces (sweeps)"
+	echo "	"$progbase1"_summary.txt   : summary stats for paired-pulse-facilitation"
+	echo "		block epsp1 epsp2 pop1 pop2  ratio_e  ratio_p"
+	echo "			block: stimulation-pair (there may be more than 1 pair)"
+	echo "			epsp2: slope of the fEPSP: 2nd stim"
+	echo "			epsp1: slope of the fEPSP: 1st stim"
+	echo "			pop1: amplitude of the POP-spike: 1st stim"
+	echo "			pop2: amplitude of the POP-spike: 2nd stim"
+	echo "			ratio_e: epsp2/epsp1"
+	echo "			ratio_p: pop2/pop1"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 2plotmerge0160725_00000048.notes"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1; shift
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+subject=$(xe-getkey $filenotes subject=)
+date=$(xe-getkey $filenotes date=)
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="fout:,plot1:,plot2:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--fout ) let setfout=$2 ; shift ;;
+		--plot1 ) setplot1=$2 ; shift ;;
+		--plot2 ) setplot2=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ $setfout -lt 0 ] || [ $setfout -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --fout ($setfout) -  must be 0,1,2 or 3" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	rm -f SLICE_PP*
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+################################################################################
+# PAIRED-PULSE (PP) SESSION PROCESSING
+################################################################################
+# MAKE A FILE LIST, SORTED BY STIM AMPLITUDE,
+listfiles=$(xe-dbmatch1 $filenotes block PP -m 1 -xml PP | xe-cut1 stdin filename -o 1)
+
+if [ "$listfiles" != "" ] ; then
+	# RUN XS-LDAS5-SLICE1 ON EACH FILE
+	echo "block epsp1 epsp2 pop1 pop2 ratio_e ratio_p" | xe-delimit stdin > $progbase1"_summary.txt"
+	listplot=""
+	for in2 in $listfiles ; do
+
+		if [ "$setverb" == "1" ] ; then echo "	"$in2 ; fi
+		let count=$count+1
+		# save the header
+		awk 'NF<2||$0~"\""{print $0}' $in2 > $tempfile.1
+		cp $tempfile.1 $tempfile.2
+		# save the data
+		grep -v '"' $in2| awk 'NF>1{print $0}' > $tempfile.data
+		stot=$(cat $tempfile.data|wc -l)
+		# get the parameters
+		si=$(xe-getkey $tempfile.1 '"SampleInterval_ms"')
+		pre=$(xe-getkey $tempfile.1 '"S0_PrePulseDur_ms"')
+		iti=$(xe-getkey $tempfile.1 '"S0_PulseIntvl_ms"')
+		presamps=$(echo "$pre / $si" | bc )
+		itisamps=$(echo "$iti / $si" | bc )
+
+		s1=$(echo "$itisamps + 0" | bc) # duration (samples) for pulse-1
+		s2=$(echo "$itisamps + 1" | bc) # first sample for pulse-2
+		pad1=$(echo "$stot - $s1" | bc)
+		pad2=$s1
+		# save the data
+		head -n $s1  $tempfile.data >> $tempfile.1
+		tail -n +$s2 $tempfile.data >> $tempfile.2
+		# update the number of samples
+		xe-keyupdate1 $tempfile.1 '"NumSamples"' $itisamps
+		xe-keyupdate1 $tempfile.2 '"NumSamples"' $itisamps
+
+		# RUN THE ANALYSIS - STIM-1
+		command="xs-ldas5-slice1 $tempfile.1 --fout $setfout"
+		if [ "$setverb" == "1" ] ; then echo "	"$command ; fi
+		$command --tlabel ": stim-$count.1" --plot1 "-xscale .45 $setplot1" --plot2 "-xscale .45 $setplot2" &> $tempfile
+		cat $tempfile >> $progbase1.log
+		grep -iE "warning|error" $tempfile --color=always
+		pop1=$(xe-cut1 SLICE1_summary.txt popamp -o 1 | awk '{print $1*-1}')
+		epsp1=$(xe-cut1 SLICE1_summary.txt epspslope -o 1 | awk '{print $1*-1}')
+		# rename the trace-plot
+		fileplot=$tempfile"_"$count"_1.ps"
+		listplot=$listplot" "$fileplot
+		cp SLICE1_summary.ps $fileplot
+
+		# RUN THE ANALYSIS - STIM-2
+		command="xs-ldas5-slice1 $tempfile.2 --fout $setfout"
+		if [ "$setverb" == "1" ] ; then echo "	"$command ; fi
+		$command --tlabel ": stim-$count.2" --plot1 "-xscale .45 $setplot1" --plot2 "-xscale .45 $setplot2" &> $tempfile
+		grep -iE "warning|error" $tempfile --color=always
+		cat $tempfile >> $progbase1.log
+		pop2=$(xe-cut1 SLICE1_summary.txt popamp -o 1 | awk '{print $1*-1}')
+		epsp2=$(xe-cut1 SLICE1_summary.txt epspslope -o 1 | awk '{print $1*-1}')
+		# rename the trace-plot
+		fileplot=$tempfile"_"$count"_2.ps"
+		listplot=$listplot" "$fileplot
+		cp SLICE1_summary.ps $fileplot
+
+		# make the combined plot
+		command="xs-ldas5-slice1 $in2 --fout $setfout"
+		if [ "$setverb" == "1" ] ; then echo "	"$command ; fi
+		$command --tlabel ": block $count" --plot1 "-ps 0" --plot2 "-ps 0" --xmax "" &> $tempfile
+		# rename the trace-plot
+		fileplot=$tempfile"_"$count"_3.ps"
+		listplot=$listplot" "$fileplot
+		mv SLICE1_summary.ps $fileplot
+
+		# calculate final stats and output
+		ratio_e=$(echo "scale=3; $epsp2 / $epsp1" | bc )
+		ratio_p=$(echo "scale=3; $pop2 / $pop1" | bc )
+		echo "$count $epsp1 $epsp2 $pop1 $pop2 $ratio_e $ratio_p" | xe-delimit stdin >> $progbase1"_summary.txt"
+
+	done
+	# merge plots
+	xe-plotmerge2 $listplot > $progbase1"_traces.ps"
+
+fi # END CONDITION: IF PP-BLOCK WAS FOUND
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	rm -f SLICE1*
+fi
+exit

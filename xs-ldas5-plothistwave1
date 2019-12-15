@@ -1,0 +1,172 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog="xs-ldas5-plothistwave1"
+tempfile="temp_"$thisprog #"."$$"."
+setoutbase=$tempfile
+
+setlistclu="all"
+setdepthoff=150
+setclean="1"
+setplot="3"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot the xcor-histograms & waveforms for mulitple clusters"
+	echo "USAGE: "
+	echo "	"$thisprog" [clubt] [club] [wfm] [options]"
+	echo "		[clubt]: binary cluster timestamp file"
+	echo "		[club]:  binary cluster ID file"
+	echo "		[wfm]:   ASCII waveform file"
+	echo "VALID OPTIONS:"
+	echo "	-c: comma-separated list of clusters to plot (or \"all\") [$setlistclu] "
+	echo "	-d: depth profile trace-offset (-t 3 only) [$setdepthoff]"
+	echo "	-p: plot histogram (1) waveforms (2) or both (3) [$setplot]"
+	echo "	--outbase: basename for output files [$setoutbase]"
+	echo "	--clean: remove temporarty files (0=NO 1=YES) [$setclean]"
+	echo "	--verb:  flag: verbose output"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" waves.wfm"
+	echo "OUTPUT: "
+	echo "	- [outbase]_summary1.ps: histograms"
+	echo "	- [outbase]_summary2.ps: waveforms"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+# PARSING PATHS AND FILENAMES
+fileclubt=$1 ; shift
+fileclub=$1 ; shift
+filewfm=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+eval set -- $(getopt -o c:d:p: -l clean:,verb,outbase:,plot: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		--verb ) setverb="yes" ;;
+		# arguments with required options (an additional shift is required)
+		-c ) setlistclu="$2" ; shift ;;
+		-d ) setdepthoff="$2" ; shift ;;
+		-p | --plot ) setplot="$2" ; shift ;;
+		--outbase ) setoutbase="$2" ; shift ;;
+		--clean ) setclean="$2" ; shift ;;
+		-- ) shift ; break ;;
+		# bad arguments or invalid options will produce an error
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filewfm ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filewfm' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit; } ; fi
+
+# ARGUMENT CHECKING
+if [ "$setplot" != "1" ] && [ "$setplot" != "2" ] && [ "$setplot" != "3" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) - must be 1,2 or 3" ; echo ; exit; } ; fi
+
+# IF "ALL" IS SPECIFIED, MAKE A LIST OF ALL THE CLUSTERS WITH CONTENTS (OMITTING CLUSTER ZERO)
+if [ $setlistclu == "all" ] ; then
+	setlistclu=$(cut -f 1 $filewfm | xe-checkisnum2 stdin | awk '$1>0{print $1}' | sort -nu | paste -s | tr '\t' '\,')
+fi
+
+# CONVERT COMMAS IN CLUSTER-LIST TO SPACES, CALCULATE NUMBER OF CLUSTERS
+listclu=$(echo $setlistclu | tr ',' ' ')
+let nclu=$(echo $listclu | wc -w)
+if [ $nclu -gt 15 ] ; then fontsize=6
+else fontsize=8
+fi
+
+###############################################################################
+# PLOT THE HISTOGRAMS
+###############################################################################
+if [ "$setplot" == "1" ] || [ "$setplot" == "3" ] ; then
+
+	echo "	- generating histograms..."
+	xscalehist=$(echo $nclu | awk '{printf("%.4f",(1.0/($nclu+1.5)))}')
+	yscalehist=$xscalehist
+	xinchist=$(echo $nclu | awk '{printf("%.4f",(595/($nclu+1.5)))}')
+	yinchist=$xinchist
+	plotopts="-cx 2 -cy 3 -pt histo -xscale $xscalehist -yscale $yscalehist -xint -1 -yint -1 -frame 0 -xpad 0 -ypad 0 -lwd 0.25 -font $fontsize"
+	ymax=$(echo $nclu | awk '{print $1+1}')
+	mergeopts="-xo 25 -yo 750 -xmax $nclu -ymax $ymax -xinc $xinchist -yinc $yinchist"
+	command="xe-ldas5-cluhist1 $fileclubt $fileclub $filewfm -cor 2 -list all -skipz 1 -out 0"
+	echo "	$command"
+	$command | xe-cut1 stdin c1,c2,time,count -o 1 |awk '{printf("%03d-%03d	%s	%s\n",$1,$2,$3,$4)}'  > $tempfile
+	list=$(cut -f 1 $tempfile | sort -u)
+	clumax=$(echo $list | awk '{printf("%d",$NF)}' | cut -f 1 -d -)
+
+	echo "	- plotting histograms..."
+	plotlist=""
+	for item in $list ; do
+
+		cluid1=$(echo $item | cut -f 1 -d - | awk '{printf("%d",$1)}')
+		cluid2=$(echo $item | cut -f 2 -d - | awk '{printf("%d",$1)}')
+		plotopts2=""
+		if [ "$cluid1" == "$cluid2" ] ; then plotopts2=$plotopts2" -colour 1" ; fi
+		if [ "$cluid1" == "$clumax" ] ; then plotopts2=$plotopts2" -xlabel $cluid2" ; fi
+		if [ $setverb ] ; then echo "plot column $setcol: $item" ; fi
+		plotfile=$tempfile"_"$item".ps"
+		plotlist=$plotlist" "$plotfile
+		xe-dbmatch1 $tempfile 1 $item -cn 1 -m 2 -o 1 |
+		xe-plottable1 stdin $plotopts $plotopts2 -out $plotfile
+	done
+
+	xe-plotmerge1 $plotlist $mergeopts -out $setoutbase"_summary1"
+	rm -f $plotlist
+fi
+
+###############################################################################
+# PLOT THE WAVEFORMS
+###############################################################################
+if [ "$setplot" == "2" ] || [ "$setplot" == "3" ] ; then
+	echo "	- plotting waveforms..."
+	probe=$(xe-getkey $filewfm PROBE)
+	nchans=$(xe-getkey $filewfm N_CHANNELS)
+	spklen=$(xe-getkey $filewfm SAMPLES_PER_CHANNEL)
+	spkpre=$(xe-getkey $filewfm SAMPLES_PRE_PEAK)
+	samprate=$(xe-getkey $filewfm SAMPLE_RATE)
+	msint=$(echo "scale=12; 1000 / $samprate" | bc)
+	msecs=$(echo "scale=12; 1000 * $spklen / $samprate" | bc) # duration (ms) of each spike window
+	xscalewave=$(echo $nclu | awk '{printf("%.4f",(1.0/($nclu+1)))}')
+
+	# NOW, PROCESS EACH CLUSTER IN THE LIST
+	plotlist=""
+	for cluster in $listclu ; do
+
+		if [ $cluster == "0" ] ; then continue ; fi
+
+		nspikes=$(awk '$1=='$cluster'{print $2}' $filewfm )
+		if [ "$nspikes" == "" ] ; then { echo "	--- Warning ["$thisprog"]: cluster $cluster is invalid" ; continue; } ; fi
+		if [ "$nspikes" == "0" ] ; then { echo "	--- Warning ["$thisprog"]: cluster $cluster has zero spikes" ; continue; } ; fi
+
+		# MAKE A DEPTH-PROFILE PLOT OF EACH CLUSTER
+		stats=$( xe-dbmatch1 $filewfm 1 $cluster -cn 1| cut -f 3- | tr ' ' '\n' | xe-statsd1 stdin )
+		ymin=$(echo $stats | xe-getkey stdin MIN)
+		ymax=$(echo $stats | xe-getkey stdin MAX)
+
+		plotfile=$tempfile"_"$cluster"b.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-line 1 -ps 0 -cx 1 -cy 2 -lb 2 -colour 1 -xscale $xscalewave -yscale 0.2 -xint -1 -yint -1 -xpad 0 -frame 0 -lwd 0.5 -lwa 0.5 -xpad 0 -ypad 0 -yzero 0 -font $fontsize"
+
+		xe-dbmatch1 $filewfm 1 $cluster -cn 1 | # pull out the relevant cluster
+			cut -f 3- | # omit the spike id and event-count
+			xe-transpose1 stdin -n 0 | # convert row to a column
+			xe-timestamp1 stdin -sf $spklen -p 0 | # add column representing the channel-number
+			xe-strsub1 stdin nan 0 |
+			awk 'BEGIN{z=0;p='$spkpre';i='$msint'}{print (z-p)*i,$2-($1*'$setdepthoff'); z++; if(z>='$spklen')z=0}' |
+			xe-plottable1 stdin $plotopts -xlabel $cluster -out $plotfile
+	done
+
+	xincwave=$(echo $nclu | awk '{printf("%.4f",(595/($nclu+1.5)))}')
+	xe-plotmerge1 $plotlist -xmax $nclu -xinc $xincwave -ymax 2 -yinc 120 -xo 25 -yo 700 -out $setoutbase"_summary2"
+	rm -f $plotlist
+fi
+
+
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile.*
+fi

@@ -1,0 +1,106 @@
+# resource file for CRUNCH.exe
+
+-datatype 2		# 1=neuralynx, 2=csicsvari, 3=Axona [1]
+
+
+###################################################################################################
+# Sampling frequency parameters ###################################################################
+###################################################################################################
+
+-spikefreq 20000.0	# Csicsvari files only: "main" sampling frequency for continuously acquired data
+-posfreq 39.0625	# Csicsvari files only: sample rate of .whl file [39.0625 = 20000/(16*32)
+-efreq 1250.0		# Csicsvari files only: sample rate eeg records, usually 1/16th -spikefreq [1250]
+
+###################################################################################################
+# Video data parameters ###########################################################################
+###################################################################################################
+
+#-vidres 5.867	# CAUTION! Camera resolution for Bristol, 5.8666666666667 pixels/cm
+#-vidres 3.115 	# CAUTION! Camera res. for Csicsvari lab, 2.22222 pixels/cm (from mpeg file)
+-vidres 1.980
+
+-vidxmax 384	# Csicsvari files only: maximum possible x-value, = camera max 768/2
+-vidymax 288	# Csicsvari files only: maximum possible y-value, = camera max 576/2
+
+-cx -1		# x-centre (cm) of apparatus for angular position calc. (-1=auto) [-1]
+-cy -1		# y-centre (cm) of apparatus for angular position calc. (-1=auto) [-1]
+-nox 0		# collapse data in x-dimension? (0=NO, 1=YES) [0]
+-noy 0		# collapse data in y-dimension? (0=NO, 1=YES) [0]
+
+-psmooth 0.4	# position smoothing window(seconds, 10*sampling_interval recommended) [0.4]
+-pinterp 0.4	# interpolate misssing pos records if "gap" is less than -pinterp (-1 = omit) [-1]
+-dejump 200	# dejump speed threshold (cm/s) - set to -1 to disable (200 recommended)
+
+-pshiftt 0.0	# shift position along rat's current trajectory [0.0]
+-pshiftd 0.0	# shift position along rat's current head direction [0.0]
+
+###################################################################################################
+# EEG data parameters #############################################################################
+###################################################################################################
+
+-echantot 64	# (Csicsvari files only, rat-specific) total interlaced eeg channels 
+-echannel 1	# (Csicsvari files only, rat-specific) eeg channel (1-128) [8] 
+
+-emin 4		# minimum theta frequency, Hz [4.0]
+-emax 12		# maximum theta frequency, Hz [12.0]
+-esmooth 0.04	# EEG smoothing window (seconds, recommend < 1/2 theta interval) [0.04]
+-elowcut 2.0	# lowcut freq.(Hz) for EEG filter [2]
+-efit 0.6		# max. mean sq. error for theta fitting, range = 0.0-0.8 [0.4]
+-halffit 0	# fit half sinusoid (1) or full sinusoid (0) [0]
+-escale 1.0	# scale EEG output (use -1 to invert EEG signal) [-1 for bristol]
+-estart 240	# time (s) past start of EEG file at which diagnostic output begins [0] 
+-edur 3		# duration (s) of diagnostic output [3]
+-phaseadjust 0	# amount to adjust phase fitting by to match trough=0 methods [90]
+
+###################################################################################################
+# rate map parameters #############################################################################
+###################################################################################################
+
+-maptype 0	# define map style: 0=O'Keefe , 1=Muller, 2=hybrid, 3=line [0]
+-mapsmtype 3	# smoothing type (1=rate boxcar, 2=spikes/ndwells, 3=gaussian kernal [1]
+-mapsmooth 3	# smoothing factor applied to place map [1]
+-mapmindwell 2	# minimum number of position samples for dwelltime to be valid [1-2]
+-mapbinsize 2.5	# size of bins (cm) in place map [2.5]
+-mapratepeak -1	# manually set peak rate for autoscaling rate maps (-1 auto) [-1]
+-mapthresh 10	# value to determine field edge (%of peak) [10]
+-mappeakzone 75	# upper percentile of in-field rates to constitute field peak (0-100) [75]
+-mapnums 0	# map numbers are probe/cluster (0) or unique number (1) [1]
+-mapcompact 1	# one line per probe (0) or compressed display (1) [0]
+
+###################################################################################################
+# FILTER: the following only take effect if -set_filter is set to "1" #############################
+########################i###########################################################################
+
+-set_filter 1	# filter data based on behaviour (0=NO,1=YES) [0]
+
+-f_start 0	# start time (seconds) [0]
+-f_end 999999	# end time (seconds) [999999]
+-f_velmin 5.0	# minimum running speed (cm/s) [0]
+-f_velmax 999999	# maximum running speed (cm/s) [999999]
+-f_dirchoice 360 	# preferred direction, (degrees, 0-359, 360 = "any") [0]
+-f_dirtol 180	# max deviation from f_dirchoice (degrees, 180 = "any") [180]
+-f_avel 0		# angular velocity (-1=CW, +ive=CCW, 0=either) [0]
+
+
+###################################################################################################
+# output options (0=no, 1=yes) ####################################################################
+###################################################################################################
+
+# general behaviour
+-pause 0	# pause upon completion? (0=NO, 1=YES) [1]
+-setverb 2	# verbose output to common file (0) local file (1) or screen (2) [2]
+-clean 1	# remove postscript subfiles? 0=NO, 1=YES [1]
+
+# file oputputs
+-outpos 1	# produce ascii position records? (0=NO, 1=YES) [0]
+-outeeg 0	# produce ascii EEG output? (0=NO, 1=YES) [0]
+-outspikes 1	# produce ascii spike output? (0=NO, 1=YES) [0]
+-outruns 1	# produce runs analysis and output? (0=NO, 1=YES) [1]
+-outmap 1	# produce ratemap output? (0=NO, 1=YES) [1]
+-outfield 0	# produce field representation output? (0=NO, 1=YES) [1]
+-outmatrix 1 	# produce dwell/spike matrices for maps (0=NO, 1=YES) [0]
+-outisi 1	# calculate interspike intervals, instantanious firing rates and burstiness (0=NO, 1=YES) [1]
+-suffix -		# prefix for cell and runs output (trial summaries) to help identify trial types [-]
+
+
+# this is the end 

@@ -1,0 +1,56 @@
+#!/bin/bash
+# <TAGS> O2 plot </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot a pair of aligned O2-amperometry data files (X1_aligned.txt)"
+	echo "REQUIRES:"
+	echo "USAGE: "
+	echo "	"$thisprog" [in1] [in2] [freq] [low] [high] [plotopts]"
+	echo "		[in1]: aligned file 1"
+	echo "		[in2]: aligned file 2"
+	echo "		[freq]: sampling frequency (samples/s)"
+	echo "		[low]: filter low-cut (0 = none)"
+	echo "		[high]: filter high-cut (0 = none)"
+	echo "		[plotpots]: options for xe-plottable1"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" X1-HIP_aligned.txt X1-ACC_aligned.txt .01 .1 -xscale 1 "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+in1=$1 ; shift
+in2=$1 ; shift
+freq=$1 ; shift
+low=$1 ; shift
+high=$1 ; shift
+setplotopts=$@ ; shift
+
+pad=$(echo $low | awk '{printf("%d",(((2.0*'$freq')/$1)+1))}' )
+
+xe-cut1 $in1 time -o 1 | awk '{print 1,$0}' > $tempfile.1
+xe-cut1 $in2 time -o 1 | awk '{print 2,$0}' > $tempfile.2
+
+xe-cut1 $in1 nA -o 1 |
+	xe-filter_butterworth1 stdin -sf $sfreq -low $low -high $high -pad -1 > $tempfile.11
+
+xe-cut1 $in2 nA -o 1 |
+	xe-filter_butterworth1 stdin -sf $sfreq -low $low -high $high -pad -1 > $tempfile.22
+
+
+paste $tempfile.1 $tempfile.11 > $tempfile.111
+paste $tempfile.2 $tempfile.22 > $tempfile.222
+cat $tempfile.111 $tempfile.222 > $tempfile
+
+xe-plottable1 $tempfile -out $tempfile"_plot.ps" -cg 1 -cx 2 -cy 3 -line 1 -ps 0 -xscale 1 $setplotopts
+
+rm -f $tempfile.*

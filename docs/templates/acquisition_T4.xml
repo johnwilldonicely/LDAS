@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<GRC_py_variables>
+    <!-- Samplle CRACK-IT data acquisition control file -->
+    <!-- Ensure you keep ' <single quotes> ' around text strings -->
+    <!-- -->
+    <!-- Directory to log data in -->
+    <log_path>'~/'</log_path>
+    <!-- -->
+    <!-- Device selection -->
+    <device_selection>[1,2,3,4]</device_selection>
+    <!-- -->
+    <!-- Device 1 (approx 2.317 GHz) -->
+    <d1_subject>'dev1'</d1_subject><d1_center_frequency>2.3154e9</d1_center_frequency>
+    <!-- Device 2 (approx 2.384 GHz) -->
+    <d2_subject>'dev2'</d2_subject><d2_center_frequency>2.3841e9</d2_center_frequency> 
+    <!-- Device 3 (approx 2.509 GHz) -->
+    <d3_subject>'dev3'</d3_subject><d3_center_frequency>2.5073e9</d3_center_frequency> 
+    <!-- Device 4 (approx 2.580 GHz) -->
+    <d4_subject>'dev4'</d4_subject><d4_center_frequency>2.5800e9</d4_center_frequency> 
+    <!-- -->
+</GRC_py_variables>

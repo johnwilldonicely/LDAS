@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# <TAGS>plot database</TAGS>
+
+thisprog="xs-plotcollate"
+tempfile="temp_"$thisprog ; rm -f $tempfile
+
+defaults="-xo 80 -yo 725  -xmax 4 -ymax 10 -xinc 130 -yinc 70 -scale 1"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": Collate plots of a given name from a database"
+	echo "Usefull if there are only comments in the first channel"
+	echo "USAGE: "$thisprog" [database] [name] [opts]"
+	echo "	[database]: database file listing paths to plots"
+	echo "	[name]: name of the plot file in each directory"
+	echo "	[opts]: options for xe-plotmerge1"
+	echo "EXAMPLE: "$thisprog" all.db plotchart.001.ps"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+database=$1; shift ;
+name=$1; shift ;
+options="$@"
+startdir=$(pwd)
+
+# CHECK INTEGRITY OF DATABASE BEFORE RUNNING THROUGH THE WHOLE THING
+cat $database | while read path rest ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$database": "$path ; echo ; exit; } ; fi
+	fi
+done
+
+
+plotlist=""
+let count=0 # initialize a counter to track the number of plots
+
+# NOW GO AHEAD AND DO THE BATCH JOB
+cat $database | while read path group ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then
+
+		cd $path ; echo $path
+		let count=$count+1
+		count2=$(echo $count | awk '{ printf("%03d",$1) }')
+		outfile=$tempfile"_"$count2".ps"
+		cp $name $startdir"/"$outfile
+		cd $startdir
+
+	fi
+done
+
+plotlist=$(ls $tempfile"_"???".ps")
+
+xe-plotmerge1 $defaults $options $plotlist
+
+rm -f $plotlist

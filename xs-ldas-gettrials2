@@ -1,0 +1,423 @@
+#!/bin/bash
+# <TAGS>time database</TAGS>
+thisprog=`basename "$0"`
+allopts=$@
+
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setclean="1"
+setverb="0"
+setname="all"
+setmatch="1"
+setout="table"
+setin1=""
+setin2=""
+setdown="0"
+setadj=""
+setalign=""
+setpre="0"
+setpost="0"
+setpmax="100"
+
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract timestamps or data for trials matching a pattern"
+	echo " - extract TRIALS from .notes file as start-stop pairs (SSP blocks)"
+	echo " - option to adjust start or stop relative to the other using a duration column"
+	echo " - option to redefine start & stop as either (identical values)"
+	echo " 	- allows creation of aligned fixed-length blocks with --pre or --post"
+	echo " - apply downsampling-correction to SSPs for working with LFP (.bin) files"
+	echo " - get trial-specific data from .dat .bin .club(t) or .xyd(t) files"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [notes] [options]"
+	echo "		[notes]: .notes file"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-n | --name : CSV list of trial names, or \"all\" or \"no\" [$setname]"
+	echo "		- NOTE: use of \"no\" overrides most other options"
+	echo "			- a single \"trial\" spans the whole recording"
+	echo "	-m | --match : match-style for xe-dbmatch1 [$setmatch]"
+	echo "		 1= contains at least one pattern"
+	echo "		 2= exact match with at least one pattern"
+	echo "		-1= contains none of the patterns"
+	echo "		-2= exact match with none of the patterns"
+	echo "	-o | --out : output table,list,ssp, or file) [$setout]"
+	echo "		table: entire TRIALS table, XML tags and blank lines removed"
+	echo "		list: single-line of SSPs, comma-delimited"
+	echo "		ssp: binary series of long-integer SSPs, sent to stdout"
+	echo "		file: input and output are files"
+	echo "	--pmax: max allowed trial packet-loss [$setverb]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "OPTIONS (IN ORDER PERFORMED) FOR ALTERING THE START-STOP PAIRS:"
+	echo "	--adj: adjust trial duration using seconds in a named TRIALS column [$setadj]"
+	echo "		\"-\" prefix resets start relative to stop"
+	echo "		\"+\" prefix resets stop relative to start"
+	echo "		e.g. --adj +heat adds \"heat\" to start to adjust stop"
+	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
+	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
+	echo "	--pre: seconds to add to start [$setpre]"
+	echo "	--post: seconds to add to stop [$setpost]"
+	echo ""
+	echo "OPTIONS FOR LIST/SSP OUTPUT:"
+	echo "	-d | --down : downsample SSPs to match .bin files (0=NO 1=YES) [$setdown]"
+	echo ""
+	echo "OPTIONS FOR BINARY FILE OUTPUT (--out file):"
+	echo "	--in1 : input filename, if --out is set to \"file\" [$setin1]"
+	echo "		.dat      : short multi-channel file"
+	echo "		.bin      : float single-channel file (uses corrected SSPs)"
+	echo "		.clubt    : long/short file pair"
+	echo "		.xydt     : long/triple-float file pair"
+	echo "	--in2 : override for default matching .club or .xyd file name [$setin2]"
+	echo ""
+	echo "EXAMPLE: adjust start to stop-[latency], align start, & take preceeding 60s"
+	echo "	"$thisprog" data.notes --adj -latency --align start --pre -60 "
+	echo ""
+	echo "EXAMPLE: extract data from a .clubt file corresponding with SLEEP trials"
+	echo "	"$thisprog" data.notes -n SLEEP -o file --in1 data.clubt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1 ; shift
+if [ ! -e $filenotes ] ; then { echo -e "\n--- Error ["$thisprog"]: notes file '$filenotes' missing\n" ; exit ; } ; fi
+base1=${filenotes%%.notes*}
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="n:m:o:d:v:" ; vl="name:,match:,adj:,align:,pre:,post:,out:,in1:,in2:,down:,pmax:,verb:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		# -a | --long ) aflag="yes" ;;
+		# arguments with required options (an additional shift is required)
+		-n | --name ) setname=$2 ; shift ;;
+		-m | --match ) setmatch=$2 ; shift ;;
+		--adj ) setadj=$2 ; shift ;;
+		--align ) setalign=$2 ; shift ;;
+		--pre ) setpre=$2 ; shift ;;
+		--post ) setpost=$2 ; shift ;;
+		--pmax ) setpmax=$2 ; shift ;;
+		-o | --out ) setout=$2 ; shift ;;
+		-d | --down ) setdown=$2 ; shift ;;
+		--in1 ) setin1=$2 ; shift ;;
+		--in2 ) setin2=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit ; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit ; } ; fi
+if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"\n" ; exit ; } ; fi
+let q=$(echo "$setpmax < 0" | bc)
+if [ $q -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --pmax ($setpmax) -  must be >= 0\n" ; exit ; } ; fi
+let q=$(echo "$setpmax > 100" | bc)
+if [ $q -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --pmax ($setpmax) -  must be <=100\n" ; exit ; } ; fi
+
+
+
+if [ $setverb == 1 ] ; then
+	>&2 echo "--------------------------------------------------------------------------------"
+	>&2 echo $thisprog "$allopts"
+fi
+
+################################################################################
+# GET RECORDING PARAMETERS FROM .NOTES FILE
+################################################################################
+nch=$(xe-getkey2 $filenotes n_channels=)
+sr1=$(xe-getkey2 $filenotes sample_rate=) # base sample rate of .dat file
+bindec=$(xe-getkey $filenotes bin_decimation=)
+if [ "$nch" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing key \"n_channels=\" in $filenotes\n" ; exit ; } ; fi
+if [ "$sr1" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing key \"sample_rate=\" in $filenotes\n" ; exit ; } ; fi
+if [ "$bindec" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing key \"bin_decimation=\" in $filenotes - required for \"--down 1\" setting\n" ; exit ; } ; fi
+# convert downsampling for list/ssp output to decimation factor from notes file
+if [ $setdown == "1" ] ; then setdown=$bindec ; else setdown=1 ; fi
+# determine the maximum allowable samples
+filedat=$(ls $base1*".dat" 2>/dev/null |head -n 1)
+filebin=$(ls $base1*".bin" 2>/dev/null |head -n 1)
+if [ -e "$filedat" ] ; then
+	nsampstot=$(xe-filesize1 $filedat -dt 2 -nch $nch | xe-getkey stdin nrecords=)
+elif [ -e "$filebin" ] ; then
+	x=$(xe-filesize1 $filebin -dt 8 -nch 1 | xe-getkey stdin nrecords=)
+	nsampstot=$(echo "scale=12; $x*$bindec" | bc | xe-math_round1 stdin) # adjust by $bindec to estimate original total samps
+else
+	nsampstot=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin stop -o 1 -s 1 | tail -n 1) # assume the last stop is the highest possible sample
+fi
+
+if [ "$nsampstot" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no .dat or .bin files, and no TRIALS section in $filenotes\n" ; exit ; } ; fi
+
+
+################################################################################
+# MAKE A TEMPORARY FILE #1 CONTAINING THE TRIALS TABLE WITH MATCHING TRIAL-NAMES
+# - uses sed to strip blank lines
+# - save the list of columns in the original table
+# - check that trials were actually found
+################################################################################
+if [ "$setname" == "all" ] ; then
+	xe-strxmlparse1 $filenotes TRIALS |
+	sed '/^\s*$/d' > $tempfile".1"
+	if [ ! -s $tempfile".1" ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS section in $filenotes\n" ; exit ; } ; fi
+elif [ "$setname" == "no" ] ; then
+	echo -e "trial\tstart\tstop\tname" > $tempfile".1"
+	echo -e "1\t0\t$nsampstot\t1" >> $tempfile".1"
+	setadj=""
+	setalign=""
+	setpre="0"
+	setpost="0"
+else
+	xe-strxmlparse1 $filenotes TRIALS |
+	sed '/^\s*$/d' |
+	xe-dbmatch1 stdin name $setname -m $setmatch > $tempfile".1"
+fi
+
+# build list of columns to replicate in final output
+listcols=$(head -n 1 $tempfile.1 | xe-delimit stdin | tr '\t' ',')
+
+# remember the columns holding start and stop
+colstart=$(xe-getkeycol $tempfile".1" start)
+colstop=$(xe-getkeycol $tempfile".1" stop)
+if [ "$colstart" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS column labelled \"start\" in $filenotes\n" ; exit ; } fi
+if [ "$colstop" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS column labelled \"stop\" in $filenotes\n" ; exit ; } fi
+
+# check that trials were found
+let z=$(xe-cut1 $tempfile".1" start,stop -o 1 | wc -l)
+if [ $z -lt 1 ] ; then
+	if [ "$setmatch" == "-1" ] ; then { echo -e "\n--- Error ["$thisprog"]: no trials failed to part-match \"$setname\"\n" ; exit ; } ; fi
+	if [ "$setmatch" == "-2" ] ; then { echo -e "\n--- Error ["$thisprog"]: no trials failed to exact-match \"$setname\"\n" ; exit ; } ; fi
+	if [ "$setmatch" == "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: no trials part-matched \"$setname\"\n" ; exit ; } ; fi
+	if [ "$setmatch" == "2" ] ; then { echo -e "\n--- Error ["$thisprog"]: no trials exact-matched \"$setname\"\n" ; exit ; } ; fi
+fi
+# check that the trial start-stop times are valid
+z=$(xe-cut1 $tempfile".1" start,stop -o 1 | xe-getdelta2 stdin -t 1 | xe-statsd1 stdin | xe-getkey stdin MIN)
+if [ $(echo "$z<0" | bc) -eq  1 ] ; then { echo -e "\n--- Error ["$thisprog"]: negative trial-durations found in $filenotes\n" ; exit ; } ; fi
+
+
+################################################################################
+# APPLY DURATION-ADJUSTMENT IF NECESSARY
+################################################################################
+if [ "$setadj" != "" ] ; then
+	adjsign=$(echo $setadj | cut -c 1)
+	colxname=$(echo $setadj | cut -c 2-)
+	if [ "$adjsign" != "-" ] && [ "$adjsign" != "+" ] ; then { echo -e "\n--- Error ["$thisprog"]: --adj ($setadj) does not begin with \"-\" or \"+\"" ; echo ; exit ; } fi
+
+	colx=$(xe-getkeycol $tempfile".1" "$colxname")
+	if [ "$colx" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS column labelled \"$colxname\" in $filenotes\n" ; exit ; } fi
+
+	if [ "$adjsign" == "-" ] ; then
+		echo "start" > $tempfile".1a"
+		xe-cut1 $tempfile".1" $colxname,stop -o 1 |
+		xe-math_mult1 stdin -cy 1 -v $sr1 |
+		xe-math_doublet stdin -t 2 -out 0 |
+		xe-math_round2 stdin -c 1 -b 1 >> $tempfile".1a"
+	elif [ "$adjsign" == "+" ] ; then
+		echo "stop" > $tempfile".1a"
+		xe-cut1 $tempfile".1" $colxname,start -o 1 |
+		xe-math_mult1 stdin -cy 1 -v $sr1 |
+		xe-math_doublet stdin -t 1 -out 0 |
+		xe-math_round2 stdin -c 1 -b 1 >> $tempfile".1a"
+	fi
+	# add an extra (modified) start or stop column
+	# xe-cut1 will prioritize the later column whenever there is a duplicate
+	paste $tempfile".1" $tempfile".1a" |
+		xe-cut1 stdin $listcols > $tempfile
+	mv $tempfile $tempfile".1"
+fi
+
+################################################################################
+# MAKE TEMPORARY FILE #2, APPLYING ADJUSTMENTS (-A, -B, --pre, --post)
+################################################################################
+# build a list of columns to extract, replacing start or stop with the appropriate alignment column if required
+if [ "$setalign" == "start" ] ; then
+	listcols2=$(echo $listcols | xe-strsub1 stdin stop start)
+elif [ "$setalign" == "stop" ] ; then
+	listcols2=$(echo $listcols | xe-strsub1 stdin start stop)
+else
+	listcols2=$listcols
+fi
+# save header to $tempfile.2 - note, includes start & stop, regardless of which columns were extracted for data alignment
+echo $listcols | tr ',' '\t' > $tempfile".2"
+# determine window adjustment - .dat samples
+let presamps=$(echo "scale=0; $setpre*$sr1" | bc | xe-math_round1 stdin )
+let postsamps=$(echo "scale=0; $setpost*$sr1" | bc | xe-math_round1 stdin )
+
+# echo "tempfile.1="$tempfile".1"
+# echo "colstart="$colstart
+# echo "colstop="$colstop
+# echo "listcols2="$listcols2
+# echo "presamps="$presamps
+# echo "postsamps="$postsamps
+# echo "nsampstot="$nsampstot
+
+xe-cut1 $tempfile".1" $listcols2 -o 1 |
+	xe-math_add1 stdin -cy $colstart -v $presamps -long 1 |
+	xe-math_add1 stdin -cy $colstop -v $postsamps -long 1 |
+	awk '
+	BEGIN{n=0}
+	{
+	n++
+	if($'$colstart'<0) print "--- Warning ['$thisprog']: start-sample "$'$colstart'" < zero for block "n" (skipped)" > "/dev/stderr"
+	else if($'$colstop'<0) print "--- Warning ['$thisprog']: stop-sample "$'$colstop'" < zero for block "n" (skipped)" > "/dev/stderr"
+	else if($'$colstart'>'$nsampstot') print "--- Warning ['$thisprog']: start-sample "$'$colstop'" out of range for block "n" (skipped)" > "/dev/stderr"
+	else if($'$colstop'>'$nsampstot') print "--- Warning ['$thisprog']: stop-sample "$'$colstop'" out of range for block "n" (skipped)" > "/dev/stderr"
+	else if($'$colstart'>$'$colstop') print "--- Warning ['$thisprog']: start>stop ("$'$colstart',$'$colstop'") for block "n" (skipped)" > "/dev/stderr"
+	else print $0
+	}' >> $tempfile".2"
+# check for survivors
+let z=$(xe-cut1 $tempfile".2" start,stop -o 1 | wc -l)
+if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no valid trials after applying adjustments to SSPs\n" ; exit ; } ; fi
+
+################################################################################
+# APPLY PACKET-LOSS CRITERION, IF REQUIRED
+# - will append %loss2 to temp output to show revised-trial packetloss
+################################################################################
+let q=$(echo "$setpmax < 100" | bc)
+if [ $q -eq 1 ] ; then
+	in1=$base1"-lost.ssp "
+	if [ ! -e $in1 ] ; then { echo -e "\n--- Error ["$thisprog"]: lost-packet file '$in1' missing\n" ; exit ; } ; fi
+
+	echo "%lost2" > $tempfile
+	list0=$(xe-cut1 $tempfile".2" trial,start,stop,name -o 1 | tr '\t' '#')
+	list1=""
+	for i in $list0 ; do
+		trial=$(echo $i | cut -f 1 -d '#')
+		start=$(echo $i | cut -f 2 -d '#')
+		stop=$(echo $i | cut -f 3 -d '#')
+		name=$(echo $i | cut -f 1 -d '#')
+		x=$(echo "$stop - $start" | bc) # total samples in trial
+		y=$(echo "$stop - $start" | bc) # total samples in trial
+
+		z=$(xe-ldas5-packetloss3 $in1 -scrl $start,$stop -out 1 | xe-getkey stdin percent_lost=)
+		let q=$(echo "$z <= $setpmax" | bc)
+		if [ $q -eq 1 ] ; then list1=$list1","$trial ; echo $z | awk '{printf("%.3f\n",$1)}' >> $tempfile ; fi
+	done
+	if [ $list1 == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no valid trials after adjusting and excluding packet-loss > $setpmax\n" ; exit ; } ; fi
+	xe-dbmatch1 $tempfile".2" trial $list1 | paste - $tempfile > $tempfile".2b"
+	mv $tempfile".2b" $tempfile".2"
+fi
+
+################################################################################
+# BUILD A TRIAL-LIST IN SSP FORMAT (COMMA-DELIMITED)
+################################################################################
+list1=$(xe-cut1 $tempfile".2" start,stop -o 1 | paste -s | tr '\t' ',')
+
+# also build a list of start-n pairs for reading .dat or .bin files
+list2=$(xe-cut1 $tempfile".2" start,stop -o 1 | awk '{print $1"."$2-$1}')
+
+################################################################################
+# OUTPUT
+################################################################################
+# OUTPUT TRIALS TABLE
+if [ "$setout" == "table" ] ; then
+	colstart=$(head -n 1 $tempfile".2" | xe-getkeycol stdin start)
+	colstop=$(head -n 1 $tempfile".2" | xe-getkeycol stdin stop)
+	cat $tempfile".2" |
+		xe-math_div1 stdin -cy $colstart -v $setdown -long 1 |
+		xe-math_div1 stdin -cy $colstop -v $setdown -long 1
+
+# OUTPUT START-STOP PAIRS AS A COMMA-DELIMITED LIST - APPLY DOWNSAMPLING CORRECTION IF REQUESTED
+elif [ "$setout" == "list" ] ; then
+	echo $list1 | tr ',' '\n' | xe-math_div1 stdin -long 1 -v $setdown | paste -s | tr '\t' ','
+
+# OUTPUT A BINARY SSP - APPLY DOWNSAMPLING CORRECTION IF REQUESTED
+elif [ "$setout" == "ssp" ] ; then
+	echo $list1 | tr ',' '\n' | xe-math_div1 stdin -long 1 -v $setdown | xe-writebinary1 stdin -dt 7
+
+# PULL TRIAL-SPECIFIC DATA FROM A FILE
+elif [ "$setout" == "file" ] ; then
+	in1=$setin1
+	if [ $setverb == "1" ] ; then (>&2 echo "	- retrieving trials matching $setname from $in1") ; fi
+	if [ "$in1" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: input file (--in1) must be set for output style \"file\"\n" ; exit ; } ; fi
+	if [ ! -e $in1 ] ; then { echo -e "\n--- Error ["$thisprog"]: input file '$in1' missing\n" ; exit ; } ; fi
+	# determine file extension
+	base2=${in1%%.*};
+	ext=${in1##*.}
+	outfile1=$tempfile"."$ext
+	rm -f $outfile1
+
+	# FOR DAT FILES
+	if [ "$ext" == "dat" ] ; then
+		for ii in $list2 ; do
+			x=$(echo $ii|cut -f 1 -d .)
+			y=$(echo $ii|cut -f 2 -d .)
+			if [ $setverb == "1" ] ; then (>&2 echo "	- start: $x n: $y") ; fi
+			xe-ldas5-readdat1 $in1 -nch $nch -s $x -n $y -out 1 >> $outfile1
+		done
+		if [ $setverb == "1" ] ; then (>&2 echo "	- output sent to $outfile1") ; fi
+	# FOR BIN (EEG/LFP) FILES
+	elif [ "$ext" == "bin" ] ; then
+		for ii in $list2 ; do
+			x=$(echo $ii|cut -f 1 -d . | xe-math_div1 stdin -v $bindec -cy 1 -long 1)
+			y=$(echo $ii|cut -f 2 -d . | xe-math_div1 stdin -v $bindec -cy 1 -long 1)
+			if [ $setverb == "1" ] ; then (>&2 echo "	- start: $x n: $y") ; fi
+			xe-readbinary3 $in1 -dt 8 -s $x -n $y -out 8 >> $outfile1
+		done
+		if [ $setverb == "1" ] ; then (>&2 echo "	- output sent to $outfile1") ; fi
+
+	# FOR CLUB(T) FILES
+	elif [ "$ext" == "clubt" ] ; then
+		# define name of matching .club file (default is derived from basename-#2)
+		if [ "$setin2" != "" ] ; then in2=$setin2 ; else in2=$base2.club ; fi
+		if [ ! -e $in2 ] ; then { echo -e "\n--- Error ["$thisprog"]: matching .club file '$in2' missing\n" ; exit ; } ; fi
+		outfile2=$tempfile"."club
+		xe-ldas5-readclub1 $in1 $in2 -scrl $list1 -out 0
+		mv temp_xe-ldas5-readclub1.clubt $outfile1
+		mv temp_xe-ldas5-readclub1.club $outfile2
+		if [ $setverb == "1" ] ; then
+			(>&2 echo "- timestamps  sent to $outfile1")
+			(>&2 echo "- cluster-ids sent to $outfile2")
+		fi
+	# FOR XYD(T) FILES
+	elif [ "$ext" == "xydt" ] ; then
+		# define name of matching .xyd file (default is derived from basename-#2)
+		if [ "$setin2" != "" ] ; then in2=$setin2 ; else in2=$base2.xyd ; fi
+		if [ ! -e $in2 ] ; then { echo -e "\n--- Error ["$thisprog"]: matching .xyd file '$in2' missing\n" ; exit ; } ; fi
+		outfile2=$tempfile"."xyd
+		xe-ldas5-readxyd1 $in1 $in2 -scrl $list1 -out 2
+		mv temp_xe-ldas5-readxyd1.xydt $outfile1
+		mv temp_xe-ldas5-readxyd1.xyd $outfile2
+		if [ $setverb == "1" ] ; then
+			(>&2 echo "- timestamps  sent to $outfile1")
+			(>&2 echo "- position triplets sent to $outfile2")
+		fi
+	else
+		{ echo -e "\n--- Error ["$thisprog"]: invalid input file extention \".$ext\"\n" ; exit ; }
+	fi
+else
+	{ echo -e "\n--- Error ["$thisprog"]: invalid output option \"$setout\"\n" ; exit ; } ;
+fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then
+		rm -f $tempfile.?
+	fi
+fi
+exit

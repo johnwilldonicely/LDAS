@@ -1,0 +1,177 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing stats </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog ; rm -f $tempfile
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": calculate stats and plots for individual curves"
+	echo "	- that is, each subject, group and block"
+	echo "	- also produces mean curves for each group/block"
+	echo "	- reads output of _xs-O2-X1b (X1_aligned.txt)"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [infile] [mult]"
+	echo "		[infile]: output of _xs-O2-X1b (X1_aligned.txt)"
+	echo "			format: [subject] [group] [block] [time] [value]"
+	echo "		[mult]: multiplier for time values to determine decimal precision"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" X1_aligned.txt"
+	echo ""
+	echo "OUTPUT:"
+	echo "	blockcurve_[block].txt: all the curves for a given block"
+	echo "		format: [subject] [group] [block] [time] [value]"
+	echo "	blockcurve_stats.txt: statistics on each curve"
+	echo "	blockcurve_[block]_gmeans.txt: group means for the above"
+	echo "		format: [group] [time] [mean-value] [SEM]"
+	echo "	blockcurves_summaryA.001.ps: plot of avg. curves for each block"
+	echo "	blockcurves_summaryB.001.ps: plot of mean stats across blocks"
+	echo "	blockcurves_summaryC.001.ps: as above but within-subject delta scores"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+# READ INPUT FILE NAME AND MULTIPLIER
+infile=$1 ; shift
+mult=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+bcol=$(xe-getkeycol $infile block)
+let nblocks=$(cut -f $bcol $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | sort -u | wc -l)
+if [ $nblocks -lt 2 ] ; then  { echo ; echo "--- Error ["$thisprog"]: file '$infile' has <2 blocks - no point doing per-block analysis!" ; echo ; exit; } ; fi
+
+# DEFINE INITIAL SUBJECT AND GROUP FROM FIRST DATA-LINE IN THE FILE
+ps=$(cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | head -n 1 | cut -f 1)
+pg=$(cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | head -n 1 | cut -f 2)
+pb=$(cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | head -n 1 | cut -f 3)
+
+# DEFINE FILE TO HOLD CURVE-STATS FOR EACH SUBJECT GROUP AND BLOCK
+statsfile="blockcurve_stats.txt"
+# DEFINE THE INITIAL CURVE OUPTUT FILE
+outfile="blockcurve_"$pb".txt"
+# REMOVE ALL EXISTING CURVE OUTPUT FILES
+rm -f blockcurve_*
+# PRINT HEADER TO STATS FILE
+echo "SUBJ GROUP BLOCK N XPEAK YPEAK MEDIAN COM BIAS AUC SLOPE" | xe-delimit stdin > $statsfile
+
+
+echo "CALCULATING THE STATS FOR EACH INDIVIDUAL CURVE"
+echo "SUBJECT GROUP BLOCK" | xe-delimit stdin
+
+cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | while read  s g b t y ; do
+
+	# if subject group and block are the same as for the previous line...
+	if [ $s == $ps ] && [ $g == $pg ] && [ $b == $pb ] ; then
+		echo $s $g $b $t $y | xe-delimit stdin >> $tempfile
+
+	# otherwise, calculate stats
+	else
+		echo $s $g $b | xe-delimit stdin
+		# calculate the curve stats (all values) and the slope (column 4 from the correlation output)
+		x=$(cut -f 4,5 $tempfile | xe-histstats1 stdin);
+		median=$(echo $x | xe-getkey stdin MEDIAN)
+		com=$(echo $x | xe-getkey stdin COM)
+		stats2=$(cut -f 4,5 $tempfile | xe-cor1 stdin -v 0 | cut -f 4)
+		# output the curve stats
+		echo $ps $pg $pb $median $com $stats2 | xe-delimit stdin >> $statsfile
+		# save the accumulated curves to the previous outfile (block-specific)
+		cat $tempfile >> $outfile
+		# define the new outfile
+		outfile="blockcurve_"$b".txt"
+		# output this first curve to tempfile, overwriting previous curves
+		echo $s $g $b $t $y | xe-delimit stdin > $tempfile
+	fi
+	# define "previous" subject group and block, for next itteration
+	ps=$s ; pb=$b ; pg=$g
+
+done
+
+echo "CALCULATING GROUP MEAN CURVES FOR EACH BLOCK, THEN PLOT THE MEANS"
+rm -f blockcurve*means*
+# set up plot options for xe-plottable1
+plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -line 1 -ps 1 -font 8 -xscale .2 -yscale .2 -ylabel Response (nA)"
+flist=$(ls blockcurve_???.txt) # list of files to be plotted - assumes block numbers are always 3-digits
+for f in $flist ; do
+
+	block=$(head $f -n 1 | cut -f 3)
+	outfile="blockcurve_"$block"_gmeans.txt"
+	plotfile="blockcurve_"$block"_gmeans.ps"
+	plotlist=$plotlist" "$plotfile
+	glist=$(cut -f 2 $f | sort -nu)
+
+	for g in $glist ; do
+		echo $f": block "$block" group "$g" outfile "$outfile
+		awk '$2=="'$g'"{print $4,$5}' $f |
+			xe-statsgrp0 stdin -cg 1 -cy 2 -mult $mult | xe-checkisnum2 stdin -t 2 -f 0 -m "-" |
+				awk '{print "'$g'",$1,$3,$5}' |
+		 			xe-delimit stdin >> $outfile
+	done
+
+	xe-plottable1 $outfile $plotopts -xlabel "Time_(s)_Block"$block -out $plotfile
+done
+# MERGE THE PLOTS - DELETE THE ORIGINALS
+xe-plotmerge1 -xmax 4 -yinc 130 -out blockcurve_summaryA $plotlist
+rm -f $plotlist
+plotlist=""
+
+maxtime=$(cut -f 4  $infile |xe-checkisnum2 stdin -t 2 -f 0 -m "-"| sort -rnu | head -n 1)
+interval=$(cut -f 4 $infile |xe-checkisnum2 stdin -t 2 -f 0 -m "-"| awk '{i=$1-p; if(p>0) print i; p=$1; }' | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50)
+maxtime=$(echo $maxtime $interval | awk '{print $1+$2}')
+
+echo "SORT THE STATS FILE"
+datafile="blockcurve_stats.txt"
+scol=$(xe-getkeycol $datafile SUBJ)
+gcol=$(xe-getkeycol $datafile GROUP)
+bcol=$(xe-getkeycol $datafile BLOCK)
+awk '{print $'$scol'$'$gcol'"\t"$0}' blockcurve_stats.txt | sort -n | cut  -f 2- > $tempfile
+mv $tempfile $datafile
+
+echo "PLOTTING GROUP TRENDS IN CURVE STATS ACROSS BLOCKS"
+statlist="XPEAK YPEAK MEDIAN COM AUC SLOPE"
+for stat in $statlist ; do
+	plotfile="blockcurve_"$stat".ps"
+	plotlist=$plotlist" "$plotfile
+	plotopts="-ew 0 -line 1 -ps 4 -font 8 -xscale .2 -yscale .2 -ylabel Mean_"$stat" -xint 1 -xlabel Block"
+
+	if [ $stat == "XPEAK" ] || [ $stat == "MEDIAN" ] || [ $stat == "COM" ] ; then plotopts=$plotopts" -ymin 0 -ymax "$maxtime ; fi
+
+	# determine the input column using keyword from $statlist
+	incol=$(xe-getkeycol $datafile $stat)
+
+	xs-plotmeans2 $datafile $gcol $bcol $incol 1 $plotopts -out $plotfile
+
+done
+# merge all the plots into a single output and delete the originals
+xe-plotmerge1 $plotlist -xmax 3 -yinc 130 -out blockcurve_summaryB
+rm -f $plotlist
+plotlist=""
+
+
+echo "PLOTTING WITHIN-SUBJECT CHANGES IN CURVE STATS ACROSS BLOCKS"
+statlist="XPEAK YPEAK MEDIAN COM AUC SLOPE"
+for stat in $statlist ; do
+	plotfile="blockcurve_"$stat".ps"
+	plotlist=$plotlist" "$plotfile
+	plotopts="-ew 0 -line 1 -ps 4 -font 8 -xscale .2 -yscale .2 -ylabel Delta_"$stat" -xint 1 -xlabel Block"
+
+	# determine the input column using keyword from $statlist
+	incol=$(xe-getkeycol $datafile $stat)
+
+	# convert data to change-statistics - note that the file had to be sorted on subject and group first
+	cat blockcurve_stats.txt | awk '{
+		if($'$scol'!=ps || $'$gcol'!=pg) z=$'$incol';
+		print $'$scol',$'$gcol',$'$bcol',$'$incol'-z;
+		ps=$'$scol';pg=$'$gcol'
+	}' | xe-delimit stdin > $tempfile
+
+	xs-plotmeans2 $tempfile $gcol $bcol 4 1 $plotopts -out $plotfile
+
+done
+# merge all the plots into a single output and delete the originals
+xe-plotmerge1 $plotlist -xmax 3 -yinc 130 -out blockcurve_summaryC
+rm -f $plotlist
+rm -f $tempfile

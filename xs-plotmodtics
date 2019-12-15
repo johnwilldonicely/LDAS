@@ -1,0 +1,126 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog="xs-plotmodtics"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog # "."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+setformat="1"
+setclean="1"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": replace tics with alternative values"
+	echo "USAGE: "
+	echo "	"$thisprog" [psfile] [keyfile] [type]"
+	echo "		[psfile]:  postscript output from program xe-plottable1"
+	echo "		[keyfile]: file containing replacement tic position-label"
+	echo "			example:"
+	echo "				1 first"
+	echo "				2 second"
+	echo "				3 last"
+	echo "		[type]: tic-type to replace (xtic or ytic)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-f: format (0=simple 1=verbose) ["$setformat"]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" plotfile.ps tics.txt xtics"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+keyfile=$1 ; shift
+tictype=$1 ; shift
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+if [ ! -e $keyfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$keyfile' missing" ; echo ; exit; } ; fi
+# CHECK FOR VALID TIC-TYPE
+if [ "$tictype" != "xtic" ] && [ "$tictype" != "ytic" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid tic-type ["$tictype"] - must be \"xtic\" or \"ytic\"" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+########################################################################################
+# SAVE TOP OF FILE - UP TO TIC DEFINITION SECTION
+awk '
+	BEGIN{start=0}
+	{
+	if($0~"% DRAW_TICS_AND_LABELS") exit
+	print $0
+	}
+' $infile > $tempfile.1
+
+
+########################################################################################
+# MAKE TICS REPLACEMENT TEXT
+xe-cut2 $infile "% DRAW_TICS_AND_LABELS" -s1 1 > $tempfile.2a
+sep="#"
+listsub=$(awk '{print "("$1")'$sep'("$2")\t"}' $keyfile)
+for i in $listsub ; do
+	old=$(echo $i | cut -f 1 -d "$sep")
+	new=$(echo $i | cut -f 2 -d "$sep")
+	xe-strsub1 $tempfile.2a $old $new -in $tictype > $tempfile.2b
+	mv $tempfile.2b $tempfile.2a
+done
+mv $tempfile.2a $tempfile.2
+
+########################################################################################
+# SAVE BOTTOM OF FILE - AFTER LAST TIC DEFINITION
+awk '
+	BEGIN{start=0}
+	{
+	if($0~"% DRAW_TICS_AND_LABELS") start=1
+	if(start==1 && NF==0) start=2
+	if(start==2) print $0
+	}
+' $infile > $tempfile.3
+
+
+# IF KEYFILE IS EMPTY, ADJUST LABEL OFFSETS
+let z=$(cat $keyfile | wc -w)
+if [ $z -lt 1 ] ; then
+	if [ "$tictype" == "xtic" ] ; then
+		awk '{if($1!="/xaloff") print $0 ; else print "/xaloff { basefontsize 1.5 mul neg } def"}' $tempfile.3 > $tempfile.4
+		mv $tempfile.4 $tempfile.3
+	fi
+	if [ "$tictype" == "ytic" ] ; then
+		awk '{if($1!="/yaloff") print $0 ; else print "/yaloff { basefontsize } def"}' $tempfile.3 > $tempfile.4
+		mv $tempfile.4 $tempfile.3
+	fi
+fi
+
+
+# NEW OUTPUT, INSERTING NEW TICS
+cat $tempfile.1 $tempfile.2 $tempfile.3 > $infile
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

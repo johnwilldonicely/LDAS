@@ -1,0 +1,170 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+thisprog="xs-dbmake1"
+tempfile="temp_"$thisprog
+
+setexperiment=""
+settablegroups=""
+setfilenames=""
+setcoldate="1"
+setcolsub="2"
+setcoldelim="_"
+setxml=""
+setgcol="group"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Make database of paths to data directories, format= <path> <group>"
+	echo "	- assumes these directories are named according to date and subject"
+	echo "	- database output can use either comments or XML tags to exclude lines"
+	echo "	- a notes file in the directories can be used to specify an experiment-type"
+	echo "USAGE: "
+	echo "	"$thisprog" [basepath]"
+	echo "		[basepath]: path to sub-directories"
+	echo "		 - wildcards can be used to restrict results"
+	echo "		 - if wildcards are used, enclose path in quotes"
+	echo "ADDITIONAL ARGUMENTS and [defaults]:"
+	echo "	--expt: experiment name to find ["$setexperiment"]"
+	echo "		- requires a .notes file in each path defining \"experiment=\""
+	echo "	--groups: table defining <subject> <group>, all groups=0 if unset ["$settablegroups"]"
+	echo "		-subject name derived from path, default=[date]"$setcoldelim"[subject]"
+	echo "	--gcol: head for group-column in the above table ["$setgcol"]"
+	echo "	--names: table defining <group> <name> ["$setfilenames"]"
+	echo "	--pdelim: delimiter for path-name separating date and subject ["$setcoldelim"]"
+	echo "	--pdate: path-name field specifying the date ["$setcoldate"]"
+	echo "	--psub:  path-name field specifying the subject id ["$setcolsub"]"
+	echo "	--xml: specify name of XML section to contain path & group columns [$setxml]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" ../Data_Library/ --expt REACT --xml PATHS"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+path=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="z" ; vl="expt:,groups:,gcol:,names:,pdelim:,psub:,pdate:,xml:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		# arguments with required options (an additional shift is required)
+		--expt ) setexperiment=$2 ; shift ;;
+		--groups ) settablegroups=$2 ; shift ;;
+		--gcol ) setgcol=$2 ; shift ;;
+		--names ) setfilenames=$2 ; shift ;;
+		--pdelim ) setcoldelim=$2 ; shift ;;
+		--psub ) setcolsub=$2 ; shift ;;
+		--pdate ) setcoldate=$2 ; shift ;;
+		--xml ) setxml=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setcoldate" == "$setcolsub" ] ; then { echo ; echo "--- Error ["$thisprog"]: --pdate ($setcoldate) cannot be the same as --psub ($setcolsub)" ; echo ; exit; } ; fi
+
+
+################################################################################
+# GENERATE A LIST OF SUBDIRECTORIES IN THE PATH
+################################################################################
+list=$(ls -d $path* | tr -s '/')
+
+################################################################################
+# CHECK & CLEAN THE GROUP AND NAME DESIGNATION TABLES
+################################################################################
+if [ "$settablegroups" != "" ] ; then
+	if [ ! -f "$settablegroups" ] ; then { echo ; echo "--- Error ["$thisprog"]: grouping table not found ($settablegroups)" ; echo ; exit ; } fi
+fi
+if [ "$setfilenames" != "" ] ; then
+	if [ ! -f "$setfilenames" ] ; then { echo ; echo "--- Error ["$thisprog"]: group-name table not found ($setfilenames)" ; echo ; exit ; } fi
+fi
+
+################################################################################
+# OUTPUT THE HEADER
+################################################################################
+echo "# experiment= "$setexperiment
+# if a table file is defined, use the header, up to the line defining subject and group
+if [ "$settablegroups" != "" ] ; then
+	# print any notes from the top of the groups table files
+	awk '{if($0~"subject" && $0~"group") exit ; print ""$0}' $settablegroups
+	# print group nmes
+	if [ "$setfilenames" != "" ] ; then
+		xe-cut1 $setfilenames group,name -o 1 -s 1 |
+		awk 'NF>0&&$1!~/^#/{print "# group_"$1"= "$2}'
+	else
+		xe-cut1 $settablegroups group,name -o 1 -s 1 |
+		xe-checkisnum2 stdin -f 1 -t 1 |
+		awk '$1!="-"{print $0}' |
+		sort -u -k1,1n -k2,2n |
+		awk '{print "# group_"$1"= "$2}'
+	fi
+# otherwise make a dummy header
+else
+	echo "# group_= "
+fi
+
+################################################################################
+# START XML SECTION IF REQUIRED, OTHERWISE COMMENT-OUT "path group" HEADER
+################################################################################
+if [ "$setxml" != "" ] ; then
+	echo "<"$setxml">"
+else
+	echo
+	echo -n "#"
+fi
+echo "path	group"
+
+################################################################################
+# COLLECT THE PATHS AND MATCH WITH A GROUPING TABLE IF REQUIRED
+# - assumes the subject ID is incorporated in the path
+################################################################################
+for dir in $list ; do
+
+	date=$(echo $dir | rev | cut -f 1 -d / | rev | cut -f $setcoldate -d $setcoldelim)
+	subject=$(echo $dir | rev | cut -f 1 -d / | rev | cut -f $setcolsub -d $setcoldelim)
+
+	# if experiment is set, check the experiment= field of any notes files
+	if [ "$setexperiment" != "" ] ; then
+		if [ ! -f $dir/*.notes ] ; then continue ; fi
+		let z=$(cat $dir/*notes | grep experiment= | grep "$setexperiment" | wc -l)
+		if [ $z -lt 1 ] ; then continue ; fi
+	fi
+
+
+	# if the settablegroups variable is set, define the group for this subject
+	if [ "$settablegroups" != "" ] ; then
+		group=$(xe-dbmatch1 $settablegroups subject $subject -o 1 -oc $setgcol) ;
+		if [ "$group" == "" ] ; then group="-" ; fi
+	else
+		group=0
+	fi
+
+	echo $dir"	"$group
+done
+
+
+################################################################################
+# ADD XML SECTION FOOTER IF REQUIRED
+################################################################################
+if [ "$setxml" != "" ] ; then echo "</"$setxml">" ; fi
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+#if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+exit

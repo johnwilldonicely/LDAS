@@ -1,0 +1,139 @@
+#!/bin/bash
+thisprog="xs-ldas-matrixdiff2b"
+tempfile="temp_"$thisprog
+rm -f $tempfile*
+startdir=$(pwd)
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": present matrix group averages based on within-subject differences"
+	echo "- assumes group-id's in database refer to treatments which are repeated"
+	echo "	- hence each subject belongs to multiple groups"
+	echo "- assumes a matrix has already been generated for each subject/treatment"
+	echo "	- subtracts each matrix  for the reference for that subject"
+	echo "	- then averages the difference matrices for each tratment"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [ref] [matrix] [opts]"
+	echo "		[db] database file in format <path> <group>"
+	echo "		[ref] group-number to  use as reference"
+	echo "		[matrix] the name of the matrix file for each subject/treatment"
+	echo "		[opts] options for plotmatrix1"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" $filedb 0 matrix.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+user_arguments=$@
+echo 
+echo "------------------------------------------------------------------------------"
+echo $thisprog $user_arguments
+echo "------------------------------------------------------------------------------"
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filedb=$1 ; shift 
+refgroup=$1 ; shift 
+filematrix=$1; shift
+plotopts=$@
+
+###############################################################################
+# CHECK VALIDITY OF ARGUMENTS
+################################################################################
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing"; echo ; exit; } fi
+
+refgroup=$(echo $refgroup | awk '{printf("%d\n",$1)}')
+
+################################################################################
+# MAKE SURE DATABASE LINE FORMATTING IS LINUX-STYLE
+################################################################################
+dos2unix -q $filedb
+
+# build array of paths
+a=($(awk 'NF>0&&$0!~/^#/{print $1}' $filedb))
+# build array of subject numbers
+b=($(cat $filedb | awk 'NF>0&&$0!~/^#/{print $1}' | awk -F / '{print $NF}' | awk -F - '{printf("%d\n",$1)}'))
+# build array of group numbers
+c=($(awk 'NF>0&&$0!~/^#/{printf("%d ",$2)}' $filedb))
+# determine number of paths
+let npaths=$(echo  ${a[*]}  | wc -w)-1
+
+################################################################################
+# DETERMINE THE REFERENCE PATH FOR ANY GIVEN SUBJECT 
+################################################################################
+for i in $(seq 0 $npaths) ; do
+	if [ ${c[$i]} == $refgroup ] ; then ref[${b[$i]}]=${a[i]} ; fi 
+done 
+
+################################################################################
+# NOW GO BACK AND BUILD THE DIFFERENCE MATRICES, ACCESSING INPUT FILES USING RELATIVE PATH FROM CURRENT DIRECTORY
+################################################################################
+for i in $(seq 0 $npaths) ; do
+
+	group=${c[$i]}
+	filein=${a[$i]}"/"$filematrix
+	fileref=${ref[${b[i]}]}"/"$filematrix
+
+	if [ $group != $refgroup ] && [ -e $filein ] && [ -e $fileref ] ; then 
+		xe-matrixdiff1 $fileref $filein >>  $startdir"/"$tempfile"_multimatrix_"$group".txt"
+		echo >>  $startdir"/"$tempfile"_multimatrix_"$group".txt"
+	fi 
+	
+	if [ $group == $refgroup ] && [ -e $filein ] && [ -e $fileref ] ; then 
+		cat $fileref >>  $startdir"/"$tempfile"_multimatrix_"$group".txt"
+		echo >>  $startdir"/"$tempfile"_multimatrix_"$group".txt"
+	fi
+
+done 
+
+
+################################################################################
+# NOW CALCULATE THE AVERAGE DIFFERENCE-MATRIX FOR EACH GROUP
+################################################################################
+listgroup=$(echo ${c[*]} | tr -s ' ' '\n' | sort -nu)
+plotlist=""
+for group in $listgroup ; do 
+
+	g2=$(echo $group | awk '{printf("%03d",$1)}') 
+	infile=$tempfile"_multimatrix_"$group".txt"
+	plotfile="temp_"$thisprog"_"$g2".ps"
+	plotlist=$plotlist" "$plotfile
+
+	xe-matrixavg2 $infile > $tempfile 
+
+	# estimate appropriate smoothing factor for plots
+	# double the height of the difference plots
+	width=$(head -n 1 $tempfile | wc -w) ; 
+	height=$(cat $tempfile | wc -l)
+	w2=$(echo $width | awk '{print $1*2}')
+	h2=$(echo $height | awk '{print $1*2}')
+	sx=$(echo $width|awk '{a=0.5+($1/10.0); printf("%d",a)}')
+	sy=$(echo $height|awk '{a=0.5+($1/10.0); printf("%d",a)}')
+	
+	
+	if [ $group == $refgroup ] ; then extra="-xlabel Time_[grp_"$g2"_=_ref] -zmin NAN -zmax NAN -zclip 0" 
+	else extra="-xlabel Time_[grp_"$g2"]"
+	fi 
+	
+	echo 
+	echo "xe-plotmatrix1 $tempfile -out $plotfile $plotopts $extra"
+	echo 
+	xe-matrixmod1 $tempfile  -sx $sx -sy $sy -w $width -h $h2 |
+	xe-plotmatrix1 stdin -out $plotfile $plotopts $extra
+
+done 
+
+xe-plotmerge1 -xo 20 -yo 550 -xinc 250 -xmax 2 -ymax 4 -yinc 190  $plotlist -out $tempfile
+#rm -f $plotlist
+	
+end_time=$(date +'%s')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo; echo "	Time to finish job: "$s" seconds = "$m" minutes"
+
+#rm -f $tempfile*txt

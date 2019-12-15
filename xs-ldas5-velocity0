@@ -1,0 +1,168 @@
+#!/bin/bash
+thisprog="xs-ldas5-velocity0"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# parameters for immobility detection
+setvelint=0.4
+setvel1="1"
+setdur1="10"
+# parameters for running detection
+setvel2="5"
+setdur2="0.1"
+
+setplot="1"
+setplotbin="1"
+setplotdec=""
+setplotopts=""
+
+sf=25
+sfxyd=25
+
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": analyze Ethovision running speed, integrated over $setvelint s"
+	echo "REQUIRES: an Ethovision Track file "
+	echo "USAGE: "
+	echo "	"$thisprog" [pattern] [options]"
+	echo "		[pattern]: portion of Tracking file name(s) to match for analysis"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-i: set integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	-v: set velocity max (cm/s) for immobility ["$setvel1"]"
+	echo "	-V: set velocity min (cm/s) for running    ["$setvel2"]"
+	echo "	-d: set min duration (s) for immobility ["$setdur1"]"
+	echo "	-D: set min duration (s) for running    ["$setdur2"]"
+	echo "plot options:"
+	echo "	-p: plot the velocity timecourse (0=NO 1=YES) [$setplot]"
+	echo "	-b: plot bin-size (sec) for averaging (0= no binning) ["$setplotbin"]"
+	echo "	-x: plot decimation (sec - will override -b if set) ["$setplotdec"]"
+	echo "	-P: extra plot options for xe-plottable1 (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" Track-20160415_Methods_FAM_SLEEP -b .4 -P \"-ymax 10\""
+	echo "OUTPUT: "
+	echo "	velocity data  : output_"$thisprog"_[subject].txt"
+	echo "	summary        : output_"$thisprog"_summary.txt"
+	echo "	plots          : output_"$thisprog".001.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+pattern=$1 ; shift
+list=$(ls *$pattern*)
+let z=$(echo $list | wc -w)
+#if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no tracking files matching pattern \"$pattern\"" ; echo ; exit ; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":i:v:V:d:D:b:x:p:P:" flag ; do
+ 	case $flag in
+  		i) setvelint=$OPTARG;;
+		v) setvel1=$OPTARG;;
+ 		V) setvel2=$OPTARG;;
+ 		d) setdur1=$OPTARG;;
+ 		D) setdur2=$OPTARG;;
+		p) setplot=$OPTARG;;
+		b) setplotbin=$OPTARG;;
+		x) setplotdec=$OPTARG;;
+		P) setplotopts=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+let count=0
+echo "date subject trial name dur %run %immob vmean vmedian" | xe-delimit stdin > "output_"$thisprog"_summary.txt"
+for in0 in $list ; do
+
+	z=$(head $in0 | grep "header lines" | wc -l)
+	if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in0 does not appear to be an EthoVision tracking file" ; echo ; exit ; } fi
+	echo "	processing "$in0
+
+	################################################################################
+	# CREATE TEMPORARY .XYD(T) FILES
+	################################################################################
+	xs-ldas-readethovision1 $in0 -c X_center,Y_center |
+		tail -n +2 |
+		awk '{print n++}' |
+		xe-writebinary1 stdin -dt 7 > $tempfile.xydt
+
+	xs-ldas-readethovision1 $in0 -c X_center,Y_center |
+		tail -n +2 |
+		awk '{print $1,$2,0}' |
+		xe-writebinary1 stdin -dt 8 > $tempfile.xyd
+	in1=$tempfile.xydt
+	in2=$tempfile.xyd
+
+	################################################################################
+	# ANALYZE THE VELOCITY
+	################################################################################
+	subject=$(xs-ldas-readethovision1 $in0 -h vSUBJECT | tr -d '_')
+
+	xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp  
+	xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+
+	date=$(xs-ldas-readethovision1 $in0 -h vDATE | tr -d '_')
+	trial=$(xs-ldas-readethovision1 $in0 -h vTRIALNUM | tr -d '_')
+	name=$(xs-ldas-readethovision1 $in0 -h vTRIAL | tr -d '_')
+	duration=$(xs-ldas-readethovision1 $in0 -c Recording_time | tail -n 1 | awk '{printf("%g",$1)}' )
+	running1=$(xe-ldas5-readssp1 times_running.ssp | awk '{print $2-$1}' | awk '{n+=$1}END{print n/'$sf'}')
+	immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | awk '{print $2-$1}' | awk '{n+=$1}END{print n/'$sf'}')
+	running2=$(echo $running1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
+	immobile2=$(echo $immobile1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
+	mean1=$(xe-ldas5-readxyd1 $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.3f",$1)}' )
+	med1=$(xe-ldas5-readxyd1 $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | awk '{printf("%.3f",$1)}')
+	screenlist="0,"$(echo $duration $sfxyd | awk '{print $1*$2}')
+
+	echo $date $subject $trial $name $duration $running2 $immobile2 $mean1 $med1 | xe-delimit stdin >> "output_"$thisprog"_summary.txt"
+
+
+	################################################################################
+	# BIN OR DECIMATE THE DATA, SAVE A TEMPFILE AND PLOT THE DATA
+	################################################################################
+	outfile="output_"$thisprog"_"$subject".txt"
+	if [ $setplot == "1" ] ; then
+		let count=$count+1
+		if [ $count -ge 5 ] ; then let count=1 ; fi
+		if [ $count -eq 1 ] ; then title="-title Velocity(cm/s)_Trial_"$trial"_"$name ; else title="" ; fi
+
+		plotfile=$tempfile"_"$trial"_"$subject".ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-line 1 -ps 0 -xscale .24 -yscale 0.24 -ymax 15 -yint 5 -font 8 -hline 0,$setvel1,$setvel2 -xmin 0 -colour 2 $title -out $plotfile"
+
+		if [ "$setplotdec" != "" ] ; then
+			if [ $setplotdec != 0 ] ; then newdec=$(echo $setplotdec $sfxyd | awk '{print $1*$2}') ; else newdec=1 ; fi
+			newrate=$(echo $sfxyd $newdec | awk '{print $1/$2}')
+			xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+			xe-cut1 stdin vel |
+			xe-decimate1 stdin $newdec |
+			xe-timestamp1 stdin -sf $newrate > $outfile
+		else
+			if [ $setplotbin != 0 ] ; then newbin=$(echo $setplotbin $sfxyd | awk '{print $1*$2}') ; else newbin=1 ; fi
+			newrate=$(echo $sfxyd $newbin | awk '{print $1/$2}')
+			xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+			xe-cut1 stdin vel |
+			xe-bin1 stdin $newbin |
+			xe-timestamp1 stdin -sf $newrate > $outfile
+		fi
+		# determine the vertical lines for the plot
+		let nlines=$(echo $screenlist | awk -F , '{print (NF/2)-1}')
+		if [ $nlines -gt 0 ] ; then vlines=$(echo $screenlist|tr ',' ' '|awk '{for(i=2;i<=NF;i+=2) {x+=($i-$(i-1))/'$sf' ; print x }}'|head -n $nlines|paste -s|tr '\t' ','|awk '{print "-vline "$1}') ; fi
+
+		xe-plottable1 $outfile $plotopts $vlines -xlabel $subject $setplotopts
+	fi
+
+done
+xe-plotmerge1 -xmax 4 -ymax 4 -xinc 135 -yinc 170 $plotlist -out "output_"$thisprog
+rm -f $plotlist

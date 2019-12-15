@@ -1,0 +1,18 @@
+# read the data
+data=read.table("F:\\Sync\\SampleData\\R\\ozone.data.txt", header=T)
+attach(data)
+
+# plot the data corrrelations
+pairs(data,panel=panel.smooth)
+
+# build the model, including squared terms for potential quadratic functions
+model=lm(ozone~rad*temp*wind+I(rad^2)+I(temp^2)+I(wind^2))
+
+# perform an anova
+anova(model)
+
+# perform a stepwise regression (forward, backward, or both) 
+model2=step(model,direction="forward")
+
+# compare anova with original results
+anova(model2)

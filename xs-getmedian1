@@ -1,0 +1,112 @@
+#!/bin/bash
+# <TAGS> math </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+plotfile="plot_"$thisprog".ps"
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+let setplot=0
+let setverb=0
+let setclean=1
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate the median of a variable for grouped subjects"
+	echo "	- input file must have columns with names specified on the first line"
+	echo "	- sub, grp and var (see below) should all be numeric"
+	echo "USAGE: "
+	echo "	"$thisprog" [in] [sub] [grp] [var]"
+	echo "		[in]: file with headered columns"
+	echo "		[sub]: name of column defining subject id's (integers)"
+	echo "		[grp]: name of column defining group (integers)"
+	echo "		[var]: name of column holding the variable to be analyzed"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--plot: plot the mean and data-points (0=NO 1=YES) [$setplot]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt name dose weight"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setsub=$1 ; shift
+setgrp=$1 ; shift
+setvar=$1 ; shift
+
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="p:v:c:" ; vl="plot:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-p | --plot ) let setplot=$2 ; shift ;;
+		-v | --verb ) let setverb=$2 ; shift ;;
+		-c | --clean ) let setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setplot" -lt 0 ] || [ "$setplot" -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" -lt 0 ] || [ "$setverb" -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" -lt 0 ] || [ "$setclean" -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+################################################################################
+# ANALYZE
+################################################################################
+list=$(xe-cut1 $infile $setsub,$setgrp -o 1 | tr '\t' '.' | sort -nu)
+echo $setsub $setgrp $setvar | xe-delimit stdin > $tempfile
+for i in $list ; do
+	s=$(echo $i|cut -f 1 -d .)
+	g=$(echo $i|cut -f 2 -d .)
+	xe-dbmatch1 $infile $setsub $s |
+	xe-cut1 stdin $setvar -o 1 |
+	xe-statsd1 stdin -per 1 |
+	grep PERCENTILE_50 |
+	awk '{print "'$s'\t'$g'\t"$2}' >> $tempfile
+done
+cat $tempfile
+
+################################################################################
+# PLOT
+################################################################################
+xs-plotmeans1 $tempfile $setgrp $setvar -A "-pt box -bz 0 " -o $plotfile
+if [ $setplot -eq 1 ] ; then
+	if [ "$setverb" -eq 1 ] ; then echo "	- plot sent to $plotfile" ; fi
+fi
+
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

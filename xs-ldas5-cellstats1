@@ -1,0 +1,175 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+settrials="all"
+setclass="0"
+setclean="1"
+setverb="0"
+
+cratemin="0.05" # minimum firing rate (Hz) to classify cell at all
+cwidthmax="1.0" # maximum waveform width for inclusion
+cratethresh="10.0" # rate threshold (Hz) for pyramidal cells (<) or interneurons (>)
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": create a summary table of cell statistics"
+	echo "- .wfm file is used to calculate waveform width and amplitude"
+	echo "- .club(t) file is used to calculate firing rate, refractoriness, burstiness"
+	echo "	NOTE: assumes .clubt file is expanded (referenced to original .dat file)"
+	echo "USAGE: "
+	echo "	"$thisprog" [base]"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-t | --trials: CSV list of trials to use (or \"all\") [$settrials]"
+	echo "		NOTE: will not affect waveform amplitude or width"
+	echo "	--class: add cell-classification column (0=NO 1=YES) [$setclass]"
+	echo "		class0= undefined (or rate<$cratemin or width>$cwidthmax)"
+	echo "		class1= pyramidal:   rate < $cratethresh and width > -burst+.7"
+	echo "		class2= interneuron: rate > $cratethresh and width < -burst+.7"
+	echo "		NOTE: should only be used when analyzing all"
+	echo "		    : restricting data can reduce classification accuracy"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20170731-001_000016"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setbase=$1 ; shift
+
+filenotes=$setbase.notes
+filewfm=$setbase.wfm
+fileclubt=$setbase.clubt
+fileclub=$setbase.club
+if [ ! -e $filenotes ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filenotes"; echo; exit; } fi
+if [ ! -e $filewfm ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filewfm"; echo; exit; } fi
+if [ ! -e $fileclubt ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $fileclubt"; echo; exit; } fi
+if [ ! -e $fileclub ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $fileclub"; echo; exit; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="t:v:" ; vl="trials:,class:,verb:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-t | --trials ) settrials=$2 ; shift ;;
+		--class ) setclass=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclass" != "0" ] && [ "$setclass" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --class ($setclass) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+################################################################################
+# GET PARAMETERS FROM .NOTES FILE
+################################################################################
+sf=$(xe-getkey $filenotes sample_rate=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+
+################################################################################
+# GET SPIKING RATES FOR TRIALS - OMIT CLUSTER ZERO
+# - use xe-ldas5-readclub1 because it determines trial duration using the trial start-stop-pairs
+################################################################################
+# 1. make an SSP list for specific trials
+list2=$(xs-ldas-gettrials2 $filenotes -n $settrials -m 1 -o list)
+error=$(echo $list2 | grep Error)
+if [ "$error" != "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no trials matching $settrials found in $filenotes" ; echo ; exit ; } fi
+# 2. read spike times using that list to generate firing rates
+xe-ldas5-readclub1 $fileclubt $fileclub -scrl $list2 -out -2 |
+	xe-cut1 stdin cluster,count,rate |
+	xe-dbmatch1 stdin cluster 0 -m -2 > $tempfile"_rate.txt"
+
+################################################################################
+# GET HISTOGRAM STATISTICS - OMIT CLUSTER ZERO
+################################################################################
+# 1. make a trial-specific version of the clubt(t) files
+xs-ldas-gettrials2 $filenotes -n $settrials -m 1 -o file --in1 $fileclubt --verb 0
+in1="temp_xs-ldas-gettrials2.clubt"
+in2="temp_xs-ldas-gettrials2.club"
+# 2. get the histogram stats
+xe-ldas5-cluhist1 $in1 $in2 -sf $sf -cor 1 -t 1 -out 1 -list all -width 50 -skipz 1 |
+	xe-cut1 stdin cluster,refract,mean,burst |
+	xe-strsub1 stdin mean h.mean > $tempfile"_histo.txt"
+
+################################################################################
+# GET WAVEFORM STATS - OMIT CLUSTER ZERO
+################################################################################
+xe-ldas5-wavestats1 $filewfm |
+	xe-cut1 stdin cluster,peak,width |
+	xe-strsub1 stdin peak w.amp |
+	xe-strsub1 stdin width w.width |
+	xe-math_abs1 stdin -cy 2 |
+	xe-dbmatch1 stdin cluster 0 -m -2 > $tempfile"_wave.txt"
+
+################################################################################
+# COMBINE OUTPUTS IN A SINGLE TABLE
+################################################################################
+if [ "$setclass" == "0" ] ; then
+	paste $tempfile"_rate.txt" $tempfile"_histo.txt" $tempfile"_wave.txt"  |
+	xe-cut1 stdin cluster,count,rate,refract,h.mean,burst,w.amp,w.width
+else
+	paste $tempfile"_rate.txt" $tempfile"_histo.txt" $tempfile"_wave.txt"  |
+	xe-cut1 stdin cluster,count,rate,refract,h.mean,burst,w.amp,w.width |
+	awk '{
+		rate=$3
+		hmean=$5
+		burst=$6 ; if(burst<0) burst=0
+		width=$8
+
+		if($0~/cluster/) {
+			print $0"\tclass"
+		}
+		else {
+			class="0"
+
+			if(rate>'$cratemin' && width<'$cwidthmax') {
+				if( rate<'$cratethresh' && width>=(-burst+.7) ) class="1"
+				if( rate>='$cratethresh' && width<(-burst+.7) ) class="2"
+			}
+			print $0"\t"class
+		}
+	}'
+fi
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+
+exit

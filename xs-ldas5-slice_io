@@ -1,0 +1,223 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+let setfout="2"
+setplot1=""
+setplot2=""
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Analyze slice electrophysiology input/output (I/O) experiment"
+	echo " - reads the .notes file to get experiment stats and session file-names"
+	echo " - calls xs-ldas5-slice1 for each trial"
+	echo " 	- gets the POP-spike and fEPSP stats for each session's .APO files"
+	echo " - problem trials (***) and baseline (bs) are excluded"
+	echo " - summarizes and plots the data for each session"
+	echo "USAGE: $thisprog [notes]"
+	echo "		[notes]:  .notes file"
+	echo "		[expt]: CSV list of experiments to look for (IO,PP,LFP)"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--fout: filter output traces? (0=NO_FILTER, or 1,2,3) [$setfout]"
+	echo "		1= POP-spike and fEPSP-artefact"
+	echo "		2= POP-spike and fEPSP-fiber-volley"
+	echo "		3= POP-spike and fEPSP-trough"
+	echo "	--plot1: quoted options for POP-spike plot [unset]"
+	echo "	--plot2: quoted options for fEPSP plot [unset]"
+	echo "	--clean: remove temporary files on completion (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo ""
+	echo "OUTPUT:"
+	echo "	"$progbase1"_traces.ps     : plots of the individual traces (sweeps)"
+	echo "	"$progbase1"_summary.ps    : plots of I/O curves & transmission efficacy"
+	echo "	"$progbase1"_results.txt   : all results from xs-ldas5-slice1"
+	echo "	"$progbase1"_summary.txt   : summary stats for transmission efficacy"
+	echo "		measure r prob slope inter"
+	echo "			measure= \"fv versus epsp\" or \"epsp versus pop-spike\""
+	echo "			r= Pearson's correlation coefficient"
+	echo "			prob= statistical probability"
+	echo "			slope: slope of the line (x versys y)"
+	echo "			inter: y-axis intercept"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160725_00000048.notes"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1; shift
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+subject=$(xe-getkey $filenotes subject=)
+date=$(xe-getkey $filenotes date=)
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="fout:,plot1:,plot2:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--fout ) let setfout=$2 ; shift ;;
+		--plot1 ) setplot1=$2 ; shift ;;
+		--plot2 ) setplot2=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ $setfout -lt 0 ] || [ $setfout -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --fout ($setfout) -  must be 0,1,2 or 3" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	rm -f SLICE_IO*
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+
+
+
+################################################################################
+# INPUT/OUTPUt(IO) SESSION PROCESSING
+################################################################################
+# BUILD A TABLE EXCLUDING PROBLEM-RECORDS (***) and BASELINE (bs)
+xe-strxmlparse1 $filenotes IO |
+	xe-dbmatch1 stdin filename "***" -m -1 |
+	xe-dbmatch1 stdin notes "(bs)" -m -1 > $tempfile.0
+
+# MAKE A FILE LIST, SORTED BY STIM AMPLITUDE,
+listfiles=$(xe-cut1 $tempfile.0 filename,stim -o 1 | sort -k2,2n | awk '{print $1"@"$2}')
+
+# RUN XS-LDAS5-SLICE1 ON EACH FILE
+if [ "$listfiles" != "" ] ; then
+	echo "measure r prob slope inter" | xe-delimit stdin > $progbase1"_summary.txt"
+	outresults=$progbase1"_results.txt"
+	listplot=""
+	let count=0
+	for item in $listfiles ; do
+		let count=$count+1
+		in2=$(echo $item | cut -f 1 -d @)
+		stim=$(echo $item | cut -f 2 -d @)
+
+		# run the analysis
+		command="xs-ldas5-slice1 $in2 --fout $setfout"
+		if [ "$setverb" == "1" ] ; then echo "	"$command ; fi
+		$command --tlabel ": $stim uA" --plot1 "$setplot1" --plot2 "$setplot2" &> $tempfile
+		grep -iE "warning|error" $tempfile --color=always
+		cat $tempfile >> $progbase1.log
+
+		# compile the summary results
+		if [ $count -eq 1 ] ; then
+			xs-getheader SLICE1_summary.txt |
+			awk '{print "stim\t"$0}' |
+			xe-delimit stdin > $outresults
+		fi
+		tail -n +2 SLICE1_summary.txt |
+			awk '{print "'$stim' "$0}' |
+			xe-delimit stdin >> $outresults
+		# rename the trace-plot
+		fileplot=$tempfile"_"$count".ps"
+		listplot=$listplot" "$fileplot
+		mv SLICE1_summary.ps $fileplot
+	done
+	# COMBINE THE TRACES
+	outplot=$progbase1"_traces.ps"
+	xe-plotmerge2 $listplot > $outplot
+
+
+	################################################################################
+	# CREATE THE SLOPE SUUMMARY
+	################################################################################
+	in2=$outresults
+	xe-cut1 $in2 fvmv,epspslope -o 1 |
+		xe-correlate stdin -verb 1 |
+		xe-cut1 stdin r,prob,slope,inter -o 1 |
+		awk '{print "fv_epsp\t"$0}' >> $progbase1"_summary.txt"
+	xe-cut1 $in2 epspslope,popamp -o 1 |
+		xe-correlate stdin -verb 1 |
+		xe-cut1 stdin r,prob,slope,inter -o 1 |
+		awk '{print "epsp_pop\t"$0}' >> $progbase1"_summary.txt"
+
+	################################################################################
+	# PLOT DATA IN INVERTED FORM
+	################################################################################
+	plotopts="-cx 1 -cy 2 -line 0 -xint 40 -xscale .25 -ymin 0 -xmin 0 -font 8 -colour 1"
+	xl="Stim (uA)"
+	outplot=$progbase1"_summary.ps"
+	listplot=""
+	fileplot=$tempfile"_FV.ps"
+	listplot=$listplot" "$fileplot
+	xe-cut1 $outresults stim,fvmv |
+		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-checkisnum2 stdin -t 1 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Fv amplitude (uV)" -title "DATE= $date  SUBJECT= $subject" -out $fileplot
+	fileplot=$tempfile"_fEPSP.ps"
+	listplot=$listplot" "$fileplot
+	xe-cut1 $outresults stim,epspslope |
+		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-checkisnum2 stdin -t 1 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "fEPSP slope (mV/ms)" -out $fileplot
+	fileplot=$tempfile"_POP.ps"
+	listplot=$listplot" "$fileplot
+	xe-cut1 $outresults stim,popamp |
+		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-checkisnum2 stdin -t 1 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "POP-spike amp. (uV)" -out $fileplot
+
+	plotopts="-cx 1 -cy 2 -line 0 -xscale .25 -font 8 -colour 1"
+	fileplot=$tempfile"_FvE.ps"
+	listplot=$listplot" "$fileplot
+	xl="Fv amplitude (uV)"
+	yl="fEPSP slope (mV/ms)"
+	title=$(xe-dbmatch1 $progbase1"_summary.txt" measure fv_epsp | xe-cut1 stdin slope,prob -o 1 | awk '{print "grad= "$1"  p="$2}')
+	xe-cut1 $outresults fvmv,epspslope |
+		xe-math_mult1 stdin -cy -1 -v -1 |
+		xe-checkisnum2 stdin -t 1 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" -out $fileplot
+	fileplot=$tempfile"_EvP.ps"
+	listplot=$listplot" "$fileplot
+	xl="fEPSP slope (mV/ms)"
+	yl="POP-spike amp. (uV)"
+	title=$(xe-dbmatch1 $progbase1"_summary.txt" measure epsp_pop | xe-cut1 stdin slope,prob -o 1 | awk '{print "grad= "$1"  p="$2}')
+	xe-cut1 $outresults epspslope,popamp |
+		xe-math_mult1 stdin -cy -1 -v -1 |
+		xe-checkisnum2 stdin -t 1 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" -out $fileplot
+
+	# merge the summary plots
+	xe-plotmerge1 $listplot -xinc 180 -xmax 3
+	mv temp_xe-plotmerge1.001.ps $outplot
+
+fi # END CONDITION: IF PP-BLOCK WAS FOUND
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	rm -f SLICE1*
+fi
+exit

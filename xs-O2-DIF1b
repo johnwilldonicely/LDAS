@@ -1,0 +1,164 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+thisprog=`basename "$0"`
+outbase="DIF1_"
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+set_mult=1
+
+if [ $# -lt 6 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Run xs-O2-X1b for two start-signals and get response-difference"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [reg] [start1] [start2] \"[X1opts]\""
+	echo "		[db]: datbase file"
+	echo "		[reg]: name of region"
+	echo "		[start1]: start signal for blocks to be used as reference"
+	echo "		[start2]: start signal for blocks of responses of interest"
+	echo "			NOTE: result = start2_curve - start1_curve"
+	echo "		[reg]: name of region"
+	echo "		[X1opts]: options (in quotes) for xs-O2-X1b"
+	echo "EXAMPLE: "
+	echo "	"$thisprog"  db_NAc_L.txt NAc CSy CSn \"-d 30\" "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+filedb1=$1 ; shift
+reg1=$1 ; shift
+start1=$1 ; shift
+start2=$1 ; shift
+opts1=$@
+startdir=$(pwd)
+
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: filedb file '$filedb' missing" ; echo ; exit ; } fi
+
+# DETERMINE IF MULTIPLIER WAS SET
+x=$(echo $opts1 | awk '{for(i=1;i<=NF;i++) if($i=="-m") print $(i+1)}') ; if [ $x ] ; then set_mult=$x ; fi
+
+
+# RUN X1B, RENAME THE OUTPUT IN EACH Data_Working FOLDER, AND STORE THE ANALYSIS OUTPUT IN NAMED FOLDERS
+rm -f X1_*
+echo
+echo "STEP1: RUNNING xs-O2-X1b ON $reg1 START SIGNAL="$start1
+xs-O2-X1b $filedb1 $reg1 all -s $start1 $opts1
+if [ $(grep -i error X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Error ["$thisprog"]: errors processing with start signal $start1 - check X1_log.txt" ; echo ; exit ; } fi
+a="X1_" ; b="X1-"$reg1"-"$start1"_"
+xs-batch1 $filedb1 "xs-rename $a $b $a -w 1" --verb 1 2&> $tempfile
+mkdir -p "output1_"$reg1"_"$start1
+mv X1_* "output1_"$reg1"_"$start1
+
+rm -f X1_*
+echo
+echo "STEP2: RUNNING xs-O2-X1b ON $reg1 START SIGNAL="$start2
+xs-O2-X1b $filedb1 $reg1 all -s $start2 $opts1
+if [ $(grep -i error X1_log.txt | wc -l) -gt 0 ] ; then { echo ; echo "	--- Error ["$thisprog"]: errors processing with start signal $start2 - check X1_log.txt" ; echo ; exit ; } fi
+a="X1_" ; b="X1-"$reg1"-"$start2"_"
+xs-batch1 $filedb1 "xs-rename $a $b $a -w 1" --verb 1 2&> $tempfile
+mkdir -p "output1_"$reg1"_"$start2
+mv X1_* "output1_"$reg1"_"$start2
+
+echo "STEP3: CALCULATING DIFFERENCE FOR CURVES STARTING AT $START1 AND $START2"
+# GO BACK AND RE-CALCULATE A DIFFERENCE CURVE AND GET STATS ON IT
+let count=0
+cat $filedb1 | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis rest ; do
+
+	if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$filedb": "$path ; echo "1" >> $errorfile ; echo ; exit ; } fi
+	echo $path ; cd $path ;
+
+	base=$(basename $path)
+	subname=${base%%-*}
+	subject=${subname#rat*}
+
+	infile1="X1-"$reg1"-"$start1"_average.txt"
+	infile2="X1-"$reg1"-"$start2"_average.txt"
+
+	# GENERATE THE DIFFERENCE-CURVE USING getdelta2
+	outfile1="$outbase"$reg1"_"$start1"-"$start2"_average.txt"
+	echo "time nA" | xe-delimit stdin > $outfile1
+	paste $infile1 $infile2 |xe-checkisnum2 stdin -t 2 -f 0 -m "-"|cut -f 2,4| xe-getdelta2 stdin > $tempfile
+	cut -f 1 $infile1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | paste - $tempfile >> $outfile1
+	# collate the subject-average curve data
+	infile=$outfile1
+	outfile2=$startdir"/"$infile
+	header=$(xs-getheader $infile) ; header="subj grp "$header ;
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile2 ; fi
+	cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile2
+
+	# GENERATE STATS ON THE DIFFERENCE-CURVE
+	outfile3="$outbase"$reg1"_"$start1"-"$start2"_summary.txt"
+	echo "auc aneg apos com median xpeak ypeak" | xe-delimit stdin > $outfile3
+	x=$(xe-histstats1 $outfile1 -xmin 0)
+	auc=$(echo $x | xe-getkey stdin AUC)
+	aneg=$(echo $x | xe-getkey stdin ANEG)
+	apos=$(echo $x | xe-getkey stdin APOS)
+	com=$(echo $x | xe-getkey stdin COM)
+	median=$(echo $x | xe-getkey stdin MEDIAN)
+	xmax=$(echo $x | xe-getkey stdin XMAX)
+	ymax=$(echo $x | xe-getkey stdin YMAX)
+	echo $auc $aneg $apos $com $median $xmax $ymax | xe-delimit stdin >> $outfile3
+
+	# collate the summary stats
+	infile=$outfile3
+	outfile4=$startdir"/"$infile
+	header=$(xs-getheader $infile) ; header="subj grp "$header ;
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile4 ; fi
+	cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile4
+
+	let count=$count+1
+	cd $startdir
+
+done
+
+
+echo "PLOTING THE CURVE FOR EACH GROUP"
+infile="$outbase"$reg1"_"$start1"-"$start2"_average.txt"
+# NOTE THAT THE APPROPRIATE MULTIPLIER SHOULD BE USED
+plotopts1="-line 1 -ps 1 -ew 0 -xscale .5 -font 8 -lwa 1 -lwd 1"
+if [ $set_dur ] ; then plotopts1=$plotopts1" -xmax "$set_dur ; fi
+plotopts2="-xlabel Time_(seconds) -ylabel Current_[nA]"
+plotfile=$outbase"allcurves.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile 2 3 4 $set_mult $plotopts1 $plotopts2 -out $plotfile
+
+echo "PLOTING THE AREA UNDER THE CURVE"
+infile="$outbase"$reg1"_"$start1"-"$start2"_summary.txt"
+subjcol=$(xe-getkeycol $infile subj) ; if [ -z $subjcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining subj" ; exit ; } ; fi
+grpcol=$(xe-getkeycol $infile grp) ; if [ -z $grpcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining grp" ; exit ; } ; fi
+auccol=$(xe-getkeycol $infile auc) ; if [ -z $auccol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining auc" ; exit ; } ; fi
+plotopts1="-xint 1 -pt box -ew 0 -bz 1 -xlabel Group -ylabel AUC"
+plotfile=$outbase"AUC.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile $grpcol $grpcol $auccol 100 $plotopts1 -out $plotfile
+
+echo "PLOTING THE CENTRE-OF-MASS"
+comcol=$(xe-getkeycol $infile com) ; if [ -z $comcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining com" ; exit ; } ; fi
+plotopts1=$plotopts1" -ylabel COM "
+plotfile=$outbase"COM.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile $grpcol $grpcol $comcol 100 $plotopts1 -out $plotfile
+
+echo "PLOTING THE MEDIAN"
+mediancol=$(xe-getkeycol $infile median) ; if [ -z $mediancol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining median" ; exit ; } ; fi
+plotopts1=$plotopts1" -ylabel MEDIAN "
+plotfile=$outbase"MEDIAN.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile $grpcol $grpcol $mediancol 100 $plotopts1 -out $plotfile
+
+echo "PLOTING THE Y-PEAK"
+maxcol=$(xe-getkeycol $infile ypeak) ; if [ -z $maxcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining max" ; exit ; } ; fi
+plotopts1=$plotopts1" -ylabel Y-PEAK "
+plotfile=$outbase"YPEAK.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile $grpcol $grpcol $maxcol 100 $plotopts1 -out $plotfile
+
+echo "PLOTING THE XPEAK"
+peakcol=$(xe-getkeycol $infile xpeak) ; if [ -z $peakcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining peak" ; exit ; } ; fi
+plotopts1=$plotopts1" -ylabel X-PEAK "
+plotfile=$outbase"XPEAK.ps" ; plotlist=$plotlist" "$plotfile
+xs-plotmeans2 $infile $grpcol $grpcol $peakcol 100 $plotopts1 -out $plotfile
+
+rm -f $outbase_SUMMARY"*.ps"
+xe-plotmerge1  $plotlist -xo 60 -yo 600 -xinc 300 -xmax 2 -ymax 6 -yinc 180 -out $outbase"SUMMARY"
+
+
+exit

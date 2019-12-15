@@ -1,0 +1,105 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing stats </TAGS>
+thisprog=`basename "$0"`
+
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog"."$$"."
+start_time=$(date +'%s.%3N')
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Summarize a transposed data file from xs-O2-COR1b"
+	echo "USAGE: "
+	echo "	"$thisprog" [infile] [block1] [block2] [block3] etc."
+	echo "		[infile]: transposed summary output from xs-O2-COR1b"
+	echo "		[block1]: comma-separated list of columns to average"
+	echo "			format: label,col1,col2,col3,etc"
+	echo "				label: block category (eg. task, or rest) "
+	echo "				col#: header for the column, eg. r_300"
+	echo "			note: data is averaged within, and across, blocks with the same label"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" COR1.txt  task,r_300,r_600  rest,r_900,r_1200  task,r_1500,r_1800"
+	echo "OUTPUT:"
+	echo "	- the original input data"
+	echo "	- the average for each block, headered [block]_[label]"
+	echo "	- the average for each label, headered m_[label]"
+	echo "	- the average for label within each group"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+infile=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":t:" flag ; do
+ 	case $flag in
+ 		t) top=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# check all labels exist
+rm -f $tempfile
+let count=0
+for i in $@ ; do
+	j=$(echo $i | cut -f 2- -d "," | xe-delimit stdin) ;
+	for k in $j ; do
+		let z=$(xe-cut1 $infile $k | head -n 1 | wc -w)
+		if [ $z -eq 0 ] ; then { echo "	"$k >> $tempfile ; let count=$count+1 ; } fi
+	done
+done
+if [ $count -gt 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: columns missing from $infile" ; cat $tempfile ; echo ; exit ; } fi
+
+let count=0
+outlist=""
+labellist=""
+for block in $@ ; do
+	label=$(echo $block | cut -f 1 -d ",")
+	labellist=$labellist" "$label
+	cols=$(echo $block | cut -f 2- -d ",")
+	let count=$count+1
+	outfile=$tempfile"_"$label"."$count
+	outlist=$outlist" "$outfile
+	echo $count"_"$label > $outfile
+	xe-cut1 $infile $cols -o 1  |
+	xe-statsrow1 stdin | awk '{printf("%.4f\n",$0)}' >> $outfile
+done
+labellist=$(echo $labellist | tr ' ' '\n' | sort -u)
+
+for label in $labellist ; do
+	outfile=$tempfile"_"$label".mean"
+	outlist=$outlist" "$outfile
+	echo "m_"$label > $outfile
+	paste $tempfile"_"$label"."* |
+	tail -n +2 |
+	xe-statsrow1 stdin | awk '{printf("%.4f\n",$0)}' >> $outfile
+done
+
+paste $infile $outlist | xe-delimit stdin -d comma > $tempfile.1
+
+echo ",label,grp,n,mean,sd,sem" > $tempfile.2
+for label in $labellist ; do
+	xe-cut1 $infile grp |
+	paste - $tempfile"_"$label".mean" |
+	xe-statsgrp1 stdin |
+	xe-checkisnum2 stdin -t 2 -f 0 -m "-" |
+	xe-math_round1 stdin -cy -1 -b .001 |
+	xe-math_round1 stdin -cy 1 -b 1 |
+	xe-math_round1 stdin -cy 2 -b 1 |
+	xe-delimit stdin -d comma |
+	awk '{print ",'$label',"$0}' >> $tempfile.2
+done
+
+outfile="output_CORSUMMARIZE1.csv"
+paste -d "," $tempfile.1 $tempfile.2 > $outfile
+
+rm -f $outlist
+rm -f $tempfile*

@@ -1,0 +1,318 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+startdir=$(pwd)
+thisprog=`basename "$0"`
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+outbase=X1_
+
+tempfile="temp_"$thisprog ; rm -f $tempfile"*"
+errorfile=$startdir"/"$tempfile"_errors.txt"
+logfile=$outbase"log.txt"
+
+set_analysis="all"
+mincols=3	# define the minimum number of columns which should appear on each path line
+set_dur=""	# define default trial duration
+set_skip="-"
+set_sdthresh="-1"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": calculate and collate response curves across subjects"
+	echo "- calls "$thatprog
+	echo "- adds subject and group columns"
+	echo "USAGE: "$thisprog" [database] [region] [analysis] [opts]"
+	echo "	[database]: name of the database (.db) file. Sets path, group, & hemisphere"
+	echo "	[region]: brain region (e.g. DHIPP, MPFC)"
+	echo "	[analysis]: analysis to perform (all, collate, or test)"
+	echo
+	echo "	[options] (defaults in []) :"
+	echo
+	echo "	-c specify the exact name of the comment-file to use for alignment"
+	echo "	-i integration period for high-cutoff filtering, in seconds ["$set_inthigh"]"
+	echo "		- use this to eliminate high-frequency artefacts"
+	echo "	-j integration period for low-freqeuncy filtering, in seconds ["$set_intlow"]"
+	echo "		- use this to eliminate slow drift in your signals"
+	echo "	-x skip certain processing steps ["$set_skip"]"
+	echo "		p: no plots (numerical output only - good for highly dense data)"
+	echo
+	echo " 	options passed to xe-ldas-align1 (converted to arguments in ():"
+	echo
+	echo "	-s (-start) start signal (partial match, case-sensitive)"
+	echo "	-e (-stop) end, or stop signal (partial match, case-sensitive)"
+	echo "	-a (-first) first block to use"
+	echo "	-z (-last) last block to use"
+	echo "	-d (-dur) block duration"
+	echo "	-n (-norm) normalization"
+	echo "	-p (-pre) presample time"
+	echo "	-N (-pn) normalization presample time if different from -p "
+	echo "	-r (-sz) re-zero to start of presample"
+	echo "	-b (-bin) bin-size to aid block-averaging, sets new sample-interval"
+	echo "	-f (-flip) invert the data on the y-axis ["$set_flip"]"
+	echo "	--rmsthresh (-rmsthresh) RMS power rejection threshold ["$set_rmsthresh"]"
+	echo "	--sdthresh (-sdthresh) rejection threshold (multiple of total std.dev) ["$set_sdthresh"]"
+	echo
+	echo "	run "$thatprog" for more information on options)"
+	echo ""
+	echo "EXAMPLE: "$thisprog" db_all.txt DHIPP all -p 10 -s Inj1 -d 1800"
+	echo "------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+user_arguments=$@
+echo
+echo "------------------------------------------------------------------------------"
+echo $thisprog $user_arguments
+echo "------------------------------------------------------------------------------"
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filedb=$1 ; shift
+set_region=$1; shift
+set_analysis=$1; shift
+opts=$@
+
+################################################################################
+# CHECK VALIDITY OF ARGUMENTS
+################################################################################
+if [ ! -e $filedb ] ; then
+	echo
+	echo "	--- Error ["$thisprog"]: database file '$filedb' missing"
+	echo
+	exit
+fi
+if [ $set_analysis != "all" ] && [ $set_analysis != "collate" ] && [ $set_analysis != "test" ] ; then
+	echo
+	echo "	--- Error ["$thisprog"]: invalid analysis ("$set_analysis") - must be \"all\", \"collate\" or \"test\""
+	echo
+	exit
+fi
+
+# determine if duration was set
+set_dur=$(echo $opts|awk '{for(i=1;i<=NF;i++) if($i=="-d") print $(i+1)}')
+# determine if multiplier was set
+x=$(echo $opts|awk '{for(i=1;i<=NF;i++) if($i=="-m") print $(i+1)}')
+if [ $x ] ; then set_mult=$x ; fi
+
+################################################################################
+# CHECK IF OUTPUT IS GOING TO BE OVERWRITTEN _ PROMPT TO CONTINUE?
+################################################################################
+i=$outbase"log.txt"
+if [ -e $i ] ; then
+	read -p  "--- Warning: previous $outbase files may be overwritten. Continue? [y/n] " answer
+	while true ; do
+		case $answer in
+			[yY]* ) break ;;
+			*) exit ;;
+		esac
+	done
+fi
+
+################################################################################
+# MAKE SURE DATABASE LINE FORMATTING IS LINUX-STYLE
+################################################################################
+dos2unix -q $filedb
+
+################################################################################
+# DO QUICK CHECK OF INTEGRITY OF DATABASE USING xs-ldas-dbcheck: only output errors or warnings
+################################################################################
+# run the check script, send all output to a temporary file
+xs-ldas-dbcheck $filedb $set_region 2&> $tempfile
+
+# print all the diagnostic output from the check script
+cat $tempfile
+
+# if the words "Check ok" do not appear, exit
+if [ $(grep "Check ok" $tempfile | wc -l) -lt 1 ] ; then  { rm -f $tempfile ; exit ; } fi
+
+# remove the temporary file and any old output files
+rm -f $tempfile
+rm -f $outbase*
+
+################################################################################
+# CRAWL THROUGH THE DATABASE AND RUN THE ANALYSIS
+# 	- CHECK WHICH HEMISPHERE TO USE
+#	- RUN THE ANALYSIS
+#	- COLLATE THE OUTPUT AND PLOTS
+################################################################################
+echo
+echo "Analyzing data" ;
+echo "NOTE: an error/warning summary will follow completion..."
+echo "This could take some time: check "$(basename $logfile)" for progress"
+echo
+{
+	# FROM HERE BELOW GETS SENT TO THE LOG FILE
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog $user_arguments
+	echo "------------------------------------------------------------------------------"
+
+	let count=0
+	plotlist=""
+	cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis rest ; do
+
+
+		# CHECK FOR BAD PATH - HAS TO BE SAVED TO FILE BECAUSE CANNOT EXIT FROM WITHIN WHILE LOOP
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$filedb": "$path ; echo "1" >> $errorfile ; echo ; exit ; } fi
+
+		if [ $set_analysis == "test" ] ; then break ; fi
+		echo ; echo $path ;
+		cd $path ;
+
+		base=$(basename $path)
+		subname=${base%%-*}
+		subject=${subname#rat*}
+
+		# CREATE A LOCAL ERRORFILE
+		echo -n " " > $errorfile
+
+		# RUN THE ANALYSIS
+		# NOTE, IF NO BLOCKS ARE FOUND, A WARNING WILL BE PRODUCED AND NO PLOTS WILL HAVE BEEN CREATED BEPRODUCED
+		if [ $set_analysis == "all" ] ; then
+			rm -f $outbase*
+			$thatprog $base $hemis $set_region $opts
+
+		fi
+
+		# DETERMINE THE NUMBER OF BLOCKS FROM THE SUMMARY FILE
+		# CHECK FOR MISSING HEADER - HAS TO BE SAVED TO FILE BECAUSE CANNOT EXIT FROM WITHIN WHILE LOOP
+		nblocks=$(xe-cut1 $outbase"summary.txt" blocks -o 1 | xe-checkisnum2 stdin -t 1)
+		if [ -z "$nblocks" ] ; then { echo ; echo "--- Error ["$thisprog"]: no header defining nblocks in "$outbase"summary.txt" ; echo ; }
+		else let nblocks=$nblocks ; fi
+
+		# COLLATE THE DATA
+		if [ $set_analysis == "all" ] || [ $set_analysis == "collate" ]; then
+
+			# collate the aligned curve data (all blocks)
+			infile=$outbase"aligned.txt"
+			outfile=$startdir"/"$infile
+			header=$(xs-getheader $infile) ; header="subj grp "$header ;
+			if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+			cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+			# collate the subject-average curve data
+			infile=$outbase"average.txt"
+			outfile=$startdir"/"$infile
+			header=$(xs-getheader $infile) ; header="subj grp "$header ;
+			if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+			cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+			# collate the summary stats
+			infile=$outbase"summary.txt"
+			outfile=$startdir"/"$infile
+			header=$(xs-getheader $infile) ; header="grp "$header ;
+			if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi
+			cat $infile | xe-checkisnum2 stdin -t 2 -f 1 | awk '{print "'$group' "$0}' | xe-delimit stdin >> $outfile
+
+			# collect and number postscript plots for summary report - only if they were produced of course (nblocks >0)
+			if [ $nblocks -gt 0 ] ; then
+				g=$(echo $group | awk '{printf("%d",$1)}')
+				count2=$(echo $count | awk '{ printf("%03d",$1) }')
+				# copy averaged aligned curve to start-directory, but first reassign colour in plot to reflect group membership
+				xe-strsub1 $outbase"average.ps" "c3 setrgbcolor" "c$g setrgbcolor" > $startdir"/"$tempfile"_average."$count2".ps"
+			fi
+
+			let count=$count+1
+			cd $startdir
+		fi
+	done
+	echo "Finished! :) " ; echo
+
+	# CHECK POSSIBILITY THAT NO DATA WAS DETECTED FOR ANY SUBJECT - SUGGESTS MIS-TYPED OR OMITTED START-SIGNAL
+	let ndata=$(cat X1_aligned.txt | wc -l)-1
+	if [ $ndata -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no data data found. Probably due to failed detection of the start comment" ; echo ; } fi
+
+
+} &> $logfile
+
+cd $startdir
+
+let nwarnings=$(cat $logfile | grep -i warning | wc -l)
+let nerrors=$(cat $logfile | grep -i error | wc -l)
+if [ $nerrors -gt 0 ] ; then
+	echo "*** ALERT!! "$nerrors" errors found  - check "$logfile
+	if [ $nwarnings -gt 0 ] ; then echo "*** ALERT!! "$nwarnings" warnings found  - check "$logfile ; fi
+	echo "---------------------------------------------------------"
+	echo
+	rm -f $tempfile"_"*
+	exit
+fi
+
+
+if [ $nerrors -gt 0 ] ; then exit ; fi
+
+################################################################################
+# DEFAULT PLOT AND ANALYSIS OF THE DATA - ANALYSIS ASSUMES REPEATED MEASURES
+################################################################################
+infile=$outbase"average.txt" ; if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; echo ; exit ; } ; fi
+subjcol=$(xe-getkeycol $infile subj) ; if [ -z $subjcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining subj" ; exit ; } ; fi
+grpcol=$(xe-getkeycol $infile grp) ; if [ -z $grpcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining grp" ; exit ; } ; fi
+timecol=$(xe-getkeycol $infile time) ; if [ -z $timecol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining time" ; exit ; } ; fi
+nAcol=$(xe-getkeycol $infile nA) ; if [ -z $nAcol ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining nA" ; exit ; } ; fi
+grouplist=$(cut -f $grpcol $infile|xe-checkisnum2 stdin -t 2 -f 0 -m "-"|sort -nu)
+statsfile=$outbase"stats" ; rm -f $statsfile
+
+echo "MERGING PLOTS OF THE AVERAGE CURVE FOR EACH SUBJECT - POST-ALIGNMENT"
+plotlist=$(ls $tempfile"_average."*".ps")
+xe-plotmerge1 -xo 80 -yo 740 -xmax 4 -ymax 10 -xinc 125 -yinc 70 -out $outbase"average" $plotlist
+rm -f $plotlist
+plotlist=""
+
+if [ "$(echo $set_skip | grep -v p)" ] ; then
+
+	echo "PLOTTING THE CURVE FOR EACH GROUP"
+	# NOTE THAT THE APPROPRIATE MULTIPLIER SHOULD BE USED
+	plotopts1="-line 1 -ps 1 -ew 0 -xscale .5 -font 8 -lwa 1 -lwd 1 -vline 0 "
+	if [ $set_dur ] ; then plotopts1=$plotopts1" -xmax "$set_dur ; fi
+	plotfile=$outbase"allcurves.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $outbase"average.txt" grp time nA 100 $plotopts1 -xlabel "Time (seconds)" -ylabel "Current (nA)" -out $plotfile
+
+	echo "PLOTTING THE AREA UNDER THE CURVE"
+	infile=$outbase"summary.txt"
+	plotopts1="-xint 1 -pt box -ew 0 -bz 1 -xlabel Group -ylabel AUC"
+	plotfile=$outbase"AUC.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp auc 100 $plotopts1 -out $plotfile
+
+	echo "PLOTTING THE CENTRE-OF-MASS"
+	plotopts1=$plotopts1" -ylabel COM "
+	plotfile=$outbase"COM.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp com 100 $plotopts1 -out $plotfile
+
+	echo "PLOTTING THE MEDIAN"
+	plotopts1=$plotopts1" -ylabel MEDIAN "
+	plotfile=$outbase"MEDIAN.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp median 100 $plotopts1 -out $plotfile
+
+	echo "PLOTTING THE Y-PEAK"
+	plotopts1=$plotopts1" -ylabel Y-PEAK "
+	plotfile=$outbase"YPEAK.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp ypeak 100 $plotopts1 -out $plotfile
+
+	echo "PLOTTING THE XPEAK"
+	plotopts1=$plotopts1" -ylabel X-PEAK "
+	plotfile=$outbase"XPEAK.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp xpeak 100 $plotopts1 -out $plotfile
+
+	echo "PLOTTING THE SLOPE"
+	plotopts1=$plotopts1" -ylabel SLOPE "
+	plotfile=$outbase"SLOPE.ps" ; plotlist=$plotlist" "$plotfile
+	xs-plotmeans2 $infile grp grp slope 100 $plotopts1 -out $plotfile
+
+	rm -f $outbase_SUMMARY"*.ps"
+	xe-plotmerge1  $plotlist -xo 60 -yo 600 -xinc 300 -xmax 2 -ymax 6 -yinc 180 -out $outbase"SUMMARY"
+
+fi # end of "if don't skip printing" condition
+
+
+rm -f $tempfile"*"
+
+echo "Finished! :) "
+echo
+if [ $nerrors -gt 0 ] ; then echo "ALERT!! "$nerrors" errors found  - check "$logfile ; else echo "No errors" ; fi
+if [ $nwarnings -gt 0 ] ; then echo "ALERT!! "$nwarnings" warnings found  - check "$logfile ; else echo "No Warnings" ; fi
+echo "---------------------------------------------------------"
+echo
+
+exit

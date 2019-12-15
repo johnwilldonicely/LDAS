@@ -1,0 +1,160 @@
+#!/bin/bash
+# <TAGS>math plot</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setmatch1="subject"
+setmatch2=""
+setgroup="group"
+setvar1="var1"
+setvar2="var2"
+setswap="0"
+setverb="0"
+setclean="1"
+setpx=""
+setpy=""
+setpt=""
+setp1=""
+setp2=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Correlate variables in two separate files, allowing grouping"
+	echo " - requires a column with matching keys in both files"
+	echo " - uses xs-dbmatch2 to combine data"
+	echo " - NOTE: columns are referred to by name (first-line)"
+	echo "USAGE: "
+	echo "	"$thisprog" [in1] [in2]"
+	echo "		in1: input file with [match1], [group], and [var1]"
+	echo "		in2: input file with [match2] and [var2]"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--m1: column-name holding key-to-match in \"in1\" [$setmatch1]"
+	echo "	--m2: as above in \"in2\" - if empty, default= m1 [$setmatch2]"
+	echo "	--grp: column in \"in1\" defining group-membership [$setgroup]"
+	echo "	--v1: variable from \"in1\" to correlate [$setvar1]"
+	echo "	--v2: variable from \"in2\" to correlate [$setvar2]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "...plot options..."
+	echo "	--px: scatterplot x-label ["$setpx"]"
+	echo "	--py: scatterplot y-label ["$setpy"]"
+	echo "	--pt: scatterplot title ["$setpt"]"
+	echo "	--p1: general options for the scatterplot ["$setp1"]"
+	echo "	--p1: general options for the box-plot ["$setp1"]"
+	echo "	--swap: swap x- and y-axes (0=NO 1=YES) ["$setswap"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt  2>&1 | tee logfile.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+in1=$1 ; shift
+in2=$1 ; shift
+if [ ! -e $in1 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $in1" ; echo ; exit; } ; fi
+if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $in2" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="m1:,m2:,grp:,v1:,v2:,swap:,px:,py:,pt:,p1:,p2:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--m1 ) setmatch1=$2 ; shift ;;
+		--m2 ) setmatch2=$2 ; shift ;;
+		--grp ) setgroup=$2 ; shift ;;
+		--v1 ) setvar1=$2 ; shift ;;
+		--v2 ) setvar2=$2 ; shift ;;
+		--px ) setpx=$2 ; shift ;;
+		--py ) setpy=$2 ; shift ;;
+		--pt ) setpt=$2 ; shift ;;
+		--p1 ) setp1=$2 ; shift ;;
+		--p2 ) setp2=$2 ; shift ;;
+		--swap ) setswap=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setswap" != "0" ] && [ "$setswap" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --swap ($setswap) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setmatch2" == "" ] ; then setmatch2=$setmatch1 ; fi
+if [ "$setpy" == "" ] ; then setpy=$setvar2 ; fi
+
+plotlist=""
+for var1 in $(echo $setvar1 | tr ',' ' ') ; do
+
+	# STORE X-LABEL
+	if [ "$setpx" == "" ] ; then px=$var1 ; fi
+
+	# CORRECT FOR SWAP-X-Y OPTION
+	x=2; y=3; if [ $setswap == "1" ] ; then x=3; y=2; z=$px; px=$setpy; setpy=$z; fi
+
+	# GET INPUT1 [MATCH,GROUP,VARIABLE
+	xe-cut1 $in1 $setmatch1,$setgroup,$var1 |
+		xe-checkisnum2 stdin -h 1 -t 1 -m "xxx" > $tempfile.1
+
+	# MATCH WITH INPUT2, OUTPUT GROUP, VAR1, VAR2
+	xs-dbmatch2 $tempfile.1 $in2 $setmatch1 --col2 $setmatch2 --out $setvar2 |
+		xe-cut1 stdin $setgroup,$var1,$setvar2 -o 1 |
+		xe-checkisnum2 stdin -h 1 -t 1 -m "xxx" > $tempfile.2
+
+	# PRODUCE STATS OUTPUT
+	r_regress $tempfile.2 $y $x |
+		grep Overview --color=never |
+		cut -d ' ' -f 2- |
+		awk '{print "'$var1' x '$setvar2': "$0}'
+	r_anova $tempfile.1 $var1 $setgroup |
+		grep Overview --color=never |
+		cut -d ' ' -f 2- |
+		awk '{print "'$var1' v. '$setgroup': "$0}'
+
+	# MAKE SCATTERPLOT
+	plotfile=$tempfile".plot1."$var1".ps"
+	plotlist=$plotlist" "$plotfile
+	plotopts1="-cg 1 -cx $x -cy $y -out $plotfile"
+	xe-plottable1 $tempfile.2 $plotopts1 $setp1 -xlabel "$px" -ylabel "$setpy" -title "$setpt"
+
+	# MAKE BOX-PLOT
+	plotfile=$tempfile".plot2."$var1".ps"
+	plotlist=$plotlist" "$plotfile
+	plotopts2="-cg 1 -cx 1 -cy 3 -ce 5 -xint 1 -pt box -out $plotfile"
+	xe-statsgrp1 $tempfile.1 -cg1 2 -cy 3 |
+		xe-plottable1 stdin $plotopts2 -xlabel $setgroup -ylabel $setvar1 $setp2
+done
+
+# MERGE PLOTS
+xe-plotmerge1 $plotlist -xmax 2 -ymax 4 -xinc 200 -out "plot_"$tempfile
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

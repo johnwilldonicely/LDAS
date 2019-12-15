@@ -1,0 +1,54 @@
+#!/bin/bash
+thisprog="xs-ldas5-chunkdat1"
+tempfile="temp_"$thisprog #"."$$"."
+setnchan="16"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Extract chunks from a .dat file"
+	echo "USAGE: "
+	echo "	"$thisprog" [dat] [ssp]"
+	echo "		[dat]: binary multi-channel data file to chunk"
+	echo "		[ssp]: binary start-stop-pair file defining the chunks to keep"
+	echo "			- pairs of sample-numbers stored as long int"
+	echo "			- first sample is the start of a chunk to be extracted"
+	echo "			- second sample is omitted from that chunk"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-n: number of channels [$setnchan]"
+	echo "OUTPUT:"
+	echo "	- binary stream with chunks back-to-back"
+	echo "	- invalid values are preserved "
+	echo "	- binary stream with chunks back-to-back"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" test.dat trials.ssp > new.dat"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# REQUIRED ARGUMENT HANDLING
+filedat=$1 ; shift
+filessp=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":n:" flag ; do
+ 	case $flag in
+		n) setnchan=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filedat ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filedat' missing" ; echo ; exit; } ; fi
+if [ ! -e $filessp ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filessp' missing" ; echo ; exit; } ; fi
+
+xe-ldas5-readssp1 $filessp | while read start stop ; do
+
+	n=$(echo $start $stop | awk '{print $2-$1}')
+	xe-ldas5-readdat1 $filedat -nch $setnchan -s $start -n $n -out 1
+
+done

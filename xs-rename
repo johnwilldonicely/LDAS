@@ -1,0 +1,89 @@
+#!/bin/bash
+# <TAGS> file </TAGS>
+
+thisprog="xs-rename"
+setcomp=0  # consecutive-compression flag
+setwild=0 # wildcard usage
+
+if [ $# -lt 3 ]; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": replace characters or patterns in filenames, using sed"
+	echo "- approximates behaviour of the non-regex \"rename\" tool from RedHat Linux"
+	echo "USAGE: "
+	echo "	"$thisprog" [old] [new] [in] [options]"
+	echo "		old: (in quotes) character or pattern to be replaced"
+	echo "		new: (in quotes) the replacement character or pattern"
+	echo "		in: input file(s) - quote multiple filenames or wildcards"
+	echo ""
+	echo "VALID OPTIONS:"
+	echo "	-c: compress consecutive \"old\"s  to a single \"new\" (0=NO 1=YES) [$setcomp]"
+	echo "		NOTE: this is the only behaviour when \"old\"=white-space"
+	echo "	-w: wildcard usage (0=user, 1=auto) [$setwild]"
+	echo "		NOTE: \"0\" may fail for script-invocation of $thisprog"
+	echo "			 : wildcards should be enclosed in quotes"
+	echo "		NOTE: \"1\" is safe for script-invocation of $thisprog"
+	echo "			 : [in] should not include your own wildcards"
+	echo "			 : [in] is interpreted as *[in]*"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	$thisprog  \" \" \"_\" \"Track\"" -w 0
+	echo "	$thisprog  \" \" \"_\" \"Track.*txt\"" -w 1
+	echo "	$thisprog  \"k\" \"p\" \"Track.*txt\"" -w 1 -c 1
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+old=$1 ; shift
+new=$1 ; shift
+in1=$1 ; shift
+
+
+# OPTIONAL ARGUMENT HANDLING
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="c:w:"
+vl="comp:,wild:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-c | --comp ) setcomp=$2 ; shift ;;
+		-w | --wild ) setwild=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# ARGUMENT AND OPTION CHECKS
+if [ "$setwild" != "0" ] && [ "$setwild" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: \"-w\" ($setwild) must be \"0\" or \"1\"" ; echo ; exit; } fi
+if [ "$old" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: \"old\" cannot be an empty string" ; echo ; exit; } fi
+
+# FOR AUTO-WILDCARDING, EXPAND $in1
+if [ "$setwild" == "1" ] ; then
+	in1=*$in1*
+fi
+
+# BUILD THE LIST OF INPUT FILES
+list=$(ls ls 2>/dev/null -1 --color=never $in1 )
+
+# CRAWL THROUGH THE LIST, RENAMING
+for x in $list ; do
+	if [ $setcomp == "1" ] ; then
+		y=$(echo ${x} | sed 's/'"$old"'\+/'"$new"'/g')
+	else
+		y=$(echo ${x} | sed 's/'"$old"'/'"$new"'/g')
+	fi
+
+	if [ "$y" == "" ] ; then { echo "	--- Warning ["$thisprog"]: skip replace in \"$x\" (results empty filename)" ; echo ; continue; } fi
+
+	if [ "$x" != "$y" ] ; then
+		echo "renaming \"$x\" to \"$y\""
+		mv "${x}" "${y}"
+	fi
+done

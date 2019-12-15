@@ -1,0 +1,168 @@
+#!/bin/bash
+# <TAGS> math database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+allopts=$@
+
+setround="0.001"
+let settype=2
+setstat="MEAN"
+setlist=""
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": compare matching database tables"
+	echo "	- to quantify changes in columns matching on an ID-column"
+	echo "USAGE: "
+	echo "	"$thisprog" [table1] [table2] [col]"
+	echo "		table1: first table (baseline)"
+	echo "		table2: second table to measure change in  (response)"
+	echo "		col: name of column to match rows on"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--list: list of variables to analyze (if unset, analyze all) [unset]"
+	echo "	--type: type of comparison (see xe-math_doublet) [$settype]"
+	echo "		1: add"
+	echo "		2: subtract"
+	echo "		3: multiply"
+	echo "		4: divide"
+	echo "	--stat: summary statistic to use (single value per column) [unset]"
+	echo "		options: MIN,MAX,SUM,MEAN,RANGE,STDDEV,SEM,PERCENTILE_50"
+	echo "	--round: round numbers to the nearest... [$setround]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" table1.txt table2.txt cluster"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+settable1=$1; shift
+settable2=$1; shift
+setmatch=$1; shift
+if [ ! -f $settable1 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing input table $settable1" ; echo ; exit ; } fi
+if [ ! -f $settable2 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing input table $settable2" ; echo ; exit ; } fi
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="t:r:v:c:" ; vl="list:,type:,stat:,round:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-l | --list ) setlist=$2 ; shift ;;
+		-t | --type ) let settype=$2 ; shift ;;
+		-s | --stat ) setstat=$2 ; shift ;;
+		-r | --round ) setround=$2 ; shift ;;
+		-v | --verb  ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ $settype -lt 1 ] || [ $settype -gt 4 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --type ($settype) -  must be 1-4" ; echo ; exit; } ; fi
+
+
+if [ $setverb == 1 ] ; then
+	echo ; echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+fi
+
+
+########################################################################################
+# CHECK THAT TABLES HAVE MATCHING HEADERS (COLUMN-NAME ROWS)
+########################################################################################
+head1=$(awk 'NF>1{print $0 ; exit}' $settable1)
+head2=$(awk 'NF>1{print $0 ; exit}' $settable2)
+if [ "$head1" != "$head2" ] ; then  { echo ; echo "--- Error ["$thisprog"]: mismatched headers (tables $settable1 and $settable2)" ; echo ; exit ; } fi
+
+########################################################################################
+# CREATE THE LIST OF VARIABLES TO ANALYZE
+########################################################################################
+if [ "$setlist" == "" ] ; then listvar=$head1
+else listvar=$(echo $setlist | tr ',' ' ')
+fi
+
+########################################################################################
+# CHECK THAT TABLES CONTAIN MATCH-COLUMN (JUST NEED TO CHECK ONE)
+########################################################################################
+let z=$(echo $head1 | grep -w $setmatch | wc -l)
+if [ $z -lt 1 ] ; then  { echo ; echo "--- Error ["$thisprog"]: no column labelled \"$setmatch\" (tables $settable1 and $settable2)" ; echo ; exit ; } fi
+
+
+########################################################################################
+# BUILD LIST OF IDENTIFIERS  IN BOTH FILES
+########################################################################################
+list1=$(xe-cut1 $settable1 $setmatch -o 1 | paste -s | tr '\t' ',')
+list2=$(xe-cut1 $settable2 $setmatch -o 1 | paste -s | tr '\t' ',')
+if [ "$list1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no entries in column \"$setmatch\" (table $settable1)" ; echo ; exit ; } fi
+if [ "$list2" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no entries in column \"$setmatch\" (table $settable2)" ; echo ; exit ; } fi
+list3=$(echo $list1 $list2 | tr ' ' '\n' | sort -nu)
+
+
+########################################################################################
+# BUILD RESULTS-COLUMN FILES FOR EACH VARIABLE
+########################################################################################
+# first output the match-column
+outfile=$tempfile.$setmatch
+echo $setmatch > $outfile
+if [ "$setstat" == "" ] ; then xe-cut1 $settable1 $setmatch -o 1 >> $outfile
+else echo "avg" >> $outfile
+fi
+# now do everything else
+listout=$outfile
+for var in $listvar ; do
+	if [ $var == $setmatch ] ; then continue ; fi
+	outfile=$tempfile.$var
+	listout=$listout" "$outfile
+	echo $var > $outfile
+	xe-dbmatch1 $settable1 $setmatch $list3 -oc $var -o 1 > $tempfile.1
+	xe-dbmatch1 $settable2 $setmatch $list3 -oc $var -o 1 > $tempfile.2
+	if [ "$setstat" == "" ] ; then
+		paste $tempfile.1 $tempfile.2 |
+		xe-math_doublet stdin -t $settype |
+		xe-math_round1 stdin -cy 1 -b $setround	>> $outfile
+	else
+		paste $tempfile.1 $tempfile.2 |
+		xe-math_doublet stdin -t $settype |
+		xe-statsd1 stdin |
+		xe-getkey stdin $setstat |
+		xe-math_round1 stdin -cy 1 -b $setround	>> $outfile
+	fi
+done
+
+
+########################################################################################
+# COMBINE THE RESULTS
+########################################################################################
+paste $listout
+
+
+########################################################################################
+# CLEANUP AND EXIT
+########################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

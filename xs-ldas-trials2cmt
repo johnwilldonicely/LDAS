@@ -1,0 +1,93 @@
+#!/bin/bash
+# <TAGS>programming</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+setverb="0"
+setclean="1"
+setxml=""
+
+setkey1="TRIAL"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert trials table to a .cmt file"
+	echo "REQUIRES: a properly formatted .notes file with a TRIALS xml section"
+	echo "USAGE: $thisprog [in] [options]"
+	echo "	[in]: input file, format= <time> <data>"
+	echo "	--xml: xml section containing trial records [$setxml]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" \"*.notes\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="xml:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--xml ) setxml=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setxml" == "" ] ; then
+	xe-cut1 $infile trial,start,stop -s 1 -o 1 |
+	awk '{print $2"\t'$setkey1'_START_"$1"\n"$3"\t'$setkey1'_STOP_"$1}'
+else
+	xe-strxmlparse1 $infile $setxml | head ; exit
+	xe-cut1 stdin trial,start,stop -s 1 -o 1 |
+	awk '{print $2"\t'$setkey1'_START_"$1"\n"$3"\t'$setkey1'_STOP_"$1}'
+fi
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

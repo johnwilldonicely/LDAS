@@ -1,0 +1,159 @@
+#!/bin/bash
+
+# <TAGS>plot math</TAGS>
+
+thisprog="xs-plotmeans1"
+tempfile="temp_"$thisprog
+rm -f $tempfile*
+
+setxlabel="Group"
+setylabel=""
+settitle=""
+seterror="sem"
+plotoptsA="-pt bar -cx 1 -cy 2 -cg 1 -ce 3 -ew .25 -xpad .5 -bz 1"
+plotoptsB="-pt cir -cx 1 -cy 2 -xpad .5 -ps 4 -pf 0 -colour 16 -lwd .5 -frame 0"
+setplotout="plot_"$thisprog".ps"
+setname1=""
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "----------------------------------------------------------------"
+	echo $thisprog": plot group means, SEM, + raw-data"
+	echo "USAGE: "$thisprog" [infile] [cg] [cy] [options]"
+	echo "	[infile]: 2-column data file with header-line defining columns"
+	echo "	[cg]: column-name for group-ids"
+	echo "	[cy]: column-name for data"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-x: x-axis label, in quotes [$setxlabel]"
+	echo "	-y: y-axis label in quotes, if unset: \"Mean [cy]\" [$setylabel]"
+	echo "	-t: title, in quotes [$settitle]"
+	echo "	-e: error to use (sem or sd) [$seterror]"
+	echo "	-o: name of output file [$setplotout]"
+	echo "Plot options applied to xe-plottable1 :"
+	echo "	-A: box plot options (in quotes)"
+	echo "	-B: point plot options (in quotes)"
+	echo "	--name1: file defining group g1 names (group name) [$setname1]"
+	echo "- EXAMPLE: "$thisprog" data.txt  1 2 -x \"Group\" -y \"Mean (uV)\""
+	echo "----------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1; shift
+gcol=$1 ; shift
+ycol=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:x:y:t:e:o:A:B:" ; vl="verb:,clean:,name1:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-x) setxlabel=$2 ; shift ;;
+		-y) setylabel=$2 ; shift ;;
+		-t) settitle=$2 ; shift ;;
+		-e) seterror=$2 ; shift ;;
+		-o) setplotout=$2 ; shift ;;
+		-A) setplotoptsA=$2 ; shift ;;
+		-B) setplotoptsB=$2 ; shift ;;
+		--name1 ) setname1=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+
+########################################################################################
+# PULL OUT HEADER
+########################################################################################
+xe-cut1 $infile $gcol,$ycol -s 1 | head -n 1 > $tempfile.data
+let z=$(head -n 1 $tempfile.data | wc -w)
+if [ $z -lt 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $tempfile.data is missing column $gcol or $ycol" ; echo ; exit; } ; fi
+
+# ADD VALID LINES OF DATA
+xe-cut1 $infile $gcol,$ycol -s 1 -o 1 | xe-checkisnum2 stdin -t 2 -m "abcdefghij" >> $tempfile.data
+let z=$(cat $tempfile.data | wc -l)
+if [ $z -lt 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $tempfile.data has no valid data" ; echo ; exit; } ; fi
+
+# DETERMINE ORIGINAL X MINIMUM AND MAXIMUM AND XINT
+stats=$(xe-cut1 $tempfile.data $gcol | xe-statsd1 stdin)
+xmin1=$(echo $stats | xe-getkey stdin MIN)
+xmax1=$(echo $stats | xe-getkey stdin MAX)
+# get minimum interval between ascending group id's
+xint=$(xe-cut1 $tempfile.data $gcol -o 1 | sort -nu | xe-getdelta1 stdin | xe-statsd1 stdin | xe-getkey stdin MIN)
+if [ $xint == "-" ] ; then xint=1 ; fi
+# calculate how much jittered x-values can deviate from original
+limit=$(echo $xint | awk '{print $1*0.15}')
+
+# DETERMINE Y MINIMUM AND MAXIMUM
+# xe-plottable1 normally does this automatically but here we must manually define the range for both plots
+stats=$(xe-cut1 $tempfile.data $ycol | xe-statsd1 stdin)
+ymin=$(echo $stats | xe-getkey stdin MIN)
+ymax=$(echo $stats | xe-getkey stdin MAX)
+# get extent of error-bars, in case they exceed data
+newranges=$(xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 | xe-statsgrp1 stdin | xe-cut1 stdin mean,$seterror -o 1 -s 1 |awk '{print ($1-$2),($1+$2)}')
+# re-calculate ymin and ymax
+stats=$(echo $ymin $ymax $newranges | xe-statsd1 stdin)
+ymin=$(echo $stats | xe-getkey stdin MIN)
+ymax=$(echo $stats | xe-getkey stdin MAX)
+# adjust minimum or maximum to zero if it's close to zero anyway
+a=$(echo $ymin $ymax | awk '{ ymin=$1; ymax=$2; if(ymin>0.0 && ymin<((ymax-ymin)/(10.0)) ) print 1; else print 0; }')
+if [ $a == "1" ] ; then ymin=0 ; fi
+a=$(echo $ymin $ymax | awk '{ ymin=$1; ymax=$2; if(ymax<0.0 && ymax>((ymax-ymin)/(-10.0))) print 1; else print 0; }')
+if [ $a == "1" ] ; then ymax=0 ; fi
+
+
+################################################################################
+# UPDATE DEFAULT PLOT OPTIONS
+################################################################################
+plotoptsA=$plotoptsA" -xmin $xmin1 -xmax $xmax1 -xint $xint -ymin $ymin -ymax $ymax"
+plotoptsB=$plotoptsB" -xmin $xmin1 -xmax $xmax1 -xint -1 -yint -1 -ymin $ymin -ymax $ymax -jitter $limit"
+if [ "$setylabel" == "" ] ; then setylabel="Mean $ycol" ; fi
+
+################################################################################
+# GENERATE THE MEANS-PLOT
+################################################################################
+# note that only this plot has a frame, labels and title
+xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
+	xe-statsgrp1 stdin |
+	xe-cut1 stdin grp1,mean,$seterror |
+	xe-plottable1 stdin $plotoptsA -xlabel "$setxlabel" -ylabel "$setylabel" -title "$settitle" $setplotoptsA -out $tempfile".A.ps"
+
+# Modify the X-axis tics
+if [ "$setname1" != "" ] ; then
+	list=$(xe-cut1 $setname1 group,name -o 1 -s 1 | paste -s | tr '\t' ',')
+	xs-plotmod1 $tempfile".A.ps" --xtics $list --out 1
+fi
+
+################################################################################
+# GENERATE THE SCATTER-PLOT
+################################################################################
+xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
+	xe-plottable1 stdin $plotoptsB $setplotoptsB -out $tempfile".B.ps"
+
+################################################################################
+# COMBINE THE SCATTER-PLOT AND THE MEANS
+################################################################################
+# extract the section of postscript relating to the points themselves
+xe-cut2 temp_xs-plotmeans1.B.ps "% DEFINE_DATA_RELATED_VALUES" -s3 "% DRAW_FRAME" > $tempfile
+# insert the points-data into the box-plot
+xe-insert1 temp_xs-plotmeans1.A.ps $tempfile -start "% DRAW_FRAME" -pos -1 > $setplotout
+
+rm -f $tempfile
+rm -f $tempfile.data
+rm -f $tempfile.x
+rm -f $tempfile.y
+rm -f $tempfile.rand
+rm -f $tempfile".A.ps"
+rm -f $tempfile".B.ps"
+exit

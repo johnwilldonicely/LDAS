@@ -1,0 +1,149 @@
+#!/bin/bash
+# <TAGS> database ldas </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setfilenames=""
+setxml=""
+sethead="1"
+setverb="0"
+setclean="1"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract group-names from an LDAS database (db) file"
+	echo " - output is in the format <group> <name>"
+	echo " - there are three potential sources for the group names: "
+	echo "		1: db-file comments in the format \"# group_[no]= [name]\""
+	echo "			[no]= group-number (integer)"
+	echo "			[name]= group-name, with no spaces or tabs"
+	echo " 			example: # group_5= ketamine_3mg/kg"
+	echo " 		2: --names table to use, if db-file doesn't list group names [$setfilenames] "
+	echo "		3: the db-file group-ids themselves, with the prefix \"group_\""
+	echo "USAGE: "
+	echo "	"$thisprog" [infile]"
+	echo "		[infile]: a file with group definitions"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--names: headered file defining group and name [$setfilenames]"
+	echo "	--xml: specify an infile XML section with path & group columns [$setxml]"
+	echo "	--head: output header? (0=NO 1=YES) [$sethead]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt > table_groupnames.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+if [ ! -s $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+vs="v:c:" ; vl="xml:,names:,head:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--names ) setfilenames=$2 ; shift ;;
+		--head ) sethead=$2 ; shift ;;
+		--xml ) setxml=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$sethead" != "0" ] && [ "$sethead" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --head ($sethead) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+
+################################################################################
+# OUTPUT GROUP-ID AND NAME
+################################################################################
+
+if [ "$sethead" == "1" ] ; then printf "group\tname\n" ; fi
+
+# option1: pull out comment lines in format # group_[no]= [name]
+cat $infile |
+	awk '{ for(ii=1;ii<=NF;ii++) { if($ii~"group_" && $ii~"=$") print $ii,$(ii+1) } }' |
+	xe-strsub1 stdin group_ "" |
+	tr -d '=' |
+	xe-delimit stdin > $tempfile
+
+if [ -s $tempfile ] ; then
+	cat $tempfile
+	if [ "$setclean" == "1" ] ; then rm -f $tempfile ; fi
+	exit
+fi
+
+# option2: use a group-name table file, if defined and available
+if [ "$setfilenames" != "" ] ; then
+	if [ ! -f "$setfilenames" ] ; then
+		echo "--- Warning ["$thisprog"]: group-name table not found ($setfilenames)"
+	else
+		xe-cut1 $setfilenames group,name -o 1
+		exit
+	fi
+fi
+
+# option3: build a list of names based on thhe group numbers themselves
+if [ "$setxml" != "" ] ; then
+	xe-strxmlparse1 $infile $setxml |
+	xe-cut1 stdin group -s 1 -o 1 |
+	sort -nu |
+	awk '{print $1"\tgroup_"$1}'
+else
+	xe-cut1 $infile group -s 1 -o 1 |
+	sort -nu |
+	awk '{print $1"\tgroup_"$1}'
+fi
+
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+exit

@@ -1,0 +1,225 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+let setfout="2"
+setplot1=""
+setplot2=""
+setverb="0"
+setclean="1"
+settmax=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Analyze slice ephys LTP experiment"
+	echo " - reads the .notes file to get experiment stats and session file-names"
+	echo " - calls xs-ldas5-slice1 for each trial"
+	echo " 	- gets the POP-spike and fEPSP stats for each session's .APO files"
+	echo " - problem trials (***) and tetanising trials (TO) are excluded"
+	echo " - baseline is taken as the mean of the last 5 trials of the basleline period"
+	echo " - summarizes and plots the data for each session"
+	echo "USAGE: $thisprog [notes]"
+	echo "		[notes]:  .notes file"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"# for most scripts...
+	echo "	--fout: filter output traces? (0=NO_FILTER, or 1,2,3) [$setfout]"
+	echo "		1= POP-spike and fEPSP-artefact"
+	echo "		2= POP-spike and fEPSP-fiber-volley"
+	echo "		3= POP-spike and fEPSP-trough"
+	echo "	--tmax: maximum time (seconds) after baseline to use []"
+	echo "	--plot1: quoted options for POP-spike plot []"
+	echo "	--plot2: quoted options for fEPSP plot []"
+	echo "	--clean: remove temporary files on completion (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo ""
+	echo "OUTPUT:"
+	echo "	"$progbase1"_traces.ps     : plots of the individual traces (sweeps)"
+	echo "	"$progbase1"_summary.ps    : plots of the time-series"
+	echo "	"$progbase1"_results.txt   : all results from xs-ldas5-slice1"
+	echo "	"$progbase1"_epspslope.txt : normalized time-series"
+	echo "	"$progbase1"_popamp.txt    : normalized time-series"
+	echo "	"$progbase1"_summary.txt   : summary stats"
+	echo "		measure prob base ltp-1 ltp-2 ...etc..."
+	echo "			measure= epspslope or popamp"
+	echo "			prob= linear fit of baseline (if stable, should be >.05)"
+	echo "			base= avg of last 5 baseline points"
+	echo "			ltp-1, ltp-2 etc: avg of last 5 points for each block"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160725_00000048.notes"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1; shift
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+subject=$(xe-getkey $filenotes subject=)
+date=$(xe-getkey $filenotes date=)
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="fout:,tmax:,plot1:,plot2:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--fout ) let setfout=$2 ; shift ;;
+		--tmax ) settmax=$2 ; shift ;;
+		--plot1 ) setplot1=$2 ; shift ;;
+		--plot2 ) setplot2=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ $setfout -lt 0 ] || [ $setfout -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --fout ($setfout) -  must be 0,1,2 or 3" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	rm -f SLICE_LTP*
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+################################################################################
+# LTP SESSION PROCESSING
+################################################################################
+# BUILD A TABLE EXCLUDING STIM-FILES AND PROBLEM-RECORDS (***)
+xe-strxmlparse1 $filenotes LTP |
+	xe-dbmatch1 stdin filename "***" -m -1 |
+	xe-dbmatch1 stdin filename ".T0" -m -1 > $tempfile.0
+
+# MAKE A FILE LIST, INCLUDING TIME
+listfiles=$(xe-cut1 $tempfile.0 filename,block,seconds -o 1 | awk '{print $1"@"$2"@"$3}')
+
+let z=$(xe-dbmatch1 $filenotes block LTP -xml LTP -m 1 -o 1 | wc -l)
+if [ $z -lt 1 ] ; then listfiles="" ; fi
+
+let z=$(xe-dbmatch1 $filenotes block BASE -xml LTP -m 1 -o 1 | wc -l)
+if [ $z -lt 1 ] ; then listfiles="" ; fi
+
+# RUN XS-LDAS5-SLICE1 ON EACH FILE
+if [ "$listfiles" != "" ] ; then
+	rm -f $progbase1.log
+	listplot=""
+	let count=0
+	for item in $listfiles ; do
+		let count=$count+1
+		in2=$(echo $item | cut -f 1 -d @)
+		block=$(echo $item | cut -f 2 -d @)
+		seconds=$(echo $item | cut -f 3 -d @)
+
+
+		# run the analysis
+		command="xs-ldas5-slice1 $in2 --fout $setfout"
+		if [ "$setverb" == "1" ] ; then echo "	"$command ; fi
+		$command --tlabel ": $block : $seconds s" --plot1 "$setplot1" --plot2 "$setplot2" &> $tempfile
+		grep -iE "warning|error" $tempfile --color=always
+		cat $tempfile >> $progbase1.log
+
+		# get the results header
+		if [ $count -eq 1 ] ; then
+			xs-getheader SLICE1_summary.txt |
+			awk '{print "block seconds "$0}' |
+			xe-delimit stdin > $progbase1"_results.txt"
+		fi
+		# collect the results - apply settmax filter as required
+		if [ "$settmax" != "" ] ; then let z=$(echo "$seconds < $settmax" |bc) ; else let z=1 ; fi
+		if [ $z -eq 1 ] ; then
+			tail -n +2 SLICE1_summary.txt |
+			awk '{print "'$block' '$seconds' "$0}' |
+			xe-delimit stdin >> $progbase1"_results.txt"
+		fi
+
+		# rename the trace-plot
+		fileplot=$tempfile"_"$count".ps"
+		listplot=$listplot" "$fileplot
+		mv SLICE1_summary.ps $fileplot
+	done
+	# COMBINE THE TRACES
+	outplot=$progbase1"_traces.ps"
+	xe-plotmerge2 $listplot > $outplot
+	rm -f $listplot
+
+	# NORMALIZE THE RESULTS FOR fEPSP AND POP-SPIKE
+	listblock=$(xe-dbmatch1 $progbase1"_results.txt" block LTP -m 1 | xe-cut1 stdin block -o 1 | cut -f 2 -d - | sort -nu)
+	linezero=$(xe-cut1 $progbase1"_results.txt" seconds -o 1 | awk 'BEGIN{n=0;}{if($1>0){print n;exit;} n++}')
+	listmeasure="epspslope popamp"
+
+	# construct results header and save to summary
+	header="measure prob base" ; for i in $listblock ; do header=$header" ltp-"$i ; done
+	echo $header | xe-delimit stdin > $progbase1"_summary.txt"
+
+	for measure in $listmeasure ; do
+		# SAVE INVERTED AND NORMALIZED TIMECOURSE FOR MEASURE
+		echo "block seconds $measure" | xe-delimit stdin > $progbase1"_"$measure".txt"
+		xe-cut1 $progbase1"_results.txt" block,seconds,$measure -o 1 |
+			xe-math_div1 stdin -cy 2 -v 60 |
+			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-checkisnum2 stdin -t 1 -f 2,3 |
+			xe-norm2 stdin -cy 3 -n 4 -start 0 -stop $linezero |
+			xe-math_mult1 stdin -cy 3 -v 100 >> $progbase1"_"$measure".txt"
+		# calculate baseline
+		bl=$(xe-dbmatch1 $progbase1"_"$measure".txt" block BASE | xe-cut1 stdin $measure -o 1 | tail -n 5 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+		# calculate baseline stability (probability for correlation with time - should be >.05)
+		prob=$(xe-dbmatch1 $progbase1"_"$measure".txt" block BASE | xe-cut1 stdin seconds,$measure -o 1 | xe-correlate stdin -verb 1 | xe-cut1 stdin prob -o 1)
+		# build output
+		output=$measure" "$prob" "$bl
+		for block in $listblock ; do
+			z=$(xe-dbmatch1 $progbase1"_"$measure".txt" block LTP-$block | xe-cut1 stdin $measure -o 1 | tail -n 5 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+			output=$output" "$z
+		done
+		echo $output | xe-delimit stdin >> $progbase1"_summary.txt"
+	done
+
+	# PLOT LTP DATA
+	vlines=$(xe-dbmatch1 $filenotes filename .T0 -m 1 -xml LTP -oc seconds -o 1 | xe-math_div1 stdin -v 60 | paste -s | tr '\t' ',')
+	plotopts="-cx 2 -cy 3  -line 1 -xint 10 -ymin 75 -xscale .45 -font 8 -colour 2 -hline 100 -vline $vlines"
+	xl="Time (minutes)"
+	yl="%Change from baseline"
+	listplot=""
+	# pop-spike
+	fileplot=$progbase1"_POPspike.ps"
+	listplot=$listplot" "$fileplot
+	xe-plottable1 $progbase1"_popamp.txt" $plotopts -xlabel "$xl" -ylabel "$yl" -title "POP-spike" -out $fileplot
+	# epsp
+	fileplot=$progbase1"_fEPSP.ps"
+	listplot=$listplot" "$fileplot
+	xe-plottable1 $progbase1"_epspslope.txt" $plotopts -xlabel "$xl" -ylabel "$yl" -title "fEPSP slope" -out $fileplot
+	# merge
+	xe-plotmerge1 $listplot -xmax 1 -xinc 280
+	mv temp_xe-plotmerge1.001.ps $progbase1"_summary.ps"
+	rm -f $listplot
+
+
+fi # END CONDITION: IF LTP-BLOCK WAS FOUND
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	rm -f SLICE1*
+fi
+exit

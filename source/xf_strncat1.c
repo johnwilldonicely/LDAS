@@ -1,0 +1,64 @@
+/********************************************************************************
+<TAGS>string</TAGS>
+
+DESCRIPTION:
+	- safe n-character concatenation of two input strings, using a delimiter of choice
+	- allocates sufficient memory for the expanded string before calling strcat
+
+ARGUMENTS:
+	char *string1   : first input string - the one to be lengthened
+	char *string2   : second input string - to be added to string1, must be defined
+	size_t nn       : number of bytes from string2 to append (0=all)
+	char *delimiter : the delimiter to put between them, must be defined, can be ""
+
+RETURN VALUE:
+	Pointer to the lengthened string1, or NULL on failure
+
+*********************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char *xf_strncat1(char *string1,char *string2,size_t nn,char *delimiter) {
+
+	size_t s1,s2,s3,oldsize,newsize;
+	int i,matchtot=0,start=-1;
+
+	/* length of delimiter must be defined */
+	if(delimiter!=NULL) s3= strlen(delimiter);
+	else return(NULL);
+
+	/* length of string to be appended must be defined */
+	if(string2!=NULL) {
+		s2= strlen(string2);
+		//TEST: fprintf(stderr,"nn=%ld	newlen:%ld\n",nn,s2);
+		if(nn>0 && nn<s2) s2= nn;
+	}
+	else return(NULL);
+
+	/* determine current size */
+	oldsize= sizeof(string1)/sizeof(string1[0]);
+
+	/* if string1 is not empty, use strcat to append delimiter and strncat to append string2 */
+	if(string1!=NULL) {
+		s1= strlen(string1);
+		newsize= s1+s2+s3;
+		string1= (char *)realloc(string1,newsize);
+		if(string1==NULL) return(NULL);
+		strcat(string1,delimiter);
+		strncat(string1,string2,(s2-1));
+	}
+	/* otherwise if string1 is empty, start by just copying from string2 with no delimiter */
+	else {
+		newsize= s2;
+		//TEST: fprintf(stderr,"nn:%ld	first_oldsize:%ld	first_newsize:%ld\n",nn,oldsize,newsize);
+		string1= (char *)realloc(string1,newsize);
+		if(string1==NULL) return(NULL);
+		string1[0]='\0';
+		strncpy(string1,string2,s2);
+		//TEST: fprintf(stderr,"***FIRSTNEW: %s\n",string1);
+	}
+
+	/* return a pointer to the new string1 */
+	return(string1);
+}

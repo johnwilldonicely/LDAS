@@ -1,0 +1,174 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="XRIP1"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setopts=""
+setverb=1
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process ripple-detection for electrophysiology experiments"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database file specifying path and group on each line"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-s: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--opts1: quoted options for xs-ldas5-$progbase1 [$setopts]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db.txt --opts1 \"-t SLEEP -d 60\"  2>&1|tee log_"$progbase1".txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog $@
+echo "################################################################################"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="s:" ; vl="opts1:,skip:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-s | --skip ) setskip=$2 ; shift ;;
+		--opts1 ) setopts=$setopts" "$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+# if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+
+################################################################################
+# FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		# MOVE TO PATH
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN PROGRAMS
+		xs-ldas5-$progbase1 $base $setopts
+	done
+fi
+cd $startdir
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb $progbase1"_ripples.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_wavemean.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_summary.txt" --verb 0
+fi
+
+
+################################################################################
+# PLOT THE MEAN RIPPLE FOR ALL GROUPS - ASSUMES GROUP/SUBJECT COMBINATIONS ARE UNIQUE
+################################################################################
+echo ; echo "PLOTTING THE MEAN RIPPLE: "$progbase1"_wavemean.txt"
+plotopts="-cg 1 -cx 2 -cy 3 -ew 0 -line 1 -ps 0 -colour 0 -xscale 0.45 -xint 10 -xpad 0 -out $progbase1""_wavemean.ps"
+xe-cut1 $progbase1"_wavemean.txt" group,time,uV |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Time (ms)" -ylabel "Amplitude (uV)"
+
+
+################################################################################
+# PLOT THE STATISTICS
+################################################################################
+echo "PLOTTING THE RIPPLE STATS SUMMARY: "$progbase1"_summary.txt"
+# MAKE A TICS-RELABELLING FILE
+echo "
+NON-DOX 0
+DOX 1" > $tempfile.tics
+
+#plotopts="-cx 1 -cy 3 -ce 5 -pt box -xint 1 -xscale .2 -ew 0 -bz 0 -xlabel Group -colour 3"
+plotopts="-xint 1 -xscale .2 -xlabel Group"
+plotlist=""
+for i in dur n rate amp lenms freq ; do
+	plotfile=$tempfile"_"$i".ps"
+	plotlist=$plotlist" "$plotfile
+
+	xe-cut1 $progbase1"_summary.txt" group,$i > $tempfile
+	xs-plotmeans1 $tempfile group $i -A "$plotopts -pt box -bz 0 -xlabel Group" -B "$plotopts" -o $plotfile
+	xs-plotmodtics $plotfile $tempfile.tics xtic
+
+done
+xe-plotmerge1 $plotlist -xmax 3 -xinc 180 -out $progbase1"_summary"
+
+################################################################################
+# ANALYSIS
+################################################################################
+for i in dur n rate amp lenms freq ; do
+	echo "----------------------------------------------------------------------"
+	echo "Analysis: "$i
+	r_anova $progbase1"_summary.txt" $i group | grep Overview:
+done
+
+
+
+
+# CLEAN UP
+rm -f $tempfile*
+
+# REPORT TIME TO FINISH THE JOB
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

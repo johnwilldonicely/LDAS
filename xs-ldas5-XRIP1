@@ -1,0 +1,339 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# parameters for velocity detection
+setvelint="0.4"
+setvelmax="0.5"
+setvelmin="nan"
+setveldur="300"
+setregion="hipp.dorsal.ca1.pyr"
+settrial="all"
+setemin="2"
+setemax="20"
+setampmin="0"
+setclean="1"
+let setplot=0
+
+sfxyd="25"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": detect ripple oscillations during trial/velocity epochs"
+	echo "REQUIRES: 1000Hz .bin LFP files and a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [options]"
+	echo "	[base]= [yyyymmdd]-[ses]_[subject]"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-r: region ["$setregion"] - if numeric, force channel-number"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "	-i: integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	-v: velocity minimum (cm/s) ["$setvelmin"]"
+	echo "	-V: velocity maximum (cm/s) ["$setvelmax"]"
+	echo "	-d: minimum duration (s) for velocity criteria ["$setveldur"]"
+	echo "	--emin: event-detection minimum (z-score) ["$setemin"]"
+	echo "	--emax: event-detection maximum (z-score) ["$setemax"]"
+	echo "	--amp: ripple-amplitude minimum, for inclusion (uV) ["$setampmin"]"
+	echo "	--plot: plot ripples ( 0=NO, 1=MEAN, 2=ALL 3=DEPTH (exemplar) ) [$setplot]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "OUTPUT: "
+	echo "	 "$progbase1"_ripples.txt   : statistics on each ripple"
+	echo "	 "$progbase1"_waveforms.txt : ripple waveforms"
+	echo "	 "$progbase1"_summary.txt   : subject summary"
+	echo "		NOTE: sample-numbers in output refer to original .dat file"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+filenotes=$base".notes"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################temp_xe-plottable1.ps
+vs="r:t:i:v:V:d:" ; vl="emin:,emax:,amp:,plot:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-r ) setregion=$2 ; shift ;;
+ 		-t ) settrial=$2  ; shift ;;
+		-i ) setvelint=$2 ; shift ;;
+		-v ) setvelmin=$2 ; shift ;;
+		-V ) setvelmax=$2 ; shift ;;
+ 		-d ) setveldur=$2 ; shift ;;
+		--emin ) setemin=$2 ; shift ;;
+		--emax ) setemax=$2 ; shift ;;
+		--amp ) setampmin=$2 ; shift ;;
+		--plot ) let setplot=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ $setplot -lt 0 ] || [ $setplot -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0-3, 1 or 2" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+# CLEANUP FILES BEFORE PROCEDING
+rm -f $tempfile*
+rm -f $progbase1*
+
+# IDENTIFY THE CHANNEL IN THE DESIRED CELL-LAYER
+z='^[0-9]+$'
+if ! [[ $setregion =~ $z ]] ; then
+	chan=$(xe-dbmatch1 $filenotes region $setregion -xml CHANNELS -m 1 -oc chan -o 1 | awk '{printf("%03d",$1)}')
+	if [ "$chan" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify region \"$setregion\" in the CHANNELS section" ; echo ; exit ; } fi
+	# - if multiple channels match, use the first one
+	let z=$(echo $chan | wc -w)
+	if [ $z -gt 1 ] ; then
+		chan=$(echo $chan | awk '{print $1}')
+		z=$(echo $chan | awk '{printf("%.0f\n",$1)}')
+		region=$(xe-dbmatch1 $filenotes chan $z -xml CHANNELS -m 1 -oc region -o 1)
+		echo "--- Warning ["$thisprog"]: multiple channels match \"$setregion\" in $filenotes : using first channel: $chan "
+	fi
+else
+	chan=$(echo $setregion | awk '{printf("%03d",$1)}')
+fi
+
+# IDENTIFY THE APPROPRIATE .bin FILE
+filebin=$base"-"$chan".bin"
+if [ ! -e $filebin ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin' missing" ; echo ; exit ; } fi
+# IDENTIFY XYD(T) PAIR FOR CHECKING RUNNING SPEED
+filexydt=$base".xydt"
+filexyd=$base"-body.xyd"
+if [ ! -e $filexydt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexydt' missing" ; echo ; exit ; } fi
+if [ ! -e $filexyd ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexyd' missing" ; echo ; exit ; } fi
+
+
+echo "	setregion= $setregion"
+echo "	channel= $chan"
+echo "	settrial= $settrial"
+echo "	setvelmin= $setvelmin"
+echo "	setvelmax= $setvelmax"
+echo "	setvelint= $setvelint"
+echo "	setveldur= $setveldur"
+echo "	setemin= $setemin"
+echo "	setemax= $setemax"
+echo "	setampmin= $setampmin"
+echo "	filebin= $filebin"
+echo "	filexydt= $filexydt"
+echo "	filexyd= $filexyd"
+
+
+################################################################################
+# GET BASIC PARAMETERS
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+bindec=$(xe-getkey $filenotes bin_decimation=)
+binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
+
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z $bindec ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+if [ -z $start_time ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of start_time $filenotes" ; echo ; exit ; } fi
+
+########################################################################################
+# DETERMINE TRIAL START-STOP PAIRS (MAKE A LIST)
+# - these SSPs are relative to the 20KHz .dat file, and will match the .xydt timestamps
+########################################################################################
+echo "	...getting start/stop times for specified trials ($settrial)"
+screenlist=$(xs-ldas-gettrials1 $filenotes $settrial)
+if [ "$screenlist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial in $filenotes" ; echo ; exit ; } fi
+let nblocks=$(echo $screenlist | tr ',' ' ' | wc -w | awk '{print $1/2}' )
+echo "		$nblocks blocks of data found"
+
+
+########################################################################################
+# DETECT IMMOBILITY EPOCHS WITHIN THE SELECTED TRIAL-BLOCKS
+# - chunks of (typically) 5 minutes continuous immobility (running < 0.5cm/s)
+# - save $tempfile"_screen1.ssp" for use by ripdet program - these SSPs are "downsampled" for .bin files
+# - this file will have timestamps "downsampled" (divided) to match the .bin files
+########################################################################################
+echo "	...generating "$tempfile"_screen1.ssp"
+timetot="0"
+timetotminutes="0"
+if [ "$setvelmin" != "nan" ] || [ "$setvelmax" != "nan" ]  ; then
+	# read xyd(t) files, filtering for speed and trials, and outputting SSPs
+	opts="-sf $sf -vf $sfxyd -velmax $setvelmax -velmin $setvelmin -veldur $setveldur -velint $setvelint -scrl $screenlist -out 3"
+
+	echo "xe-ldas5-readxyd1 $filexydt $filexyd $opts"
+
+	xe-ldas5-readxyd1 $filexydt $filexyd $opts  |
+	# now downsample SSPs to bin rate
+	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_screen1.ssp"
+	# count the SSPs
+	let nepochs=$(xe-ldas5-readssp1 $tempfile"_screen1.ssp" | wc -l)
+	# calculate actual time spent immobile
+	if [ $nepochs -gt 0 ] ; then
+		# calculate actual time spent immobile
+		a=$(xe-ldas5-readssp1 $tempfile"_screen1.ssp" | xe-math_doublet stdin -long 1 -t 2 | xe-math_sum1 stdin -long 1)
+		timetot=$(echo "scale=3; $a / $binrate" | bc)
+		timetotminutes=$(echo "scale=1; $timetot / 60" | bc)
+		echo "		trial_by_velocity_epochs= "$nepochs
+		echo "		total_time= "$timetotminutes "minutes"
+	else
+		echo "	...WARNING: no $setvelmin-$setvelmax cm/s velocity epochs, so no ripple detection..."
+	fi
+else
+	xs-ldas-gettrials1 $filenotes $settrial -d $bindec -o 2 > $tempfile"_screen1.ssp"
+	let nepochs=$nblocks
+	if [ $nepochs -gt 0 ] ; then
+		# calculate actual trial-time
+		a=$(xe-ldas5-readssp1 $tempfile"_screen1.ssp" | xe-math_doublet stdin -long 1 -t 2 | xe-math_sum1 stdin -long 1)
+
+		timetot=$(echo "scale=3; $a / $binrate" | bc)
+		timetotminutes=$(echo "scale=1; $timetot / 60" | bc)
+		echo "		trial_epochs= "$nepochs
+		echo "		total_time= "$timetotminutes "minutes"
+	else
+		echo "	...WARNING: trials matching $settrial found, so no ripple detection..."
+	fi
+
+fi
+
+################################################################################
+# DETECT RIPPLES
+# - behaviour depends on whether any trial/velocity epochs were detected
+# - be sure to use divided-version of .ssp trial for 1KHz .bin files
+# - waveform output saved to $progbase1_waveforms.txt
+# - standard output saved to $progbase1_ripples.txt (ripple stats)
+# 	- note: SSPS converted back to .dat reference
+################################################################################
+setntaps="2"
+setorder="8"
+opts="-dt 8 -sf $binrate -nch 1 -ch 0 -taps $setntaps -ord $setorder -emin $setemin -emax $setemax -ampmin $setampmin -riplow 140 -riphigh 220 -low 70 -high 0 -avg 2 -g 3 -out 4 -v 1 -wave "$progbase1"_waveforms.txt"
+rm -f $progbase1"_ripples.txt"
+
+if [ $nepochs -gt 0 ] ; then
+	echo "	...detecting ripples..."
+	echo "	xe-ldas5-ripdet1 $filebin $opts -scrf "$tempfile"_screen1.ssp"
+
+	xe-ldas5-ripdet1 $filebin $opts -scrf $tempfile"_screen1.ssp" > $tempfile.rip1
+
+	ripn=$(tail -n +2  $tempfile.rip1 | wc -l)
+
+	# calculate the length of ripples in milliseconds
+	echo "lenms" > $tempfile.rip2
+	xe-cut1 $tempfile.rip1 start,stop -o 1 |
+		xe-math_doublet stdin -long 1 -t 2 |
+		xe-math_div1 stdin -v $binrate |
+		xe-math_mult1 stdin -v 1000 |
+		xe-math_round2 stdin -c 1 -b 0.1 >> $tempfile.rip2
+
+	# build the ripple-stats output file, including length from above
+	xe-cut1 $tempfile.rip1 peak,freq,amp |
+		paste - $tempfile.rip2 |               # add the ripple-length
+		xe-cut1 stdin peak,lenms,freq,amp |    # reorder the output
+		xe-math_mult1 stdin -cy 1 -v $bindec | # convert peak from .bin samples to .dat samples
+		xe-math_round2 stdin -c 1 -b 1 |       # round peak to integer
+		xe-math_round2 stdin -c 4 -b 0.001 > $progbase1"_ripples.txt" # screen on amplitude
+else
+	ripn="-"
+fi
+
+
+################################################################################
+# CREATE THE MEAN RIPPLE  (GOOD RIPPLES ONLY)
+# - plot the results if required
+################################################################################
+if [ "$nepochs" != "0"  ] && [ "$nrip" != "0" ] ; then
+	xe-dbmatch1 $progbase1"_waveforms.txt" good 1 > $tempfile
+	echo "time uV" | xe-delimit stdin > $progbase1"_wavemean.txt"
+	xe-cut1 $tempfile time,uV |
+		xe-statsgrp1 stdin |
+		xe-cut1 stdin grp1,mean |
+		xe-checkisnum2 stdin >> $progbase1"_wavemean.txt"
+fi
+
+################################################################################
+# CALCULATE SUMMARY STATISTICS
+# - ripn="-" : no epochs
+# - nrip="0" : epochs, but no ripples
+# - nrip>0   : ripples detected, calculation of amp, freq, len and rate is valid
+################################################################################
+if [ "$ripn" == "-" ] ; then
+	riprate="-"
+	ripamp="-"
+	riplen="-"
+	riplenms="-"
+	ripfreq="-"
+elif [ "$ripn" == "0" ] ; then
+	riprate="0"
+	ripamp="-"
+	riplen="-"
+	riplenms="-"
+	ripfreq="-"
+else
+	ripamp=$(xe-cut1 $progbase1"_ripples.txt" amp -o 1     | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.2f\n",$1)}' )
+	ripfreq=$(xe-cut1 $progbase1"_ripples.txt" freq -o 1   | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.2f\n",$1)}' )
+	riplenms=$(xe-cut1 $progbase1"_ripples.txt" lenms -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.2f\n",$1)}' )
+	riprate=$(echo "scale=3; $ripn / $timetot" | bc)
+fi
+
+echo "chan epochs dur n rate amp lenms freq" | xe-delimit stdin > $progbase1"_summary.txt"
+echo "$chan $nepochs $timetot $ripn $riprate $ripamp $riplenms $ripfreq" |
+	xe-math_round2 stdin -c 3,5,6,7,89 -b 0.01 |
+	xe-delimit stdin >> $progbase1"_summary.txt"
+echo "	...total ripples detected: "$ripn
+
+
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+if [ $setplot -eq 1 ] ; then
+	echo "	...plotting the mean ripple..."
+	plotopts="-cx 1 -cy 2 -colour 1 -line 1 -ps 0 -xscale 0.45 -vline 0 -xpad 0 -xint 10"
+	xe-plottable1 $progbase1"_wavemean.txt" $plotopts -xlabel "Time (ms)" -ylabel "Amplitude (uV)" -out $progbase1"_wavemean.ps"
+fi
+
+if [ $setplot -eq 2 ] ; then
+	echo "	...plotting all ripples..."
+	plotopts="-cx 4 -cy 5 -line 1 -ps 0 -colour 1 -yscale .2"
+	mergeopts=" -yinc 140 -ymax 5"
+	xs-plotmulti $tempfile event -P "$plotopts" -M "$mergeopts" > $progbase1"_waves.ps"
+fi
+
+if [ $setplot -eq 3 ] ; then
+	echo "	...plotting ripple depth-profile (for a large ripple)..."
+	x=$(xe-cut1 $progbase1"_ripples.txt" amp -o 1 | xe-statsd1 stdin -per 1 | grep PERCENTILE_95 --color=never | cut -f 2)
+	y=$(echo "$a+1"|bc)
+	a=$(xe-cut1 $progbase1"_ripples.txt" peak,amp -o 1 | awk '$2>'$x'&&$2<'$y'{print $1}' | tail -n 1 )
+	plotfile=$progbase1"_depth.ps"
+	xs-ldas5-plotdata1 $filenotes -w 0.25 -a $a -l 0 -h 0 -P "-out $plotfile"
+fi
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	echo "	...cleaning..."
+	rm -f $tempfile*
+fi
+
+echo
+exit

@@ -1,0 +1,360 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setfiledb=""
+setverb="0"
+setclean="1"
+setgroup="0"
+setskip="-"
+
+key_io="uA"
+file_ext=".P0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": pre-process slice experiments"
+	echo " - reads the .log2 file to find file names matching session-keywords"
+	echo " 		- Input/Output (IO) keyword: uA"
+	echo " 		- Paired-Pulse (PP) keyword: PP"
+	echo " 		- Long-term-potentiation (LTP) keyword: LTP"
+	echo "	- the .log2 file is a copy of the original WinLTP log file, except..."
+	echo "		- entries are checked by experimenter"
+	echo "		- additional fields are added to the top of the file:"
+	echo "			experiment= [experiment name]"
+	echo "			subject= [subjectID]"
+	echo "	- generates a machine-readable .notes file: [date]_[subject].notes"
+	echo "		- uses the experiment= and subject= fields added to .log2"
+	echo "		- extracts the date, amplification, and sample-rate from all files"
+	echo "			- NOTE: should be identical across all files in the folder"
+	echo "		- creates an XML section for each session (IO,PP,LTP)"
+	echo ""
+	echo "USAGE: $thisprog [log]"
+	echo "		[log]: log file pattern to match, in quotes"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--db: optional database file for batch processing (<path> <group>) [$setfiledb]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog \"*.log2\"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+logpattern=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="verb:,clean:,db:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--db ) setfiledb=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+if [ $setverb == 1 ] ; then
+	echo ; echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+fi
+
+################################################################################
+# CHECK WHETHER BATCH PROCESSING IS REQUESTED
+################################################################################
+if [ "$setfiledb" != "" ] ; then
+	xs-dbcheck1 $setfiledb --verb 0 > $tempfile
+	if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+	# construct a database list in format <path>,<group>
+	dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $setfiledb | xe-delimit stdin -d comma)
+else
+	path=$(pwd)
+	dblist="$path,$setgroup"
+fi
+
+################################################################################
+# PERFORM A LOOP ON THE DATABASE LIST
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		if [ $setverb == "1" ] ; then echo ; fi
+		echo $path
+		cd $path ;
+
+		# FIND EXACTLY ONE LOG FILE MATCHING PATTERN
+		let z=$(ls -1 $logpattern 2>/dev/null | wc -l )
+		if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no log files matching $logpattern found" ; echo ; continue; } ; fi
+		if [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: multiple log files matching $logpattern found" ; echo ; continue; } ; fi
+		filelog=$(ls $logpattern --color=never)
+		dos2unix -q $filelog
+
+		# DETERMINE A .AP0 FILE TO USE TO EXTRACT BASIC INFO
+		let z=$(ls -1 *.AP0 2>/dev/null | wc -l )
+		if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no .AP0 files present" ; echo ; continue; } ; fi
+		in0=$(ls *AP0 -1 |head -n 1 )
+		dos2unix -q $in0
+
+		# GET THE DATE
+		date=$(grep -s '"DateFileSaved"' $in0 --color=never | head -n 1 | xe-delimit stdin | cut -f 2)
+		let z=$(echo $date | wc -w)
+		if [ $z -lt 1 ] ; then date="-" ; echo "--- Warning: no DateFileSaved" ; fi
+		if [ $z -gt 1 ] ; then date=$(echo $date | awk '{print $1}') ; echo "--- Warning: multiple dates" ; fi
+
+		# GET THE GAIN
+		gain=$(grep '"AD_Gain"' $in0 | awk '{print $2}' | sort -nu)
+		let z=$(echo $gain | wc -w)
+		if [ $z -ne 1 ] ; then
+			if [ $z -lt 1 ] ; then gain="-" ; echo "--- Warning: no AD_Gain entry" ; fi
+			if [ $z -gt 1 ] ; then gain=$(echo $gain | awk '{print $1}') ; echo "--- Warning: multiple gain-definitions" ; fi
+		fi
+
+		# GET THE SAMPLERATE (SR, Hz)
+		si=$(grep '"SampleInterval_ms"' $in0 | awk '{print $2}' | sort -nu)
+		let z=$(echo $si | wc -w)
+		if [ $z -eq 1 ] ; then
+			sr=$(echo "1000000.0/$si" | bc)
+		else
+			if [ $z -lt 1 ] ; then si="-" ; echo "--- Warning: no SampleInterval_ms entry" ; fi
+			if [ $z -gt 1 ] ; then si=$(echo $si | awk '{print $1}') ; echo "--- Warning: multiple SampleInterval_ms entries" ; fi
+		fi
+
+		# GET EXPERIMENT AND SUBJECT NAME FROM LOG FILE AND GENERATE NOTES-FILE BASE NAME
+		experiment=$(xe-getkey $filelog experiment=)
+		subject=$(xe-getkey $filelog subject=)
+
+		if [ "$subject" == "" ] ; then
+			thisdir=$(pwd | rev | cut -f 1 -d / | rev)
+			echo "--- Warning: no subject= definition in $filelog - deriving subject ID from director name $thisdir"
+			subject=$(echo $thisdir | cut -f 2 -d _ | cut -f 1 -d -)
+			if [ "$subject" == "" ] ; then
+				 echo "--- Warning: could not derive subject ID from directory name - no filed after \"_\" separator"
+				 echo "	- substituting \"xxxxxxx\""
+			else
+				 echo "	- derived subject ID: $subject"
+			fi
+		fi
+
+		# BUILD BASE-NAME
+		base=$date"_"$subject
+
+		# PUT THE GLOBAL PARAMETERS IN THE .NOTES FILE
+		rm -f *.notes
+		echo "path= "$path > $base.notes
+		echo "file_log= "$filelog >> $base.notes
+		echo "experiment= "$experiment >> $base.notes
+		echo "date= "$date >> $base.notes
+		echo "subject= "$subject >> $base.notes
+		echo "sample_rate= $sr" >> $base.notes
+		echo "gain= $gain" >> $base.notes
+		if [ "$setverb" == "1" ] ; then
+			cat $base.notes
+			echo "output= $base.notes"
+			echo
+		fi
+		echo "" >> $base.notes
+
+
+		################################################################################
+		# PP PROCESSING
+		# - look for data between <PP> and </PP>
+		# - build a list of files from fields on each line which end in $file_ext (typically .P0 )
+		# 	- assumes only one word ending in $file_ext is found on any given line
+		# - start-time derived from the file header
+		################################################################################
+		 if [ "$setverb" == "1" ] ; then echo "	- processing paired-pulse (PP)" ; fi
+		# pull out XML section of log file marked PP
+		xe-strxmlparse1 $filelog PP | grep --color=never .P0 > $tempfile.1
+		echo "" >> $base.notes
+		echo "<PP>" >> $base.notes
+		# check that tempfile.1 contains something - if so, process
+		echo "time_clock block filename" | xe-delimit stdin >> $base.notes
+		let z=$(cat $tempfile.1 | wc -l)
+		if [ $z -gt 0 ] ; then
+			# build a list of .AP0 files (convert extensions to .AP0)
+			listAP0=$(xe-delimit $tempfile.1 | awk '{for(i=1;i<=NF;i++) if($i~/'$file_ext'/) print $i}' | xe-strsub1 stdin $file_ext .AP0)
+			# make the records
+			let count=0
+			for in2 in $listAP0; do
+		 		if [ "$setverb" == "1" ] ; then echo "		$in2" ; fi
+				if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $in2" ; echo ; continue; } ; fi
+				let count=$count+1
+				time_clock=$(xe-getkey $in2 \"TimeFileStarted\" | tr -d '"')
+				echo $time_clock "PP-"$count $in2 | xe-delimit stdin >> $base.notes
+			done
+		fi # END OF CONDITION: IF THERE IS ACTUALLY A PP BLOCK
+		echo "</PP>" >> $base.notes
+		echo "" >> $base.notes
+
+		################################################################################
+		# IO PROCESSING
+		################################################################################
+		# SCAN THE LOG FILE FOR LINES CONTAINING KEY-WORD FOR I/O EXPERIMENTS (typically "uA")
+		# assumes the line format is:  [time] [elapsed time] [stim strength] "uA" [notes]
+		# assumes the file-name ( [id].P0 ) for that stimulation appears on the next line
+		################################################################################
+		if [ "$setverb" == "1" ] ; then echo "	- processing input/output (IO)" ; fi
+		# pull out XML section of log file marked IO
+		xe-strxmlparse1 $filelog IO > $tempfile.1
+		echo "<IO>" >> $base.notes
+		echo "time_clock time_elapsed stim filename notes" | xe-delimit stdin >> $base.notes
+		# check that tempfile contains something - if so, process
+		let z=$(cat $tempfile.1 | wc -l)
+		if [ $z -gt 0 ] ; then
+			cat $tempfile.1 |
+				awk '{
+					if($4~"'$key_io'") {printf $1"\t"$2"\t"$3; start=1; note=$5}
+					else if(start==1) {
+						filefound=0
+						for(i=1;i<=NF;i++) { if($i~"'$file_ext'") {printf "\t"$i; filefound=1}}
+						if(note=="") note="-"
+						if(filefound==0) printf "\t***_nofile"
+						printf "\t"note
+						printf "\n"
+						start=0
+					}
+				}' |
+				xe-delimit stdin | # removes trailing commas
+				xe-strsub1 stdin .P0 .AP0 > $tempfile.2 # make sure the average-file is used
+			# check if any files were missing
+			grep "***_nofile" $tempfile.2 > $tempfile.3
+			if [ -s $tempfile.3 ] ; then
+				echo
+				echo "--- Warning ["$thisprog"]: missing files at these times:"
+				cat $tempfile.3 | awk '{print "\t"$0}'
+				echo
+			fi
+			# append to notes file
+			cat $tempfile.2 >> $base.notes
+		fi # END OF CONDITION: IF THERE IS ACTUALLY AN I/O BLOCK
+		echo "</IO>" >> $base.notes
+		echo "" >> $base.notes
+
+		################################################################################
+		# LTP PROCESSING
+		################################################################################
+		if [ "$setverb" == "1" ] ; then echo "	- processing LTP" ; fi
+		# pull out XML section of log file marked LTP
+		xe-strxmlparse1 $filelog LTP > $tempfile.1
+		echo "<LTP>" >> $base.notes
+		# check that tempfile.1 contains something - if so, process
+		echo "time_clock seconds block filename" | xe-delimit stdin >> $base.notes
+		let z=$(cat $tempfile.1 | wc -l)
+		if [ $z -gt 0 ] ; then
+
+			# determine the start and stop times (nearest second)
+			time_start=$(awk -F : 'NF>2{print $0}' $tempfile.1 | head -n 1 | xe-delimit stdin | cut -f 1 | xe-timeconv1 stdin | cut -f 1 -d .)
+			time_stop=$(awk -F : 'NF>2{print $0}' $tempfile.1 | tail -n 1 | xe-delimit stdin | cut -f 1 | xe-timeconv1 stdin | cut -f 1 -d .)
+			# build a list of .T0 files, excluding file extension
+			listt0=$(grep .T0 $tempfile.1 --color=never | xe-delimit stdin | cut -f 3 | cut -f 1 -d .)
+			# build an array of all the files falling between time_start and time_stop
+			let nfiles=0
+			for i in $(ls *.T0 *.AP0) ; do
+				# get time file started
+				t2=$(xe-getkey $i \"TimeFileStarted\" | tr -d '"' | xe-timeconv1 stdin | cut -f 1 -d .)
+				# test if this falls between start and stop for the LTP section
+				let z=$(echo "$t2>=$time_start && $t2<=$time_stop" | bc)
+				if [ $z -eq 1 ] ; then
+					let fbase[$nfiles]=$(echo $i | cut -f 1 -d .)
+					let nfiles=$nfiles+1
+				fi
+			done
+			# file number and time of first tetanus (time_zero)
+			let x=$(echo $listt0 | cut -f 1 -d ' ' | cut -f 1 -d .)
+			time_zero=$(xe-getkey $x".T0" \"TimeFileStarted\" | tr -d '"' | xe-timeconv1 stdin | cut -f 1 -d .)
+
+			# get baseline - 10 previous files relative to first .TO
+			for ((i=0; i<$nfiles; i++)); do
+				let y=${fbase[$i]}
+				if [ $y -eq $x ] ; then
+					let j=$(echo "$i-10" | bc)
+					if [ $j -lt 0 ] ; then let j="0" ; fi
+					for ((k=$j; k<$i; k++)); do
+						in2=${fbase[$k]}".AP0"
+						time_clock=$(xe-getkey $in2 \"TimeFileStarted\" | tr -d '"')
+						time_seconds=$(echo $time_clock | xe-timeconv1 stdin | cut -f 1 -d .)
+						time_new=$(echo "$time_seconds-$time_zero" |bc)
+						echo $time_clock $time_new "BASE" $in2 | xe-delimit stdin >> $base.notes
+					done
+					break
+				fi
+			done
+			# get all the other APO's until the end of the experiment
+			let nstim=0
+			for ((i=0; i<$nfiles; i++)); do
+				let y=${fbase[$i]}
+				let count=0
+				let stim=0
+				for t0 in $listt0; do
+					let x=$(echo $t0 | cut -f 1 -d .)
+					if [ $y -eq $x ] ; then let count=0 ; let stim=1; let nstim=$nstim+1
+					elif [ $y -gt $x ] ; then let count=$count+1
+					fi
+				done
+				if [ $stim -eq 1 ] ; then
+					in2=$y".T0"
+					block="STIM-"$nstim
+					time_clock=$(xe-getkey $in2 \"TimeFileStarted\" | tr -d '"')
+					time_seconds=$(echo $time_clock | xe-timeconv1 stdin | cut -f 1 -d .)
+					time_new=$(echo "$time_seconds-$time_zero" |bc)
+					echo $time_clock $time_new $block $in2 | xe-delimit stdin >> $base.notes
+				elif [ $count -gt 0 ] ; then
+					in2=$y".AP0"
+					block="LTP-"$count
+					time_clock=$(xe-getkey $in2 \"TimeFileStarted\" | tr -d '"')
+					time_seconds=$(echo $time_clock | xe-timeconv1 stdin | cut -f 1 -d .)
+					time_new=$(echo "$time_seconds-$time_zero" |bc)
+					echo $time_clock $time_new $block $in2 | xe-delimit stdin >> $base.notes
+				fi
+			done
+		fi # END OF CONDITION: IF THERE IS ACTUALLY AN LTP BLOCK
+		echo "</LTP>" >> $base.notes
+		echo "" >> $base.notes
+
+	done # END OF PATH LOOP
+	if [ "$setverb" == "1" ] ; then echo "" ; fi
+	cd $startdir
+
+fi # END OF "IF DONT SKIP PROCESSING" CONDITION
+
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

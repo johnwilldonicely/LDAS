@@ -1,0 +1,253 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="XPOW1"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setopts=""
+setcontrol=1
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process spectral power analysis"
+	echo "	- includes spectral post-processing to redefine functional bands"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database file specifying path and group on each line"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--cont: control group to use for re-defining bands [$setcontrol]"
+	echo "	--opts1: options (in quotes) for xs-ldas5-$progbase1 [$setopts]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_25HOUR.txt -O \"-r pfc -t NOVEL\" 2>&1 | tee $progbase1.log"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="c:o:s"
+vl="cont:,skip:,opts1:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+ 	case $1 in
+		-c | --cont ) setcontrol=$2 ; shift ;;
+		-s | --skip ) setskip=$2 ; shift ;;
+		-o | --opts1 ) setopts=$setopts" "$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+
+################################################################################
+# RUN THE ANALYSIS FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		cd $startdir
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN THE ANALYSIS IN THE CURRENT DIRECTORY (IF THIS STEP IS NOT PART OF THE SKIP FLAG)
+		xs-ldas5-$progbase1 $base $setopts
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb $progbase1"_summary.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_specmean.txt" --verb 0
+fi
+
+
+################################################################################
+# CREATE A CORRECTED VERSION OF THE SPECTRA (SMOOTHED AND FILTERED)
+################################################################################
+infile=$progbase1"_specmean.txt"
+outfile=$progbase1"_specsmooth.txt"
+spdiv=2
+sphp=0.0125
+list=$(xe-cut1 $infile subject,group -o 1 | awk '{print $1"."$2}' | sort -nu)
+echo "subject group move freq amp" | xe-delimit stdin > $outfile
+for mov in immobile running ; do
+	for i in $list ; do
+		sub=$(echo $i | cut -f 1 -d .)
+		grp=$(echo $i | cut -f 2 -d .)
+		xe-dbmatch1 $infile move $mov |
+		xe-dbmatch1 stdin group $grp | xe-dbmatch1 stdin subject $sub |
+		xe-cut1 stdin freq,amp -o 1 |
+		xe-ldas5-spectproc1 stdin -out 1 -div $spdiv -filt $sphp |
+		tail -n +2 | awk '{print "'$sub' '$grp' '$mov' ",$1,$2}' | xe-delimit stdin >> $outfile
+	done
+	# determine the corrected bands
+	xe-dbmatch1 $outfile group $setcontrol |
+	xe-dbmatch1 stdin move $mov |
+	xe-cut1 stdin freq,amp -o 1 |
+	xe-statsgrp1 stdin |
+	xe-cut1 stdin grp1,mean -o 1 |
+	xe-ldas5-spectproc1 stdin -div 0 -filt 0 -out 2 > $progbase1"_bands_"$mov".txt"
+done
+
+# EXTRACT AUC FROM INDIVIDUAL SMOOTHED SPECTRA - DO NOT RE-SMOOTH OR FILTER
+infile=$progbase1"_specsmooth.txt"
+outfile=$progbase1"_summary_smooth.txt"
+list=$(xe-cut1 $infile subject,group -o 1 | awk '{print $1"."$2}' | sort -nu)
+echo "subject group move min mid max peak relpeak auc aucpos aucneg" | xe-delimit stdin > $outfile
+for mov in immobile running ; do
+	newbands1=$(xe-cut1 $progbase1"_bands_"$mov".txt" min,mid,max -o 1 | paste -s | tr '\t' ',')
+	for i in $list ; do
+		sub=$(echo $i | cut -f 1 -d .)
+		grp=$(echo $i | cut -f 2 -d .)
+		xe-dbmatch1 $infile move $mov |
+		xe-dbmatch1 stdin group $grp | xe-dbmatch1 stdin subject $sub |
+		xe-cut1 stdin freq,amp -o 1 |
+		xe-ldas5-spectproc1 stdin -bands $newbands1 -div 0 -filt 0 -out 2 |
+		tail -n +2 | awk '{print "'$sub' '$grp' '$mov' ",$0}' | xe-delimit stdin >> $outfile
+	done
+done
+
+
+
+################################################################################
+# PLOT THE DATA
+################################################################################
+# plot 1: mean spectrum
+plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -line 1 -ps 0 -ew 0 -xscale 0.45 -xpad 0 -ypad 0 -xmax 100 -xint 10 -lwa .5"
+xl="Fequency (Hz)"
+yl="Amplitude (uV)"
+plotlist=""
+bands=".5,2,4,12,30,100"
+for mov in immobile running ; do
+	plotfile=$tempfile"_"$mov".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 $progbase1"_specmean.txt" move $mov |
+	xe-cut1 stdin group,freq,amp |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -title $mov -xlabel "$xl" -ylabel "$yl" -vline $bands -out $plotfile
+done
+xe-plotmerge1 -xmax 2 -xinc 270 $plotlist -out $progbase1"_specmean"
+
+# plot 2: adjusted spectrum (smoothed and filtered)
+plotlist=""
+for mov in immobile running ; do
+	bands=$(xe-cut1 $progbase1"_bands_"$mov".txt" min,max -o 1 | paste -s | tr '\t' ',')
+	plotfile=$tempfile"_"$mov".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-dbmatch1 $progbase1"_specsmooth.txt" move $mov |
+	xe-cut1 stdin group,freq,amp |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -title $mov -xlabel "$xl" -ylabel "$yl" -vline $bands -out $plotfile
+done
+xe-plotmerge1 -xmax 2 -xinc 270 $plotlist -out $progbase1"_specsmooth"
+
+# plot 3: summary
+plotopts="-cg 1 -cx 1 -cy 2 -ce 3 -pt box -xint 1 -xscale .15 -xpad .75 -xlabel Group -ylabel Amplitude"
+plotlist=""
+for band in delta1 theta2 beta2 lgamma2 hgamma2 ; do
+	plotfile=$tempfile"_"$band".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-cut1 $progbase1"_summary.txt" group,$band |
+	xe-statsgrp1 stdin |
+	xe-cut1 stdin grp1,mean,sem |
+	xe-plottable1 stdin $plotopts -title $band -out $plotfile
+done
+xe-plotmerge1 -xmax 4 -xinc 110 $plotlist -out $progbase1"_summary"
+
+
+# plot 4: smoothed_summary (running only)
+plotopts="-cg 1 -cx 1 -cy 2 -ce 3 -pt box -xint 1 -xscale .15 -xpad .75 -xlabel Group -ylabel Amplitude"
+mergelist=""
+for mov in immobile running ; do
+	infile=$progbase1"_summary_smooth.txt"
+	list=$(xe-dbmatch1 $infile move $mov | xe-cut1 stdin mid -o 1 | sort -nu)
+	plotlist=""
+	for band in $list ; do
+		plotfile=$tempfile"_"$mov"_"$band".ps"
+		plotlist=$plotlist" "$plotfile
+		title="Peak: "$band" Hz"
+		ylabel="$mov Amp (uV)"
+		xe-dbmatch1 $infile move $mov |
+		xe-dbmatch1 stdin mid $band |
+		xe-cut1 stdin group,auc |
+		xe-statsgrp1 stdin |
+		xe-cut1 stdin grp1,mean,sem |
+		xe-plottable1 stdin $plotopts -title "$title" -ylabel "$ylabel" -out $plotfile
+	done
+	mergefile=$tempfile"_summary_"$mov
+	mergelist=$mergelist" "$mergefile".001.ps"
+	xe-plotmerge1 -xmax 4 -xinc 110 $plotlist -out $mergefile
+done
+xe-plotmerge2 $mergelist > $progbase1"_summary_smooth.ps"
+
+
+# CLEAN UP
+rm -f $tempfile*
+
+# REPORT TIME TO FINISH THE JOB
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

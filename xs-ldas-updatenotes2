@@ -1,0 +1,38 @@
+#!/bin/bash
+# <TAGS>string database</TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+rm -f $tempfile*
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Update a .notes file to replace an XML section"
+	echo "USAGE: "$thisprog" [old] [section] [new]"
+	echo "	[old]: input file"
+	echo "	[section]: name of section to be replaced"
+	echo "	[new]: file with replacement text- including the XML tags"
+	echo "- if [section] is not found, [new] will just be appended to the end of the file"
+	echo "EXAMPLE: "$thisprog" 20181231.notes CHANNELS new.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+filenotes=$1 ; shift ;
+setsection=$1 ; shift ;
+setnewfile=$1 ; shift ;
+
+if [ ! -e $filenotes ] ; then { echo -e "\n--- Error ["$thisprog"]: missing notes file $filenotes\n" ; exit ; } fi
+if [ ! -e $setfilenew ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file holding text to be inserted ($setnewfile)\n" ; exit ; } fi
+
+# OUTPUT THE TOP OF THE FILE
+section2="<$setsection>"
+awk '{if($0=="'$section2'") exit; print $0}' $filenotes
+
+# OUTPUT THE REPLACEMENT SECTION
+cat $setnewfile
+
+# OUTPUT THE BOTTOM OF THE FILE
+section2="</$setsection>"
+awk 'BEGIN{z=0}{if($0=="'$section2'")z=1; else if(z==1) print $0}' $filenotes

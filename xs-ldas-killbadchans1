@@ -1,0 +1,130 @@
+#!/bin/bash
+# <TAGS> file ldas</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+
+setxml="CHANNELS"
+setcol="good"
+setbad="0"
+
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": remove .bin files corresponding to dead channels"
+	echo " - this is a space-saving measure"
+	echo " - crawls through the folders in Data_Library and Data_Working"
+	echo " - requires a .notes file in each directory"
+	echo "USAGE: $thisprog [folders] [options]"
+	echo "	[folders]: CSV list of folders to scan"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--xml: XML section containing channel information ["$setxml"]"
+	echo "	--col: column to match \"bad\" values ["$setcol"]"
+	echo "	--bad: CSV list of values to match indicating bad values ["$setbad"]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" Data_Library,Data_Working --col good --bad 0 "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="xml:,col:,bad:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--xml ) setxml=$2 ; shift ;;
+		--col ) setcol=$2 ; shift ;;
+		--bad ) setbad=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# RUN THROUGH THE ANALYSIS
+################################################################################
+for inpath in $(echo $infile | tr ',' ' ') ; do
+
+	cd $startdir
+	echo "--------------------------------------------------------------------------------"
+	echo "PROCESSING: "$inpath
+
+	list=$(ls --color=never -d $inpath/*/)
+
+	for i in $list ; do
+
+		echo "	folder: $i"
+		cd $startdir
+		cd $i
+
+		filenotes=$(ls --color=never *.notes)
+		base=$(echo $filenotes | cut -f 1 -d .)
+
+		list2=$(
+			xe-dbmatch1 $filenotes good 0 -xml CHANNELS -oc chan -o 1 |
+			awk '{printf("'$base'-%03d.bin\n",$1)}'
+		)
+
+		for j in $list2 ; do
+			echo "		- removing $j"
+			rm -f $j
+		done
+
+		cd $startdir
+
+	done
+done
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -1,0 +1,529 @@
+#!/bin/bash
+# <TAGS>signal_processing spectra </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1="output_"$thisprog
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+thatprog="xe-fftpow2"
+
+settrials="all"
+setssp=""
+setalign=""
+setpre="0"
+setpost="0"
+setwin="1"
+setstep="1"
+setbin="1"
+setclip="-1"
+setnorm="4"
+setn1="-1"
+setn2="-1"
+setzmax="3"
+setverb="0"
+setclean="1"
+setdummy="0"
+
+setnz="1.0"
+setns="1"
+setnp="33.333"
+setfhi="0.00"
+
+setplot="1"
+setpsx="0"
+setpsy="0"
+
+# set up the bands
+nbands=6
+for band in $(seq 1 $nbands) ; do setband[$band]="" ; done
+i=1 ; fname[$i]="delta" ; fa[$i]=".5"  ; fz[$i]="4"
+i=2 ; fname[$i]="alpha" ; fa[$i]="4" ; fz[$i]="6"
+i=3 ; fname[$i]="theta" ; fa[$i]="6"   ; fz[$i]="12"
+i=4 ; fname[$i]="beta"  ; fa[$i]="12"  ; fz[$i]="30"
+i=5 ; fname[$i]="gamma" ; fa[$i]="30"  ; fz[$i]="100"
+i=6 ; fname[$i]="hfo"   ; fa[$i]="120" ; fz[$i]="150"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": spectral analysis of time-series data"
+	echo "- reads .bin files (single-channel 32-bit float)"
+	echo "- requires a .notes file specifying sample_rate= and a CHANNELS section"
+	echo "- assumes .bin file is present for the matching channel"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: $thisprog [notes] [c1] [options]"
+	echo "	[notes]: parameter-file"
+	echo "	[c1]: channel number or region-name"
+	echo "GENERAL OPTIONS (defaults in []):"
+	echo "	--trials: CSV list of .notes file trial-names (or \"all\" or \"no\") [$settrials]"
+	echo "	--ssp: alternatively, start-stop pairs file (.ssp) defining trials [$setssp]"
+	echo "	--win: FFT window size (seconds) [$setwin]"
+	echo "	--step: number of steps spanning FFT-window [$setsteps]"
+	echo "	--bin: bin-size (seconds) for summary [$setbin]"
+	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
+	echo "	--dummy: NAN output (0=NO 1=YES, useful for dead channels) [$setdummy]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "DATA REALIGNMENT OPTIONS..."
+	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
+	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
+	echo "	--pre: seconds to add to start [$setpre]"
+	echo "	--post: seconds to add to stop [$setpost]"
+	echo "NORMALIZATION OPTIONS (FOR BAND-OUTPUT)..."
+	echo "	--norm: band timecourse normalization-type - refer to xe-norm2 [$setnorm]"
+	echo "		--n1: norm-start (seconds after start, -1=start) [$setn1]"
+	echo "		--n2: norm-stop  (seconds after stop,  -1=stop)  [$setn2]"
+	echo "NOISE-REMOVAL OPTIONS..."
+	echo "	--clip: clipping value (de-noising only,-1=noclip) [$setclip]"
+	echo "	--nz: Z-score threshold for noise at each freq (NAN to skip) [$setnz]"
+	echo "	--ns: sign of thesholding (-1=NEG,+1=POS,0=BOTH) [$setns]"
+	echo "	--np: % of freq > nz needed to invalidate timepoint [$setnp]"
+	echo "HIGH-CUT FILTER OPTIONS..."
+	echo "	--fhi: high-frequency cut (0=NONE) [$setfhi])"
+	echo "BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs..."
+	for band in $(seq 1 $nbands) ; do
+		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
+	done
+	echo "PLOT OPTIONS..."
+	echo "	--psx: Gaussian smoother, x-axis, units [$setsx]"
+	echo "	--psy: Gaussian smoother, y-axis (matrix plot only), units [$setsy]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" *.notes amyg  --pre -60  2>&1|"
+	echo "		tee log_"$thisprog".txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1 ; shift
+setchannel1=$1 ; shift
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filenotes" ; echo ; exit; } ; fi
+if [ ! -s $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: $filenotes is empty" ; echo ; exit; } ; fi
+let z=$(echo  "$setchannel1" | tr ',' ' ' | wc -w)
+if [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: too many channels specified ($setchannel1)" ; echo ; exit; } ; fi
+# take basename from notes file name
+setbase=${filenotes%.*}
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="trials:,ssp:,align:,pre:,post:,win:,step:,bin:,clip:,norm:,n1:,n2:,nz:,ns:,np:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,psx:,psy:,dummy:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	# do band detection
+	for band in $(seq 1 $nbands) ; do if [ "$1" == "--"${fname[$band]} ] ; then { setband[$band]=$2 ; shift ; } fi ; done
+	# do the rest
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--trials ) settrials=$2 ; shift ;;
+		--ssp ) setssp=$2 ; shift ;;
+		--align ) setalign=$2 ; shift ;;
+		--pre ) setpre=$2 ; shift ;;
+		--post ) setpost=$2 ; shift ;;
+		--win ) setwin=$2 ; shift ;;
+		--step ) setstep=$2 ; shift ;;
+		--bin ) setbin=$2 ; shift ;;
+		--clip ) setclip=$2 ; shift ;;
+		--norm ) setnorm=$2 ; shift ;;
+		--n1 ) setn1=$2 ; shift ;;
+		--n2 ) setn2=$2 ; shift ;;
+		--nz ) setnz=$2 ; shift ;;
+		--ns ) setns=$2 ; shift ;;
+		--np ) setnp=$2 ; shift ;;
+		--fhi ) setfhi=$2 ; shift ;;
+		--delta ) setband[1]=$2 ; shift ;;
+		--theta ) setband[2]=$2 ; shift ;;
+		--beta )  setband[3]=$2 ; shift ;;
+		--gamma ) setband[4]=$2 ; shift ;;
+		--hfo )   setband[5]=$2 ; shift ;;
+		--plot ) setplot=$2 ; shift ;;
+		--psx ) setpsx=$2 ; shift ;;
+		--psy ) setpsy=$2 ; shift ;;
+		--dummy ) setdummy=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"" ; echo ; exit; } ; fi
+if [ "$setns" != "-1" ] && [ "$setns" != "0" ] && [ "$setns" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --ns ($setns) -  must be -1, 0 or 1" ; echo ; exit; } ; fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setdummy" != "0" ] && [ "$setdummy" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --dummy ($setdummy) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ $(echo "$setwin<0"|bc) -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --win ($setwin) -  must a positive number" ; echo ; exit; } ; fi
+if [ "$settrials" != "" ] && [ "$setssp" != "" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set both --trials ($settrials) and --ssp ($setssp)" ; echo ; exit; } ; fi
+if [ "$setssp" != "" ] ; then
+	if [ ! -e $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: missing .ssp file $setssp" ; echo ; exit; } ; fi
+	if [ ! -s $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: ssp file $setssp is empty" ; echo ; exit; } ; fi
+fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# BAND OVERRIDES
+################################################################################
+for band in $(seq 1 $nbands) ; do
+	if [ "${setband[$band]}" != "" ] ; then
+		n=${fname[$band]}
+		a=$(echo ${setband[$band]} | xe-cut1 stdin 1 -n 1 -d ",")
+		b=$(echo ${setband[$band]} | xe-cut1 stdin 2 -n 1 -d ",")
+		if [ "$a" == "" ] || [ "$b" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair" ; echo ; exit; } ; fi
+		let z=$(echo "$a<$b"|bc)
+		if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd" ; echo ; exit; } ; fi
+		fa[$band]=$a
+		fz[$band]=$b
+	fi
+done
+
+
+################################################################################
+# GET NOTES-FILE PARAMETERS
+################################################################################
+if [ $setverb == "1" ] ; then echo ; fi
+echo "...getting parameters from .notes file $filenotes..."
+sf=$(xe-getkey $filenotes sample_rate=)
+bindec=$(xe-getkey $filenotes bin_decimation=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z $bindec ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
+
+
+################################################################################
+# DETERMINE THE CHANNEL NUMBER AND FULL REGION NAME
+################################################################################
+z=$(echo  "$setchannel1" | grep '[^-,0-9]')
+if [ "$z" != "" ] ; then
+	chan1=$(xe-dbmatch1 $filenotes region $setchannel1 -m 1 -xml CHANNELS -oc chan -o 1)
+	region1=$(xe-dbmatch1 $filenotes region $setchannel1 -m 1 -xml CHANNELS -oc region -o 1)
+else
+	chan1=$setchannel1
+	region1=$(xe-dbmatch1 $filenotes chan $chan1 -m 1 -xml CHANNELS -oc region -o 1)
+fi
+
+if [ "$chan1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel1\"" ; echo ; exit ; } fi
+# if multiple channels match, use the first one
+let z=$(echo $chan1 | wc -w)
+if [ $z -gt 1 ] ; then
+	chan1=$(echo $chan1 | awk '{print $1}')
+	echo "--- Warning ["$thisprog"]: multiple channels match \"$setchannel1\" in $filenotes : using channel $chan1 "
+fi
+
+
+################################################################################
+# BUILD THE FILE NAME & GET WINDOW ADJUSTMENT
+################################################################################
+# get the binary file name
+chan1b=$(echo $chan1 | awk '{printf("%03d",$1)}')
+filebin1=$setbase"-"$chan1b".bin"
+if [ ! -e $filebin1 ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin1' missing" ; echo ; exit ; } fi
+# determine the number of samples
+x=$(du -bL $filebin1 | cut -f 1) # bytes in the file
+y=$(echo "4*1" | bc) # divisor, = float datasize (4-bytes) x 1 channel in a .bin file
+nsampstot2=$(echo "scale=12; $x/$y" | bc | xe-math_round1 stdin) # for the .bin file
+nsampstot1=$(echo "$nsampstot2*$bindec" | bc | xe-math_round1 stdin) # for the original .dat file - estimate
+
+if [ $setverb == "1" ] ; then
+	echo "	filebin1= "$filebin1
+	echo "	region_1= "$region1
+	echo "	channel_1= "$chan1
+	echo "	nsamps= "$nsampstot2
+	echo "	sample_rate= "$binrate "Hz"
+	echo "	set_align= "$setalign
+	echo "	set_pre= "$setpre
+	echo "	set_post= "$setpost
+	echo "	set_win= "$setwin
+	echo "	bin_size= "$setbin
+	echo "	set_noiseclip= "$setclip
+fi
+
+# determine window adjustment
+let presamps1=$(echo "scale=0; $setpre*$sf" | bc | xe-math_round1 stdin )
+let postsamps1=$(echo "scale=0; $setpost*$sf" | bc | xe-math_round1 stdin )
+let presamps2=$(echo "scale=0; $setpre*$binrate" | bc | xe-math_round1 stdin )
+let postsamps2=$(echo "scale=0; $setpost*$binrate" | bc | xe-math_round1 stdin )
+
+
+################################################################################
+# PULL OUT THE TRIAL START-STOP TIMES - SAVE TO $tempfile.ssp
+################################################################################
+echo "...getting start/stop times for specified trials ($settrials)..."
+if [ "$settrials" == "" ]; then
+	command="xe-ldas5-readssp1 $setssp -div $bindec -out 7"
+else
+	if [ "$setalign" == "" ] ; then
+		command="xs-ldas-gettrials2 $filenotes --name $settrials --pre $setpre --post $setpost --down 1 --out ssp --verb $setverb "
+	else
+		command="xs-ldas-gettrials2 $filenotes --name $settrials --align $setalign --pre $setpre --post $setpost --down 1 --out ssp --verb $setverb "
+	fi
+fi
+if [ "$setverb" == "1" ] ; then echo $command ; fi
+$command > $tempfile".ssp.1"
+
+let ntrials=$(xe-ldas5-readssp1 $tempfile".ssp.1" | wc -l)
+
+# print trials table
+if [ "$setverb" == "1" ] ; then
+	xe-ldas5-readssp1 $tempfile".ssp.1" |
+	awk 'BEGIN{n=0;print"\ttrial\tstart\tstop"}{n++;print "\t"n"\t"$0}'
+fi
+
+# check for basic problems with trials
+let z=$(grep Error $tempfile".ssp.1" | wc -l)
+if [ $z -gt 0 ] ; then	cat $tempfile".ssp.1"; exit; fi
+
+# check at least one trial is non-zero - invalid trials are typically zero-length
+let z=$(xe-ldas5-readssp1 $tempfile".ssp.1" | xe-getdelta2 stdin -t 1 | awk '$1!=0{print "1";exit}'| wc -l)
+if [ $z -eq 0 ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: no trials of non-zero length after adjusting"
+	echo "	- check that --pre and --post are not identical"
+	echo "	- typically --pre values should be negative"
+	echo
+	exit
+fi
+
+################################################################################
+# MAKE SURE THE TRIALS ARE ALL THE SAME LENGTH
+min=$(xe-ldas5-readssp1 $tempfile".ssp.1" | xe-math_doublet stdin -t 2 -long 1 | sort -n | head -n 1)
+max=$(xe-ldas5-readssp1 $tempfile".ssp.1" | xe-math_doublet stdin -t 2 -long 1 | sort -n | tail -n 1)
+let z=$(echo $min $max | xe-delimit stdin | xe-math_doublet stdin -t 2 -long 1)
+# apply correction to trials to account for single-sample jitter
+if [ $z -eq 1 ] ; then
+	echo "--- Warning: fixing single-sample jitter in trial-lengths"
+	xe-ldas5-readssp1 $tempfile".ssp.1" > $tempfile".sspfix.1"
+	xe-ldas5-readssp1 $tempfile".ssp.1" | xe-math_doublet stdin -t 2 -long 1 > $tempfile".sspfix.2"
+	let min=$(xe-statsd1 $tempfile".sspfix.2" | xe-getkey stdin MIN | xe-math_round2 stdin)
+	paste  $tempfile".sspfix.1" $tempfile".sspfix.2" |
+		awk '{a=$1;b=$2;c=$3;if(c!="'$min'")b--; print a"\t"b}' |
+		xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
+# if it's out by more than one sample, complain
+elif [ $z -gt 1 ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: unequal-length trials:"
+	echo "	- start/stop pairs define different size data-blocks"
+	echo "	- set --trials to \"no\" or --align to \"start\" or \"stop\""
+	echo "	- for the latter, use --pre and --post to define a fixed data-block"
+	echo
+	exit
+fi
+
+# ??? make sure trials meet lost packet criterion
+#xe-ldas5-readssp1 times_lost.ssp -div $bindec -out 7 | xe-ldas5-readssp1 stdin -scrf $tempfile".ssp" | xe-getdelta2 stdin -t 1 ; exit
+
+
+################################################################################
+# PERFORM THE FFT
+# - read data using blocks defined in $tempfile.ssp.1
+################################################################################
+echo "...running the FFT..."
+# set up FFT parameters
+setfftmin=-1
+setfftmax=150
+winsize=$(echo "$setwin*$binrate" | bc )
+freqres=$(echo "scale=4;1.0/$setwin" | bc)
+if [ "$setfftmin" == "-1" ] ; then freqmin=$freqres ; else freqmin=$setfftmin ; fi
+freqmax=$setfftmax
+
+# RUN AND SAVE THE TRIAL-AVERAGED FFT MATRIX - REMOVE NOISE IN THE SAME STEP
+# noise removal requires output of the frequencyxtime matrix
+# fft parameters (stderr) saved to separate file
+# noise parameters (stderr) saved to separate file
+xe-fftpow2 $filebin1 -dt 8 -sf $binrate -w $winsize -s $setstep -min $freqmin -max $freqmax -scrf $tempfile.ssp.1 -v 1 -o 1 2> $progbase1"_fftparams.txt" |
+	xe-matrixavg2 stdin -r 1 -c $setclip -z $setnz -s $setns -p $setnp -fsr $freqres -fhi $setfhi 2>$progbase1"_noise.txt" 1>$progbase1"_matrix.txt"
+if [ "$setverb" == "1" ] ; then cat $progbase1"_fftparams.txt" ; fi
+
+# extract temporal resolution from the fft-parameters output - this is the safest way!
+tempres=$(xe-getkey $progbase1"_fftparams.txt" temporal_resolution=)
+
+# calculate the grand-average fft
+echo "freq $region1" | tr ' ' '\t' > $progbase1"_avg.txt"
+xe-statscol1 $progbase1"_matrix.txt" |
+	xe-cut1 stdin mean -o 1 |
+	xe-timestamp1 stdin -sf $freqres -o $freqmin >> $progbase1"_avg.txt"
+
+
+################################################################################
+# BAND-WISE ANALYSIS
+# - cut the columns (frequencies) from the original matrix
+# - calculate the AUC on each row
+# 	- plot the raw time series
+# - bin the AUC values accordingly to make "sections"
+# - save the bins as the final output - combine the bands
+################################################################################
+echo "...extracting band-wise statistics..."
+if [ "$setn1" == "-1" ] ; then let normsamps1=-1
+else let normsamps1=$(echo "$setn1 $tempres" | awk '{a=$1;b=$2;printf("%ld",a*b)}')
+fi
+if [ "$setn2" == "-1" ] ; then let normsamps2=-1
+else let normsamps2=$(echo "$setn2 $tempres" | awk '{a=$1;b=$2;printf("%ld",a*b)}')
+fi
+
+let count=0
+listout=""
+for band in $(seq 1 $nbands) ; do
+	let count=$count+1
+	n=${fname[$band]}
+	a=${fa[$band]}
+	z=${fz[$band]}
+
+	if [ $(echo "$a>$freqmax" | bc) -eq 1 ] || [ $(echo "$z>$freqmax" | bc) -eq 1 ] ; then
+		echo "--- Warning ["$thisprog"]: skipping $n band ($a-$z) - exceeds specified FFT maximum ($freqmax Hz)"
+		continue
+	fi
+
+	# note that setwin here equates to the frequency "sample-rate" or 1/freqres
+	# better just to use setwin that to invert the values multiple times
+	indexa=$(echo "$a*$setwin - $freqmin*$setwin +1" | bc | xe-math_round1 stdin)
+	indexz=$(echo "$z*$setwin - $freqmin*$setwin +1" | bc | xe-math_round1 stdin)
+	if [ $setverb == "1" ] ; then echo "		"$n": "$a"-"$z" = index "$indexa"-"$indexz ; fi
+
+	outfile=$tempfile"_"$n
+	listout=$listout" "$outfile
+
+	# OUTPUT THE BINNED-AUC VALUES
+	if [ $count -eq 1 ] ; then
+		z=1
+		echo "time $n" | xe-delimit stdin > $outfile
+		cut -f $indexa-$indexz $progbase1"_matrix.txt" -d " " |
+			xe-curvestats2 stdin -d $freqres |
+			xe-cut1 stdin AUC -o 1 |
+			xe-norm2 stdin -n $setnorm -start $normsamps1 -stop $normsamps2 |
+			xe-timestamp1 stdin -sf $tempres -o $setpre |
+ 			xe-bin2 stdin -t $setbin |
+			xe-math_round2 stdin -c 1 -b .001 >> $outfile
+	else
+		echo $n > $outfile
+		cut -f $indexa-$indexz $progbase1"_matrix.txt" -d " " |
+			xe-curvestats2 stdin -d $freqres |
+			xe-cut1 stdin AUC -o 1 |
+			xe-norm2 stdin -n $setnorm -start $normsamps1 -stop $normsamps2 |
+			xe-timestamp1 stdin -sf $tempres -o -$setpre |
+ 			xe-bin2 stdin -t $setbin |
+			cut -f 2- >> $outfile
+	fi
+
+done
+paste $listout > $progbase1"_bands.txt"
+
+
+################################################################################
+# MAKE THE SUMMARY FILE
+################################################################################
+m=""
+for band in $(seq 1 $nbands) ; do
+	let count=$count+1
+	n=${fname[$band]}
+	a=${fa[$band]}
+	z=${fz[$band]}
+	m=$m" "$(xe-cut1 $tempfile"_"$n $n | xe-statsd1 stdin | xe-getkey stdin MEAN | xe-math_round2 stdin -b .001)
+done
+# print the header
+echo -ne "chan\ttrials" > $progbase1"_summary.txt"
+for band in $(seq 1 $nbands) ; do echo -ne "\t"${fname[$band]} >> $progbase1"_summary.txt" ; done
+echo -e "\tchanname" >> $progbase1"_summary.txt"
+# print the results
+echo "$chan1 $ntrials""$m $region1" | tr ' ' '\t' >> $progbase1"_summary.txt"
+
+
+################################################################################
+# INVALIDATE OUTPUT IF REQUIRED
+################################################################################
+if [ "$setdummy" == "1" ] ; then
+	echo -e "... --- Warning: INVALIDATING OUTPUT (probably because this channel is labelled \"bad\")"
+	z=$progbase1"_matrix.txt" ; xe-strsub2 $z nan > $tempfile ; mv $tempfile $z
+	z=$progbase1"_avg.txt" ; xe-strsub2 $z nan -ex "freq" -cols "2" > $tempfile ; mv $tempfile $z
+	z=$progbase1"_bands.txt" ; xe-strsub2 $z nan -ex "time" -cols "2-" > $tempfile ; mv $tempfile $z
+	z=$progbase1"_summary.txt" ; xe-strsub2 $z nan -ex "chan" -cols "3-" > $tempfile ; mv $tempfile $z
+fi
+
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+if [ "$setplot" == "1" ] ; then
+	echo "...generating plots..."
+	plotlist1=""
+	title="$region1  trials:$ntrials"
+	xmin=$(xe-cut1 $progbase1"_bands.txt" time -o 1 | head -n 1)
+	xmax=$(xe-cut1 $progbase1"_bands.txt" time -o 1 | tail -n 1 | awk '{print $1+'$setbin'}' )
+
+	# PLOT THE AVERAGE SPECTRUM
+	plotfile=$progbase1"_avg.ps"
+	plotopts="-line 1 -ps 0 -colour 3 -xpad 0 -ypad 0 -lwa .5 -xint 10 -xscale .8 -out $plotfile"
+	listplot=$listplot" "$plotfile
+	xe-plottable1 $progbase1"_avg.txt" $plotopts -xlabel "Frequency (Hz)" -ylabel "Amplitude" -title "$title"
+
+	# HEATMAP - PLOT THE TOP AND BOTTOM HALF, SPLITTING AT GAMMA-MINIMUM (30HZ)
+	m="-r -90 -sx $setpsx -sy $setpsy" # matrixmod options
+	xl="Time (s)"
+	yl="Freq. (Hz)"
+	plotfile=$progbase1"_matrix.ps"
+	plotlist1=$plotlist1" "$plotfile
+	xs-plotmatrixsplit1 $progbase1"_matrix.txt" --mod "$m" --xrange $xmin,$xmax --yrange $freqmin,$freqmax --splity 30 --xl "$xl" --yl "$yl" --title "$title" --opts1 "-xmax $xmax" --out $plotfile
+
+	# PLOT AUC FOR BANDS
+	plotopts="-cx 1 -cy 2 -line 1 -ps 0 -lwa .25 -colour 3 -xmin $xmin -xmax $xmax -xscale 0.4 -yscale .12 -vline 0 -xpad 0 -lb 1 -font 8"
+	if [ "$setnorm" == "4" ] ; then plotopts=$plotopts" -hline 1" ; fi
+	listbands=$(head -n 1 $progbase1"_bands.txt" | cut -f 2- | tr '\t' '\n' | tac | tr '\n' '\t') # reverse order
+	for band in $listbands ; do
+		plotfile=$tempfile"."$band".ps"
+		plotlist1=$plotlist1" "$plotfile
+		xe-cut1 $progbase1"_bands.txt" time -o 1 > $tempfile".1"
+		xe-cut1 $progbase1"_bands.txt" $band -o 1 |
+			xe-smoothgauss1 stdin $(echo "$setpsx*2+1"|bc) |
+			xe-interp1 stdin > $tempfile".2"
+		paste $tempfile".1" $tempfile".2" |
+			xe-plottable1 stdin $plotopts -xlabel "Time (s)" -ylabel "$band" -out $plotfile
+	done
+
+	# SEND PLOT TO FINAL OUTPUT : ADD ADDITIONAL TRANLATE AFTER MATRIX (START AT HFO PLOT)
+	xe-plotmerge1 $plotlist1 -xmax 1 -ymax 8 -yinc 90 -yo 700
+	plotfile=$progbase1"_summary.ps"
+	splitfile=$tempfile".hfo.ps"
+	xe-cut2 "temp_xe-plotmerge1.001.ps" '%!' -s3 "PLOT_CODE_START : $splitfile" > $plotfile
+	xe-cut2 "temp_xe-plotmerge1.001.ps" "PLOT_CODE_START : $splitfile" |
+		awk 'BEGIN{z=0}{
+			if($1=="grestore" && z==0) { z=1; print $0"\n0 -70 translate % extra shift because first plot is bigger\n" }
+			else print $0
+		}' >> $plotfile
+	rm -f $plotlist1
+fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

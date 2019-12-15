@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog="xs-ldas5-plotplace1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setflip="0"
+setplotopts=""
+setmergeopts=""
+setbase=""
+setlistclu="all"
+setsmooth="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot place fields using a multi-matrix file"
+	echo "USAGE: "
+	echo "	"$thisprog" [matrixfile]"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-c: comma-separated list of clusters to plot (or all) ["$setlistclu"]"
+	echo "	-f: flip maps (0=sno, 1=x-axis, 2=y-axis) ["$setflip"]"
+	echo "	-s: smooth map (pixels) ["$setsmooth"]"
+	echo "	-b: output base filename [ default="$tempfile"_[trials] ]"
+	echo "	-P: options for xe-plotmatrix1 (in quotes) ["$setplotopts"]"
+	echo "	-M: options for xe-plotmerge1 (in quotes) ["$setmergeopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+infile=$1 ; shift
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="c:f:s:b:x:P:M:" ; vl="dummy1:,dummy2:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+ 		-c) setlistclu=$2;;
+		-f) setflip=$2;;
+		-s) setsmooth=$2;;
+ 		-b) setbase=$2;;
+ 		-x) setxmax=$2;;
+		-P) setplotopts=$2;;
+		-M) setmergeopts=$2;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+if [ -z $xrange ] ; then xrange="1" ; fi
+if [ -z $yrange ] ; then yrange="1" ; fi
+
+# DEFINE OUTPUT BASENAME
+if [ "$setbase" != "" ] ; then
+	outbase=$setbase
+else
+	outbase="plot_placefields"
+fi
+
+if [ "$setlistclu" == "all" ] ; then
+	listclu=$(grep "#" $infile | awk '{print $2"_"$4}')
+else
+	listclu=$(grep "#" $infile | awk '{print $2,$4}' | xe-dbmatch1 stdin 1 $setlistclu -cn 1 | tr ' ' '_')
+fi
+
+listplots=""
+xscale=0.14
+yscale=$(echo $xscale | awk '{print $1*2.0/3.0}')
+plotopts="-xscale $xscale -yscale $yscale -tics 0 -xint -1 -yint -1 -font 8 -xmax $xrange -ymax $yrange -zmin 0 -lwa 0.5 $setplotopts"
+
+echo
+echo -n "	Plotting cluster"
+echo "" > $tempfile
+for i in $listclu ; do
+	clu=$(echo $i | cut -f 1 -d _)
+	nspikes=$(echo $i | cut -f 2 -d _)
+	echo -n " "$clu
+	plotfile=$tempfile"."$clu".ps"
+	listplots=$listplots" "$plotfile
+	xe-matrixcut1 $infile -id $clu -idcol 1 |
+	xe-matrixmod1 stdin -flip $setflip -sx $setsmooth -sy $setsmooth -pn 1 |
+	xe-plotmatrix1 stdin $plotopts -title "#"$clu" n="$nspikes $setplotopts -out $plotfile
+done
+echo
+echo
+
+xe-plotmerge1 -xmax 5 -ymax 10 -xinc 100 -yinc 70 -yo 720 -out $outbase $setmergeopts $listplots
+rm -f $listplots
+
+exit

@@ -1,0 +1,476 @@
+#!/bin/bash
+# <TAGS>taini signal_processing</TAGS>
+
+# From Peng & Iannetti, 2018
+#	- acquisition: high pass: 0.01 Hz; sampling rate: 1000 Hz
+# 	- preprocessing:
+#		- bandpass filtered between 1 and 100 Hz
+#		- notch filtered between 49 and 51 Hz
+# 	- FFT:
+#		- fixed 200-ms Hanning window
+#		- -500 to 1500 ms (in steps of 2 ms) in latency
+# 		- from 1 to 100 Hz (in steps of 1 Hz) in frequency
+# 	- normalized to the average power within the prestimulus reference interval
+#		- 2400 to 2100 ms relative to stimulus onset
+#		- used subtraction (avoids the positive bias introduced when baseline correction is performed using the percentage)
+# 	- the reference interval was chosen to avoid the bias consequent to the windowing of poststimulus activity and padding values
+
+
+
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setregions="all"
+settrials="all"
+setalign="start"
+setpre="-5"
+setpost="5"
+setprenorm="-.01"
+
+setfhi="10"
+setfftwin=".1"
+
+setplot="1"
+setverb="0"
+setclean="1"
+
+# variables which are not actually options yet
+setflo="0"
+setclip="3"
+
+# set up the bands
+nbands=6
+for band in $(seq 1 $nbands) ; do setband[$band]="" ; done
+i=1 ; fname[$i]="delta" ; fa[$i]=".5"  ; fz[$i]="4"
+i=2 ; fname[$i]="alpha" ; fa[$i]="4" ; fz[$i]="6"
+i=3 ; fname[$i]="theta" ; fa[$i]="6"   ; fz[$i]="12"
+i=4 ; fname[$i]="beta"  ; fa[$i]="12"  ; fz[$i]="30"
+i=5 ; fname[$i]="gamma" ; fa[$i]="30"  ; fz[$i]="100"
+i=6 ; fname[$i]="hfo"   ; fa[$i]="120" ; fz[$i]="150"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": analyze laser-stimulated behaviour, ERPs, and evoked oscillations"
+	echo "ANALYSES:"
+	echo "	- behavioural latencies"
+	echo "		- looks for TRIAL \"latency\" column in the .notes file"
+	echo "		- if present, this is used to re-define \"start\" for each trial"
+	ECHO ""
+	echo "USAGE: $thisprog [base] [options]"
+	echo "	[base]: [yyyymmdd]-[session]_[subject]"
+	echo ""
+	echo "GENERAL OPTIONS..."
+	echo "	--regions: CSV list of brain-regions to analyse [$setregions]"
+	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "OPTIONS FOR xs-ldas5-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
+	echo "	--trials: CSV list of trial-names to use (or \"all\" or \"no\") [$settrials]"
+	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
+	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
+	echo "	--pre: seconds to add to start [$setpre]"
+	echo "	--post: seconds to add to stop [$setpost]"
+	echo "	--fhi: high-freq. cut (smooth) for power-timecourse (0=NONE) [$setfhi])"
+	echo "BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs..."
+	for band in $(seq 1 $nbands) ; do
+		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
+	done
+	echo "EXAMPLE: "
+	echo "	$thisprog 20181231-000_12345 2>&1 | tee log_"$thisprog".txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# ARGUMENT HANDLING
+########################################################################################
+# required arguments
+setbase=$1 ; shift
+filenotes=$setbase".notes"
+filedat=$setbase".dat"
+# check notes file exists & isn't empty
+if [ ! -e $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: missing file $filenotes\n" ; exit ;  } ; fi
+if [ ! -s $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: $filenotes is empty\n" ; exit ;  } ; fi
+# optional arguments
+vs="v:c:" ; vl="regions:,trials:,align:,pre:,post:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	# do band detection
+	for band in $(seq 1 $nbands) ; do if [ "$1" == "--"${fname[$band]} ] ; then { setband[$band]=$2 ; shift ; } fi ; done
+	# do the rest
+	case $1 in
+		--regions ) setregions=$2 ; shift ;;
+		--trials ) settrials=$2 ; shift ;;
+		--align ) setalign=$2 ; shift ;;
+		--pre ) setpre=$2 ; shift ;;
+		--post ) setpost=$2 ; shift ;;
+		--fhi ) setfhi=$2 ; shift ;;
+		--plot ) setplot=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"\n" ; exit ;  } ; fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n" ; exit ;  } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit ;  } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit ;  } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ "$setprenorm" == "" ] ; then setprenorm=$setpre ; fi
+
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $allopts
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# GET PARAMETERS FROM NOTES FILE
+################################################################################
+sf=$(xe-getkey $filenotes sample_rate=)
+bindec=$(xe-getkey $filenotes bin_decimation=)
+binrate=$(xe-getkey $filenotes bin_sample_rate=)
+if [ -z "$sf" ] ; then {  echo -e "\n--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z "$bindec" ] ; then {  echo -e "\n--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+if [ -z "$binrate" ] ; then {  echo -e "\n--- Error ["$thisprog"]: no definition of bin_sample_rate in $filenotes" ; echo ; exit ; } fi
+let z=$(xe-strxmlparse1 $filenotes TRIALS | wc -l)
+if [ $z -eq 0 ] ; then {
+	echo
+	echo "--- Error ["$thisprog"]: no TRIALS in $filenotes"
+	echo "	- have you run the appropriate xs-TAINI-[experiment] preprocessing?"
+	echo
+	exit
+} fi
+
+################################################################################
+# SET BAND OVERRIDE PARAMETERS
+################################################################################
+optbands=""
+for band in $(seq 1 $nbands) ; do
+	if [ "${setband[$band]}" != "" ] ; then
+		n=${fname[$band]}
+		a=$(echo ${setband[$band]} | xe-cut1 stdin 1 -n 1 -d ",")
+		b=$(echo ${setband[$band]} | xe-cut1 stdin 2 -n 1 -d ",")
+		if [ "$a" == "" ] || [ "$b" == "" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair\n" ; exit ;  } ; fi
+		let z=$(echo "$a<$b"|bc)
+		if [ $z -eq 0 ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd\n" ; exit ;  } ; fi
+		fa[$band]=$a
+		fz[$band]=$b
+	fi
+	z="--"${fname[$band]}" "${fa[$band]}","${fz[$band]}
+	optbands=$optbands" "$z
+done
+
+# DEFINE LIST OF REGIONS TO ANALYSE
+if [ "$setregions" == "all" ] || [ "$setregions" == "" ] ; then
+	listregions=$(xs-ldas-getchannel $filenotes $setregions --good 1 --outcol region)
+	let z=$(echo $listregions | grep "Error" | wc -l)
+	if [ $z -gt 0 ]; then { echo -e "\n"$listregions"\n" ; exit ; } fi
+else
+	listregions=$(echo $setregions | tr ',' ' ')
+fi
+
+
+################################################################################
+################################################################################
+# ANALYSE THE DATA
+################################################################################
+################################################################################
+if [ "$setverb" == "1" ] ; then echo "...original trials..." ;  xs-ldas-gettrials2 $filenotes ; fi
+
+################################################################################
+echo -e "\n-------------------------------------------------------------------------------"
+echo "BEHAVIOURAL ANALYSIS"
+
+# define list of columns-of-interest, output, and plot file
+listcols="trial,stim,paw,response,name"
+out1=$progbase1"_BEHAV_summary.txt"
+plotfile=$(echo $out1 | sed -e 's/.txt/.ps/g')
+
+# make a group-name table based on paw (including XX, blank-stim)
+listpaw=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin paw -s 1 -o 1 | sort -u)
+echo $listpaw | tr ' ' '\n' | sort -r | awk 'BEGIN{n=0; print "group\tname" }{print ++n"\t"$1}' > $tempfile".groupnames"
+
+# make a paw-sorted data table
+echo $listcols | tr ',' '\t' > $out1
+xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin $listcols -s 1 -o 1 | sort -k3,3r -k1,1n >> $out1
+
+# make the plot - xe-plottable1 will assign group-colours according to sorting, above
+xe-plottable1 $out1 -cx 1 -cy 4 -cg 3 -ymin 0 -ymax 4 -yint 1 -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
+xs-plotmod1 $tempfile".groupnames" --out 1 --legend $tempfile".groupnames"
+
+################################################################################
+echo -e "\n-------------------------------------------------------------------------------"
+echo "EVOKED POTENTIAL ANALYSIS"
+
+# 1. evoked response by region and by stim strength - combine all paws
+liststim=$(
+	xe-strxmlparse1 $filenotes TRIALS |
+	xe-cut1 stdin paw,stim -s 1 -o 1 |
+	awk '{if($1=="XX") print "0" ; else print $2}' |
+	sort -nu
+	)
+
+newpre=$(echo "$setpre * -1 * $binrate" | bc | xe-math_round2 stdin)
+newpost=$(echo "$setpost * $binrate" | bc | xe-math_round2 stdin)
+newprenorm=$(echo "$setprenorm * -1 * $binrate" | bc | xe-math_round2 stdin)
+
+optalign="-dt 8 -sf $binrate -low $setflo -high $setfhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -verb 0"
+optplot="-cx 1 -cy 2 -line 1 -ps 0 -xscale .4 -yscale .25 -vline 0 -xpad 0 -lb 2 -ew 0 -ebright 16 -lwe .1 -colour 1"
+xl="Time (seconds)"
+yl="Amplitude"
+let count=0
+plotlist2=""
+
+echo -e "region\tstim\tblock\ttime\tamp" > $progbase1"_EVOKED_aligned.txt"
+echo -e "region\tstim\ttime\tamp" > $progbase1"_EVOKED_average.txt"
+for region in $listregions ; do
+	echo -e "\tregion="$region
+	plotlist1=""
+	# define the channel
+	chan=$(xs-ldas-getchannel $filenotes $region --good 1 --outcol chan)
+	let z=$(echo $chan | grep "Error" | wc -l)
+	if [ $z -gt 0 ]; then echo -e "\n"$chan"\n" ; exit ; fi
+	# define input file
+	in1=$setbase"-"$(echo $chan| awk '{printf("%03d",$1)}')".bin"
+
+	for stim in $liststim ; do
+		let count=$count+1
+		echo -e "\t\tstim="$stim
+		title="$setbase    Region: $region    Stim: $stim"
+
+		xe-strxmlparse1 $filenotes TRIALS |
+			xe-cut1 stdin start,stim,paw -s 1 -d '\t' |
+			awk '{s=$2; if($3=="XX")s=0; if(s=='$stim') print $1"\tSTART"}' |
+			xe-math_div1 stdin -cy 1 -v $bindec -long 1 > $tempfile".cmt"
+
+		# align the data, then average while aligning - this binary read is faster than running xe-statsgrp1 on the aligned text-output
+# echo "xe-ldas-align2 $in1 $tempfile".cmt" $optalign"
+		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 1 > $tempfile".aligned"
+		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 0 > $tempfile".average"
+		# append the results to the output files
+		cat $tempfile".aligned" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_aligned.txt"
+		cat $tempfile".average" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_average.txt"
+
+		# plot individual traces
+		plotfile=$tempfile"."$count".A.ps"
+		plotlist1=$plotlist1" "$plotfile
+		xe-cut1 $tempfile".aligned" 2,3,1 -n 1 |
+			xe-plottable1 stdin $optplot -cg 3 -legend 1 -xlabel "$xl" -ylabel "$yl" -title "$title" -ebright 8 -out $plotfile
+		# plot mean trace + error-bars
+		plotfile=$tempfile"."$count".B.ps"
+		plotlist1=$plotlist1" "$plotfile
+		xe-statsgrp1 $tempfile".aligned" -cg1 2 -cy 3 |
+			xe-cut1 stdin grp1,mean,sem |
+			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -out $plotfile
+
+	done
+	xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
+	plotfile=$tempfile"_"$region".ps"
+	plotlist2=$plotlist2" "$plotfile
+	mv temp_xe-plotmerge1.001.ps $plotfile
+	rm -f $plotlist1
+done
+xe-plotmerge2 $plotlist2 > $progbase1"_EVOKED_summary.ps"
+echo "- output sent to "$progbase1"_EVOKED_summary.ps"
+
+rm -f $plotlist2
+
+
+################################################################################
+echo -e "\n-------------------------------------------------------------------------------"
+echo "SPECTRAL POWER ANALYSIS (good trials only)"
+listplotfft=""
+listsum1=""
+
+# list all trials where stimulus was applied
+listtrials=$(xs-ldas-gettrials2 $filenotes --name XX --match -1 | xe-cut1 stdin name -o 1)
+listtrials2=$(echo $listtrials | tr ' ' ',')
+let z=$(echo $listtrials | wc -w)
+if [ $z -eq 0 ]; then { echo -e "\n--- Error [$thisprog]: no valid trials\n" ; exit ; } fi
+
+echo $listtrials
+echo $listtrials2
+
+
+# PROPOSED ANALYSIS:
+
+channame=CG
+channum=$(xe-dbmatch1 *notes region CG -xml CHANNELS -oc chan -o 1)
+channum2=$(echo $chan | awk '{printf("%03d",$1)}')
+echo $channum2
+echo $setbase
+filebin=$setbase"-"$channum2".bin"
+
+xs-ldas-gettrials2 *notes --name $listtrials2 --down 1 --align start --pre -.5 --post 1.5 |
+	xe-cut1 stdin start,stop -o 1 |
+	xe-writebinary1 stdin -dt 7 > jjj.ssp
+
+xe-fftpow2 $filebin -dt 8 -sf 1000 -w 200 -s 10 -scrf jjj.ssp -min 5 -max 150 -o 1 -v 0 |
+	xe-matrixavg2 stdin -norm 3 -n1 0 -n2 1 -r 1 > jjj.txt
+
+xe-matrixmod1 jjj.txt -r -90 |
+	xe-plotmatrix1 stdin -xmin -500 -xmax 1500 -ymin 5 -ymax 150 -xint 250 -xscale .45 -yscale .2 -frame 0 -lwa .25
+
+xs-plotmatrixsplit1 jjj.txt --mod "-r -90 -h 100 -w 300 -sy 10 -sx 10" --xrange -500,1500 --yrange 0,150 --splity 60 --opts1 "-font 6 -xint 250 -uc 0 -us 1"
+
+echo "DONE"
+exit
+
+
+# alternative  fails and bandanalysis stage
+xs-ldas5-pow1 *notes 10 --align stop --pre -.5 --post 1.5 --win 0.200 --step 100
+
+exit
+
+echo $listregions
+listheaderavg="freq "$listregions
+listavg1=$tempfile"_avg_time.txt"
+let count=0
+for region in $listregions ; do
+	progbase2=$progbase1"_POW_"$region"_"
+	# BUILD LIST PART-1 - AVERAGE IS ALWAYS INCLUDED IN THE LIST SO XS-PASTE1 CAN INSERT COLUMNS AS NEEDE D
+	listavg1=$listavg1" "$progbase2"avg.txt"
+	# CHECK THAT BINFILE EXISTS AND CHANNEL IS VALID
+	filebin=$(xe-dbmatch1 $filenotes region $region -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
+	if [ ! -e $filebin ] ; then { echo -e "--- Warning ["$thisprog"]: missing .bin file '$filebin'" ; continue ; } fi
+	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas5-pow1
+	y=$(xe-dbmatch1 $filenotes region $region -xml CHANNELS -oc good -o 1 | head -n 1)
+	if [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
+
+	# CALCULATE POWER
+	command="xs-ldas5-pow1 $filenotes $region --trials $(echo $listtrials | tr ' ' ',') --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --win $setfftwin --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	echo $command
+	$command
+
+	# STORE THE AVG OUTPUT TIMESTAMPS - XS-PASTE1 MUST HAVE SINGLE-COLUMN FOR EACH PASTED FILE
+	let count=$count+1
+	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas5-pow1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
+	# for all regions, also save the avg power to a new filename and remove orginal - don't want to rename afterwards
+	xe-cut1 "output_xs-ldas5-pow1_avg.txt" $region > $progbase2"avg.txt"
+	rm -f   "output_xs-ldas5-pow1_avg.txt"
+	# RENAME THE REMAINING OUTPUT THAT WE WANT TO SAVE
+	xs-rename "output_xs-ldas5-pow1_" $progbase2 "output_xs-ldas5-pow1_*" >/dev/null
+	# BUILD LISTS (note that avg already included above)
+	listsum1=$listsum1" "$progbase2"summary.txt"
+	listplotfft=$listplotfft" "$progbase2"summary.ps"
+	# CLEANUP
+	if [ "$setclean" == "1" ] ; then
+		rm -f $progbase2"fftparams.txt"
+		rm -f $progbase2"fftparams.txt"
+		rm -f $progbase2"avg.ps"
+	fi
+	echo
+done
+# MERGE THE RESULTS
+if [ "$listsum1" != "" ] ; then
+	# merge the FFT averages
+	xs-paste1 "$listavg1" -h 1 -H "$listheaderavg" -p "-" > $progbase1"_POW_summary_avg.txt"
+	# merge the summaries
+	cat $listsum1 |
+	awk 'BEGIN{n=0}{n++; if(n==1) print$0; else if($1!="chan") print $0}' > $progbase1"_POW_summary_bands.txt"
+	# merge the summary plots
+	if [ "$setplot" == "1" ] ; then xe-plotmerge2 $listplotfft > $progbase1"_POW_summary.ps" ; fi
+else echo ""
+fi
+# cleanup
+if [ "$setclean" == "1" ] ; then rm -f $listplotfft $listsum1 $listavg1 ; fi
+
+exit
+
+echo -e "\n-------------------------------------------------------------------------------"
+echo "SPECTRAL COHERENCE ANALYSIS"
+listplotfft=""
+listsum1=""
+listavg1=""
+listregions="prefrontal amygdala.central insular.agranular" # EMG.L EMG.R
+listregionpairs=$(echo $listregions | tr ' ' ',' | xe-makepairs1 stdin)
+listheaderavg="freq "$listregionpairs
+listavg1=$tempfile"_avg_time.txt"
+let count=0
+for regionpair in $listregionpairs ; do
+	region1=$(echo $regionpair | cut -f 1 -d ,)
+	region2=$(echo $regionpair | cut -f 2 -d ,)
+	progbase2=$progbase1"_COH_"$region1"_"$region2"_"
+	# BUILD LIST PART-1 - AVERAGE IS ALWAYS INCLUDED IN THE LIST SO XS-PASTE1 CAN INSERT COLUMNS AS NEEDE D
+	listavg1=$listavg1" "$progbase2"avg.txt"
+	# CHECK THAT BINFILE EXISTS AND CHANNEL IS VALID
+	filebin1=$(xe-dbmatch1 $filenotes region $region1 -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
+	filebin2=$(xe-dbmatch1 $filenotes region $region2 -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
+	if [ ! -e $filebin1 ] || [ ! -e $filebin2 ] ; then { echo -e "--- Warning ["$thisprog"]: missing .bin file '$filebin1' or '$filebin2'" ; continue ; } fi
+	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas5-pow1
+	x=$(xe-dbmatch1 $filenotes region $region1 -xml CHANNELS -oc good -o 1)
+	y=$(xe-dbmatch1 $filenotes region $region2 -xml CHANNELS -oc good -o 1)
+	if [ "$x" == "0" ] || [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
+
+	# CALCULATE COHERENCE
+	command="xs-ldas5-coh1 $filenotes $region1 $region2 --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	echo $command
+	$command
+
+	# STORE THE AVG OUTPUT TIMESTAMPS - XS-PASTE1 MUST HAVE SINGLE-COLUMN FOR EACH PASTED FILE
+	let count=$count+1
+	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas5-coh1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
+	# for all regions, also save the avg power to a new filename and remove orginal - don't want to rename afterwards
+	xe-cut1 "output_xs-ldas5-coh1_avg.txt" $region1"_"$region2 > $progbase2"avg.txt"
+	rm -f   "output_xs-ldas5-coh1_avg.txt"
+	# RENAME THE REMAINING OUTPUT THAT WE WANT TO SAVE
+	xs-rename "output_xs-ldas5-coh1_" $progbase2 "output_xs-ldas5-coh1_*" >/dev/null
+	# BUILD LISTS
+	listsum1=$listsum1" "$progbase2"summary.txt"
+	listplotfft=$listplotfft" "$progbase2"summary.ps"
+	# CLEANUP
+	if [ "$setclean" == "1" ] ; then
+		rm -f $progbase2"fftparams.txt"
+		rm -f $progbase2"fftparams.txt"
+		rm -f $progbase2"avg.ps"
+	fi
+	echo
+done
+# MERGE THE RESULTS
+if [ "$listsum1" != "" ] ; then
+	# merge the FFT averages
+	xs-paste1 "$listavg1" -h 1 -H "$listheaderavg" -p "-" > $progbase1"_COH_summary_avg.txt"
+	# merge the summaries
+	cat $listsum1 |
+	awk 'BEGIN{n=0}{n++; if(n==1) print$0; else if($1!="chan1") print $0}' > $progbase1"_COH_summary_bands.txt"
+	# merge the summary plots
+	if [ "$setplot" == "1" ] ; then xe-plotmerge2 $listplotfft > $progbase1"_COH_summary.ps" ; fi
+fi
+# cleanup
+if [ "$setclean" == "1" ] ; then rm -f $listplotfft $listsum1 $listavg1 ; fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

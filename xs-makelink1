@@ -1,0 +1,122 @@
+#!/bin/bash
+# <TAGS> database file </TAGS>
+
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+
+dirpattern="*/"
+setpat="BASE"
+setverb="0"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": build working directories with symbolic links to original files"
+	echo "- this keeps the originals safe but accessible from the working directories"
+	echo "- run this script in directory above both [source] and [dest] (see below)"
+	echo "USAGE: "$thisprog" [source] [dest] [options]"
+	echo "	[source]: path to sub-directories containing files to be linked"
+	echo "	[dest]:   path to desired destination working-directories"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--patterns: quoted list of file-patterns to match, or BASE ["$setpat"]"
+	echo "		- wildcards added to each item in the list"
+	echo "			- eg. .dat becomes *.dat*"
+	echo "		- if blank (\"\"), all files will be matched"
+	echo "		- \"BASE\" will match the 2-field directory basename"
+	echo "			- typical fields are date and subject"
+	echo "			- permitted delimiters are \"-\" or \"_\""
+	echo "			- examples: "
+	echo "				123-20171031"
+	echo "				103199_007"
+	echo "			- files in directory must match both fields"
+	echo "			- files can have extra sub-elements delimited"
+	echo "			- sub-elements can be delimited by \"-\" or \"_\""
+	echo "			- eg directory 123_999 will match file 123-0_999.1.dat"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLES: "
+	echo "	$thisprog Data_Library Data_Working"
+	echo "	$thisprog Data_Library Data_Working --patterns \"BASE\""
+	echo "	$thisprog Data_Library Data_Working --patterns \"\""
+	echo "	$thisprog Data_Library Data_Working --patterns \".bin .notes\""
+	echo "------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+source=$1; shift
+dest=$1; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="p:v:" ; vl="patterns:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-p | --patterns ) setpat=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# CHECK FOR PRESENCE OF SOURCE AND DESTINATION DIRECTORIES
+################################################################################
+if [ ! -d $source ] ; then echo ;  echo "	--- Error ["$thisprog"]: no source directory called "$source" found" ; echo ;exit ; fi
+if [ ! -d $dest ] ; then echo ;  echo "	--- Error ["$thisprog"]: no dest directory called "$dest" found" ; echo ;exit ; fi
+
+################################################################################
+# BUILD LIST OF DIRECTORIES TO MAKE WORKING COPIES OF
+################################################################################
+dirlist=$(ls -d1 --color=never 2>/dev/null $source/$dirpattern)
+if [ "$dirlist" == "" ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no directories matching pattern "$source"/$dirpattern"; echo ;exit ; } ; fi
+
+################################################################################
+# CREATE LINKS
+################################################################################
+for path in $dirlist ; do
+	################################################################################
+	# go into destination directory
+	cd $dest
+	# determine basen name from the name of the current directory
+	base=$(basename $path)
+	# make the working directory and move into it
+	mkdir -p $base ; cd $base
+	if [ "$setverb" == "1" ] ; then pwd ; fi
+
+	################################################################################
+	# DECIDE WHAT THE MATCH-PATTERNS ACTUALLY SHOULD BE...
+	# a. every non-directory file
+	if [ "$setpat" == "" ] ; then
+		list1=$(ls -p --color=never ../../$source/$base/* | grep -v '/$')
+	# b. the base directory name elements
+	elif [ "$setpat" == "BASE" ] ; then
+		a=$(echo $base | xe-cut1 stdin 1 -n 1 -d "-_")
+		b=$(echo $base | xe-cut1 stdin 2 -n 1 -d "-_")
+		list1=$(ls -p --color=never ../../$source/$base/$a*$b*)
+	# c. the patterns the user specifies
+	else
+		list1=""
+		for pattern in $setpat ; do
+			list1=$list1" "$(ls -p --color=never ../../$source/$base/*$pattern*)
+		done
+	fi
+
+	################################################################################
+	# MAKE THE LINKS
+	for file in $list1 ; do ln -sf $file . ; done
+	cd $startdir
+done
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+cd $startdir
+rm -f $tempfile*

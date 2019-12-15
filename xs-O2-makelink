@@ -1,0 +1,68 @@
+#!/bin/bash
+# <TAGS> O2 </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": build working directories for O2-amperometry experiments"
+	echo "This keeps the pre-processed data safe by providing access via links"
+	echo "Links created to files in Data_Library folder: "
+	echo "	.notes file (data relating to the entire recording session)"
+	echo "	.time file (timestamps)"
+	echo "	.dat file (one for each channel - the raw data, ASCII txt)"
+	echo "	.cmt files (one for each channel - comments associated with the channel)"
+	echo "USAGE: "$thisprog" [source] [dest] [pattern]"
+	echo "	[source]: folder containing sub-folders with files to be linked"
+	echo "	[dest]: folder in which to build links to source folders and files"
+	echo "	[pattern]: pattern to match for names of subfolders in source"
+	echo "EXAMPLE: "$thisprog" Data_Library/ Data_Working/ rat-"
+	echo "EXAMPLE: "$thisprog" Data_Library/ Data_Working/ \"*\""
+	echo "EXAMPLE: "$thisprog" Data_Library/ Data_Working/ \"???-??????\""
+	echo "------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+source=$1; shift
+dest=$1; shift
+pattern=$1; shift
+opts=$@
+startdir=$(pwd)
+
+# CHECK FOR PRESENCE OF SOURCE AND DESTINATION DIRECTORIES
+if [ ! -e $source ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no source folder called "$source" found" ; echo ;exit ; } ; fi
+if [ ! -e $dest ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no dest folder called "$dest" found" ; echo ;exit ; } ; fi
+
+# BUILD LIST OF DIRECTORIES TO MAKE WORKING COPIES OF
+ls -ld $source/*$pattern* | awk '{print$9}' > $tempfile #/**/
+
+# CHECK INTEGRITY OF DATABASE - WERE ANY FOLDERS LISTED?
+ndirs=$(cat $tempfile | wc -l)
+if [ $ndirs -lt 1 ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no folders matching pattern "$source"/*"$pattern"*" ; echo ;exit ; } ; fi
+
+cat $tempfile | while read path ; do
+
+	# go into destination folder
+	cd $dest
+
+	# build key name variables
+	base=$(basename $path)
+
+	# make the working directory and move into it
+	mkdir -p $base ; cd $base ; pwd
+
+	# make links
+	rm -f $base.time ;  ln -sf ../../$source/$base/$base.time .
+	rm -f $base.???.dat ; ln -sf ../../$source/$base/$base.???.dat .
+	rm -f $base.???.cmt ; ln -sf ../../$source/$base/$base.???.cmt .
+	rm -f $base.notes ; ln -sf ../../$source/$base/$base.notes .
+	rm -f $base"-rawplot.ps" ;  ln -sf ../../$source/$base/$base"-rawplot.ps" .
+
+	cd $startdir
+done
+cd $startdir
+
+rm -f $tempfile*

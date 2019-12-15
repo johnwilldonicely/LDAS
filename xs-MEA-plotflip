@@ -1,0 +1,222 @@
+#!/bin/bash
+
+# <TAGS>plot MEA</TAGS>
+
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+let setmax=100
+setchan="21"
+settrial="all"
+setwin="0.2"
+setnotch="5"
+setfiltlow="5"
+setfilthigh="25"
+setout=$progbase1".ps"
+setplotopts=""
+setverb="1"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make a multi-page \"flip-book\" of MEA event plots"
+	echo " - default is to select $setmax events for plotting"
+	echo " - requires .notes, .dat, and .club/t files"
+	echo "USAGE: "$thisprog" [base] [options]"
+	echo "	[base]= base-name for files in this folder - typically [yyymmdd]]_[subject]"
+	echo ""
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	--max: max events to plot (-1=all) [$setmax]"
+	echo "	--chan: channel to use [$setchan]"
+	echo "	--trial CSV list of trial-numbers to read (or \"all\") [$settrial]"
+	echo "	--win: window-size (seconds) [$setwin]"
+	echo "	--notch: 50Hz notch filter width, in Hz (0=off, 1-2 recommended) [$setnotch]"
+	echo "	--low: filter low-cut [$setfiltlow]"
+	echo "	--high: filter high-cut [$setfilthigh]"
+	echo "	--out: name of output file [$setout]"
+	echo "	--plotopts: extra plot options (see xe-plottable1) [$setplotopts]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20180101_000005"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setbase=$1 ; shift
+filenotes=$setbase".notes"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filenotes" ; echo ; exit; } ; fi
+filedat=$setbase".dat"
+if [ ! -e $filedat ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filedat" ; echo ; exit; } ; fi
+fileclub=$setbase".club"
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $fileclub" ; echo ; exit; } ; fi
+fileclubt=$setbase".clubt"
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $fileclubt" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="max:,chan:,trial:,win:,notch:,low:,high:,out:,plotopts:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--max ) setmax=$2 ; shift ;;
+		--chan ) setchan=$2 ; shift ;;
+		--trial ) settrial=$2 ; shift ;;
+		--win ) setwin=$2 ; shift ;;
+		--notch ) setnotch=$2 ; shift ;;
+		--low ) setfiltlow=$2 ; shift ;;
+		--high) setfilthigh=$2 ; shift ;;
+		--out) setout=$2 ; shift ;;
+		--plotopts ) setplotopts=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;# REPORT TIME TO FINISH THE JOB
+		* ) ;;
+	esac
+	shift
+done
+let z=$(echo $setmax | grep '[^-,0-9]' | wc -l)
+if [ $z -gt 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --max ($setmax)-  must be a number" ; echo ; exit; }
+else let setmax=$setmax
+fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [[ $setout != *".ps" ]]; then setout=$setout".ps" ; fi
+
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+
+################################################################################
+# READ THE .NOTES DATA
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+let nchans=$(xe-getkey $filenotes nchans= 60)
+volts_per_unit=$(xe-getkey $filenotes volts_per_unit=)
+
+sfms=$(echo "scale=12; $sf/1000" | bc)
+win=$(echo "$setwin*$sf" | bc)
+halfwin=$(echo "$win/2" | bc)
+offset=$(echo "scale=12; -$setwin/2"|bc)
+offsetms=$(echo "scale=12; $offset*1000" | bc)
+
+# BUILD THE ARRAY OF CHANNEL INDICES
+z=$(xe-getkey $filenotes channel_list= | tr ',' ' ' )
+let n=0; for i in $z ; do let achanindex[$i]=$n ; let n=$n+1 ; done
+if [ $n -ne $nchans ] ; then { echo ; echo "--- Error ["$thisprog"]: channel-list (n=$n) doesn't match nchans ($nchans)" ; echo ; exit; } ; fi
+
+# BUILD A LIST OF CHANNEL INDICES TO USE
+listchans=$(echo $setchan | tr ',' ' ')
+listindex=""
+for chan in $listchans ; do listindex=$listindex" "${achanindex[$chan]} ; done
+
+# DETERMINE THE REFERENCE CHANNEL (FOR NOW, THE FIRST IN THE LIST)
+refchan=$(echo $listchans | cut -f 1 )
+
+################################################################################
+# GET THE SSPs FOR THE RELEVANT TRIALS
+################################################################################
+if [ "$settrial" == "all" ] ; then
+	settrial=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin trial -o 1 -s 1 | paste -s | tr '\t' ',')
+fi
+listssp=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS | xe-cut1 stdin start,stop -o 1 | paste -s | tr '\t' ',')
+
+################################################################################
+# GET THE EVENT TIMES
+################################################################################
+# BUILD THE LIST OF EVENTS TO USE, DECIMATING AS REQUIRED
+opts="$fileclubt $fileclub -clu $refchan -scrl $listssp"
+z=$(xe-ldas5-readclub1 $opts -out -2 | xe-cut1 stdin count -o 1 | head -n 1)
+if [ "$z" == "" ] ; then
+	let nevents=0
+	echo "	--- Warning["$thisprog"]: no events on channel $refchan for trials $settrial"
+else
+	let nevents=$(xe-ldas5-readclub1 $opts -out -2 | xe-cut1 stdin count -o 1 | head -n 1)
+	if [ $setmax -lt 0 ] ; then setmax=$nevents ; fi
+	if [ $nevents -lt $setmax ] ; then setmax=$nevents ; fi
+	every=$(echo "scale=12; $nevents / $setmax" | bc)
+	listevents=$(xe-ldas5-readclub1 $opts | xe-decimate1 stdin $every | cut -f 1)
+	if [ "$setverb" == "1" ] ; then echo "	- $nevents events detected" ; fi
+fi
+
+
+################################################################################
+# PLOT THE EVENTS
+################################################################################
+if [ $nevents -gt 0 ] ; then
+	z=$(xe-dbmatch1 MEADETECT2_summary.txt chan  $refchan | xe-cut1 stdin min,max -o 1)
+	ymin=$(echo $z | cut -f 1 -d ' ')
+	ymax=$(echo $z | cut -f 2 -d ' ')
+	plotopts="-line 1 -ps 0 -xscale .45 -ymin $ymin -ymax $ymax -vline 0 -colour 1 -font 8 -lwa .5 -tics -1"
+	xl="Time (ms)"
+	yl="Amplitude (uV)"
+	plotlist=""
+	let count=0;
+	for event in $listevents ; do
+		let count=$count+1
+		start=$(echo $event |xe-math_add1 stdin -v -$halfwin -long 1)
+		plotfile="temp_$count.ps"
+		plotlist=$plotlist" "$plotfile
+		trialtime=$(echo "scale=12; $event/$sf" | bc | xe-timeconv1 stdin -f 2)
+		for index in $listindex ; do
+			xe-ldas5-readdat1 $filedat -nch $nchans -ch $index -s $start -n $win |
+			xe-math_mult1 stdin -v $volts_per_unit |
+			xe-filter_notch1 stdin -sf $sf -n 50 -w $setnotch |
+			xe-filter_butterworth1 stdin -sf $sf -low $setfiltlow -high $setfilthigh |
+			xe-timestamp1 stdin -dt -1 -sf $sfms -o $offsetms |
+			xe-plottable1 stdin $plotopts -ylabel "$yl" -xlabel "$xl" -title "CHAN=$setchan  Sample=$event  Time=$trialtime" $setplotopts -out $plotfile
+		done
+	done
+	# merge
+	xe-plotmerge2 $plotlist > $setout
+	rm -f $plotlist
+	if [ "$setverb" == "1" ] ; then echo "	- output sent to $setout" ; fi
+fi
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+	echo
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+exit

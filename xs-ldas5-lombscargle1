@@ -1,0 +1,219 @@
+#!/bin/bash
+thisprog="xs-ldas5-lombscargle1"
+tempfile="temp_"$thisprog #"."$$"."
+setoutbase=$tempfile
+
+setlistclu="all"
+setclean="1"
+setsf="19531.25"
+setlmin="-1"
+setlmax="-1"
+setwin="500"
+setverb="0"
+setbands=""
+setnorm="-1"
+setoptplot1=""
+setoptplot2=""
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot a row of histograms for mulitple clusters"
+	echo "USAGE: "
+	echo "	"$thisprog" [clubt] [club] [options]"
+	echo "		[clubt]: binary cluster timestamp file"
+	echo "		[club]:  binary cluster ID file"
+	echo "VALID OPTIONS:"
+	echo "	--sf: sample frequency for calculating histograms [$setsf] "
+	echo "	--win: size of window for histogram (ms) [$setwin] "
+	echo "	--clu: CSV list of clusters to analyze [$setlistclu] "
+	echo "	--min: minimum frequency to analyze (-1=AUTO) [$setmin] "
+	echo "	--max: maximum frequency to analyze (-1=AUTO) [$setmin] "
+	echo "	--bands: frequency bands to analyze [$setbands]"
+	echo "	--plot1: extra options for histogram plot [$setoptplot1]"
+	echo "	--plot2: extra options for L-S periodogram plot [$setoptplot2]"
+	echo "	--norm: normalize LS-periodogram (-1=NO, 0=0-1, 1=Zscore) [$setnorm]"
+	echo "	--base: basename for output files [$setoutbase]"
+	echo "	--clean: remove temporarty files (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output, 0=NO 1=YES [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.clubt data.club --verb 1 --base LOMBS"
+	echo "OUTPUT: "
+	echo "	- "$setoutbase".summary"
+	echo "	- "$setoutbase"_[cluster].ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+# PARSING PATHS AND FILENAMES
+fileclubt=$1 ; shift
+fileclub=$1 ; shift
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+eval set -- $(getopt -o x: -l sf:,win:,min:,max:,bands:,clu:,norm:,plot1:,plot2:,clean:,verb:,base: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		# arguments with required options (an additional shift is required)
+		--sf ) setsf="$2" ; shift ;;
+		--clu ) setlistclu="$2" ; shift ;;
+		--win ) setwin="$2" ; shift ;;
+		--min ) setlmin="$2" ; shift ;;
+		--max ) setlmax="$2" ; shift ;;
+		--base ) setoutbase="$2" ; shift ;;
+		--bands ) setbands="$2" ; shift ;;
+		--norm ) setnorm="$2" ; shift ;;
+		--plot1 ) setoptplot1="$2" ; shift ;;
+		--plot2 ) setoptplot2="$2" ; shift ;;
+		--verb ) setverb="$2" ; shift ;;
+		--clean ) setclean="$2" ; shift ;;
+		-- ) shift ; break ;;
+		# bad arguments or invalid options will produce an error
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+if [ $(echo $setoutbase | wc -w) == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: --base is empty" ; echo ; exit; } ; fi
+
+rm -f $tempfile"_summary.ps"
+
+################################################################################
+# BUILD A LIST OF CLUSTERS
+################################################################################
+if [ $setlistclu == "all" ] ; then
+	listclu=$(xe-ldas5-readclub1 $fileclubt $fileclub -out -2 |
+		xe-cut1 stdin cluster -o 1 |
+		awk '$1>0{print$1}' |
+		paste -s |
+		tr '\t' ' ')
+	setlistclu=$(echo $listclu | tr ' ' ',')
+else
+	listclu=$(echo $setlistclu | tr ',' ' ')
+fi
+
+
+################################################################################
+# GENERATE THE MULTI-CLUSTER AUTOCORELLOGRAMS
+################################################################################
+echo "	- generating histograms..."
+command="xe-ldas5-cluhist1 $fileclubt $fileclub -sf $setsf -list $setlistclu -out 0 -width $setwin -verb 1"
+if [ $setverb == "1" ] ; then echo "	"$command ; fi
+$command > $tempfile".hist"
+
+
+################################################################################
+# DEFINE FREQUENCY LIMITS AND TEST
+################################################################################
+cluster=$(echo $setlistclu | cut -f 1 -d ,)
+sfhist=$(xe-dbmatch1 $tempfile".hist" cluster $cluster | xe-cut1 stdin time -o 1 | xe-getsamplefreq1 stdin)
+nyquist_max=$(echo "scale=6; $sfhist/2 -1" | bc)
+nyquist_min=$(echo "scale=6; 2000/$setwin" | bc)
+
+if [ "$setlmin" == "-1" ] || [ "$setlmin" == "" ] ; then setlmin=$nyquist_min ; fi
+if [ "$setlmax" == "-1" ] || [ "$setlmax" == "" ] ; then setlmax=$nyquist_max ; fi
+let x=$(echo "$setlmin<$nyquist_min" | bc)
+let y=$(echo "$setlmax>$nyquist_max" | bc)
+if [ $x -eq 1  ] ; then { echo "--- Error ["$thisprog"]: minimum frequency ($setlmin) is too low for window size ($setwin)" ; echo ; exit; } fi
+if [ $y -eq 1  ] ; then { echo "--- Error ["$thisprog"]: maximum frequency ($setlmax) is too high for sample rate ($setsf)" ; echo ; exit ; } fi
+
+################################################################################
+# OUTPUT PARAMETERS
+################################################################################
+if [ $setverb == "1" ] ; then
+	echo
+	echo "	window= "$setwin" ms"
+	echo
+fi
+
+
+################################################################################
+# SET LOMB-SCARGLE OPTIONS
+################################################################################
+command_lomb="xe-lombscargle1 stdin -min $setlmin -max $setlmax -nfreq 100 -g 3 -norm $setnorm -out 2 -verb 1"
+if [ "$setbands" != "" ] ; then command_lomb=$command_lomb" -bands $setbands" ; fi
+
+
+################################################################################
+# SET PLOT OPTIONS
+################################################################################
+win2=$(echo "scale=6; $setwin/1000.0" | bc)
+xint=$(echo "scale=6; $win2/2.0" | bc)
+optplot1="-cx 2 -cy 3 -lwa .5 -xscale .45 -font 12 -xpad 0 -ypad 0 -pt histo -xmin -$win2 -xmax $win2 -xint $xint"
+optplot2="-cx 1 -cy 2 -lwa .5 -xscale .45 -font 12 -xpad 0 -ypad 0 -colour 3 -line 1 -ps 0"
+if [ "$setbands" != "" ] ; then optplot2=$optplot2" -vline $setbands" ; fi
+optplot1=$optplot1" "$setoptplot1
+optplot2=$optplot2" "$setoptplot2
+
+
+################################################################################
+# CALCULATE THE LOMBS-SCARGLE PERIOODOGRAMS
+################################################################################
+echo
+echo "	- calculating Lombs-Scargle periodograms..."
+echo "cluster theta ripp noise theta_r ripp_r noise_r" | xe-delimit stdin > $setoutbase.summary
+
+plotlist2=""
+let count=0
+for cluster in $listclu ; do
+	let count=$count+1
+
+	rm -f $tempfile.1 $tempfile.2
+
+	#echo "xe-dbmatch1 $tempfile cluster $cluster | xe-cut1 stdin 2,3 -n 1 -o 1 | xe-lombscargle1 stdin $optlombs"
+	xe-dbmatch1 $tempfile".hist" cluster $cluster |
+		xe-cut1 stdin time,count -o 1 |
+		# send the summary to $tempfile.1 and the lomb-scargle periodogram to $tempfile.2
+		$command_lomb 2> $tempfile.1 > $tempfile.2
+
+	if [ "$setverb" == "1" ] ; then
+		if [ $count -eq 1 ] ; then
+			echo "	"$command_lomb
+			echo
+			awk '{print "\t"$0}' $tempfile.1
+			echo
+		fi
+		echo "	- Analyzing cluster $cluster"
+	fi
+
+	if [ -e $tempfile.1 ] ; then
+		theta=$(xe-getkey $tempfile.1  zone_0= | awk '{printf("%.3f",$1)}' )
+		ripple=$(xe-getkey $tempfile.1 zone_1= | awk '{printf("%.3f",$1)}' )
+		noise=$(xe-getkey $tempfile.1  zone_2= | awk '{printf("%.3f",$1)}' )
+		ratio0=$(xe-getkey $tempfile.1  ratio_0= | awk '{printf("%.3f",$1)}' )
+		ratio1=$(xe-getkey $tempfile.1 ratio_1= | awk '{printf("%.3f",$1)}' )
+		ratio2=$(xe-getkey $tempfile.1  ratio_2= | awk '{printf("%.3f",$1)}' )
+	else
+		ref1="-"; ref2="-" ; ref3="-" ; theta="-" ; ripple="-" ; noise="-"
+		ratio0="-" ; ratio1="-" ; ratio2="-"
+	fi
+
+	echo $cluster $theta $ripple $noise $ratio0 $ratio1 $ratio2 | xe-delimit stdin >> $setoutbase.summary
+
+	plotlist1=""
+	clu2=$(echo $cluster | awk '{printf("%03d",$1)}')
+
+	plotfile1=$tempfile"_"$clu2"_hist.ps"
+	plotlist1=$plotlist1" "$plotfile1
+	xe-dbmatch1 $tempfile".hist" cluster $cluster |
+		xe-plottable1 stdin $optplot1 -title "Cluster $clu2" -xlabel "Time (sec)" -ylabel "Counts" -out $plotfile1
+
+	plotfile1=$tempfile"_"$clu2"_lomb1.ps"
+	plotlist1=$plotlist1" "$plotfile1
+	cat $tempfile.2 |
+		xe-plottable1 stdin $optplot2 -xlabel "Frequency (Hz)" -ylabel "Power" -out $plotfile1
+
+	plotfile2=$setoutbase"_"$clu2
+	plotlist2=$plotlist2" "$plotfile2".001.ps"
+	xe-plotmerge1 $plotlist1 -xmax 2 -xinc 300 -yinc 80 -out $plotfile2
+	rm -f $plotlist1
+done
+
+xe-plotmerge2 $plotlist2 > $tempfile"_summary.ps"
+
+if [ "$setclean" == "1" ] ; then
+	rm -f $plotlist1
+	rm -f $plotlist2
+	rm -f $tempfile"."*
+fi

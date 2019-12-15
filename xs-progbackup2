@@ -1,0 +1,38 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progbackup2"
+tempfile="temp_"$thisprog ; rm -f $tempfile
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": back-up all programs in [path] to a zip file in the current folder"
+	echo "- assumes script are in the current directory and begin with \"r_\" \"xs-\" or \"xp-\""
+	echo "- assumes all source code is in subdirectory \"source\""
+	echo "- assumes documents are in subdirectory \"documents\""
+	echo "- also collects from the \"0_jozsef\" directory"
+	echo "USAGE: "
+	echo "	"$thisprog" [path]"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" /opt/ldas/"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+startdir=$(pwd)
+path=$1
+
+zipfile=$startdir"/backup_all_"$(date +%Y%m%d)".zip"
+rm -f $zipfile
+echo $zipfile
+
+cd $path
+
+zip $zipfile xs-* xp-* r_*
+zip -u -r $zipfile 0_jozsef/  source/ documents/
+
+cd $startdir

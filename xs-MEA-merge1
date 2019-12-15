@@ -1,0 +1,217 @@
+#!/bin/bash
+
+# <TAGS>MEA</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# GENERATE THE BASE-NAME FROM THE CURRENT FOLDER NAME
+outbase=$(echo $start_dir | rev | cut -f 1 -d "/" | rev)
+# GET THE DATE, SESSION, SUBJECT, PART FROM $OUTBASE
+# if it cannot be derived from the base name, leave them blank
+date1=$(xs-ldas-parsename $outbase date)
+if [[ $date1 = *"Error"* ]]; then  date1="UNDEFINED" ; fi
+session=$(xs-ldas-parsename $outbase session)
+if [[ $session = *"Error"* ]]; then  session="UNDEFINED" ; fi
+subject=$(xs-ldas-parsename $outbase subject)
+if [[ $subject = *"Error"* ]]; then  subject="UNDEFINED" ; fi
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": "
+	echo "	- merge multiple Multi Channel Systems binary MEA files (.raw)"
+	echo "	- create per-channel 1000Hz .bin files"
+	echo "	- record the start/stop sample for each file in an SSP file"
+	echo "	- each input file needs a unique order-suffix"
+	echo "		- the suffix should come betweeen an underscore and the dot"
+	echo "		- examples:"
+	echo "			experiment1-base_001.raw"
+	echo "			experiment1-drugA_002.raw"
+	echo "			experiment1-drugB_003.raw"
+	echo ""
+	echo "USAGE: $thisprog [pattern]"
+	echo "	[pattern]: text to match anywhere in the filename (not wildcards)"
+	echo "		- at run-time, this becomes *[pattern]*"
+	echo ""
+	echo "ADDITIONAL ARGUMENTS:"
+#	echo "	-a: analysis to perform (detect|summary|all) [$setanalysis]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" .raw"
+	echo ""
+	echo "OUTPUT: (note base-name is derived from folder name)"
+	echo "	$outbase.dat"
+	echo "	$outbase.ssp"
+	echo "	$outbase-[channel].bin"
+	echo "	$outbase.notes"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------
+"$thisprog" "$@"
+--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+pattern=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":a:" flag ; do
+ 	case $flag in
+		a) setanalysis=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# INITIAL CLEANUP
+if [ "$tempfile" != "" ] ; then
+	rm -f $tempfile*
+fi
+rm -f *.dat
+rm -f *.ssp
+rm -f *.notes
+
+################################################################################
+# BUILD LIST OF FILES, ORDERED BY LAST FIELD IN NAME
+################################################################################
+listfiles=$(ls 2>/dev/null *$pattern* | awk -F "_" '{print $NF"\t" $0}' | sort -n | cut -f 2-)
+let nfiles=$(echo $listfiles | wc -w)
+if [ $nfiles -eq 0 ] ;  then { echo ; echo "--- Error ["$thisprog"]: no files matching \"$pattern\" in this folder" ; echo ; exit; } ; fi
+
+################################################################################
+# CYCLE THROUGH THE FILES, EXTRACTING AND MERGING
+################################################################################
+echo "------------------------------------------------------------"
+echo "Merging files:"
+
+let count=0
+for in1 in $listfiles ; do
+
+	echo "		"$in1
+	sample_rate=$(head -n 7 $in1 | xe-getkey stdin "Sample rate " -d "=" | xe-delimit stdin)
+	adc_zero=$(head -n 7 $in1 | xe-getkey stdin "ADC zero " -d "=" | xe-delimit stdin)
+	voltsperunit=$(head -n 7 $in1 | awk '$0~"V/AD"{printf("%g\n",$3)}')
+	nhead=$(head -n 8 $in1 | wc -c)
+	channel_list=$(head -n 7 $in1 | xe-getkey stdin "Streams " -d "=" | xe-delimit stdin | tr ';' '\n'| cut -f 2 -d "_" | paste -s | tr '\t' ',')
+	let nchans=$(echo $channel_list | tr ',' '\n' | wc -l)
+	let chanmax=$nchans-1
+
+	# EXTRACT THE BINARY DATA ONLY, AND SAVE THE VERBOSE OUTPUT TO A TEMP FILE
+	xe-ldas5-readdat1 $in1 -nch $nchans -h $nhead -out 1 -verb 1 >> $outbase".dat" 2>> $tempfile
+	let z=$(grep -iE 'Error|Warning' $tempfile | wc -l)
+	if [ $z -gt 0 ] ; then
+		echo
+		echo "--- Error ["$thisprog"]: problem reading binary input ($in1)"
+		echo "FULL LOG:"
+		cat $tempfile
+		exit
+	fi
+
+	# MAKE SURE FILES HAVE CONSISTENT RECORDING PARAMETERS - OTHERWISE THEY SHOULD NOT BE MERGED!
+	if [ $count -ne 0 ] ; then
+	if [ "$sample_rate" != "$p1" ] ;  then { echo ; echo "--- Error ["$thisprog"]: sample_rate mismatch in $in1" ; echo ; exit; } ; fi
+	if [ "$adc_zero" != "$p2" ] ;     then { echo ; echo "--- Error ["$thisprog"]: adc_zero mismatch in $in1" ; echo ; exit; } ; fi
+	if [ "$voltsperunit" != "$p3" ] ; then { echo ; echo "--- Error ["$thisprog"]: voltsperunit mismatch in $in1" ; echo ; exit; } ; fi
+	if [ "$channel_list" != "$p4" ] ; then { echo ; echo "--- Error ["$thisprog"]: channel_list mismatch in $in1" ; echo ; exit; } ; fi
+	fi
+	p1=$sample_rate
+	p2=$adc_zero
+	p3=$voltsperunit
+	p4=$channel_list
+
+	let count=$count+1
+done
+
+########################################################################################
+# BUILD THE SSP FILE FROM THE NUMBER OF SAMPLES RECORDED FOR EACH TRIAL
+########################################################################################
+grep multi-channel $tempfile |
+	awk 'BEGIN{p=0}{print p,p+$2; p+=$2}' |
+	xe-writebinary1 stdin -dt 7 > $outbase".ssp"
+# report the duration of each trial using the SSP file
+echo "	Total files merged: "$count
+echo "		file	duration (sec)"
+xe-ldas5-readssp1 $outbase".ssp" | awk 'BEGIN{n=1}{d=($2-$1)/'$sample_rate'; printf("\t\t%d\t%d\n",n,d);n++}'
+
+########################################################################################
+# BUILD THE NOTES FILE
+########################################################################################
+# calculate bin_decimation factor
+let z=$(echo "$sample_rate > $setsrout" | bc)
+if [ $z -eq 1 ] ; then bin_decimation=$(echo "scale=6; $sample_rate/1000" | bc)
+else bin_decimation="1"; fi
+
+# calculate duration
+dur1=$(xe-ldas5-readssp1 $outbase".ssp" | awk '{n+=($2-$1)}END{print n}')
+dur2=$(echo $dur1 $sample_rate | awk '{printf("%.3f",($1/$2))}')
+# print the parameters sub(from the last file read)
+echo "
+date= $date1
+session= $session
+subject= $subject
+sample_rate= $sample_rate
+duration_samples= $dur1
+duration_seconds= $dur2
+adc_zero= $adc_zero
+volts_per_unit= $voltsperunit
+n_channels= $nchans
+channel_list= $channel_list
+bin_decimation= $bin_decimation
+" > $outbase".notes"
+# add the file descriptors
+echo "<TRIALS>">> $outbase".notes"
+echo "trial start stop name " | xe-delimit stdin >> $outbase".notes"
+xe-ldas5-readssp1 $outbase".ssp" | awk 'BEGIN{n=1}{printf("%d\t%d\t%d\n",n,$1,$2);n++}' > $tempfile.1
+echo $listfiles | tr ' ' '\n' > $tempfile.2
+paste $tempfile.1 $tempfile.2 >> $outbase".notes"
+echo "</TRIALS>">> $outbase".notes"
+
+echo "" >> $outbase".notes"
+echo "<CHANNELS>" >> $outbase".notes"
+echo "chan good region" | xe-delimit stdin >> $outbase".notes"
+for chan in $(seq 0 $chanmax) ; do echo "$chan 1 x" | xe-delimit stdin  >> $outbase".notes" ; done
+echo "</CHANNELS>" >> $outbase".notes"
+
+########################################################################################
+# DOWNSAMPLE TO PER_CHANNEL .BIN FILES
+########################################################################################
+echo "	------------------------------------------------------------"
+echo "	Making per-channel .bin files::"
+xs-dat2bin $outbase.dat 60 1000
+
+
+echo "	Output: "
+echo "		$outbase.dat"
+echo "		$outbase.ssp"
+echo "		$outbase-[channel].bin"
+echo "		$outbase.notes"
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "	Time to finish job: "$s" seconds = "$m" minutes"
+echo
+
+rm -f $tempfile*
+exit

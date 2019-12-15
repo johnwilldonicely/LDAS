@@ -1,0 +1,51 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": create a header file (.h) for a repository"
+	echo "- should capture all files beginning with \"xf_\" and ending in \".c\""
+	echo "- USAGE: "$thisprog" [name]"
+	echo "	[name]: name of the header, for definition purposes"
+	echo "- VALID OPTIONS (defaults in [])..."
+	echo "	- "pro
+	echo "- EXAMPLE: "$thisprog" LDAS_H > LDAS.h"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+name=$1
+
+echo "
+#ifndef $name
+
+#define $name
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <complex.h>
+#include "/opt/LDAS/source/kiss_fftr.h"
+#include "/opt/LDAS/source/kiss_fft.h"
+"
+
+list1=$(ls --color=never xf_*.c)
+for file in $list1 ; do
+	base=${file%%.*};
+	xe-stripcomments $file -type 3 |
+	awk 'NF>0{print $0}' |
+	grep $base --color=never |
+	head -n 1 |
+	tr -d '{' |
+	awk '{print $0";"}'
+done
+
+echo "
+#endif
+"

@@ -1,0 +1,125 @@
+#!/bin/bash
+# <TAGS> O2 </TAGS>
+
+thisprog=`basename "$0"`
+startdir=$(pwd)
+tempfile=$startdir"/temp_"$thisprog ; rm -f $tempfile
+errorfile=$startdir"/temp_errors_"$thisprog ; rm -f $errorfile
+setmin=1.0
+setlower=1.5
+setupper=3.0
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": check channels for a brain region in database"
+	echo "Only analyzes the hemisphere specified in the database file"
+	echo "Will flag channels for which:"
+	echo "	- more than 80% of the data are at the limits or invalid"
+	echo "	- RMS power is <"$setlower" s.d.. below the mean (dead channel?)"
+	echo "	- RMS power is >"$setupper" s.d. above the mean (noisey channel?)"
+	echo "		- mean RMS power is corrected for outliers first"
+	echo "		- excludes data >99th percentile"
+	echo "		- also flags any channel if RMS power < "$setmin
+	echo "REQUIRES: a .notes file in each data directory"
+	echo "		- CHANNEL record format: CHANNEL no. label hemis region	bottom top %good power"
+	echo "USAGE: "$thisprog"  [database] [region] [options]"
+	echo "	[database]: database file to read"
+	echo "	[region]: brain region of interest"
+	echo "VALID OPTIONS (defaults in brackets):"
+	echo "		-m sets minimum RMS accepted ["$setmin"]"
+	echo "		-l sets lower threshold std.dev in RMS ["$setlower"]"
+	echo "		-u sets upper threshold std.dev in RMS ["$setupper"]"
+	echo "EXAMPLE: "$thisprog" database_DHIPP.db  DHIPP -m 2"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo $thisprog $@
+
+filedb=$1 ; shift
+region=$1; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  "m:l:u:" flag ; do
+        case $flag in
+                m) setmin=$OPTARG;;
+                l) setlower=$OPTARG;;
+                u) setupper=$OPTARG;;
+        esac
+        let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ ! -e $filedb ] ; then { echo "	--- Error ["$thisprog"]: filedb file '$filedb' missing" ; exit ; } ; fi
+
+let count=0
+echo > $tempfile
+echo > $errorfile
+cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis rest ; do
+
+	cd $path ;
+	base=$(basename $path)
+	subname=${base%%-*}
+	subject=${subname#rat*}
+
+	notesfile=$base".notes"
+	if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' missing" ; echo ; echo ; exit ; }  fi
+	let colhemis=$(grep "#CHANNEL" $notesfile | xe-getkeycol stdin hemis)
+	let colregion=$(grep "#CHANNEL" $notesfile | xe-getkeycol stdin region)
+	let colgood=$(grep "#CHANNEL" $notesfile | xe-getkeycol stdin %good)
+	let colpower=$(grep "#CHANNEL" $notesfile | xe-getkeycol stdin power)
+	if [ -z $colhemis ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' has no \"hemis\" header for CHANNEL records" ; echo ; echo ; exit ; }  fi
+	if [ -z $colregion ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' has no \"region\" header for CHANNEL records" ; echo ; echo ; exit ; }  fi
+	if [ -z $colpower ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' has no \"power\" header for CHANNEL records" ; echo ; echo ; exit ; }  fi
+	if [ -z $colgood ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' has no \"%good\" header for CHANNEL records" ; echo ; echo ; exit ; }  fi
+
+	temp=$(
+		grep CHANNEL $notesfile | xe-dbmatch1 stdin hemis $hemis | xe-dbmatch1 stdin region $region -o 1 |
+		cut -f $colhemis,$colregion,$colgood,$colpower |
+		awk '{print "'$base'",$0}'
+		)
+
+	if [ ! -z "$temp" ] ; then
+		echo $temp | xe-delimit stdin  >> $tempfile
+	else
+		echo "--- Warning: $notesfile has no CHANNEL entry for $hemis hemisphere, region $region" >> $errorfile
+	fi
+
+	let count=$count+1
+	cd $startdir
+done
+
+let n=$(cat $errorfile | wc -l) ; if [ $n -gt 1 ] ; then { echo ; echo ; cat $errorfile ; echo ; echo ; } fi
+let n=$(cat $tempfile | wc -l) ; if [ $n -lt 1 ] ; then { echo ; echo ; echo "--- Error ["$thisprog"]:  no regions matching \""$region"\" found in .notes files" ; echo ; echo ; exit ; } fi
+
+
+# CALCULATE THE 5th AND 95th PERCENTILES IN RMS POWER VALUES - TO REMOVE OUTLIERS FOR THE CORRECTED MEAN
+# NOTE THAT AN EXTRA COLUMN HAS BEEN ADDED TO THE FILE
+cut -f 5 $tempfile | awk 'NF>0{print$0}' | xe-trimoutliers1 stdin -l 0 -u 99 | xe-statsd1 stdin  > $tempfile".1"
+
+# CALCULATE THE THRESHOLD FOR SUSPICIOUS CHANNELS
+n=$(cat $tempfile".1" | awk '{if($1=="N") {print$2;exit}}' )
+mean=$(cat $tempfile".1" | awk '{if($1=="MEAN") {print$2;exit}}' )
+sd=$(cat $tempfile".1" | awk '{if($1=="STDDEV") {print$2;exit}}' )
+lower=$(cat $tempfile".1" | awk '{if($1=="MEAN")m=$2;if($1=="STDDEV")s=$2}END{print m-(1.5*s)}' )
+upper=$(cat $tempfile".1" | awk '{if($1=="MEAN")m=$2;if($1=="STDDEV")s=$2}END{print m+(3*s)}' )
+
+echo
+echo "	RMS-POWER FOR CHANNELS FROM REGION \""$region"\""
+echo "		n: "$n
+echo "		mean: "$mean
+echo "		stddev: "$sd
+echo "		lower limit (mean - 1.5 x stddev): "$lower
+echo "		upper limit (mean + 3.0 x stddev): "$upper
+
+# FLAG CHANNELS WITH <80% GOOD DATA OR WITH RMS POWER OUTSIDE THE PERCENTILES
+echo "	SUSPICIOUS CHANNELS"
+echo "	base	hemis	region	%good	power"
+echo "	-------------------------------------------------------------------------------------------------"
+awk 'NF>0{if($5<'$setmin' || $5<'$lower' || $5>'$upper' || $5=="-" || $9<.8) print "\t"$0}' $tempfile
+echo
+#rm -f $tempfile*

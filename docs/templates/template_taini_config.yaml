@@ -1,0 +1,73 @@
+transmitters:
+  - id: D001
+    alias: ""
+    output_destination: /home/tainitec/2TB_Data1/20190215_quick/TAINI_D001_-2019_02_15-0000.dat
+    rx_port: A
+    decimation: 1
+    band_id: A
+    nominal_carrier_frequency: 2.325e+09
+    nominal_sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+    mvolt_range: 13
+    bit_depth: 12
+    prefilt_lp: 0.35
+    prefilt_hp: 9700
+  - id: D002
+    alias: ""
+    output_destination: /home/tainitec/2TB_Data1/20190215_quick/TAINI_D002_-2019_02_15-0000.dat
+    rx_port: A
+    decimation: 1
+    band_id: B
+    nominal_carrier_frequency: 2.375e+09
+    nominal_sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+    mvolt_range: 13
+    bit_depth: 12
+    prefilt_lp: 0.35
+    prefilt_hp: 9700
+  - id: D003
+    alias: ""
+    output_destination: /home/tainitec/2TB_Data1/20190215_quick/TAINI_D003_-2019_02_15-0000.dat
+    rx_port: B
+    decimation: 1
+    band_id: C
+    nominal_carrier_frequency: 2.525e+09
+    nominal_sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+    mvolt_range: 13
+    bit_depth: 12
+    prefilt_lp: 0.35
+    prefilt_hp: 9700
+  - id: D004
+    alias: ""
+    output_destination: /home/tainitec/2TB_Data1/20190215_quick/TAINI_D004_-2019_02_15-0000.dat
+    rx_port: B
+    decimation: 1
+    band_id: D
+    nominal_carrier_frequency: 2.58e+09
+    nominal_sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+    mvolt_range: 13
+    bit_depth: 12
+    prefilt_lp: 0.35
+    prefilt_hp: 9700
+recording:
+  format: interlaced dat
+  filename_template: TAINI_$ID_$ALIAS-%Y_%m_%d-$INC
+  directory: /home/tainitec/2TB_Data1/20190215_quick
+  start_datetime: 2019-02-15 18:06:35
+  finish_datetime: 2019-02-15 18:06:41
+  lost_data_symbol: 32767
+receiver:
+  rfa:
+    center_frequency: 2350000128
+    sample_rate: 100000000
+  rfb:
+    center_frequency: 2552499968
+    sample_rate: 100000000
+notes: ""
+version: TAINICONFIG 1.0

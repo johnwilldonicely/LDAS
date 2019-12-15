@@ -1,0 +1,147 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="cmtappend1"
+thisprog="xs-ldas-"$progbase1
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+settype=0
+setoff=0
+setmatch=""
+setrep="0"
+setverb=0
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": append a comment to a .cmt file"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [in] [comment]"
+	echo "		[in]: input comment file in format <time> <comment>"
+	echo "		[comment]: the comment to append"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-t | --type: append type ["$settype"]"
+	echo "		1= after first comment"
+	echo "		2= after last comment"
+	echo "		3= after particular comment"
+	echo "			- see -m option below"
+	echo "			- exact-matches not required"
+	echo "	-m | --match: comment to match for types 3&4 above ["$setmatch"]"
+	echo "	-o | --off: time-offset to apply (seconds) ["$setoff"]"
+	echo "	-r | --rep: replace original file (0=NO 1=YES) ["$setrep"]"
+	echo "		NOTE: if \"0\", output is $tempfile"
+	echo "	-v | --verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" noreward.cmt TRIALEND -t 3 -m LEVER -o 5.00 -r 1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setcomment=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+vs="t:o:m:r:v:" ; vl="type:,off:,match:,rep:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-t | --type ) settype=$2 ; shift ;;
+		-o | --off ) setoff=$2 ; shift ;;
+		-m | --match ) setmatch=$2 ; shift ;;
+		-r | --rep ) setrep=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$settype" != "1" ] && [ "$settype" != "2" ] && [ "$settype" != "3" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --type ($settype) -  must be 1,2, or 3" ; echo ; exit; } ; fi
+if [ "$setrep" != "0" ] && [ "$setrep" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --rep ($setrep) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+################################################################################
+# APPEND THE COMMENT
+################################################################################
+
+# APPEND AFTER FIRST COMMENT
+if [ "$settype" == "1" ] ; then 
+	cat $infile | 
+	awk '
+	BEGIN{time=0.00; n=0}	{
+		print $0
+		if(NF>1&&$1!~/^#/) { time=$1; n++; } 
+		if(n==1) { time=time+'$setoff'; printf("%.3f\t'$setcomment'\n",time) }
+	}
+	' > $tempfile 
+fi
+
+# APPEND AFTER LAST COMMENT 
+if [ "$settype" == "2" ] ; then 
+	cat $infile | 
+	awk ' 
+	BEGIN{time=0.00}
+	{
+		print $0
+		if(NF>1&&$1!~/^#/) time=$1; 
+	} 
+	END{ time=time+'$setoff'; printf("%.3f\t'$setcomment'\n",time)}
+	' > $tempfile 
+fi 
+
+# APPEND AFTER PARTICULAR COMMENT 
+if [ "$settype" == "3" ] ; then 
+	cat $infile | 
+	awk ' 
+	BEGIN{time=0.00}
+	{
+		print $0
+		if(NF>1&&$1!~/^#/ && $2~/'$setmatch'/) {
+			time=$1+'$setoff'; 
+			printf("%.3f\t'$setcomment'\n",time)
+		}
+	}
+	' > $tempfile 
+fi 
+
+
+################################################################################
+#  OVERWRITE ORIGINAL FILE IF REQUIRED 
+################################################################################
+if [ "$setrep" == "1" ] ; then mv $tempfile $infile ; fi 
+
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi

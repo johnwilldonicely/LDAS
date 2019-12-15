@@ -1,0 +1,186 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$
+outbase="POW1"
+rm -f $tempfile*
+rm -f $outbase*
+start_time=$(date +'%s')
+
+setfilecmt=""
+set_start=""
+set_pre="0"
+set_post=""
+set_window=1;
+setfftopts=""
+set_notch=""
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate spectral amplitude for O2 recordings"
+	echo "REQUIRES: a .notes file defining sample rate amd probe locations"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [region] [options]"
+	echo "		[base]: sub-yymmdd (e.g. 005-991231)"
+	echo "		[region]: brain region to analyze - must be unique"
+	echo "VALID OPTIONS:"
+	echo "	-c specify a comment file containing window start-times [$setfilecmt]"
+	echo "		- default (unset) is to analyze the entire file"
+	echo "		- set to \"auto\" to use the .cmt file for the session"
+	echo "	-s (-start) start signal in comment file to align windows to [$set_start]"
+	echo "	-p (-pre) time (s) to capture before the start-signal [$set_pre]"
+	echo "	-d (-post) time (s) to capture after the start-signal [$set_post]"
+	echo "		NOTE: pre + post should be > FFT window (-w, below)"
+	echo "	-n notch filter - comma-separated list of frequencies to remove [$set_notch]"
+	echo "	-w: FFT window size (seconds) [$set_window]"
+	echo "	-F: additional FFT options for xe-fftpow2, in quotes [$setfftopts]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 001-991231 R_PRL -x .3 -c auto -s _CORRECT -p 10 -d 0 "
+	echo "OUTPUT: "
+	echo "	$outpase.fft"
+	echo "		the FFT output: [freq] [amplitude]"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+
+################################################################################
+# SAVE AND PRINT THE COMMAND LINE
+################################################################################
+command_line=$@
+echo $thisprog $command_line
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# READ THE REQUIRED COMMAND-LINE ARGUMMENTS
+################################################################################
+base=$1; shift
+setregion=$1; shift
+opts=$@
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="c:s:p:d:w:n:F:"
+vl="verb:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-c ) setfilecmt=$2 ; shift ;;
+		-s ) set_start=$2 ; shift ;;
+		-p ) set_pre=$2 ; shift ;;
+		-d ) set_post=$2 ; shift ;;
+		-w ) set_window=$2 ; shift ;;
+		-n ) set_notch=$2 ; shift ;;
+		-F ) setfftopts=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# variable to determine if set_pre is a positive number
+let setprepos=$(echo $set_pre | awk '{if($1>0) printf("%f\n",$1) ; else print 0 }' | awk '{if($1>0) print 1; else print 0 }')
+
+################################################################################
+# CHECK VALIDITY OF ARGUMENTS
+################################################################################
+subject=$(echo $base | cut -f 1 -d "-")
+yymmdd=$(echo $base | cut -f 2 -d "-")
+if [ -z "$subject" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad base-name format ($base)" ; echo ; exit ; } fi
+if [ -z "$yymmdd" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad base-name format ($base)" ; echo ; exit ; } fi
+
+################################################################################
+# GET RECORDING PARAMETERS FROM NOTES FILE
+################################################################################
+# build notes filename - check it is present
+filenotes=$base".notes"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filenotes' missing" ; echo ; exit ; } ; fi
+# determine sample-rate
+samplerate=$(xe-getkey $filenotes SAMPLE_RATE)
+if [ -z $samplerate ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file "$filenotes" has no SAMPLE_RATE keyword" ; echo ; exit ; } ; fi
+# determine sample interval
+sampleinterval=$(echo $samplerate | awk '{print 1.0/$1}')
+# identify the channel associated with the specified brain region
+ch1=$(grep CHANNEL $filenotes | xe-strsub1 stdin "#CHANNEL" "KEY" | xe-dbmatch1 stdin label $setregion -m 1 | xe-cut1 stdin no. -o 1)
+let z=$(echo $ch1|wc -w)
+if [ $z -eq 0 ] ;  then { echo ; echo "--- Error ["$thisprog"]: notes file has no CHANNEL specifying region \""$setregion"\"" ; echo ; exit ; } ; fi
+if [ $z -gt 1 ] ;  then { echo ; echo "--- Error ["$thisprog"]: more than one channel matches region \""$setregion"\"" ; echo ; exit ; } ; fi
+# determine the FFT window size
+fftwin=$(echo $set_window $samplerate | awk '{print $1*$2}')
+# build the data file names
+infile1=$base".time"
+infile2=$base"."$ch1".dat"
+if [ ! -e $infile1 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile1' missing" ; echo ; exit ; } ; fi
+if [ ! -e $infile2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile2' missing" ; echo ; exit ; } ; fi
+
+################################################################################
+# DEFINE OR BUILD THE COMMENT FILE
+################################################################################
+if [ "$setfilecmt" ] ; then
+	if [ "$setfilecmt" == "auto" ] ; then filecmt=$base"."$ch1".cmt" ; else filecmt=$setfilecmt ; fi
+	if [ ! -e $filecmt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filecmt' missing" ; echo ; exit ; } ; fi
+	if [ -z "$set_start" ] ; then { echo ; echo "--- Error ["$thisprog"]: must set -s if a comment file is defined" ; echo ; exit ; } fi
+	if [ -z "$set_post" ] && [ -z "$set_end" ]; then { echo ; echo "--- Error ["$thisprog"]: must set -d or -e if a comment file is defined" ; echo ; exit ; } fi
+else # if no comment file is defined...
+	if [ "$set_start" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set -s $set_start without defining a comment file" ; echo ; exit ; } fi
+	if [ "$set_end" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set -e $set_end without defining a comment file" ; echo ; exit ; } fi
+	if [ $setprepos -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set -p $set_pre without defining a comment file" ; echo ; exit ; } fi
+	if [ "$set_post" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set -d $set_post without defining a comment file" ; echo ; exit ; } fi
+	# set start time, duration, and no pre-zero
+	a=$(head -n 1 $infile1)
+	z=$(tail -n 1 $infile1)
+	set_start="START"
+	set_pre=0
+	set_post=$(echo $a $z | awk '{printf("%.4f",($2-$1))}')
+	# build a temporary comment file
+	filecmt=$tempfile".cmt"
+	echo $a | awk '{print $1"\tSTART"}' > $filecmt
+fi
+
+################################################################################
+# PERFORM THE FFT
+################################################################################
+paste $infile1 $infile2 |
+	xe-ldas-align1 stdin $filecmt -start $set_start -pre $set_pre -dur $set_post -verb 1 |
+	cut -f 3 | # > $tempfile
+
+# - ??? need to update notch filter program to accept a list of notch frequencies
+
+	xe-filter_notch1 stdin -sf $samplerate -n 20 -w .2 -pad 0 |
+	xe-filter_notch1 stdin -sf $samplerate -n 40 -w .2 -pad 0 |
+	xe-filter_notch1 stdin -sf $samplerate -n 50 -w .2 -pad 0 |
+	xe-filter_notch1 stdin -sf $samplerate -n 60 -w .2 -pad 0 |
+	xe-filter_notch1 stdin -sf $samplerate -n 80 -w .2 -pad 0  > $tempfile
+
+	xe-fftpow2 $tempfile -sf $samplerate -w $fftwin $setfftopts > $outbase"_fft.txt"
+	xe-fftpow2 $tempfile -sf $samplerate -w $fftwin $setfftopts -o 1 > $outbase"_matrix.txt"
+	xe-fftpow2 $tempfile -sf $samplerate -w $fftwin $setfftopts -o 3 > $outbase"_time.txt"
+
+
+plotfile=$outbase"_fft.ps"
+plotopts="-line 1 -ps 0 -xscale .45 -out $plotfile"
+xe-plottable1 $outbase"_fft.txt" $plotopts -xlabel "Frequency (Hz)" -ylabel "Amplitude"
+
+plotopts="-xmin -$set_pre -xmax $set_post -xint $set_pre -ymin 0 -ymax 100 -vline 0 -xscale 0.45 -hline 4,12 -xscale 0.45"
+xe-matrixmod1 $outbase"_matrix.txt" -r -90 -h 200 -w 200 -sx 4 -sy 2 |
+	xe-plotmatrix1 stdin  $plotopts -xlabel "Time (s)" -zmax 2
+
+
+
+rm -f $tempfile*
+
+echo
+exit

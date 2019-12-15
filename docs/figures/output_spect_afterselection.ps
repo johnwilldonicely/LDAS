@@ -1,0 +1,1195 @@
+%!
+%%BoundingBox: 0 0 595 842
+/Helvetica findfont 12.00 scalefont setfont
+
+% DEFINE_COLOUR      DESCRIPTION    GROUP-LABEL
+/c0 {.0 .0 .0} def   % black        0
+/c1 {.6 .1 .2} def   % dark_red     
+/c2 {.2 .5 .1} def   % dark_green   2
+/c3 {.0 .25 .6} def  % dark_blue    
+/c4 {.5 .25 .5} def  % dark_magenta 4
+/c5 {.2 .7 .7} def   % dark_cyan    5
+/c6 {.5 .25 .0} def  % brown        
+/c7 {.8 .8 .2} def   % dark_yellow  7
+/c8 {.3 .3 .3} def   % 70%_black    8
+/c9 {1. .0 .0} def   % red          9
+/c10 {.0 1. .0} def  % green        10
+/c11 {.0 .0 1.} def  % blue         11
+/c12 {1. .0 1.} def  % magenta      12
+/c13 {.0 1. 1.} def  % cyan         13
+/c14 {1. .4 .1} def  % orange       
+/c15 {1. 1. .0} def  % yellow       
+/c16 {.5 .5 .5} def  % 50%_black    
+/c17 {1. .5 .5} def  % pink         
+/c18 {.5 1. .5} def  % soft_green   
+/c19 {.5 .6 1.} def  % soft_blue    
+/c20 {1. .5 1.} def  % soft_magenta 
+/c21 {.5 1. 1.} def  % soft_cyan    
+/c22 {1. .7 .3} def  % soft_orange  
+/c23 {.7 .7 .7} def  % 30%_black    
+/cw {1. 1. 1.} def   % open_points_fill
+/cf {.0 .0 .0} def   % frame_colour
+/ct {.5 .5 .5} def   % title colour
+
+% DEFINE_AXIS_LABEL_FUNCTIONS
+/ticsize {-3} def
+/basefontsize {10} def
+/yticmaxchar {2} def
+ticsize 0 lt {/ticout ticsize def} {/ticout 0 def} ifelse 
+/xaloff { basefontsize 2 add 1 mul basefontsize add -1 mul ticout add } def
+/yaloff { (10) stringwidth pop ticout sub basefontsize 2 div add } def
+/xaxislabel { moveto dup stringwidth pop 2 div neg xaloff rmoveto show } def
+/yaxislabel { 90 rotate moveto dup stringwidth pop 2 div neg yaloff rmoveto show -90 rotate } def
+/f_plottitle { ct setrgbcolor basefontsize .25 mul add moveto yaloff neg basefontsize 2 div rmoveto show cf setrgbcolor } def
+/f_plotlegend {
+	setrgbcolor
+	2 copy
+
+	yaloff neg xaloff moveto
+	basefontsize mul neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+
+	yaloff neg pointsize 1.5 mul add  xaloff moveto
+	basefontsize mul neg rmoveto
+	show
+	cf setrgbcolor
+} def
+
+% DEFINE_TIC_LABEL_FUNCTIONS
+/xtloff { basefontsize -1 mul ticout add } def
+/ytloff { basefontsize -0.25 mul ticout add } def
+/xticlabel { moveto dup stringwidth pop 2 div neg xtloff rmoveto show } def
+/yticlabel { moveto dup stringwidth pop neg ytloff add -0.25 basefontsize mul rmoveto show } def
+
+% DEFINE_TIC_FUNCTIONS
+/xtic { newx dup 0 exch 0 moveto 0 ticsize rlineto stroke xticlabel} def
+/ytic { newy 0 exch 1 index 1 index moveto ticsize 0 rlineto stroke yticlabel } def
+
+% DEFINE_DRAWING_FUNCTIONS
+
+/pfill {fill} def 
+/popen {closepath} def 
+/line {
+	newpoint lineto
+	} def 
+
+/histo {
+	newpoint moveto
+	currentpoint pop boxyzero lineto
+	stroke
+	} def 
+
+/box	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	pointdraw
+	} def
+
+/boxw	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/squ	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+	} def
+
+/squw	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/tri {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	pointdraw
+	} def
+
+/triw {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/cir {
+	newpoint pointsize 2 div 0 360 arc
+	pointdraw
+	stroke
+	} def
+
+/cirw {
+	newpoint pointsize 2 div 0 360 arc
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/errorbar	{
+	newpath
+	newpoint moveto
+	dup
+	0 exch rmoveto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	ewidth 2 div neg 0 rmoveto
+	0 exch neg 2 mul rlineto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	stroke
+	} def
+
+% SHIFT_COORDINATES
+63 652 translate
+
+% PLOT_CODE_START
+
+% DEFINE_PLOT_PARAMETERS
+/xfactor {1.4262852969954} def
+/yfactor {11.369418488125} def
+/xoffset {0} def
+/yoffset {10.792840031395} def
+/newx {1.4262852969954 mul xoffset add } def
+/newy {11.369418488125 mul yoffset add } def
+/newpoint {newy exch newx exch} def
+/xlabel {(Frequency (Hz))} def
+/ylabel {(Amplitude)} def
+/plottitle {(20160609-000_2881801.dat: channel-3)} def
+
+% DEFINE_DATA_RELATED_VALUES
+/linewidth_data {1} def
+/linewidth_error {0.5} def
+/linewidth_axes {1} def
+/plottype {cir} def
+/pointsize {3} def
+/ewidth { 26.742849318664 } def 
+/boxwidth { 53.485698637327 } def 
+/setboxwidth { 37.5 } def 
+/boxyzero {0 newy} def
+/pointdraw { pfill } def
+
+% PLOT_VALUES_GROUP_0
+c0 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0837922 newpoint moveto
+	10.016 0.0837922 line
+	20.0321 0.132425 line
+	30.0481 0.236402 line
+	40.0641 0.41331 line
+	50.0801 0.702861 line
+	60.0962 1.09392 line
+	70.1122 1.64438 line
+	80.1282 2.38511 line
+	90.1442 3.36966 line
+	100.16 4.50745 line
+	110.176 5.69444 line
+	120.192 6.6191 line
+	130.208 6.95923 line
+	140.224 6.54533 line
+	150.24 5.52373 line
+	160.256 4.21812 line
+	170.272 3.09526 line
+	180.288 2.27394 line
+	190.304 1.7472 line
+	200.321 1.41234 line
+	210.337 1.19752 line
+	220.353 1.13746 line
+	230.369 1.24953 line
+	240.385 1.36798 line
+	250.401 1.40632 line
+	260.417 1.3203 line
+	270.433 1.13155 line
+	280.449 0.90809 line
+	290.465 0.684212 line
+	300.481 0.476164 line
+	310.497 0.324773 line
+	320.513 0.237914 line
+	330.529 0.201792 line
+	340.545 0.204431 line
+	350.561 0.179634 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0837922 plottype
+	20.0321 0.132425 plottype
+	30.0481 0.236402 plottype
+	40.0641 0.41331 plottype
+	50.0801 0.702861 plottype
+	60.0962 1.09392 plottype
+	70.1122 1.64438 plottype
+	80.1282 2.38511 plottype
+	90.1442 3.36966 plottype
+	100.16 4.50745 plottype
+	110.176 5.69444 plottype
+	120.192 6.6191 plottype
+	130.208 6.95923 plottype
+	140.224 6.54533 plottype
+	150.24 5.52373 plottype
+	160.256 4.21812 plottype
+	170.272 3.09526 plottype
+	180.288 2.27394 plottype
+	190.304 1.7472 plottype
+	200.321 1.41234 plottype
+	210.337 1.19752 plottype
+	220.353 1.13746 plottype
+	230.369 1.24953 plottype
+	240.385 1.36798 plottype
+	250.401 1.40632 plottype
+	260.417 1.3203 plottype
+	270.433 1.13155 plottype
+	280.449 0.90809 plottype
+	290.465 0.684212 plottype
+	300.481 0.476164 plottype
+	310.497 0.324773 plottype
+	320.513 0.237914 plottype
+	330.529 0.201792 plottype
+	340.545 0.204431 plottype
+	350.561 0.179634 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_2
+c2 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.116384 newpoint moveto
+	10.016 0.116384 line
+	20.0321 0.209894 line
+	30.0481 0.383123 line
+	40.0641 0.659895 line
+	50.0801 1.03998 line
+	60.0962 1.39878 line
+	70.1122 1.76008 line
+	80.1282 2.15718 line
+	90.1442 2.66194 line
+	100.16 3.31939 line
+	110.176 3.87239 line
+	120.192 4.10715 line
+	130.208 3.98378 line
+	140.224 3.5845 line
+	150.24 3.20917 line
+	160.256 2.9635 line
+	170.272 2.70211 line
+	180.288 2.35428 line
+	190.304 1.8801 line
+	200.321 1.42124 line
+	210.337 1.12551 line
+	220.353 0.992126 line
+	230.369 0.90523 line
+	240.385 0.787457 line
+	250.401 0.629699 line
+	260.417 0.477738 line
+	270.433 0.385903 line
+	280.449 0.348612 line
+	290.465 0.327499 line
+	300.481 0.307975 line
+	310.497 0.268405 line
+	320.513 0.226937 line
+	330.529 0.189358 line
+	340.545 0.155063 line
+	350.561 0.111214 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.116384 plottype
+	20.0321 0.209894 plottype
+	30.0481 0.383123 plottype
+	40.0641 0.659895 plottype
+	50.0801 1.03998 plottype
+	60.0962 1.39878 plottype
+	70.1122 1.76008 plottype
+	80.1282 2.15718 plottype
+	90.1442 2.66194 plottype
+	100.16 3.31939 plottype
+	110.176 3.87239 plottype
+	120.192 4.10715 plottype
+	130.208 3.98378 plottype
+	140.224 3.5845 plottype
+	150.24 3.20917 plottype
+	160.256 2.9635 plottype
+	170.272 2.70211 plottype
+	180.288 2.35428 plottype
+	190.304 1.8801 plottype
+	200.321 1.42124 plottype
+	210.337 1.12551 plottype
+	220.353 0.992126 plottype
+	230.369 0.90523 plottype
+	240.385 0.787457 plottype
+	250.401 0.629699 plottype
+	260.417 0.477738 plottype
+	270.433 0.385903 plottype
+	280.449 0.348612 plottype
+	290.465 0.327499 plottype
+	300.481 0.307975 plottype
+	310.497 0.268405 plottype
+	320.513 0.226937 plottype
+	330.529 0.189358 plottype
+	340.545 0.155063 plottype
+	350.561 0.111214 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_4
+c4 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0894288 newpoint moveto
+	10.016 0.0894288 line
+	20.0321 0.128911 line
+	30.0481 0.19893 line
+	40.0641 0.298269 line
+	50.0801 0.430848 line
+	60.0962 0.617848 line
+	70.1122 0.902401 line
+	80.1282 1.30385 line
+	90.1442 1.80681 line
+	100.16 2.4816 line
+	110.176 3.35769 line
+	120.192 4.37928 line
+	130.208 5.3206 line
+	140.224 5.80597 line
+	150.24 5.63919 line
+	160.256 4.9448 line
+	170.272 4.01726 line
+	180.288 3.21179 line
+	190.304 2.59654 line
+	200.321 2.07201 line
+	210.337 1.58134 line
+	220.353 1.1359 line
+	230.369 0.821219 line
+	240.385 0.683792 line
+	250.401 0.682545 line
+	260.417 0.742873 line
+	270.433 0.76867 line
+	280.449 0.71217 line
+	290.465 0.579584 line
+	300.481 0.421655 line
+	310.497 0.304113 line
+	320.513 0.249857 line
+	330.529 0.245393 line
+	340.545 0.257744 line
+	350.561 0.274288 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0894288 plottype
+	20.0321 0.128911 plottype
+	30.0481 0.19893 plottype
+	40.0641 0.298269 plottype
+	50.0801 0.430848 plottype
+	60.0962 0.617848 plottype
+	70.1122 0.902401 plottype
+	80.1282 1.30385 plottype
+	90.1442 1.80681 plottype
+	100.16 2.4816 plottype
+	110.176 3.35769 plottype
+	120.192 4.37928 plottype
+	130.208 5.3206 plottype
+	140.224 5.80597 plottype
+	150.24 5.63919 plottype
+	160.256 4.9448 plottype
+	170.272 4.01726 plottype
+	180.288 3.21179 plottype
+	190.304 2.59654 plottype
+	200.321 2.07201 plottype
+	210.337 1.58134 plottype
+	220.353 1.1359 plottype
+	230.369 0.821219 plottype
+	240.385 0.683792 plottype
+	250.401 0.682545 plottype
+	260.417 0.742873 plottype
+	270.433 0.76867 plottype
+	280.449 0.71217 plottype
+	290.465 0.579584 plottype
+	300.481 0.421655 plottype
+	310.497 0.304113 plottype
+	320.513 0.249857 plottype
+	330.529 0.245393 plottype
+	340.545 0.257744 plottype
+	350.561 0.274288 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_5
+c5 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0507131 newpoint moveto
+	10.016 0.0507131 line
+	20.0321 0.0610486 line
+	30.0481 0.0857883 line
+	40.0641 0.133414 line
+	50.0801 0.244879 line
+	60.0962 0.462628 line
+	70.1122 0.815207 line
+	80.1282 1.31362 line
+	90.1442 1.90643 line
+	100.16 2.52222 line
+	110.176 3.19701 line
+	120.192 3.90432 line
+	130.208 4.81169 line
+	140.224 5.91934 line
+	150.24 7.06289 line
+	160.256 7.91683 line
+	170.272 8.17365 line
+	180.288 7.7308 line
+	190.304 6.86485 line
+	200.321 5.82867 line
+	210.337 4.84263 line
+	220.353 3.92246 line
+	230.369 3.03748 line
+	240.385 2.21129 line
+	250.401 1.56318 line
+	260.417 1.13729 line
+	270.433 0.885474 line
+	280.449 0.736251 line
+	290.465 0.612123 line
+	300.481 0.50927 line
+	310.497 0.433381 line
+	320.513 0.378869 line
+	330.529 0.352936 line
+	340.545 0.343128 line
+	350.561 0.325553 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0507131 plottype
+	20.0321 0.0610486 plottype
+	30.0481 0.0857883 plottype
+	40.0641 0.133414 plottype
+	50.0801 0.244879 plottype
+	60.0962 0.462628 plottype
+	70.1122 0.815207 plottype
+	80.1282 1.31362 plottype
+	90.1442 1.90643 plottype
+	100.16 2.52222 plottype
+	110.176 3.19701 plottype
+	120.192 3.90432 plottype
+	130.208 4.81169 plottype
+	140.224 5.91934 plottype
+	150.24 7.06289 plottype
+	160.256 7.91683 plottype
+	170.272 8.17365 plottype
+	180.288 7.7308 plottype
+	190.304 6.86485 plottype
+	200.321 5.82867 plottype
+	210.337 4.84263 plottype
+	220.353 3.92246 plottype
+	230.369 3.03748 plottype
+	240.385 2.21129 plottype
+	250.401 1.56318 plottype
+	260.417 1.13729 plottype
+	270.433 0.885474 plottype
+	280.449 0.736251 plottype
+	290.465 0.612123 plottype
+	300.481 0.50927 plottype
+	310.497 0.433381 plottype
+	320.513 0.378869 plottype
+	330.529 0.352936 plottype
+	340.545 0.343128 plottype
+	350.561 0.325553 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_7
+c7 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0827563 newpoint moveto
+	10.016 0.0827563 line
+	20.0321 0.0973829 line
+	30.0481 0.117151 line
+	40.0641 0.159065 line
+	50.0801 0.244006 line
+	60.0962 0.377751 line
+	70.1122 0.674929 line
+	80.1282 1.20099 line
+	90.1442 1.83483 line
+	100.16 2.50695 line
+	110.176 3.02028 line
+	120.192 3.5522 line
+	130.208 4.63321 line
+	140.224 6.48389 line
+	150.24 8.86457 line
+	160.256 10.8345 line
+	170.272 11.244 line
+	180.288 9.89687 line
+	190.304 7.34705 line
+	200.321 4.75405 line
+	210.337 3.00122 line
+	220.353 2.12965 line
+	230.369 1.79249 line
+	240.385 1.56555 line
+	250.401 1.28928 line
+	260.417 1.07914 line
+	270.433 0.953256 line
+	280.449 0.89202 line
+	290.465 0.838126 line
+	300.481 0.735689 line
+	310.497 0.643372 line
+	320.513 0.585069 line
+	330.529 0.577757 line
+	340.545 0.586785 line
+	350.561 0.647426 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0827563 plottype
+	20.0321 0.0973829 plottype
+	30.0481 0.117151 plottype
+	40.0641 0.159065 plottype
+	50.0801 0.244006 plottype
+	60.0962 0.377751 plottype
+	70.1122 0.674929 plottype
+	80.1282 1.20099 plottype
+	90.1442 1.83483 plottype
+	100.16 2.50695 plottype
+	110.176 3.02028 plottype
+	120.192 3.5522 plottype
+	130.208 4.63321 plottype
+	140.224 6.48389 plottype
+	150.24 8.86457 plottype
+	160.256 10.8345 plottype
+	170.272 11.244 plottype
+	180.288 9.89687 plottype
+	190.304 7.34705 plottype
+	200.321 4.75405 plottype
+	210.337 3.00122 plottype
+	220.353 2.12965 plottype
+	230.369 1.79249 plottype
+	240.385 1.56555 plottype
+	250.401 1.28928 plottype
+	260.417 1.07914 plottype
+	270.433 0.953256 plottype
+	280.449 0.89202 plottype
+	290.465 0.838126 plottype
+	300.481 0.735689 plottype
+	310.497 0.643372 plottype
+	320.513 0.585069 plottype
+	330.529 0.577757 plottype
+	340.545 0.586785 plottype
+	350.561 0.647426 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_8
+c8 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.134784 newpoint moveto
+	10.016 0.134784 line
+	20.0321 0.172815 line
+	30.0481 0.227236 line
+	40.0641 0.304764 line
+	50.0801 0.434258 line
+	60.0962 0.609605 line
+	70.1122 0.836106 line
+	80.1282 1.13985 line
+	90.1442 1.45386 line
+	100.16 1.80378 line
+	110.176 2.2341 line
+	120.192 2.7629 line
+	130.208 3.6632 line
+	140.224 4.84074 line
+	150.24 6.03313 line
+	160.256 6.76513 line
+	170.272 6.552 line
+	180.288 5.48078 line
+	190.304 4.06049 line
+	200.321 2.79161 line
+	210.337 2.10815 line
+	220.353 1.79407 line
+	230.369 1.61593 line
+	240.385 1.40875 line
+	250.401 1.1417 line
+	260.417 0.926094 line
+	270.433 0.78158 line
+	280.449 0.659907 line
+	290.465 0.568428 line
+	300.481 0.48219 line
+	310.497 0.425072 line
+	320.513 0.404287 line
+	330.529 0.416767 line
+	340.545 0.433934 line
+	350.561 0.391283 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.134784 plottype
+	20.0321 0.172815 plottype
+	30.0481 0.227236 plottype
+	40.0641 0.304764 plottype
+	50.0801 0.434258 plottype
+	60.0962 0.609605 plottype
+	70.1122 0.836106 plottype
+	80.1282 1.13985 plottype
+	90.1442 1.45386 plottype
+	100.16 1.80378 plottype
+	110.176 2.2341 plottype
+	120.192 2.7629 plottype
+	130.208 3.6632 plottype
+	140.224 4.84074 plottype
+	150.24 6.03313 plottype
+	160.256 6.76513 plottype
+	170.272 6.552 plottype
+	180.288 5.48078 plottype
+	190.304 4.06049 plottype
+	200.321 2.79161 plottype
+	210.337 2.10815 plottype
+	220.353 1.79407 plottype
+	230.369 1.61593 plottype
+	240.385 1.40875 plottype
+	250.401 1.1417 plottype
+	260.417 0.926094 plottype
+	270.433 0.78158 plottype
+	280.449 0.659907 plottype
+	290.465 0.568428 plottype
+	300.481 0.48219 plottype
+	310.497 0.425072 plottype
+	320.513 0.404287 plottype
+	330.529 0.416767 plottype
+	340.545 0.433934 plottype
+	350.561 0.391283 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_9
+c9 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0741348 newpoint moveto
+	10.016 0.0741348 line
+	20.0321 0.10601 line
+	30.0481 0.191173 line
+	40.0641 0.336019 line
+	50.0801 0.522712 line
+	60.0962 0.73438 line
+	70.1122 1.04825 line
+	80.1282 1.47665 line
+	90.1442 2.08581 line
+	100.16 2.82821 line
+	110.176 3.57187 line
+	120.192 4.20969 line
+	130.208 4.60392 line
+	140.224 4.65043 line
+	150.24 4.35061 line
+	160.256 3.74176 line
+	170.272 3.05723 line
+	180.288 2.52822 line
+	190.304 2.22247 line
+	200.321 2.05102 line
+	210.337 1.83069 line
+	220.353 1.48182 line
+	230.369 1.06012 line
+	240.385 0.697349 line
+	250.401 0.486199 line
+	260.417 0.424406 line
+	270.433 0.448676 line
+	280.449 0.5014 line
+	290.465 0.556742 line
+	300.481 0.568611 line
+	310.497 0.515353 line
+	320.513 0.430677 line
+	330.529 0.335558 line
+	340.545 0.257403 line
+	350.561 0.298488 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0741348 plottype
+	20.0321 0.10601 plottype
+	30.0481 0.191173 plottype
+	40.0641 0.336019 plottype
+	50.0801 0.522712 plottype
+	60.0962 0.73438 plottype
+	70.1122 1.04825 plottype
+	80.1282 1.47665 plottype
+	90.1442 2.08581 plottype
+	100.16 2.82821 plottype
+	110.176 3.57187 plottype
+	120.192 4.20969 plottype
+	130.208 4.60392 plottype
+	140.224 4.65043 plottype
+	150.24 4.35061 plottype
+	160.256 3.74176 plottype
+	170.272 3.05723 plottype
+	180.288 2.52822 plottype
+	190.304 2.22247 plottype
+	200.321 2.05102 plottype
+	210.337 1.83069 plottype
+	220.353 1.48182 plottype
+	230.369 1.06012 plottype
+	240.385 0.697349 plottype
+	250.401 0.486199 plottype
+	260.417 0.424406 plottype
+	270.433 0.448676 plottype
+	280.449 0.5014 plottype
+	290.465 0.556742 plottype
+	300.481 0.568611 plottype
+	310.497 0.515353 plottype
+	320.513 0.430677 plottype
+	330.529 0.335558 plottype
+	340.545 0.257403 plottype
+	350.561 0.298488 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_10
+c10 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0613825 newpoint moveto
+	10.016 0.0613825 line
+	20.0321 0.0762705 line
+	30.0481 0.110696 line
+	40.0641 0.196817 line
+	50.0801 0.333005 line
+	60.0962 0.545719 line
+	70.1122 0.865611 line
+	80.1282 1.41152 line
+	90.1442 2.30418 line
+	100.16 3.42679 line
+	110.176 4.52459 line
+	120.192 5.23961 line
+	130.208 5.29158 line
+	140.224 4.87767 line
+	150.24 4.28328 line
+	160.256 3.69317 line
+	170.272 3.23571 line
+	180.288 2.76162 line
+	190.304 2.2614 line
+	200.321 1.86104 line
+	210.337 1.61455 line
+	220.353 1.52705 line
+	230.369 1.56679 line
+	240.385 1.63078 line
+	250.401 1.67548 line
+	260.417 1.68364 line
+	270.433 1.64947 line
+	280.449 1.52462 line
+	290.465 1.40184 line
+	300.481 1.33606 line
+	310.497 1.36351 line
+	320.513 1.47904 line
+	330.529 1.64431 line
+	340.545 1.79933 line
+	350.561 2.09799 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0613825 plottype
+	20.0321 0.0762705 plottype
+	30.0481 0.110696 plottype
+	40.0641 0.196817 plottype
+	50.0801 0.333005 plottype
+	60.0962 0.545719 plottype
+	70.1122 0.865611 plottype
+	80.1282 1.41152 plottype
+	90.1442 2.30418 plottype
+	100.16 3.42679 plottype
+	110.176 4.52459 plottype
+	120.192 5.23961 plottype
+	130.208 5.29158 plottype
+	140.224 4.87767 plottype
+	150.24 4.28328 plottype
+	160.256 3.69317 plottype
+	170.272 3.23571 plottype
+	180.288 2.76162 plottype
+	190.304 2.2614 plottype
+	200.321 1.86104 plottype
+	210.337 1.61455 plottype
+	220.353 1.52705 plottype
+	230.369 1.56679 plottype
+	240.385 1.63078 plottype
+	250.401 1.67548 plottype
+	260.417 1.68364 plottype
+	270.433 1.64947 plottype
+	280.449 1.52462 plottype
+	290.465 1.40184 plottype
+	300.481 1.33606 plottype
+	310.497 1.36351 plottype
+	320.513 1.47904 plottype
+	330.529 1.64431 plottype
+	340.545 1.79933 plottype
+	350.561 2.09799 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_11
+c11 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0582565 newpoint moveto
+	10.016 0.0582565 line
+	20.0321 0.0700271 line
+	30.0481 0.100306 line
+	40.0641 0.148988 line
+	50.0801 0.222756 line
+	60.0962 0.331304 line
+	70.1122 0.504884 line
+	80.1282 0.732948 line
+	90.1442 0.990537 line
+	100.16 1.30803 line
+	110.176 1.7304 line
+	120.192 2.22036 line
+	130.208 2.75616 line
+	140.224 3.23283 line
+	150.24 3.61929 line
+	160.256 3.88712 line
+	170.272 3.92842 line
+	180.288 3.65931 line
+	190.304 3.06611 line
+	200.321 2.30506 line
+	210.337 1.65097 line
+	220.353 1.36006 line
+	230.369 1.50876 line
+	240.385 1.93504 line
+	250.401 2.3328 line
+	260.417 2.5085 line
+	270.433 2.30541 line
+	280.449 1.87461 line
+	290.465 1.44262 line
+	300.481 1.1855 line
+	310.497 1.12295 line
+	320.513 1.17411 line
+	330.529 1.19153 line
+	340.545 1.17984 line
+	350.561 0.959405 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0582565 plottype
+	20.0321 0.0700271 plottype
+	30.0481 0.100306 plottype
+	40.0641 0.148988 plottype
+	50.0801 0.222756 plottype
+	60.0962 0.331304 plottype
+	70.1122 0.504884 plottype
+	80.1282 0.732948 plottype
+	90.1442 0.990537 plottype
+	100.16 1.30803 plottype
+	110.176 1.7304 plottype
+	120.192 2.22036 plottype
+	130.208 2.75616 plottype
+	140.224 3.23283 plottype
+	150.24 3.61929 plottype
+	160.256 3.88712 plottype
+	170.272 3.92842 plottype
+	180.288 3.65931 plottype
+	190.304 3.06611 plottype
+	200.321 2.30506 plottype
+	210.337 1.65097 plottype
+	220.353 1.36006 plottype
+	230.369 1.50876 plottype
+	240.385 1.93504 plottype
+	250.401 2.3328 plottype
+	260.417 2.5085 plottype
+	270.433 2.30541 plottype
+	280.449 1.87461 plottype
+	290.465 1.44262 plottype
+	300.481 1.1855 plottype
+	310.497 1.12295 plottype
+	320.513 1.17411 plottype
+	330.529 1.19153 plottype
+	340.545 1.17984 plottype
+	350.561 0.959405 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_12
+c12 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0610894 newpoint moveto
+	10.016 0.0610894 line
+	20.0321 0.0762729 line
+	30.0481 0.113219 line
+	40.0641 0.17503 line
+	50.0801 0.251438 line
+	60.0962 0.319247 line
+	70.1122 0.373221 line
+	80.1282 0.45087 line
+	90.1442 0.659713 line
+	100.16 1.0677 line
+	110.176 1.56421 line
+	120.192 2.01562 line
+	130.208 2.27076 line
+	140.224 2.34229 line
+	150.24 2.33968 line
+	160.256 2.30509 line
+	170.272 2.18683 line
+	180.288 1.96451 line
+	190.304 1.67948 line
+	200.321 1.49301 line
+	210.337 1.4799 line
+	220.353 1.56615 line
+	230.369 1.60372 line
+	240.385 1.48768 line
+	250.401 1.2679 line
+	260.417 1.03288 line
+	270.433 0.885543 line
+	280.449 0.858322 line
+	290.465 0.913038 line
+	300.481 0.969495 line
+	310.497 0.979049 line
+	320.513 0.919405 line
+	330.529 0.821758 line
+	340.545 0.723778 line
+	350.561 0.954121 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0610894 plottype
+	20.0321 0.0762729 plottype
+	30.0481 0.113219 plottype
+	40.0641 0.17503 plottype
+	50.0801 0.251438 plottype
+	60.0962 0.319247 plottype
+	70.1122 0.373221 plottype
+	80.1282 0.45087 plottype
+	90.1442 0.659713 plottype
+	100.16 1.0677 plottype
+	110.176 1.56421 plottype
+	120.192 2.01562 plottype
+	130.208 2.27076 plottype
+	140.224 2.34229 plottype
+	150.24 2.33968 plottype
+	160.256 2.30509 plottype
+	170.272 2.18683 plottype
+	180.288 1.96451 plottype
+	190.304 1.67948 plottype
+	200.321 1.49301 plottype
+	210.337 1.4799 plottype
+	220.353 1.56615 plottype
+	230.369 1.60372 plottype
+	240.385 1.48768 plottype
+	250.401 1.2679 plottype
+	260.417 1.03288 plottype
+	270.433 0.885543 plottype
+	280.449 0.858322 plottype
+	290.465 0.913038 plottype
+	300.481 0.969495 plottype
+	310.497 0.979049 plottype
+	320.513 0.919405 plottype
+	330.529 0.821758 plottype
+	340.545 0.723778 plottype
+	350.561 0.954121 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_13
+c13 setrgbcolor
+	% PLOT_LINES
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0552422 newpoint moveto
+	10.016 0.0552422 line
+	20.0321 0.107026 line
+	30.0481 0.197103 line
+	40.0641 0.370289 line
+	50.0801 0.670024 line
+	60.0962 1.06141 line
+	70.1122 1.5762 line
+	80.1282 2.22306 line
+	90.1442 3.10961 line
+	100.16 4.28599 line
+	110.176 5.58602 line
+	120.192 6.63694 line
+	130.208 6.96613 line
+	140.224 6.3138 line
+	150.24 4.89505 line
+	160.256 3.21433 line
+	170.272 1.85082 line
+	180.288 1.08162 line
+	190.304 0.86588 line
+	200.321 1.00677 line
+	210.337 1.25335 line
+	220.353 1.46466 line
+	230.369 1.55788 line
+	240.385 1.48427 line
+	250.401 1.28154 line
+	260.417 1.02232 line
+	270.433 0.785259 line
+	280.449 0.617147 line
+	290.465 0.50994 line
+	300.481 0.42879 line
+	310.497 0.361838 line
+	320.513 0.311273 line
+	330.529 0.267293 line
+	340.545 0.235009 line
+	350.561 0.206701 line
+	stroke
+	closepath
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10.016 0.0552422 plottype
+	20.0321 0.107026 plottype
+	30.0481 0.197103 plottype
+	40.0641 0.370289 plottype
+	50.0801 0.670024 plottype
+	60.0962 1.06141 plottype
+	70.1122 1.5762 plottype
+	80.1282 2.22306 plottype
+	90.1442 3.10961 plottype
+	100.16 4.28599 plottype
+	110.176 5.58602 plottype
+	120.192 6.63694 plottype
+	130.208 6.96613 plottype
+	140.224 6.3138 plottype
+	150.24 4.89505 plottype
+	160.256 3.21433 plottype
+	170.272 1.85082 plottype
+	180.288 1.08162 plottype
+	190.304 0.86588 plottype
+	200.321 1.00677 plottype
+	210.337 1.25335 plottype
+	220.353 1.46466 plottype
+	230.369 1.55788 plottype
+	240.385 1.48427 plottype
+	250.401 1.28154 plottype
+	260.417 1.02232 plottype
+	270.433 0.785259 plottype
+	280.449 0.617147 plottype
+	290.465 0.50994 plottype
+	300.481 0.42879 plottype
+	310.497 0.361838 plottype
+	320.513 0.311273 plottype
+	330.529 0.267293 plottype
+	340.545 0.235009 plottype
+	350.561 0.206701 plottype
+	stroke
+	closepath
+
+% DRAW_FRAME
+cf setrgbcolor
+linewidth_axes setlinewidth
+newpath
+500 0 moveto 0 0 lineto
+0 150 lineto
+stroke
+stroke
+
+% DRAW_TICS_AND_LABELS
+/Helvetica findfont basefontsize scalefont setfont
+cf setrgbcolor
+	linewidth_axes setlinewidth
+newpath
+(0) 0 xtic
+(50) 50 xtic
+(100) 100 xtic
+(150) 150 xtic
+(200) 200 xtic
+(250) 250 xtic
+(300) 300 xtic
+(350) 350 xtic
+stroke
+newpath
+(0) 0 ytic
+(2) 2 ytic
+(4) 4 ytic
+(6) 6 ytic
+(8) 8 ytic
+(10) 10 ytic
+(12) 12 ytic
+stroke
+
+
+% DRAW_AXIS_LABELS
+/Helvetica-Bold findfont basefontsize 2 add scalefont setfont
+/yaloff { (10) stringwidth pop ticout sub basefontsize 2 div add } def
+xlabel 250 0 xaxislabel
+ylabel 75 0 yaxislabel
+
+% DRAW_PLOT_TITLE
+/Helvetica-Bold findfont basefontsize 4 add scalefont setfont
+plottitle 0 150 f_plottitle
+
+% PLOT_USERLINES_VERTICAL
+linewidth_axes setlinewidth
+newpath
+130 -0.9492869 newpoint moveto
+130 12.244 line
+[3] 0 setdash stroke
+closepath
+
+newpath
+140 -0.9492869 newpoint moveto
+140 12.244 line
+[3] 0 setdash stroke
+closepath
+
+newpath
+220 -0.9492869 newpoint moveto
+220 12.244 line
+[3] 0 setdash stroke
+closepath
+
+
+% PLOT_CODE_END
+
+% SHOW_PAGE
+showpage

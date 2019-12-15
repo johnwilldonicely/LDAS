@@ -1,0 +1,204 @@
+#!/bin/bash
+# <TAGS>programming</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+allopts=$@
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+sethead="0"
+setheadlist=""
+setpad=""
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": paste single-column files together to make a multi-column file"
+	echo " - similar to the BASH paste command, but with extra checks and options"
+	echo " - each file must have exactly one column (tab-delimited)"
+	echo "	- a file with no lines (-h 0) or a header-oonly (-h 1) can be tab-filled"
+	echo "	- missing files can also be tab-filled, and headered if -H is set"
+	echo ""
+	echo "ERRORS will be generated if:"
+	echo "	- none of the files are found"
+	echo "	- none of the files have non-header lines"
+	echo "	- any files with non-header lines do not have different line-counts"
+	echo "	- any files with non-header lines have more than one column"
+	echo ""
+	echo "USAGE: $thisprog [files] [options]"
+	echo "	[files]: quoted list of input files, each a single column"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-p: value to use as padding for missing data [$setpad]"
+	echo "	-h: do files have a header as the first line? (0=NO 1=YES) [$sethead]"
+	echo "	-H: quoted list of headers for files, if file or header is missing [$setheadlist]"
+	echo "		- only applied if -h 1"
+	echo "		- must be the same number of elements as there are input files"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" \"a.txt b.txt c.txt -h 1 -H \"dogs cats mice\" > output.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+setfiles=$1 ; shift
+let nfiles=$(echo $setfiles | wc -w)
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:p:h:H:" ; vl="pad:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-h ) sethead=$2 ; shift ;;
+		-H ) setheadlist=$2 ; shift ;;
+		-p ) setpad=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$sethead" != "0" ] && [ "$sethead" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --h ($sethead) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setheadlist" != "" ] ; then
+	if [ "$sethead" != "1" ] ; then  { echo -e "\n--- Error ["$thisprog"]: -H (header-list) defined but input is not expected to have headers (-h 0)\n" ;  exit; } ; fi
+	let nheadlist=$(echo $setheadlist | wc -w)
+	if [ $nheadlist -ne $nfiles ] ; then { echo -e "\n--- Error ["$thisprog"]: number of -H headers ($nheadlist) does not match number of input files ($nfiles)\n" ;  exit; } ; fi
+	let count=0
+	for i in $setheadlist ; do
+		let count=$count+1
+		head[$count]=$i
+	done
+fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+
+########################################################################################
+# CHECK INTEGRITY OF INPUT FILES - AT LEAST ONE MUST HAVE DATA, ALL MUST BE 1-COLUMN
+########################################################################################
+let nfilesfound=0
+let nfilesgood=0
+let t=$sethead+1
+let nlinesprev=0
+let count=0
+let goodref=0
+
+for in1 in $setfiles ; do
+	let count=$count+1
+	filename[$count]=$in1
+	let filefound[$count]=0
+	let filegood[$count]=0
+	let nlines=0
+	let maxcols=0
+
+	if [ -e $in1 ] ; then
+		let filefound[$count]=1
+		let nfilesfound=$nfilesfound+1
+		let nlines=$(tail -n +$t $in1| wc -l) # check how many lines there are, excluding the header if "-h 1" was used
+		if [ $nlines -gt 0 ] ; then
+			z=$(xe-cut1 $in1 x -c 1 -d '\t' | awk 'BEGIN{n=0}{n++;if($1>1) {print n;exit}}')
+			if [ "$z" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]: $in1 has more than one column (line $z)\n" ;  exit; } ; fi
+			# check the header - if one is expected but is blank, continue (this file remains flagged as not good)
+			let z=$(head -n 1 $in1 | awk '{print $1}' | wc -w)
+			if [ "$sethead" == "1" ] && [ $z -eq 0 ] ; then continue ; fi
+			# for all files but the first good one, make sure column-counts match
+			if [ $nfilesgood -gt 0 ] ; then
+				if [ $nlines -ne $nlinesprev ] ; then { echo -e "\n--- Error ["$thisprog"]: lines in $in1 [$nlines] does not match previous [$nlinesprev]\n" ;  exit; } ; fi
+			fi
+			# otherwise file is good - increment nfilesgood
+			let nfilesgood=$nfilesgood+1
+			let filegood[$count]=1 # marker for whether this file is good
+			nlinesprev=$nlines # remember number of lines for good files, to compare
+			let goodref=$count # marker for reference file to use as template for missing/empty files
+		fi
+	fi
+done
+
+if [ $nfilesfound -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: none of the specified files were found\n" ;  exit; } ; fi
+if [ $nfilesfound -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: none of the specified files contained non-header lines\n" ;  exit; } ; fi
+# echo "nfiles="$nfiles
+# echo "nfilesgood="$nfilesgood
+
+################################################################################
+# RE-BUILD MISSING OR EMPTY FILES FOR PASTING
+################################################################################
+let t=$sethead+1
+for ii in $(seq 1 $nfiles) ; do
+	#echo ${filefound[$ii]}":"${filegood[$ii]}
+
+	# IF FILE IS MISSING
+	if [ ${filefound[$ii]} -eq 0 ] ; then
+		if [ "$sethead" == "1" ] && [ "$setheadlist" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: ${filename[$ii]} is missing but no replacement header (-H) is specified\n" ;  exit; } ; fi
+		seq 1 $sethead | awk '{print "'${head[$ii]}'"}' > ${filename[$ii]}
+		seq 1 $nlinesprev | awk '{print "'$setpad'"}' >> ${filename[$ii]}
+
+	# IF FILE IS PRESENT BUT EMPTY OR ONLY CONTAINS A HEADER LINE
+	elif [ ${filegood[$ii]} -eq 0 ] ; then
+		# make a header line if it's required but not present
+		if [ "$sethead" == "1" ] ; then
+			let z=$(head -n 1 ${filename[$ii]} | awk '{print $1}' | wc -w)
+			# add a header if there is none at present
+			if [ $z -eq 0 ] ; then
+			 	if [ "$setheadlist" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: ${filename[$ii]} has a blank header and no replacement (-H) is specified\n" ;  exit; } ; fi
+				echo ${head[$ii]} > ${filename[$ii]}
+			fi
+		fi
+		# now add the rest of the empty lines
+		seq 1 $nlinesprev | awk '{print "'$setpad'"}' >> ${filename[$ii]}
+	fi
+done
+
+################################################################################
+# PASTE THE FILES
+################################################################################
+paste $setfiles
+
+# CLEAN UP FILES CREATED FOR PASTING PURPOSES
+for ii in $(seq 1 $nfiles) ; do
+	if [ ${filefound[$ii]} -eq 0 ] ; then rm -f ${filename[$ii]} ; fi
+done
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -1,0 +1,116 @@
+#!/bin/bash
+thisprog="xs-ldas-getseqb"
+tempfile="temp_"$thisprog ;
+rm -f $tempfile"*"
+startdir=$(pwd)
+outbase="X1"
+set_infile=""
+set_outfile=$tempfile".cmt"
+set_match="contains"
+set_verb=0
+
+mincols=3 # define the minimum number of columns which should appear on each path line
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": find sequences of comments in the .cmt files of a database"
+	echo "Calls xe-getsequence1 - check this program for more on sequence detection"
+	echo "USAGE: "$thisprog" [database] [region] [options] [sequence]"
+	echo "	[database]: name of the database (.db) file to use"
+	echo "	[region]: brain region (e.g. DHIPP, MPFC)"
+	echo "	[options]: optional arguments"
+	echo "	    -i : the input file (overrides the default)"
+	echo "	    -o : the output file (default="$set_outfile")"
+	echo "	    -m : match mode,  \"exact\" or \"contains\" (default="$set_match")"
+	echo "	[sequence]: the sequence of comments to find"
+	echo "EXAMPLE: "$thisprog" database.db HIPP -i correct.cmt START CORRECT START"
+	echo "------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo ;
+echo "------------------------------------------------------------------------------"
+echo $thisprog $@
+echo
+
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filedb=$1 ; shift ;
+region=$1; shift
+
+################################################################################
+# READ OPTIONAL ARGUMENTS
+################################################################################
+while getopts  "i:o:m:" flag ; do
+	case $flag in
+		i) set_infile=$OPTARG;;
+		o) set_outfile=$OPTARG;;
+		m) set_match=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+################################################################################
+# READ THE WORD-SEQUENCE
+################################################################################
+sequence=$@
+
+echo "Database: "$filedb
+echo "Region: "$region
+if [ ! -z $set_infile ] ; then echo "Input file: "$set_infile
+else echo "Input file: [auto]"
+fi
+echo "Output file: "$set_outfile
+echo "Match mode: "$set_match
+echo "Sequence: "$sequence
+echo
+
+if [ ! -e $filedb ] ; then { echo "	--- Error ["$thisprog"]: database file "$filedb" missing" ; exit ; } ; fi
+let n=0 ; for i in $sequence ; do let n=$n+1 ; done
+if [ $n -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: no sequence specified" ; exit ; } ; fi
+if [ $n -lt 2 ] ; then { echo "	--- Error ["$thisprog"]: sequence must have at least two elements" ; exit ; } ; fi
+
+################################################################################
+# CRAWL THROUGH THE DATABASE AND RUN THE COMMAND
+################################################################################
+let count=0
+dos2unix -q $filedb
+cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group rest ; do
+
+	# CHECK FOR BAD PATH
+	if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$filedb": "$path ; echo "1" ; echo ; exit ; } fi
+	if [ "$set_verb" == "1" ] ; then echo -n $path"  " ; fi
+
+	cd $path ;
+	echo $path
+	base=$(basename $path)
+	subname=${base%%-*}
+	subject=${subname#rat*}
+
+	if [ -z "$set_infile" ] ; then
+		channel=$(cat $base.notes| awk '$1=="CHANNEL" && $5=="'$region'"{print $2}')
+		if [ -z $channel ] ; then { echo ; echo "--- Error ["$thisprog"]: "$base".notes contains no reference to region "$region", hemisphere "$hemis ; echo ; exit ; } fi
+		cmtfile=$base"."$channel".cmt"
+    	else cmtfile=$set_infile
+	fi
+
+	if [ ! -e $cmtfile ] ; then { echo "	--- Error ["$thisprog"]: file "$cmtfile" is missing" ; exit ; } ; fi
+
+	xe-getsequence1 $cmtfile 2 $set_match $sequence &> $tempfile
+
+	grep -v "# total_sequences: " $tempfile > $set_outfile
+	grep total_sequences $tempfile
+	rm -f $tempfile
+
+	cd $startdir
+done
+
+cd $startdir
+
+exit

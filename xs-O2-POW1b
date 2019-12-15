@@ -1,0 +1,149 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+outbase="POW1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setfilecmt=""
+set_start=""
+set_pre="0"
+set_post=""
+set_window=1;
+setfftopts=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-calculate spectral amplitude for O2 recordings"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [region] [options]"
+	echo "		[db]: database file in format [path] [group]"
+	echo "		[region]: brain region to analyze - must be unique"
+	echo "VALID OPTIONS:"
+	echo "	-c specify a comment file containing window start-times [$setfilecmt]"
+	echo "		- default (unset) is to analyze the entire file"
+	echo "		- set to \"auto\" to use the .cmt file for the session"
+	echo "	-s (-start) start signal in comment file to align windows to [$set_start]"
+	echo "	-p (-pre) time (s) to capture before the start-signal [$set_pre]"
+	echo "	-d (-post) time (s) to capture after the start-signal [$set_post]"
+	echo "		NOTE: pre + post should be > FFT window (-w, below)"
+	echo "	-w: FFT window size (seconds) [$set_window]"
+	echo "	-F: additional FFT options for xe-fftpow2, in quotes [$setfftopts]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 001-991231 R_PRL -x .3 -c auto -s _CORRECT -p 10 -d 0 "
+	echo "OUTPUT: "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# SAVE AND PRINT THE COMMAND LINE
+########################################################################################
+command_line=$@ ;
+echo
+echo "################################################################################"
+echo $thisprog $command_line
+echo $date $start_time
+echo "################################################################################"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+setregion=$1; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+#########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="c:s:p:d:w:F:"
+vl="verb:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-c ) setfilecmt=$2 ; shift ;;
+		-s ) set_start=$2 ; shift ;;
+		-p ) set_pre=$2 ; shift ;;
+		-d ) set_post=$2 ; shift ;;
+		-w ) set_window=$2 ; shift ;;
+		-F ) setfftopts=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+
+################################################################################
+# PERFORM A LOOP ON A DATABASE FILE WITHOUT USING WHILE READ
+################################################################################
+dos2unix -q $filedb
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+rm -f $outbase* # remove existing output files
+let count1=0    # initialize counter
+
+for dbline in $dblist ; do
+	cd $start_dir
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; exit ; } fi
+	if [ "$group" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing group in $filedb for path $path" ; exit ; } fi
+	cd $path
+
+	subject=$(xe-getkey *notes SUBJECT)
+	date=$(xe-getkey *notes DATE)
+	base=$subject"-"$date
+
+	echo ; echo $path
+	xs-ldas-$outbase $base $setregion -c "$setfilecmt" -s "$set_start" -p "$set_pre" -d "$set_post" -w "$set_window" -F "$setfftopts"
+
+
+done
+cd $start_dir
+
+################################################################################
+# CONCATENATE THE RESULTS
+################################################################################
+
+xs-collate1 $filedb $outbase"_fft.txt"
+xs-collate1 $filedb $outbase"_time.txt"
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -line 1 -ps 0 -ew 0 -xscale .45 -legend 1 -lwd 0.25"
+xe-cut1 $infile group,freq,amp |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "Frequency (Hz)" -ylabel "Amplitude (uA)" -out $outbase"_fft.ps"
+
+
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

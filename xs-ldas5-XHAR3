@@ -1,0 +1,292 @@
+#!/bin/bash
+# <TAGS> taini </TAGS>
+
+allopts=$@
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+setnorm="-1"
+setflo="0.00"
+setfhi="0.05"
+setband="gamma"
+#setband="beta"
+setomit=""
+
+setnorm1="3"
+setnorm2="2"
+setn1="-60"
+setn2="-30"
+setbin="5"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": analyse XHAR1b output: coherence (inflection, pre & post withdrawal)"
+	echo "	- run this in the Analysis folder"
+	echo "	- xs-ldas5-XHAR1b must be run first"
+	echo "USAGE: $thisprog [analysis] [options]"
+	echo "	[analysis]: POW or COH "
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--omit: CSV list of subjects to omit [$setomit]"
+	echo "REQUIRES: xs-ldas5-XHAR1b must be run first"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "...options for by-week plots"
+	echo "	--norm2: by-date normalisation (see xe-normrow2) [$setnorm2]"
+	echo "...options within-trial plots"
+	echo "	--bin: bin-size (seconds) [$setbin]"
+	echo "	--norm1: within-trial normalisation (see xe-norm3) [$setnorm1]"
+	echo "	--n1: start of normalisation zone (week-number)) [$setn1]"
+	echo "	--n2: end of normalisation zone (week-number) [$setn2]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" COH --norm 2"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setanalysis=$1 ; shift
+if [ "$setanalysis" != "POW" ] && [ "$setanalysis" != "COH" ] ; then
+	{ echo -e "\n--- Error ["$thisprog"]: invalid analysis ($setanalysis) -  must be POW or COH\n" ;  exit; }
+fi
+# OPTIONAL ARGUMENT HANDLING
+vs="s:b:v:c:" ; vl="verb:,clean:,omit:,bin:,norm1:,norm2:,n1:,n2:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--omit ) setomit=$2 ; shift ;;
+		--bin ) setbin=$2 ; shift ;;
+		--norm1 ) setnorm1=$2 ; shift ;;
+		--norm2 ) setnorm2=$2 ; shift ;;
+		--n1 ) setn1=$2 ; shift ;;
+		--n2 ) setn2=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+# save the list of subjects to omit
+echo $setomit | tr ',' '\n' > $tempfile".omit"
+
+################################################################################
+# SET REGIONS AND TITLES BASED ON ANALYSIS (POW OR COH)
+################################################################################
+if [ "$setanalysis" == "POW" ] ; then
+	listregions=$(ls XHAR1_POW_*_bands.txt -1 --color=never | grep -v summary | cut -f 3 -d _)
+	basetitle="evoked $setband power"
+elif [ "$setanalysis" == "COH" ] ; then
+	listregions=$(ls XHAR1_COH_*_*_bands.txt -1 --color=never | cut -f 3,4 -d _)
+	basetitle="evoked $setband coherence"
+fi
+if [ "$setnorm2" == "-1" ]  ; then settitle=$basetitle": " ; fi
+if [ "$setnorm2" == "0" ]  ; then settitle=$basetitle"-0-1: " ; fi
+if [ "$setnorm2" == "1" ]  ; then settitle=$basetitle"-Z: " ; fi
+if [ "$setnorm2" == "2" ]  ; then settitle=$basetitle"-change: " ; fi
+if [ "$setnorm2" == "3" ]  ; then settitle=$basetitle"-ratio: " ; fi
+
+
+
+# PLOT TRIAL TIMECOURSE, GROUP-AVERAGES #########################################
+# uses setbin, setnorm, setn1, setn2, and listregionpairs
+plotfile3="XHAR3_summary_"$setanalysis"_"$setband"_trial.ps"
+echo -e "\n...plotting trials ($setanalysis)..."
+
+# for now, as there is no band loop internally
+band=$setband
+for region in $listregions ; do
+	in1="XHAR1_"$setanalysis"_"$region"_bands.txt"
+	echo -e "\t# infile="$in1
+	tmin=$(xe-cut1 $in1 time -o 1 | sort -nu | head -n 1)
+	tmax=$(xe-cut1 $in1 time -o 1 | sort -nu | tail -n 1)
+	ymin=$(xe-cut1 $in1 $band -o 1 | grep -v nan | sort -nu | head -n 1)
+	ymax=$(xe-cut1 $in1 $band -o 1 | grep -v nan | sort -nu | tail -n 1)
+	listdnames=$(xe-cut1 $in1 dname -o 1| sort -nu)
+	plotopts="-line 1 -ps 5 -cg 1 -cx 2 -cy 4 -ce 6 -ew .1 -xint 15 -xscale .25 -yscale .25 -font 8 -vline 0,$setn1,$setn2 -legend 1"
+	plotlist1=""
+
+	if [ "setn1" != "" ] ; then n1=$setn1 ; else n1=$tmin; fi
+	if [ "setn2" != "" ] ; then n2=$setn2 ; else n2=$tmax; fi
+	# get time of first good sample - for coherence, there are usually some nan's at the start
+	# these nan's will not pass statsgrp3, meaning the n1 offset will be off without correction
+	x=$(xe-cut1 $in1 time,theta -o 1 | xe-checkisnum2 stdin -t 1 | head -n 1 | cut -f 1)
+
+	plotlist1=""
+	let count1=0
+	out2=$tempfile"."$region".txt"
+	for dname in $listdnames ; do
+		let count1=$count1+1
+		out1=$tempfile"_"$count1".txt"
+		plotfile1=$tempfile"_"$count1".ps"
+		plotlist1=$plotlist1" "$plotfile1
+		if [ $count1 -eq 1 ] ; then title="$basetitle:$region" ; else title="" ; fi
+		xl="Wk:$dname Time (seconds)"
+		yl="$setanalysis ($band)"
+		# make a temporary file  for the region / date / band
+		xe-dbmatch1 $in1 dname $dname |
+			xe-cut1 stdin subject,dname,group,time,$band > $tempfile
+		# normalise to the baseline (if required) and bin
+		xe-repeated1 $tempfile subject,dname,group "time" $band -interp 1 -norm $setnorm1 -n1 $setn1 -n2 $setn2 -bin $setbin |
+#			xe-cut1 stdin subject,time,$band |
+			xe-cut1 stdin group,time,$band |
+			xe-statsgrp2 stdin -cg1 1 -cg2 2 -cy 3 |
+			xe-plottable1 stdin $plotopts -title "$title" -xlabel "$xl" -ylabel "$yl" -out $plotfile1
+			xs-plotmod1 $plotfile1 --legend table_groupnames.txt --out 1
+
+		# save normalised but un-binned output to $out2
+		if [ $count1 -eq 1 ] ; then
+			xe-repeated1 $tempfile subject,dname,group "time" $band -interp 1 -norm $setnorm1 -n1 $setn1 -n2 $setn2 -bin 0  > $out2
+		else
+			xe-repeated1 $tempfile subject,dname,group "time" $band -interp 1 -norm $setnorm1 -n1 $setn1 -n2 $setn2 -bin 0 | tail -n +2 >> $out2
+		fi
+	done # END OF LOOP: DNAME
+	plotfile2=$tempfile"_"$region".ps"
+	plotlist2=$plotlist2" "$plotfile2
+	xe-plotmerge1 $plotlist1 -xo 90 -xmax 3 -xinc 180 -yinc 180
+	mv "temp_xe-plotmerge1.001.ps" $plotfile2
+	rm -f $plotlist1
+
+done # END OF LOOP: REGION
+xe-plotmerge2 $plotlist2 > $plotfile3
+rm -f $plotlist1
+rm -f $plotlist2
+rm -f "temp_xe-plotmerge1."*".ps"
+echo "Summary sent to "$plotfile3
+
+################################################################################
+# ANALYSE EVENT-RELATED INFLECTIONS IN POWER/COHERENCE
+# - uses the already-normalised output files from the previous step
+# - note that for coherence, "region" is actually an underscore-separated pair
+################################################################################
+echo -e "\n...plotting inflection-results ($setanalysis)..."
+let count=0
+plotlist1=""
+plotlist2=""
+for region in $listregions ; do
+
+	echo -e "\tregion: $region"
+	in1=$tempfile"."$region".txt"
+	if [ ! -e "$in1" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $in1\n" ;  exit; } ; fi
+	if [ ! -s "$in1" ] ; then { echo -e "\n--- Error ["$thisprog"]: $in1 is empty\n" ;  exit; } ; fi
+
+	listsubjects=$(xe-cut1 $in1 subject -o 1 -s 1 | sort -nu)
+	listdnames=$(xe-cut1 $in1 dname -o 1 -s 1 | sort -nu)
+
+	echo -e "subject\tdname\tsign1\ttime1\tval1\tsign2\ttime2\tval2\tvaldiff" > $tempfile".4"
+
+	for subject in $listsubjects ; do
+		z=$(echo $subject|tr ' ' '\n'| grep -wf $tempfile".omit" | wc -l) # skip subjects set for omit
+		if [ $z -gt 0 ] ; then continue ; fi
+	for dname in $listdnames ; do
+		#if [ "$dname" == "5" ] ; then continue ; fi
+		xmin=$(xe-cut1 $in1 "time" -o 1 -s 1 | head -n 1)
+		xmax=$(xe-cut1 $in1 "time" -o 1 -s 1 | tail -n 1)
+		setmul=4
+		sr2=$(echo "scale=12; 1.00 * $setmul" |bc)
+
+		xe-cut1 $in1 subject,group,dname,time,$setband |
+			xe-dbmatch1 stdin subject $subject |
+			xe-dbmatch1 stdin dname $dname |
+			xe-cut1 stdin time,$setband |
+			xe-statsgrp1 stdin |
+			xe-cut1 stdin mean -o 1 -s 1 > $tempfile".1"
+
+		if [ ! -s $tempfile".1" ] ; then echo -e "\t$subject: week-$dname missing" ; continue ; fi
+
+		# make sure there is valid data for this subject:date
+		let z=$(xe-statsd1 $tempfile".1" | xe-getkey stdin N)
+		if [ $z -eq 0 ] ; then echo "--- Warning [$thisprog]: no valid data for subject $subject week $dname" ; continue ; fi
+
+		# detect the inflections
+		xe-curveinflect1 $tempfile".1" -sr 1.00 -off $xmin -mul $setmul -low $setflo -high $setfhi > $tempfile".2"
+
+		# save the inflections either side of zero, and the difference
+		rm -f $tempfile".3"
+		let z=$(cat $tempfile".2" | wc -l)
+		if [ $z -gt 0 ] ; then
+			tail -n +2 $tempfile".2" |
+			awk '{if($2>0) { print "'$subject'\t'$dname'\t"p1"\t"p2"\t"p3"\t"$1"\t"$2"\t"$3"\t"($3-p3); exit } p1=$1;p2=$2;p3=$3}' > $tempfile".3"
+			cat $tempfile".3" >> $tempfile".4"
+		else
+			echo -e "$subject\t$dname\t-\t-\t-\t-\t-\t-\t-" >> $tempfile".4"
+		fi
+
+		# # generate example plot
+		# if [ "$subject" == "33327" ] &&  [ "$dname" == "10" ] ; then
+		# 	cat $tempfile".3"
+		# 	list=$(xe-cut1 $tempfile".3" -f 3,5 | tr '\t' ',')
+		# 	plotopts="-xlabel Time -ylabel Coherence -line 1 -ps 0 -yscale .15 -ymin .06 -ymax .2  -vline 0,$list"
+		# 	xe-oversample1 $tempfile".1" -sr 1.00 -mul 1 -low 0 -high 0 -verb 1 |
+		# 		xe-timestamp1 stdin -sf 1.0 -o $xmin |
+		# 		xe-plottable1 stdin $plotopts -out plot.001.ps
+		#
+		# 	xe-oversample1 $tempfile".1" -sr 1.00 -mul $setmul -low $setflo -high $setfhi |
+		# 		xe-timestamp1 stdin -sf $sr2 -o $xmin |
+		# 		xe-plottable1 stdin $plotopts -out plot.002.ps
+		# 	xe-plotmerge1 plot.001.ps plot.002.ps -xinc 220
+		# 	exit
+		# fi
+
+	done # end of dname loop
+	done # end of subject loop
+
+	# get columns after subject
+	z=$(head -n 1 $tempfile".4" | tr '\t' '\n' | grep -v subject | tr '\n' ',')
+
+	outfile="XHAR3_"$setanalysis"_"$setband"_"$region".txt"
+	xe-dbmatch2 $tempfile".4" subject "table_groups.txt" group |
+	xe-cut1 stdin subject,group,$z > $outfile
+
+	#--------------------------------------------------------------------------------
+	# FINAL TABLE FOR THIS REGION-PAIR IS NOW IN $OUTFILE
+	# For each measure, plot the change across time
+
+	let count=$count+1
+	xs-plotsubgrptime $outfile dname val1,val2,valdiff --norm $setnorm2 --title "$settitle $region" --xlabel "Week post-SNL" --out $tempfile"_"$count
+
+	plotlist1=$(ls $tempfile"_"$count"."*".ps" --color=never)
+	plotlist2=$plotlist2" "$plotlist1
+
+done # end of pair loop
+
+
+plotfile3="XHAR3_summary_"$setanalysis"_"$setband".ps"
+xe-plotmerge2 $plotlist2 > $plotfile3
+echo "Summary sent to "$plotfile3
+rm -f $plotlist2
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

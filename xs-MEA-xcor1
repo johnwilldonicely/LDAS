@@ -1,0 +1,126 @@
+#!/bin/bash
+# <TAGS>MEA</TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+rm -f $tempfile*
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setbin=600
+setrate=1000
+setdur=""
+setout=$tempfile
+
+if [ $# -lt 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog":(MEA) compare event-rate in first and last data-block"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [.clubt] [.club] [map]"
+	echo ""
+	echo "	[.clubt]: binary file (64-bit int) holding time (sample-numbers)"
+	echo "	[.club]: binary file (16-bit int) holding matching channel IDs"
+	echo "	[map]: text file describing electrode layout. Example:"
+	echo ""
+	echo "		11 21 31 41 51 61 71 81"
+	echo "		12 22 32 42 52 62 72 82"
+	echo "		13 23 33 43 53 63 73 83"
+	echo "		14 24 34 44 54 64 74 84"
+	echo "		15 25 35 45 55 65 75 85"
+	echo "		16 26 36 46 56 66 76 86"
+	echo "		17 27 37 47 57 67 77 87"
+	echo "		18 28 38 48 58 68 78 88	"
+	echo ""
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-s: sample-rate (Hz) ["$setrate"]"
+	echo "	-b: size of the block (seconds) to integrate rate ["$setbin"]"
+	echo "	-d: trial duration (if unset, default = time of last event) ["$setdur"]"
+	echo "	-o: output file prefix ["$setout"]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" output.clubt output.club map.txt -b 600"
+	echo ""
+	echo "OUTPUT: "
+	echo "	[prefix]_matrix1.txt	# rates in first block"
+	echo "	[prefix]_matrix2.txt	# rates in last block"
+	echo "	[prefix]_matrix3.txt	# difference (last-first)"
+	echo "	[prefix]_summary.001.ps	# summary plot"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# REQUIRED ARGUMENT HANDLING
+inclu1=$1 ; shift
+inclu2=$1 ; shift
+inmap=$1 ; shift
+setclu=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":b:s:d:o:" flag ; do
+ 	case $flag in
+		b) setbin=$OPTARG;;
+		s) setrate=$OPTARG;;
+		d) setdur=$OPTARG;;
+		o) setout=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $inclu1 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inclu1' missing" ; echo ; exit; } fi
+if [ ! -e $inclu2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inclu2' missing" ; echo ; exit; } fi
+if [ ! -e $inmap ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inmap' missing" ; echo ; exit; } fi
+
+# IF TRIAL DURATION IS NOT SET, USE THE TIME OF THE LAST EVENT FROM ANY CHANNEL
+# NOTE THAT ACTUAL TRIAL LENGTH MIGHT BE LONGRER, BUT IF AT LEAST ONE CHANNEL HAS A LOT OF DETECTION, IT SHOULD BE CLOSE
+if [ "$setdur" == "" ] ; then setdur=$(xe-ldas5-readclub1 $inclu1 $inclu2 | tail -n 1 | cut -f 1 | xe-math_div1 stdin -v $setrate) ; fi
+
+# BUILD A LIST OF CHANNELS FROM THE MAP FILE - ENSURES OUTPUT ORDER IS CORRECT
+clulist=$(cat $inmap | tr '\n' '\t')
+
+echo "inclu1="$inclu1
+echo "inclu2="$inclu2
+echo "inmap="$inmap
+echo "setrate="$setrate
+echo "setbin="$setbin
+echo "setdur="$setdur
+
+out1=$setout"_matrix1.txt"
+rm -f $out1
+
+# GET EVENT RATES FOR EACH CHANNEL
+let count=1
+for clu in $clulist ; do
+
+	xs-autocor $inclu1 $setclu $clu -s $setrate -w .4 -b 400 -p 0 2>/dev/null
+
+	# calculate total events in histogram
+	let x=$(cat temp_xs-autocor.txt | wc -l )
+	if [ $x -gt 0 ] ; then let nevents=$(cut -f 2 temp_xs-autocor.txt | xe-math_sum1 stdin) ; else let nevents=0 ; fi
+
+	if [ $nevents -gt 0 ] ; then
+		rate1=$(awk '{print $1*$2}' temp_xs-autocor.txt | xe-math_sum1 stdin | awk '{print 1000*$1/'$nevents'}')
+		rate1=$(awk '{print $1*$2}' temp_xs-autocor.txt | xe-statsd1 stdin | grep MEAN | cut -f 2 -d " ")
+	else
+		rate1="nan"
+	fi
+	if [ $count -eq 8 ] ; then  	# assumes 8 channels per row, so if this is #8, print a newline
+		count=0
+		echo $rate1 >> $out1
+	else 				# otherwise keep printing output on the same line
+		echo -n $rate1" " >> $out1
+	fi
+	let count=$count+1
+done
+
+# PLOT THE MATRICES - AUTOSCALE THE "FIRST" AND "LAST" MATRICES TO THE SAME MAXIMUM RATE
+xe-plotmatrix1 $out1 $plotopts -xint 1 -yint 1 -xscale .2 -yscale .2 -xlabel "Channel $setclu" -zmax $zmax -out $setout".001.ps"
+
+rm -f $tempfile

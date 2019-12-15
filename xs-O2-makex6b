@@ -1,0 +1,518 @@
+#!/bin/bash
+# <TAGS> O2 </TAGS>
+
+thisprog="xs-O2-makex6b"
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+startdir=$(pwd)
+startdirshort=$(basename $startdir)
+
+logfile="log_"$thisprog"_"$(date +'%Y_%m_%d')
+
+# define default recommended integration-window size for calculating RMS power
+# 4 is recommended for oxygen-sensing assays
+rmsint=4
+# set y-range for diagnostic plots
+plotbottom=-500
+plottop=0
+autoscale=0
+# set time-units for diagnostic plots
+setunits=min
+set_start=""
+set_pre=0
+set_dur=0
+# copy comments from channel 1 to other channels? (0=no, 1=yes)
+copycomments="0"
+
+setdatefield=3
+setoutpath="../"
+
+
+if [ $# -lt 1 ]; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract data from CHART export files (tab delimited text)"
+	echo "Converts multiple CHART export files (.txt) to an LDAS database"
+	echo "	- files must be exported from CHART as tab-delimited text"
+	echo "Generates folder structure to hold database at output location"
+	echo "Default output path is just above the directory holding .txt files"
+	echo "For each CHART file:"
+	echo "	- date is derived from a 6-digit yymmdd field in the filename"
+	echo "	- file name should have fields separated by hyphens"
+	echo "	- sample-frequency is determined from the intervals in the Time column"
+	echo "	- header defines Channel Titles and number of channels"
+	echo "	- header defines Channel Ranges"
+	echo "Channel Titles (tab-separated, each title has no spaces) "
+	echo "	- must have 3 underscore-separated fields, eg. 001_R_MPFC"
+	echo "	- field#1 defines 3-digit subject id, zero-padded (eg. 001)"
+	echo "	- field#2 defines single-character hemisphere (L or R)"
+	echo "	- field#3 defines brain region (free form, but no spaces or tabs)"
+	echo "For each Channel:"
+	echo "	- generate a basename using the date from the .txt filename (sub-yymmdd)"
+	echo "	- extracts time data and comments to files with the appropriate basename"
+	echo "	- numbers channels according to order of appearance for a given subject"
+	echo "	- calculates % of good points (where NAN indicates signal clipping)"
+	echo "	- automatically interpolates data across NANs"
+	echo "	- calculates the window-integrated RMS power - finds outliers"
+	echo
+	echo "USAGE: "$thisprog" [pattern] [options]"
+	echo "	[pattern]: pattern to match for CHART files in current directory"
+	echo "		- can be a single file name, a file list, or may use wildcards"
+	echo "		- if a list or wildcards are used, should be quoted"
+	echo "		- eg. files ending in a hyphen, 6 digits and .txt: \"*-??????.txt\""
+	echo "	[options]:"
+	echo "		-f: hyphen-separated filename field containing date [$setdatefield]"
+	echo "		-c: flag: copy comments from chan.1 to other channels [unset]"
+	echo "		-w: window (sec) used to calc. RMS power [$rmsint]"
+	echo "	[extra plot options]:"
+	echo "		-b: bottom of y-axis for diagnostic plots [$plotbottom]"
+	echo "		-t: top of y-axis for diagnostic plots [$plottop]"
+	echo "		-a: flag: autoscale y-axis (overrides -b and -t) [unset]"
+	echo "		-u: time-units (hour,min,sec,ms) for diagnostic plots [$setunits]"
+	echo "		...plotmarkers..."
+	echo "		-s: start signal from comment file [unset]"
+	echo "		-d: time after start signal [unset]"
+	echo "		-p: time before start signal [unset]"
+	echo
+	echo "EXAMPLE: "$thisprog" \"*-??????.txt\" -ca -w 4"
+	echo
+	echo "OUTPUT: "
+	echo "	Log file (eg)... "
+	echo "		"$logfile
+	echo "	LDAS database containing..."
+	echo "		[base].notes file summarizing recording prameters"
+	echo "		[base].time file holding the timestamps"
+	echo "		[base].[chan].dat files holding the data for each channel"
+	echo "		[base].[chan].cmt files holding the comments for each channel"
+	echo "		[base]-rawplot.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+commandline=$thisprog" "$@
+echo
+echo "--------------------------------------------------------------------------------"
+echo $commandline
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# READ INPUT PATTERN AND GENERATE FILE LIST FILE
+################################################################################
+pattern=$1 ; shift ;
+
+listfile=$(ls 2>/dev/null $pattern)
+let x=$(echo $listfile | wc -w)
+if [ $x -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no files matching $pattern in current directory" ; echo ; exit; } ; fi
+
+###############################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+while getopts  "acw:f:b:t:u:s:p:d:" flag ; do
+	case $flag in
+		a) let autoscale=1;;
+		c) copycomments="1";;
+		w) rmsint=$OPTARG;;
+		b) plotbottom=$OPTARG;;
+		t) plottop=$OPTARG;;
+		u) setunits=$OPTARG;;
+		s) set_start=$OPTARG;;
+		d) set_dur=$OPTARG;;
+		p) set_pre=$OPTARG;;
+		f) setdatefield=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+	done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CHECK ARGUMENTS FOR VALIDITY
+if [ $(echo $rmsint|awk '{printf("%d",$1)}' ) -lt 2  ] ; then { echo ; echo "--- Error ["$thisprog"]: -w ("$rmsint") must be >2" ; echo ; exit; } ; fi
+if [ $setunits != "hour" ] && [ $setunits == "min" ] && [ $setunits == "sec" ] && [ $setunits == "ms" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid time-units ("$setunits") - must be hour,min,sec or ms" ; echo ; echo ; exit ; } ; fi
+
+
+################################################################################
+# CHECK VALIDITY OF OUTPUT PATH AND CREATE DIRECTORY STRUCTURE
+echo "Checking output location is appropriate to make new database"
+################################################################################
+cd $startdir
+cd $setoutpath
+outpath=$(pwd)
+word=Analysis ; flag=$(echo $outpath | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; cd $startdir; exit; } fi
+word=Data_Library ; flag=$(echo $outpath | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; cd $startdir; exit; } fi
+word=Data_Working ; flag=$(echo $outpath | grep $word)
+if [ "$flag" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot create experiments below a \""$word"\" directory" ; echo ; cd $startdir; exit; } fi
+
+
+
+######################################################################
+# INPUT FILE DIAGNOSTIC CHECKS - output to two files
+# - convert files from Windows to Unix format to be safe
+# 		- remove trailing carriage-return characters
+# - check the date designation in the file name
+#		- assumed format: [path]/[firstsub]-[lastsub]-[yymmdd].txt
+# 		- remove the path and last extension, then take the appropriate hyphen-delimited field as the date
+# 		- date field is defined by the $setdatefield option
+# - check the channel titles
+# 		- must have 3 fields separated by an underscore
+#		- must include a 3-digit subject in the first field
+#		- must specify either L or R in the second field
+# - check that multiple files do not include duplicate sub-yymmdd
+# 		- otherwise data in destination folders will be overwritten!
+######################################################################
+cd $startdir
+rm -f $tempfile
+rm -f $tempfile"_bases"
+rm -f $tempfile"_duplicates"
+headerfile=$tempfile"_header"
+
+for infile in $listfile ; do
+
+	echo "Checking input file" $infile
+	echo "" >> $tempfile
+	echo "infile="$infile >> $tempfile
+	dos2unix $infile 2>> $tempfile
+
+	# check the date designation in the file name
+	date=$(echo $infile |rev| cut -f 1 -d "/" | cut -f 2- -d "." |rev| cut -f $setdatefield -d "-" | xe-delimit stdin  )
+	let length=${#date}
+	if [ $length -ne 6 ] ; then
+		echo "--- Error ["$infile"]: no 6-digit date-code in field #$setdatefield of the file name" >> $tempfile
+	fi
+
+	# check that Range= field is present
+	x=$(head $infile | grep Range= | wc -l)
+	if [ $x -lt 1 ] ; then { echo "--- Error [$infile]: no line labelled \"Range=\" in file" >> $tempfile ; continue ; } fi
+
+	# save the first header line specifying channel titles - remove Windows carriage-returns and any redundant tabs
+	awk '$0~/ChannelTitle=/{print $0 ; exit}' $infile |  tr -d '\r' | xe-delimitkiller stdin -d tab > $headerfile
+	let x=$(cat $headerfile | wc -l)
+	if [ $x -lt 1 ] ; then { echo "--- Error [$infile]: no line labelled \"ChannelTitle=\" in file" >> $tempfile ; continue ; } fi
+
+	# check that channels exist, and that last line in file contains the right number of channels
+	let x=$(cat $headerfile | cut -f 2- | tr ' ' '_' | wc -w)
+	if [ $x -lt 1 ] ; then { echo "--- Error [$infile]: no channels listed on ChannelTitle line in header" >> $tempfile ; continue ; } fi
+	let y=$(tail $infile | xe-checkisnum2 stdin | tail -n 1 | tr ' ' '_' | wc -w | awk '{print $1-1}' )
+	if [ $y -lt $x ] ; then echo "--- Error [$infile]: remove blank/partial lines at end of file" >> $tempfile ; fi
+
+	# check ChannelTitle integrity
+	cat $headerfile | cut -f 2- | tr '\t' '\n' |
+		awk -F _ '{
+			if(NF!=3) print "--- Error ['$infile']: ChannelTitle \""$0"\" does not have 3 underscores"
+			else {
+				if(length($1)!=3) print "--- Error ['$infile']: ChannelTitle \""$0"\" does not start with a 3-digit subject ID"
+				if($2!="L" && $2!="R") print "--- Error ['$infile']: ChannelTitle \""$0"\" does not have a L/R hemisphere designation"
+			}
+			if($0~/ /) print "--- Error ['$infile']: ChannelTitle \""$0"\" contains a space - replace with an underscore"
+		}' >> $tempfile
+
+	# make a list of unique basenames for the current infile
+	cat $headerfile |  # get the channel title line
+		cut -f 2- | tr '\t' '\n' |  # only take fields 2-, convert tabs to newlines
+		cut -f 1 -d _ | # pull out the subject field (first field, underscore delimited)
+		sort -u |  # there will be multiple channels per subject, so just take the unique subject ids
+		awk '{print $1"-'$date'"}' >> $tempfile"_bases" # save to a file
+
+done
+
+# CHECK THE HEADER DIAGNOSTIC OUTPUT FOR CHANNELTITLE RELATED ERRORS
+if [ $(grep Error $tempfile | wc -l) -gt 0 ] ; then { echo ; grep Error $tempfile | awk '{print "\t"$0}' ; echo ; exit; } fi
+
+# CHECK THE BASENAME-OUTPUT LIST FOR DUPLICATION OF SUBJECT-DATE BASENAMES
+x=$(sort $tempfile"_bases" | uniq --all | uniq)
+if [ ! -z "$x" ] ; then
+	echo
+	echo "	--- Error ["$thisprog"]: the following basenames (sub-yymmdd) are duplicates:"
+	echo $x | tr ' ' '\n' | awk '{print "\t\t"$1}'
+	echo "	Review input file names and ChannelTitles to remove duplicate combinations"
+	echo
+	exit;
+fi
+
+# CHECK FOR INCONSISTENCY IN SAMPLE-RATE ACROSS FILES
+for i in $listfile ; do { tail -n 1000 $i | cut -f 1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | xe-getsamplefreq1 stdin | awk '{print "'$i'\t"$0}' ; } done > $tempfile
+x=$(cut -f 2 $tempfile | sort -u | wc -l)
+if [ $x -ne 1 ] ; then
+	echo
+	echo "	--- Error ["$thisprog"]: sample-rates are not consistent across input files"
+	echo "FILE SAMPLERATE" | xe-delimit stdin
+	cat $tempfile
+	exit;
+fi
+
+# CHECK THE BASENAME-OUTPUT LIST FOR OVERWRITING EXISTING DATA
+echo "Checking whether output will overwrite existing data:"
+for i in $(cat $tempfile"_bases") ; do
+	j="../Data_Library/$i"
+	if [ -e $j ] ; then echo $i ; fi
+done > $tempfile"_existing"
+
+let x=$(cat $tempfile"_existing" | wc -l)
+if [ $x -gt 0 ] ; then
+	cat $tempfile"_existing" | awk '{print "\t"$0}'
+	read -p  "--- Warning: the preceeding data will be overwritten. Continue? [y/n] " answer
+	while true ; do
+		case $answer in
+			[yY]* ) break ;;
+			*) echo ; exit ;;
+		esac
+	done
+fi
+
+
+################################################################################
+# RUN THE DATA EXTRACTION
+# - for each input file, output each channel with appropriate basenames
+# - make an Data_Library folder to hold the output (warn on existing?)
+# - make an Data_Working folder to contain the appropriate links
+################################################################################
+echo
+echo "Extracting data" ;
+echo "NOTE: an error/warning summary will follow completion..."
+echo "This could take some time: check $logfile for progress"
+echo
+
+
+# START SAVE TO LOGFILE
+{
+echo
+echo "--------------------------------------------------------------------------------"
+echo $commandline
+echo "--------------------------------------------------------------------------------"
+echo
+echo "Creating directory structure"
+cd $setoutpath
+if [ ! -e Analysis ] ; then  { echo "Making sub-directory: Analysis" ; mkdir -p Analysis ; chmod a+xr Analysis ; } fi
+if [ ! -e Data_Working ] ; then  { echo "Making sub-directory: Data_Working" ; mkdir -p Data_Working ; chmod a+xr Data_Working ; } fi
+if [ ! -e Data_Library ] ; then  { echo "Making sub-directory: Data_Library" ; mkdir -p Data_Library ; chmod a+xr Data_Library ; } fi
+
+echo "Removing files generated by previous extraction"
+cd $startdir
+rm -f ???-??????.notes
+rm -f ???-??????.time
+rm -f ???-??????.*.dat
+rm -f ???-??????.*.cmt
+# initialize the list of basenames to be made
+listbase=""
+listregion=""
+
+echo "--------------------------------------------------------------------------------"
+echo "Starting extraction"
+echo "--------------------------------------------------------------------------------"
+
+for infile in $listfile ; do
+
+	date=$(echo $infile |rev| cut -f 1 -d "/" | cut -f 2- -d "." |rev| cut -f $setdatefield -d "-" | xe-delimit stdin  )
+	listchans=$(awk '$0~/ChannelTitle=/{print $0 ; exit}' $infile | tr -d '\r' | xe-delimitkiller stdin -d tab | cut -f 2-)
+	let chancount=0
+	# make a list of subjects in the file and set the in-subject channel-counters to zero - use short version of subject ids
+	listsubj=$(echo $listchans | tr ' ' '\n' | cut -f 1 -d _ | sort -u | awk '{printf("%d ",$1)}')
+	for i in $listsubj ; do let count[$i]=0 ; done
+	# build range list
+	x=$(head $infile | grep Range= | cut -f 2- | tr '\t' '\n' | cut -f 1 -d " "  | awk '{printf("%.1f\n",$1)}')
+	let n=0; for i in $x ; do { let n=$n+1 ; listrange[$n]=$i ; } done
+
+	for chan in $listchans ; do
+		# derive basename
+		subj=$(echo $chan | cut -f 1 -d _  | awk '{printf("%d",$1)}' ) # short form of subject id for indexing arrays
+		hemis=$(echo $chan | cut -f 2 -d _  ) # hemisphere
+		region=$(echo $chan | cut -f 3 -d _  ) # brain region
+		base=$(echo $chan | cut -f 1 -d _  )"-"$date # basename - uses long 3-digit form of subject id
+		listbase=$listbase" "$base
+		listregion=$listregion" "$region
+
+		# calculate the within-subject channel number - convert to 3-digit number
+		(( count[$subj]++ )); channo=$(echo ${count[$subj]} | awk '{printf("%03d",$1)}' )
+
+		# is this the first channel to be extracted for a given subject? if so, output time and manual comments
+		if [ ${count[$subj]} -eq 1  ] ; then
+			outtime="1"
+			outmancmt="1"
+		else
+			outtime="0"
+			outmancmt="0"
+		fi
+
+		# extract data for the current channel - including time, if it hasn't been done already
+		echo "xe-O2-readchart2 $infile -chname $chan -time $outtime -tx 2 -int 0 "
+		xe-O2-readchart2 $infile -chname $chan -time $outtime -tx 2 -int 0 -mcmt $outmancmt &> $tempfile
+
+		# check the temporary log file for errors
+		cat $tempfile
+		x=$(grep -i error $tempfile)
+		if [ ! -z "$x" ] ; then exit ; fi
+
+		# rename the output
+		if [ $outtime == "1" ] ; then mv temp_xe-O2-readchart2.time  $base.time ; fi
+		mv temp_xe-O2-readchart2.dat  $base.$channo.dat
+		mv temp_xe-O2-readchart2.cmt  $base.$channo.cmt
+
+		# generate a .notes header if this is the first channel for a given subject
+		notesfile=$base".notes"
+ 		if [ ${count[$subj]} -eq 1  ] ; then
+			echo $base | cut -f 1 -d - | awk '{print "SUBJECT "$1}' > $notesfile
+			echo $base | cut -f 2 -d - | awk '{print "DATE "$1" (yymmdd)"}' >> $notesfile
+			xe-getkey $tempfile Total_samples: | cut -f 2 -d - | awk '{print "N_SAMPLES "$1}' >> $notesfile
+			xe-getkey $tempfile Sample_rate: | cut -f 2 -d - | awk '{print "SAMPLE_RATE "$1" (Hz)"}' >> $notesfile
+			w=$(xe-getkey $tempfile Start_time:)
+			x=$(xe-getkey $tempfile End_time:)
+			y=$(echo $w $x | awk '{printf("%.3f\n",($2-$1))}' )
+			z=$(echo $y | awk '{printf("%.3f\n",($1/60))}' )
+			echo "START "$w" (s)" >> $notesfile
+			echo "END "$x" (s)" >> $notesfile
+			echo "DURATION "$y" (s) = "$z" min" >> $notesfile
+			echo "" >> $notesfile
+			echo "#CHANNEL no. label hemis region bottom top %good power" | xe-delimit stdin  >> $notesfile
+		fi
+
+		# calculate basic channel stats and RMS power
+		let chancount=$chancount+1
+		range=${listrange[$chancount]}
+		good=$(xe-getkey $tempfile Total_good:)
+		pgood=$(xe-getkey $tempfile Percent_good:)
+		samprate=$(xe-getsamplefreq1 $base.time)
+		power=0.00;
+		let windowsize=$(echo $rmsint $samprate | awk '{printf("%d",($1*$2))}' )
+		if [ $good -gt $windowsize ] ; then
+			power=$(cat $base.$channo.dat | xe-rms2 stdin -d 1 -ws $windowsize | awk '{printf("%.3f",$1)}')
+		elif [ $good -lt 1 ] ; then echo "	--- Warning ["$thisprog"]: no valid numbers in "$datafile
+		else echo "	--- Warning ["$thisprog"]: too few valid numbers in "$datafile" to calculate RMS power"
+		fi
+
+		echo "CHANNEL $channo $chan $hemis $region "-"$range $range $pgood $power" | xe-delimit stdin >> $notesfile
+
+	done # END OF WITHIN-FILE PER-CHANNEL LOOP
+done # END OF PER INPUT FILE LOOP
+
+
+################################################################################
+# MOVE FILES TO DESTINATION FOLDERS
+# - for each basename generated
+# 	- create an output folder in Data_Library (warn on existing?)
+# 	- update the notes file with number of channels
+# 	- create diagnostic plot
+# 	- move files to destination folder
+################################################################################
+echo ; echo "Updating notes, diagnostic plotting, and moving data to folders"
+
+# keep only the unique basnames (there will be duplicates in the list, one for each channel)
+listbase=$(echo $listbase | tr ' ' '\n' | sort -u)
+# keep only the unique regions (there will be duplicates in the list, one for each channel)
+listregion=$(echo $listregion | tr ' ' '\n' | sort -u)
+
+for base in $listbase ; do
+
+	# add N_CH to .notes file - only possible now that all channels are extracted
+	let nchans=$(ls $base*.*.dat | wc -l)
+	xs-ldas-updatenotes $base.notes N_CH $nchans
+
+	# create diagnostic plot
+	plotopts=" -xscale .2 -yscale .1 -font 6 -out "$base"-rawplot.ps "
+	if [ $autoscale -eq 0 ] ; then plotopts=$plotopts" -ymin "$plotbottom" -ymax "$plottop ; fi
+	if [ ! -z $set_start ] ; then
+		cmtfile=$base".001.cmt"; if [ ! -e $cmtfile ] ; then { echo ; echo "--- Error ["$thisprog"]: comment-file '$cmtfile' was not generated" ; echo ; exit; } ; fi
+		start=$(grep $set_start $cmtfile | head -n 1 | awk '{print $1-'$(head -n 1 $base.time)'}')
+		if [ ! -z $start ] ; then
+			x=$(echo $start $set_pre | awk '{print $1-$2}')
+			y=$(echo $start $set_dur | awk '{print $1+$2}')
+			plotopts=$plotopts" -vline $x,$start,$y"
+		fi
+	fi
+	xs-O2-plot1 $base 500 $setunits $plotopts
+
+	# move data to Data_Library sub-directories
+	dest="../Data_Library/"$base
+	if [ ! -e $dest ] ; then { echo "	Creating directory : $dest" ; mkdir $dest ; } fi
+	mv $base* $dest/
+
+done
+
+################################################################################
+# Create matching folders with links in Data_Working
+# - makes links only to folders matching ???-??????* pattern
+# - links are made to .time, .dat, .cmt and .notes files
+################################################################################
+echo ; echo "Making Data_Working directories"
+cd $outpath
+xs-O2-makelinksData_Library Data_Working ???-?????? | awk '{print "\t"$0}'
+
+################################################################################
+echo ; echo "Making master database file \"db_all.txt\""
+################################################################################
+cd $outpath/Analysis
+xs-dbmake1 ../Data_Working/ > db_all.txt
+
+################################################################################
+# Copy comments from channel-1 to other channels?
+################################################################################
+cd $outpath/Analysis
+if [ $copycomments == "1" ] ; then
+	echo "Copy comments from channel-1 to all other channels" ; echo
+	xs-O2-copycomments db_all.txt
+fi
+
+################################################################################
+echo ; echo "Collating diagnostic plots"  ; echo
+################################################################################
+cd $outpath/Analysis
+xs-plotcollate db_all.txt *rawplot.ps -xo 80 -yo 725  -xmax 4 -ymax 10 -xinc 130 -yinc 70 -scale 1 -out rawplots
+
+echo
+echo "################################################################################"
+echo "OUTPUT SUMMARY"
+echo "################################################################################"
+echo "Regions included"
+for i in $listregion ; do echo "	"$i ; done
+echo ; echo "Basenames included"
+for i in $listbase ; do echo "	"$i ; done
+echo; echo "Channel summaries: "
+
+# perhaps use this instead!
+xs-batch1 db_all.txt "grep CHANNEL *notes" |
+	cut -f 4- |
+	awk '{if($0~/*/)print $2; else print $0}' |
+	xe-delimit stdin |
+	awk 'NF>0{if(NF==1) print $0 ; else print $1"_"$2"\t"$3"\t"$4"\t"$5"\t"$6} ' |
+	xe-strsub1 stdin "hemis_region" "region" |
+	xe-strsub1 stdin "../Data_Working/" "" > $tempfile.1
+
+grep -v region $tempfile.1 |
+	awk '{if(NF==1){p=$1;print ""} else print p"\t"$0}' |
+	xe-delimit stdin  > $tempfile.2
+
+echo "base "$(grep region $tempfile.1 | head -n 1) | xe-delimit stdin
+cat $tempfile.2
+cd $startdir
+
+
+
+}&>$logfile
+# END SAVE TO LOGFILE
+
+
+
+let nwarnings=$(cat $logfile | grep -i warning | wc -l)
+let nerrors=$(cat $logfile | grep -i error | wc -l)
+if [ $nerrors -gt 0 ] ; then
+	echo "*** ALERT!! "$nerrors" errors found  - check "$logfile
+	if [ $nwarnings -gt 0 ] ; then echo "*** ALERT!! "$nwarnings" warnings found  - check "$logfile ; fi
+	echo "---------------------------------------------------------"
+	echo
+	rm -f $tempfile"_"*
+	exit
+fi
+
+
+######################################################################
+# REPORT TIME TO FINISH THE JOB
+######################################################################
+end_time=$(date +'%s')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo; echo "Time to finish job: "$s" seconds = "$m" minutes"
+echo
+
+rm -f $tempfile*
+
+exit

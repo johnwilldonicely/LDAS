@@ -1,0 +1,121 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setcol2=""
+setout=""
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": if columns match, append lines in file1 with values from file2"
+	echo "	- assumes both files have columns with headers labelling them"
+	echo "	- blank lines and lines beginning with \"#\" will be output but not appened"
+	echo "USAGE: "
+	echo "	"$thisprog" [in1] [in2] [col1]"
+	echo "		[in1]: main file - all lines will be output"
+	echo "		[in2]: file providing appended values if key-column matches [in1]"
+	echo "		[col1]: name of the key-column in [in1]"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--col2: column in [in2] to match (unset: default is same as [col1]) [$setcol2]"
+	echo "	--out: column in [in2] to output (unset: default is all) [$setout]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile1=$1 ; shift
+infile2=$1 ; shift
+setcol1=$1 ; shift
+
+if [ ! -e $infile1 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile1" ; echo ; exit; } ; fi
+if [ ! -e $infile2 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile2" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="col2:,out:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--col2 ) setcol2=$2 ; shift ;;
+		--out ) setout=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+# DETERMINE THE COLUMN TO CHECK IN INFILE2
+if [ "$setcol2" == "" ] ; then setcol2=$setcol1 ; fi
+
+# DETERMINE THE HEADER FOR INFILE1 AND CHECK THE MATCH-COLUMN EXISTS
+header1=$(xs-getheader $infile1)
+let keycol=$(echo $header1 | xe-getkeycol stdin $setcol1)
+if [ "$keycol" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no column labelled $setcol1 in $infile1" ; echo ; exit; } ; fi
+
+# CHECK THE MATCH-COLUMN EXISTS IN INFILE2
+header2=$(xs-getheader $infile2)
+let z=$(echo $header2 | xe-getkeycol stdin $setcol2)
+if [ "$z" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no column labelled $setcol2 in $infile2" ; echo ; exit; } ; fi
+
+# DETERMINE WHETHER OR NOT A SINGLE COLUMN SHOULD BE APPENDED
+if [ "$setout" == "" ] ; then outcom=""
+else header2=$setout ; outcom="-oc $setout" ; fi
+
+
+# READ EACH LINE AND APPEND IF THE APPROPRIATE COLUMNS MATCH
+let count=0
+cat $infile1 | while read -r line ; do
+
+	let nf=$(echo "$line" | wc -w)
+	if [[ "$line" =~ ^\#.*$ ]] || [ $nf -lt 1 ] ; then echo $line ; continue ; fi
+
+	let count++
+	if [ $count -eq 1 ] ; then
+		echo $header1 $header2 | xe-delimit stdin
+	else
+		key=$(echo $line | xe-cut1 stdin $keycol -n 1)
+		value=$(xe-dbmatch1 $infile2 $setcol2 $key -o 1 $outcom)
+		if [ "$value" == "" ] ; then value="-" ; fi
+		echo $line $value | xe-delimit stdin
+	fi
+done
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

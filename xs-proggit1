@@ -1,0 +1,85 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-proggit1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setmessage="update"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Git helper script"
+	echo "REQUIRES: a properly formatted ,notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [mode]"
+	echo "	[mode]: status, diff, push, or pull"
+	echo "		status: show local changes (committed=green, uncommitted=red)"
+	echo "		diff: compare local commited changes to remote master"
+	echo "		pull: pull remote master repository"
+	echo "		push: add changes, commit (with -m message), and push to remote master"
+	echo "ADDITIONAL ARGUMENTS (defaults in []):"
+	echo "	-m: message for push ["$setmessage"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+mode=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":m:" flag ; do
+ 	case $flag in
+		m) setmessage=$OPTARG;;
+		t) top=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+if [ $mode == "status" ] ; then
+	echo "
+	git status
+	"
+	git status
+fi
+if [ $mode == "diff" ] ; then
+	echo "
+	git fetch origin master
+	git diff --summary FETCH_HEAD
+	"
+	git fetch origin master
+	git diff --summary FETCH_HEAD
+fi
+if [ $mode == "push" ] ; then
+	echo "
+	git add --all .
+	git commit -a -m \"$setmessage\"
+	git push -u origin master
+	"
+	git add --all # also records removals
+	git commit -a -m "$setmessage"
+	git push -u origin master
+fi
+if [ $mode == "pull" ] ; then
+	echo "
+	git pull origin master
+	"
+	git pull origin master
+fi
+exit

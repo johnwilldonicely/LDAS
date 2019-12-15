@@ -1,0 +1,84 @@
+# PLAN FOR THE EXPERIMENT IN THE CURRENT FOLDER
+# - folder is for one date, one experiment, multiple subjects
+# - there may be multiple sessions or subject-batches in an experiment
+#	- session-numbers are managed by TainiLive
+# 	- you may record some test or aborted sessions in a given folder
+#	- the experimenter must map the session to the subject manually
+
+date= 20001230		# this should be in yyyymmdd format
+experiment= HARGREAVES	# a single word, typically uppercase
+
+
+<NOTES>
+# free-form notes section - notes should get added to the date-subject.notes files 
+SESSION 1
+trial 1
+	- notes
+	- notes
+</NOTES>
+
+
+<MAPPING>
+# - allows LDAS to extract the dat-files required for the current experiment
+# - also allows LDAS to match each trial (below) to the subject ID
+# - the batch must match the TRAILS table & is independent of the session-number
+# - the combination of batch and box must be unique
+batch	box	session	subject
+1	1	000	12345
+1	2	000	12346	
+1	3	000	12347
+1	4	000	12348
+
+2	1	001	12345	# here we perhaps run the first animal a second time
+2	2	000	22221
+2	3	000	22222
+2	4	000	22223
+</MAPPING>
+
+<TRIALS>
+# - allows LDAS to match SYNC records to subjects using the mapping section
+# - necessary because trials for each animal may generate a sync-pulse for all
+# - for each batch of 4 animals, 1 row per sync (trial) - even if trial is bad
+#  -this table is filled manually while running the task
+# - hence, for ease of use, the box (not subject ID), is recorded for each trial
+# - use the time column to record trial duration (seconds)
+batch	box	time	comments
+1	1	21.25	good trial
+1	2		
+1	3		
+1	4		
+
+2	1		
+2	2		
+2	3		
+2	x				# "x" indicates a bad trial: sync produced but not to be used
+2	4		
+</TRIALS>
+
+
+
+
+################################################################################
+# LEGACY FIELDS
+################################################################################
+<ACQUISITION>
+# - legacy crackit acquisition control parameters
+# - these will be used to generate the xml file used to run the acquisition software
+# - used by xs-ldas-acquire1
+device	subject	frequency
+1	sub1	2.319
+2	sub2	2.385
+3	sub3	2.525
+4	sub4	2.580
+</ACQUISITION>
+
+<TRIALMAP>
+# - Legacy Ethovision trial mapping format
+# - used by xs-TAINI-legacy2
+# - separate multiple trials for the same session by commas
+# - use a "x" for sessions where there is no matching trial
+session	trial
+0	1
+1	x
+2	2,3,4
+</TRIALMAP>

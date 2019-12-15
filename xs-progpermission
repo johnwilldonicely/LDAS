@@ -1,0 +1,56 @@
+#!/bin/bash
+#<TAGS> programming </TAGS>
+thisprog=`basename "$0"`
+
+# https://stackoverflow.com/questions/14103806/bash-test-if-a-directory-is-writable-by-a-given-uid
+# note slight change to solution posted - INFO=(... 0%a...) instead of %a, to ensure leading zero is added
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": check if user has write-permission for a file or directory"
+	echo "USAGE: $thisprog [user] [path]"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+setuser=$1
+setpath=$2
+
+let z=$(id -u $setuser 2> /dev/null | wc -l)
+if [ $z -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: user \"$setuser\" does not exist\n" ;  exit; } ; fi
+if [ ! -e "$setpath" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file or directory: $setpath\n" ;  exit; } ; fi
+
+# Use -L to get information about the target of a symlink,
+# not the link itself, as pointed out in the comments
+INFO=( $(stat -L -c "0%a %G %U" $setpath) )
+PERM=${INFO[0]}
+GROUP=${INFO[1]}
+OWNER=${INFO[2]}
+
+ACCESS=no
+
+if (( ($PERM & 0002) != 0 )); then
+    # Everyone has write access
+    ACCESS="yes everyone"
+elif (( ($PERM & 0020) != 0 )); then
+    # Some group has write access.
+    # Is setuser in that group?
+    gs=( $(groups $setuser) )
+    for g in "${gs[@]}"; do
+        if [[ $GROUP == $g ]]; then
+            ACCESS="yes group"
+            break
+        fi
+    done
+elif (( ($PERM & 0200) != 0 )); then
+    # The owner has write access.
+    # Does the setuser own the file?
+    [[ $setuser == $OWNER ]] && ACCESS="yes owner"
+fi
+
+echo "permission= "$ACCESS

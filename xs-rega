@@ -1,0 +1,76 @@
+#!/bin/bash
+# <TAGS>file, plot</TAGS>
+
+thisprog="xs-rega"
+
+if [ ! $2 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo "Script for invoking regaamc8 for 64-channel recordings"
+	echo "- USAGE: "$thisprog" [filename] [min] [max] [step]"
+	echo "	[filename]: a binary .dat .eeg .eegh or .fex file"
+	echo "	[min]: lowest channel number to display [0-63]"
+	echo "	[max]: highest channel number to display [0-63]"
+	echo "	[step]: interval between channels [1,2,4,8,16]"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+infile=$1
+outfile=$base"temp_"$thisprog
+
+gain="0.01000"
+let chmin=$2
+let chmax=$3
+let chstep=$4
+let chtot=(1+$chmax-$chmin)/$chstep
+let spacer=32*32/$chtot
+
+# determine whether argument 1 refers to a .dat or .eeg file
+if [ $(echo "$infile" | grep .dat -c) -gt 0 ]; then
+	n_chans=64
+	sampint=41.666666666
+elif [ $(echo "$infile" | grep .eeg -c) -gt 0 ]; then
+	n_chans=64
+	sampint=666.666666666
+elif [ $(echo "$infile" | grep .eegh -c) -gt 0 ]; then
+	n_chans=$(echo 64/4|bc)
+	sampint=166.666666666
+elif [ $(echo "$infile" | grep .fex -c) -gt 0 ]; then
+	n_chans=$(echo 64/4|bc)
+	sampint=41.6666666666
+else { echo ; echo "--- Error ["$thisprog"]: file "$infile" is not a dat eeg or eegh file" ; echo ; exit ; }
+fi
+
+
+echo "regaa2.0" > $outfile
+echo "0" >> $outfile		# prtypelo or prtypefl = ???
+echo "965" >> $outfile		# cx= window width
+echo "1095" >> $outfile		# cy= window height
+echo "30" >> $outfile		# xs= ???
+echo "50" >> $outfile		# ys= ???
+echo "10" >> $outfile		# res= starting zoom (time)
+echo "1" >> $outfile		# ncol= fraction of data to show in time-axis
+echo $chtot >> $outfile		# cnon= total channels to be displayed
+
+c[0]=19; c[1]=19; c[2]=19; c[3]=19; c[32]=19; c[33]=19; c[34]=19; c[35]=19;
+c[4]=1; c[5]=1; c[6]=1; c[7]=1; c[36]=1; c[37]=1; c[38]=1; c[39]=1;
+c[8]=8; c[9]=8; c[10]=8; c[11]=8; c[40]=8; c[41]=8; c[42]=8; c[43]=8;
+c[12]=17; c[13]=17; c[14]=17; c[15]=17; c[44]=17; c[45]=17; c[46]=17; c[47]=17;
+c[16]=5; c[17]=5; c[18]=5; c[19]=5; c[48]=5; c[49]=5; c[50]=5; c[51]=5;
+c[20]=29; c[21]=29; c[22]=29; c[23]=29; c[52]=29; c[53]=29; c[54]=29; c[55]=29;
+c[24]=26; c[25]=26; c[26]=26; c[27]=26; c[56]=26; c[57]=26; c[58]=26; c[59]=26;
+c[28]=34; c[29]=34; c[30]=34; c[31]=34; c[60]=34; c[61]=34; c[62]=34; c[63]=34;
+
+let count=0
+for ch in $(seq $chmin $chstep $chmax) ; do
+	let count=$count+1
+	let pos=$count*$spacer
+	echo $ch 0 $pos $gain ${c[ch]} >> $outfile
+done
+for i in 1 2 3 4 5 6 ; do echo "0" >> $outfile ; done
+
+command=regaamc8" "$infile" "$n_chans" "$sampint" "$outfile
+echo ; echo $command ; echo
+$command

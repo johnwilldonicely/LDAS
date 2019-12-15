@@ -1,0 +1,376 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+plotfile="plot_"$thisprog".ps"
+
+datrate="19531.25"
+binrate="1000"
+bindec="19.53125"
+nchantot="16"
+goodmatch="0,1" # may be set to "1" to match only good channels
+
+setrate="" # determine sample frequency
+setchans="all"
+
+setwin="1"
+setsecs=".5"
+setsamp=""
+setmid="1"
+
+setnotchwidth=".9"
+setfiltlow="10"
+setfilthigh="250"
+setrect="0"
+setbox="0"
+setnorm="-1"
+setdec="1000"
+
+setspacer="100"
+setplotopts=""
+
+settable=""
+setverb="0"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot the traces from .dat or .bin files"
+	echo "USAGE: "
+	echo "	"$thisprog" [in] [options]"
+	echo "	[in]: .dat .bin or .notes file"
+	echo "		.dat = binary (short) interlaced "$nchantot"-channel file"
+	echo "		.bin = binary (float) single-channel files, one per channel"
+	echo "		.notes = file used to define available .bin files to plot"
+	echo ""
+	echo "VALID OPTIONS, defaults in []:"
+	echo "...channel selection..."
+	echo "	-c: channels to plot (or \"all\" or \"good\") ["$setchans"]"
+	echo "		- \"good\" option requires a channel-table (see -t)"
+	echo "	-t: channel-table or .notes file with an XML CHANNELS section ["$settable"]"
+	echo "		- defines depth,goodness and name of each channel"
+	echo "		- if not set, channels are unamed and in order listed"
+	echo "...data properties..."
+	echo "	-f: sample-frequency (Hz) [.dat=$datrate .bin=$binrate]"
+	echo "...data alignment..."
+	echo "	-s: align to time (seconds) ["$setsecs"]"
+	echo "	-a: align to .dat-sample (overrides -s) ["$setsamp"]"
+	echo "	-w: window size (seconds) ["$setwin"]"
+	echo "	-m: set alignment to middle of window instead of start (0=NO 1=YES) ["$setmid"]"
+	echo "...signal processing..."
+	echo "	-o: 50Hz notch filter width (0=none) ["$setnotchwidth"]"
+	echo "	-l: low-cut filter (0=none) ["$setfiltlow"]"
+	echo "	-h: high-cut filter (0=none) ["$setfilthigh"]"
+	echo "	-r: rectify signal (0=n 1=YES) ["$setrect"]"
+	echo "	-b: boxcar smoothing window (seconds, 0=none) ["$setbox"]"
+	echo "	-n: normalization as per xe-norm2 (-1=none, 1=z-score) ["$setnorm"]"
+	echo "	-d: decimate to this number of samples per trace ["$setdec"]"
+	echo "...plotting options..."
+	echo "	-S: spacer between individual traces (units) ["$setspacer"]"
+	echo "	-P: plot options (in quotes)) ["$setplotopts"]"
+	echo "...general..."
+	echo "	-v: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160609-000_2881801.dat -c all -a 177423 -m 1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="f:t:a:s:w:m:c:o:l:h:r:b:n:d:S:P:v:" ; vl="verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n"; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-f) setrate=$2 ; shift ;;
+		-t) settable=$2 ; shift ;;
+		-s) setsecs=$2 ; shift ;;
+		-a) setsamp=$2 ; shift ;;
+ 		-w) setwin=$2 ; shift ;;
+ 		-m) setmid=$2 ; shift ;;
+ 		-c) setchans=$2 ; shift ;;
+		-o) setnotchwidth=$2 ; shift ;;
+		-l) setfiltlow=$2 ; shift ;;
+ 		-h) setfilthigh=$2 ; shift ;;
+ 		-r) setrect=$2 ; shift ;;
+ 		-b) setbox=$2 ; shift ;;
+ 		-n) setnorm=$2 ; shift ;;
+ 		-d) setdec=$2 ; shift ;;
+		-S) setspacer=$2 ; shift ;;
+		-P) setplotopts=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n"; exit; } ; fi
+if [ "$setrect" != "0" ] && [ "$setrect" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --r ($setrect) -  must be 0 or 1\n"; exit; } ; fi
+if [ "$settable" != "" ] && [ ! -e "$settable" ] ; then { echo -e "\n--- Error ["$thisprog"]: table file (-t $settable) missing\n"; exit; } ; fi
+if [ "$setchans" == "good" ] && [ "$settable" == "" ] && [ "$settable" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: good channels (-c good) requires also setting -t\n"; exit; } ; fi
+
+########################################################################################
+# PARSE INFILE AND READ DEFAULTS FROM .NOTES IF AVAILABLE
+ext=$(echo $infile | xe-cut1 stdin 2 -d . -n 1)
+base=$(xs-ldas-parsename $infile base -f)
+filenotes=$base".notes"
+if [ -e "$filenotes" ] ; then
+	key="sample_rate="
+	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then datrate=$z ; else echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default" ; fi
+	key="n_channels="
+	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then nchantot=$z ; else echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default" ; fi
+	key="bin_sample_rate="
+	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then binrate=$z ; else echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default" ; fi
+
+	key="bin_decimation="
+	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then bindec=$z
+	else
+		echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default dat-rate/bin-rate"
+		bindec=$(echo "scale=12; $datrate / $binrate " |bc)
+	fi
+else
+	echo -e "--- Warning ["$thisprog"]: no matching .notes file ('$filenotes')\n\t- using default sample-rate and channel count"
+fi
+
+
+########################################################################################
+# DETERMINE WHAT THE INPUT DATA SHOULD BE
+# - set the sample-frequency
+# - for single .bin files, also set the channel list (one channel, from file-name)
+########################################################################################
+
+if [ "$ext" == "dat" ] ; then
+	echo "PLOT MULTI-CHANNEL .DAT FILE "
+	if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: .dat file $infile missing\n"; exit; } ; fi
+	filetype="dat"
+	samprate=$datrate
+
+elif [ "$ext" == "bin" ] ; then
+	echo "PLOT SINGLE-CHANNEL .BIN FILE "
+	if [ ! -e "$infile" ] ; then { echo $infile ; echo -e "\n--- Error ["$thisprog"]: .bin file $infile missing\n"; exit; } ; fi
+	filetype="bin"
+	samprate=$binrate
+	# check name format
+	err=$(xs-ldas-parsename $infile part -f -p |grep --color=never Error | xe-strsub1 stdin part channel)
+	if [ "$err" != "" ] ; then { echo -e "\n$err\n"; exit; } ; fi
+	# determine the channel-number from the file name
+	setchans=$(xs-ldas-parsename $infile part -f|awk '{printf("%d",$1)}')
+
+elif [ "$ext" == "notes" ] ; then
+	echo "PLOT MULTIPLE .BIN FILES"
+	if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: .notes file $infile missing\n"; exit; } ; fi
+	filetype="bin"
+	samprate=$binrate
+	filenotes=$infile
+
+else
+	echo -e "\n--- Error ["$thisprog"]: input file ("$infile") must be of type .dat .bin or .notes\n"
+	exit
+fi
+
+################################################################################
+# DETERMINE SOME VARIABLES FOR DEFINING THE DATA BLOCK
+################################################################################
+# define table type by file extension - specifically, to test if it is a notes file later
+if [ "$settable" != "" ] ; then tabletype=$(echo $settable | rev | xe-cut1 stdin 1 -d . -n 1 | rev) ; fi
+# convert alignment to samples
+if [ "$setsamp" != "" ] ; then setsecs=$(echo "scale=12; $setsamp / $datrate" | bc) ; fi
+align=$(echo "scale=12; $setsecs * $samprate" | bc | xe-math_round2 stdin)
+# convert read-window size to samples
+window=$(echo $setwin $samprate | awk '{printf("%ld",($1*$2))}')
+# determine the start-sample
+if [ "$setmid" == "0" ] ; then 	start=$align ; else start=$(echo $align $window | awk '{x= $1-($2/2); if(x<0) x=0; printf("%ld",x)}') ; fi
+# determine the decimation factor - no decimation (1) if setdec >= window
+if [ $(echo "$setdec < $window" | bc) -eq 1 ] ; then decimate=$(echo "scale=12; $window / $setdec"|bc) ; else decimate=1; fi
+# determine sample frequency after decimation
+newrate=$(echo "scale=12; $samprate / $decimate" | bc)
+# convert boxcar smoother to half-window samples
+if [ $setbox != "0" ] ; then setbox=$(echo $setbox $newrate | awk '{b = int(($1*$2)/2.0)-1; if(b<0) b=0; print b}') ; fi
+
+# CHANNEL TESTS
+
+# convert setchans "all" to an actual list - unless a single bin file was specified
+if [ "$setchans" == "all" ] && [ "$ext" != "bin" ]  ; then setchans=$(seq 0 $(echo $nchantot-1|bc) |paste -s|tr '\t' ','); fi
+# convert setchans "good" to an actual list - unless a single bin file was specified
+if [ "$setchans" == "good" ] ; then
+	if [ "$ext" != "bin" ]  ; then setchans=$(seq 0 $(echo $nchantot-1|bc) |paste -s|tr '\t' ','); fi
+	goodmatch="1"
+fi
+# make sure all channels are in-range
+a=$(echo $setchans | tr ',' ' ' | xe-statsd1 stdin | xe-getkey stdin MIN | xe-math_round2 stdin)
+let x=$(echo "$a < 0" | bc) ;
+let y=$(echo "$a >= $nchantot" | bc);
+let z=$(echo "$nchantot -1" | bc )
+if [ $x -eq 1 ] || [ $y -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: channel $a is out of range (0-"$z")\n"; exit; } ; fi
+a=$(echo $setchans | tr ',' ' ' | xe-statsd1 stdin | xe-getkey stdin MAX | xe-math_round2 stdin)
+let x=$(echo "$a < 0" | bc) ;
+let y=$(echo "$a >= $nchantot" | bc) ;
+if [ $x -eq 1 ] || [ $y -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: channel $a is out of range (0-"$z")\n"; exit; } ; fi
+
+
+################################################################################
+# USE SETCHANS TO BUILD TRIPLET LIST: CHAN,YOFF,LABEL
+# - ceate a file as an intermediate step, for notes- other- or no-table
+# - filtering for good channels is applied, if a table is provided
+# - channels in the temp file should be in the reverse depth-order,
+#	or reverse of the specified-order if depth information is unavailable
+################################################################################
+if [ "$tabletype" == "notes" ] ; then
+	xe-strxmlparse1 $settable CHANNELS |
+	xe-cut1 stdin depth,chan,good,region -s 1 |
+	xe-dbmatch1 stdin chan $setchans |
+	xe-dbmatch1 stdin good $goodmatch |
+	tail -n +2 |
+	sort -nr > $tempfile".table"
+elif [ "$settable" != "" ] ; then
+	xe-cut1 $settable depth,chan,good,region -s 1 |
+	xe-dbmatch1 stdin chan $setchans |
+	xe-dbmatch1 stdin good $goodmatch |
+	tail -n +2 |
+	sort -nr > $tempfile".table"
+else
+	x=$(echo "$nchantot - 1" |bc)
+	y=$(seq 0 $x | paste -s | tr '\t' ',')
+	echo $setchans |
+		tr ',' '\n' |
+		xe-dbmatch1 stdin 1 $y -cn 1 |
+		awk 'BEGIN{n=-1}{n++; print n"\t"$1"\t"1"\t"$1 }' |
+		tac  > $tempfile".table"
+fi
+
+# count the total channels to be included (after filtering for good channels)
+let nchans=$(cat $tempfile".table" | wc -l)
+if [ $nchans -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no good channels\n"; exit; } fi
+# build the list
+triplets=$(awk 'BEGIN{n=0}{print $2","n*'$setspacer'","$4;n++}' $tempfile".table")
+
+################################################################################
+# SET BASE PLOT OPTIONS AND START/OFFSET
+################################################################################
+
+yscale=$(echo $nchans | awk '{x= $1*0.2 ; if(x>1)x=1; print x}')
+ymin=$(echo "-0.5 * $setspacer" | bc)
+ymax=$(echo "$setspacer * ( $nchans - 1 ) + (0.5 * $setspacer)" | bc)
+
+z=$(echo $setsecs |awk '{printf("%.4f",$1)}'); title="$infile  start=$z seconds  sample-zero=$align"
+# check to see if default output file was changed in the options
+z=$(echo $setplotopts | xe-getkey stdin -out)
+if [ "$z" != "" ] ; then plotfile=$z ; fi
+# set basic plot options
+plotopts1="-cx 1 -cy 2 -line 1 -ps 0 -xscale 1 -xpad 0 -ymin $ymin -ymax $ymax -yint $setspacer -lwd .5 -colour 1 -lb 2 -frame 0 -out $plotfile"
+# omit horizontal line at zero if all channels are plotted
+if [ $nchans -eq 1 ]  ; then plotopts1=$plotopts1" -yzero 1" ; else plotopts1=$plotopts1" -yzero 0" ; fi
+# set the read start-sample = align-(window/2) - also set timestamp offset and plot options
+if [ $setmid == "1" ] ; then
+	offset="-"$(echo $setwin | awk '{printf("%g",($1/2))}')
+	z=$(echo $setwin | awk '{print $1/2}') # half-window, in seconds
+	plotopts2="$plotopts1 -yscale $yscale -xmin -$z -xmax $z -vline 0"
+else
+	offset=0
+	plotopts2="$plotopts1 -yscale $yscale -xmin 0 -xmax $setwin"
+fi
+
+
+################################################################################
+# REPORT VARIABLES
+if [ $setverb == 1 ] ; then
+	echo "	- nchans= $nchans"
+	echo "	- setchans= $setchans"
+	echo "	- ymin= $ymin"
+	echo "	- ymax= $ymax"
+	echo "	- setsecs= $setsecs"
+	echo "	- setwin= $setwin"
+	echo "	- window= $window"
+	echo "	- start= $start"
+	echo "	- samprate= $samprate"
+	echo "	- setdec= $setdec"
+	echo "	- decimate= $decimate"
+	echo "	- newrate= $newrate"
+	echo "	- setbox= $setbox"
+	echo "	- goodmatch= $goodmatch"
+fi
+
+
+################################################################################
+# CREATE THE COMPOSITE TIME-STAMPED FILE FOR PLOTTING
+################################################################################
+rm -f $tempfile
+
+if [ "$filetype" == "dat" ] ; then
+	for i in $triplets ; do
+		label=$(echo $i|cut -f 3 -d ,)
+		yoff=$(echo $i|cut -f 2 -d ,)
+		chan=$(echo $i|cut -f 1 -d ,)
+		if [ $setverb == 1 ] ; then echo "		- channel $chan ($label)" ; fi
+		xe-ldas5-readdat1 $infile -bad 1 -rep 1 -s $start -n $window -nch $nchantot -ch $chan |
+			xe-filter_butterworth1 stdin -sf $samprate -low $setfiltlow -high $setfilthigh -m 1 |
+			xe-filter_notch1 stdin -sf $samprate -int 0 -n 50 -w $setnotchwidth |
+			xe-decimate1 stdin $decimate |
+			xe-math_abs1 stdin -cy $setrect |
+			xe-smoothbox1 stdin $setbox |
+			xe-norm2 stdin -n $setnorm |
+	 		xe-timestamp1 stdin -sf $newrate -o $offset |
+			xe-math_add1 stdin -cy 2 -v $yoff >> $tempfile
+	done
+
+elif [ "$filetype" == "bin" ] ; then
+	for i in $triplets ; do
+		label=$(echo $i|cut -f 3 -d ,)
+		yoff=$(echo $i|cut -f 2 -d ,)
+		chan=$(echo $i|cut -f 1 -d ,)
+		chan2=$(echo $chan | awk '{printf("%03d",$1)}')
+		in2=$base"-"$chan2".bin"
+		if [ ! -e $in2 ] ; then { echo -e "\n--- Error ["$thisprog"]: .bin file '$in2' missing\n"; exit; } fi
+		if [ $setverb == 1 ] ; then echo "		- channel $chan ($label)" ; fi
+		xe-readbinary1 $in2 -s $start -n $window -dt 8 |
+			xe-filter_notch1 stdin -sf $samprate -int 0 -n 50 -w $setnotchwidth |
+			xe-filter_butterworth1 stdin -sf $samprate -low $setfiltlow -high $setfilthigh -m 1 |
+			xe-decimate1 stdin $decimate |
+			xe-math_abs1 stdin -cy $setrect |
+			xe-smoothbox1 stdin $setbox |
+			xe-norm2 stdin -n $setnorm |
+	 		xe-timestamp1 stdin -sf $newrate -o $offset |
+			xe-math_add1 stdin -cy 2 -v $yoff >> $tempfile
+	done
+fi
+
+################################################################################
+# PLOT THE TEMPFILE
+################################################################################
+if [ $setverb == 1 ] ; then
+	echo "	- plotting..."
+	echo "	- xe-plottable1 $tempfile $plotopts2 -xlabel \"Time (seconds)\" -ylabel \"\" $setplotopts"
+fi
+xe-plottable1 $tempfile $plotopts2 -xlabel "Time (seconds)" -ylabel "" -title "$title" $setplotopts
+if [ $setverb == 1 ] ; then echo "	- results sent to $plotfile" ; fi
+
+# MODIFY THE TICS
+if [ $setverb == 1 ] ; then echo "	- modifying tics..." ; fi
+# make CSV doublets from offset,label fields in triplets
+y=$(echo $triplets | tr ' ' '\n' | cut -f 2,3 -d , | paste -s | tr '\t' ',')
+# identify the tics at the top and bottom of the range
+a="-"$setspacer ; b=$(echo "$setspacer * $nchans" | bc)
+# perform the substitutions
+#echo "xs-plotmod1 $plotfile --ytics $y --out 1"
+xs-plotmod1 $plotfile --ytics $y,$a,"",$b,"" --out 1
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+exit

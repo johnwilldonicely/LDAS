@@ -1,0 +1,366 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="SLICE1"
+thisprog="xs-ldas5-"$progbase1"b"
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setverb="0"
+setclean="1"
+setskip="-"
+setexp="IO,PP,LTP"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-analize slice ephys experiments"
+	echo "REQUIRES:"
+	echo
+	echo "USAGE: "$thisprog" [db]"
+	echo "	[db]: database file in format <path> <group>"
+	echo
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--exp: CSV list of experiments to run ["$setexp"]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_tg4510.txt --exp LTP,PP 2>&1 | tee logfile.txt"
+	echo
+	echo "OUTPUT: "
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="v:c:" ; vl="exp:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--exp )   setexp=$2 ; shift ;;
+		--skip )  setskip=$2 ; shift ;;
+		--verb )  setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+# CHECK EXPERIMENT LIST
+j=$(echo $setexp | tr ',' ' ')
+for i in $j ; do
+	echo $i
+	if [ $i != "IO" ] && [ $i != "PP" ] && [ $i != "LTP" ] ; then
+		{ echo ; echo "--- Error ["$thisprog"]: invalid experiment ($i) in list (--exp $setexp) -  must be IO,PP or LTP" ; echo ; exit; }
+	fi
+done
+
+
+
+echo ""
+echo "################################################################################"
+echo $thisprog $allopts
+echo "################################################################################"
+echo ""
+
+
+################################################################################
+# PERFORM A PROCESSING LOOP WITHOUT USING WHILE READ
+################################################################################
+# check database integrity
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+# construct a database list in format <path>,<group>
+dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $filedb | xe-delimit stdin -d comma)
+
+# extract group-labels (eg. # group_[no]= name ) - put new name first as per xs-plotmodlegend requirements
+xs-getgroupnames1 $filedb > $tempfile.groupnames
+# create a flag for whether this file has any contents
+let setgroupnames=$(cat $tempfile.groupnames | wc -l)
+
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	echo
+	echo "################################################################################"
+	echo "...analyzing data..."
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path ; if [ "$setverb" == "1" ] ; then
+			echo "################################################################################"
+			echo $path
+		fi
+
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes | head -n 1)
+		date=$(xe-getkey $filenotes date=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN PROGRAMSSLICE1.log
+		if [[ $setexp = *"PP"* ]]; then
+			xs-ldas5-slice_pp $filenotes --verb 1 ;
+		fi
+		if [[ $setexp = *"IO"* ]]; then
+			xs-ldas5-slice_io $filenotes --verb 1 ;
+		fi
+		if [[ $setexp = *"LTP"* ]]; then
+			xs-ldas5-slice_ltp $filenotes --verb 1 ;
+		fi
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo
+	echo "################################################################################"
+	echo "...collating data..."
+	if [[ $setexp = *"PP"* ]]; then
+		xs-collate1 $filedb SLICE_PP_summary.txt --verb $setverb
+	fi
+	if [[ $setexp = *"IO"* ]]; then
+		xs-collate1 $filedb SLICE_IO_results.txt --verb $setverb
+		xs-collate1 $filedb SLICE_IO_summary.txt --verb $setverb
+	fi
+	if [[ $setexp = *"LTP"* ]]; then
+		xs-collate1 $filedb SLICE_LTP_summary.txt --verb $setverb
+		xs-collate1 $filedb SLICE_LTP_popamp.txt --verb $setverb
+		xs-collate1 $filedb SLICE_LTP_epspslope.txt --verb $setverb
+	fi
+fi
+
+
+################################################################################
+# GENERATE PLOTS
+################################################################################
+echo
+echo "################################################################################"
+echo "...generating plots..."
+
+################################################################################
+# PAIRED-PULSE
+base2="SLICE_PP"
+in2=$base2"_summary.txt"
+if [ -f $in2 ] ; then
+	let z=$(tail -n +2 $in2 | wc -l )
+	if [ $z -gt 0 ] ; then
+		optsA="-pt box -bz 0 -xscale .2"
+		optsB=""
+		plotlist=""
+		let count=0
+		for measure in epsp1 epsp2 pop1 pop2 ratio_e ratio_p ; do
+			let count=$count+1
+			if [ $count -eq 1 ] ; then title="Paired-Pulse Summary" ; else title="" ; fi
+			if [ $measure = "epsp1" ] ; then legend="1" ; else legend="0" ; fi
+			plotfile=$tempfile"_"$measure".ps"
+			plotlist=$plotlist" "$plotfile
+			xs-plotmeans1 $in2 group $measure -t "$title" -o $plotfile -A "$optsA -legend $legend"
+			if [ $measure = "epsp1" ] && [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+		done
+		xe-plotmerge1 $plotlist -out $base2"_summary" -xmax 2
+		if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+	fi
+fi
+
+################################################################################
+# INPUT/OUTPUT
+# $tempfile.1 = fibre volley
+# $tempfile.2 = EPSP
+# $tempfile.3 = POP-spike
+base2="SLICE_IO"
+in2=$base2"_results.txt"
+if [ -f $in2 ] ; then
+	let z=$(tail -n +2 $in2 | wc -l )
+	if [ $z -gt 0 ] ; then
+		# CALCULATE GROUP AVERAGES AND SEM
+		xe-cut1 $in2 group,stim,fvmv |
+			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-statsgrp2 stdin |
+			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.1
+		xe-cut1 $in2 group,stim,epspslope |
+			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-statsgrp2 stdin |
+			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.2
+		xe-cut1 $in2 group,stim,popamp |
+			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-statsgrp2 stdin |
+			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.3
+
+		plotlist=""
+
+		# PLOT FV vs EPSP (Synaptic Efficacy)
+		plotfile=$tempfile".003.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-cg 1 -cx 2 -cf 3 -cy 4 -ce 5 -xscale .4 -legend 1"
+		xs-dbmatch2 temp_xs-ldas5-SLICE1b.1 temp_xs-ldas5-SLICE1b.2 grp2 |
+			cut -f 1,3,4,7,8 |
+			xe-plottable1 stdin $plotopts -xlabel "Fibre volley (uV)" -ylabel "fEPSP slope (V/s)" -title "Synaptic efficacy" -out $plotfile
+			# modify legend if group-names were provided in db file
+			if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+
+		# PLOT EPSP vs POP-SPIKE (E-S Coupling)
+		plotfile=$tempfile".004.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-cg 1 -cx 2 -cf 3 -cy 4 -ce 5 -ew 0 -xscale .4"
+		xs-dbmatch2 temp_xs-ldas5-SLICE1b.2 temp_xs-ldas5-SLICE1b.3 grp2 |
+			cut -f 1,3,4,7,8 |
+			xe-plottable1 stdin $plotopts -xlabel "fEPSP slope (V/S)" -ylabel "POP-spike (uV)" -title "E-S Coupling" -out $plotfile
+
+
+		# PLOT FV
+		plotfile=$tempfile".0.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -xmin 20 -xint 40 -xscale .4"
+		xe-plottable1 $tempfile.1 $plotopts -xlabel "Stim (uA)" -ylabel "Fibre volley (uV)" -title "Input/Output Summary" -legend 1 -out $plotfile
+		if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+		# PLOT FEPSP
+		plotfile=$tempfile".001.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-plottable1 $tempfile.2 $plotopts -xlabel "Stim (uA)" -ylabel "fEPSP slope (V/s)" -out $plotfile
+		# PLOT POP-SPIKE
+		plotfile=$tempfile".002.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-plottable1 $tempfile.3 $plotopts -xlabel "Stim (uA)" -ylabel "POP-spike amp. (uV)" -out $plotfile
+
+		xe-plotmerge1 $plotlist -xmax 2 -xinc 275 -yinc 250 -out $base2"_summary"
+		if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+	fi
+fi
+
+################################################################################
+# LONG-TERM POTENTIATION
+base2="SLICE_LTP"
+plotopts1="-line 1 -ps 3 -legend 1 -xint 10 -ymin 0 -xscale .45 -font 8 -hline 100 -cg 1 -cx 2 -cy 4 -ce 6 -ew 0 "
+plotopts2="-line 1 -ps 0 -legend 1 -xint 10 -ymin 0 -xscale .45 -font 8 -hline 100 -cg 1 -cx 2 -cy 3 -lb 2"
+xl="Time (minutes)"
+yl="%Change from baseline"
+plotlist=""
+# POP-SPIKE
+in2=$base2"_popamp.txt"
+if [ -f $in2 ] ; then
+	let z=$(tail -n +2 $in2 | wc -l )
+	if [ $z -gt 0 ] ; then
+		plotfile=$progbase1"_POPspike.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-cut1 $in2 group,seconds,popamp |
+		xe-statsgrp2 stdin |
+		xe-plottable1 stdin $plotopts1 -xlabel "$xl" -ylabel "$yl" -title "POP-spike" -out $plotfile
+		if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+
+		plotfile=$progbase1"_POPspike_persubject.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-cut1 $in2 subject,seconds,popamp |
+		xe-plottable1 stdin $plotopts2 -xlabel "$xl" -ylabel "$yl" -title "POP-spike" -out $plotfilexs
+		if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+	fi
+fi
+# EPSP
+in2=$base2"_epspslope.txt"
+if [ -f $in2 ] ; then
+	let z=$(tail -n +2 $in2 | wc -l )
+	if [ $z -gt 0 ] ; then
+		plotfile=$progbase1"_fEPSP.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-cut1 $in2 group,seconds,epspslope |
+		xe-statsgrp2 stdin |
+		xe-plottable1 stdin $plotopts1 -xlabel "$xl" -ylabel "$yl" -title "fEPSP slope" -out $plotfile
+		if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+
+		plotfile=$progbase1"_fEPSP_persubject.ps"
+		plotlist=$plotlist" "$plotfile
+		xe-cut1 $in2 subject,seconds,epspslope |
+		xe-plottable1 stdin $plotopts2 -xlabel "$xl" -ylabel "$yl" -title "fEPSP slope" -out $plotfile
+		if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+	fi
+fi
+if [ "$plotlist" != "" ] ; then
+	# merge
+	xe-plotmerge1 $plotlist -xmax 1 -ymax 2 -xinc 280 -yinc 250
+	xe-plotmerge2 temp_xe-plotmerge1.001.ps temp_xe-plotmerge1.002.ps > $base2"_summary_1.ps"
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; rm -f temp_xe-plotmerge1.*.ps ; fi
+fi
+
+# SUMMARY
+in2=$base2"_summary.txt"temp_xe-plotmerge1.
+if [ -f $in2 ] ; then
+	let z=$(tail -n +2 $in2 | wc -l )
+	if [ $z -gt 0 ] ; then
+		listphase=$(xs-getheader $in2 | cut -f 5-)
+		listmeasure=$(xe-cut1 $in2 measure -o 1 | sort -u)
+		boxwidth=$(xe-cut1 SLICE_LTP_summary.txt group -o 1 | sort -nu | wc -l | awk '{print 1/($1+1)}')
+		plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -pt box -bw $boxwidth -xint 1 -gs 1 -legend 1 -xlabel Phase"
+		yl="%Change from baseline"
+		plotlist=""
+		for measure in $listmeasure ; do
+			let count=0
+			if [ "$measure" == "epspslope" ] ; then title="fEPSP slope" ; fi
+			if [ "$measure" == "popamp" ] ; then title="POP-spike amplitude" ; fi
+			plotfile=$tempfile"_"$measure".ps"
+			plotlist=$plotlist" "$plotfile
+			rm -f $tempfile.data
+			rm -f $tempfile.tics
+			for phase in $listphase ; do
+				let count=$count+1
+				echo $count $phase | tr '[:lower:]' '[:upper:]' >> $tempfile.tics
+				xe-dbmatch1 $in2 measure $measure |
+					xe-cut1 stdin group,$phase -o 1 |
+					awk '{print "'$count'\t"$0}' |
+					xe-statsgrp2 stdin -cg1 2 -cg2 1 -cy 3 |
+					tail -n +2 |
+					awk 'NF>1{print $0}' >> $tempfile.data
+			done
+			xe-plottable1 $tempfile.data $plotopts -ylabel "$yl" -title $title -out $plotfile
+			xs-plotmodtics $plotfile $tempfile.tics xtic
+			if [ $setgroupnames -gt 0 ] ; then xs-plotmodlegend $plotfile $tempfile.groupnames ; fi
+		done
+		# merge
+		xe-plotmerge1 $plotlist -xmax 2 -xinc 280
+		mv temp_xe-plotmerge1.001.ps $base2"_summary_2.ps"
+		if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+	fi
+fi
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

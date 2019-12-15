@@ -1,0 +1,48 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+thisprog=`basename "$0"`
+setdelimit="tab"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract the header-line from a file"
+	echo "- this is the first non-blank, non-commented line"
+	echo "- output will have delimiters converted to tabs by default"
+	echo "USAGE: "$thisprog" [infile] [options]"
+	echo "	[infile]: file to extract header from"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--delimit: convert all delimiters (comma,space,tab)  [$setdelimit]"
+	echo "		- see xe-delimit for options"
+	echo "		- if \"no\", preserve header, delimiters and all"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+if [ ! -e $infile ] ; then { echo -e "\n--- Error ["$thisprog"]: missing input file $infile\n" ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+vs="d:" ; vl="delimit:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-d | --delimit ) setdelimit=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# EXTRACT HEADER AND DELIMIT
+if [ "$setdelimit" != "no" ] ; then
+	awk 'NF>0 && $1!~/^#/{print$ 0; exit}' $infile |
+	xe-delimit stdin -d $setdelimit
+else
+	awk 'NF>0 && $1!~/^#/{print $0; exit}' $infile
+fi

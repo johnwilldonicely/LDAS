@@ -1,0 +1,244 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+outbase="COR1_"
+rm -f $outbase*
+rm -f $tempfile*
+
+# default options
+setavg=1
+setfmin=0.01
+setfmax=0.1
+setfinc=0.005
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate correlation between two channels at a range of frequencies"
+	echo "- data is first padded, filtered for each frequency, and trimmed"
+	echo "- a sliding window (2x wavelength) is used to correlate filtered data"
+	echo "- finally the correlation values are averaged for chunks of the record (max 6)"
+	echo ""
+	echo " USAGE: "$thisprog" [dat1] [dat2] [options]"
+	echo "	[dat1]: 2-column file containing time & data for the first channel"
+	echo "	[dat2]: 2-column file containing time & data for the second channel"
+	echo "OPTIONS:"
+	echo "	-l: lowest frequency in the series ["$setfmin"]"
+	echo "	-u: highest frequency in the series ["$setfmax"]"
+	echo "	-i: frequency incriment between -l and -u (above) ["$setfinc"]"
+	echo "	-a: time interval for plots ["$setavg"]"
+	echo "EXAMPLE: "$thisprog" X1-NAc_average.txt X1-PFC_average.txt -l .01 -u .1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+user_arguments=$@
+echo "	------------------------------------------------------------------------------"
+echo "	"$thisprog $user_arguments
+
+
+################################################################################
+# READ COMMAND LINE ARGUMENTS
+################################################################################
+# GET INPUT FILE NAMES
+in1=$1 ; shift ; if [ ! -e $in1 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$in1' missing" ; echo ; exit; } ; fi
+in2=$1 ; shift ; if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$in2' missing" ; echo ; exit; } ; fi
+opts=$@
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":l:u:i:a:" flag ; do
+	case $flag in
+		l) setfmin=$OPTARG;;
+		u) setfmax=$OPTARG;;
+		i) setfinc=$OPTARG;;
+		a) setavg=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+################################################################################
+# BUILD THE WORKING FILES CONTAINING TIME (x1) AND SIGNAL (x2)
+################################################################################
+# CHECK THAT INPUT FILES CONTAIN DATA AND ARE THE SAME LENGTH
+let wcd1=$(cat $in1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | wc -l)
+let wcd2=$(cat $in2 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | wc -l)
+if [ $wcd1 -lt 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in1 is empty" ; echo ; exit; } ; fi
+if [ $wcd2 -lt 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in2 is empty" ; echo ; exit; } ; fi
+if [ $wcd1 -ne $wcd2 ] ; then { echo ; echo "--- Error ["$thisprog"]: mismatch between length of $in1 and $in2" ; echo ; exit; } ; fi
+# PULL OUT COLUMNS HOLDING TIME AND DATA
+colt1=$(xe-getkeycol $in1 time); if [ -z $colt1 ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining time" ; exit ; } ; fi
+cold1=$(xe-getkeycol $in1 nA); if [ -z $cold1 ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining nA" ; exit ; } ; fi
+cold2=$(xe-getkeycol $in2 nA); if [ -z $cold2 ] ; then { echo; echo "--- Error ["$thisprog"]: file "$infile" has no header defining nA" ; exit ; } ; fi
+
+cut -f $colt1 $in1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" > $tempfile.1a
+cut -f $cold1 $in1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" > $tempfile.1b
+cut -f $cold2 $in2 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" > $tempfile.2b
+# MAKE SURE NEITHER CHANNEL CONTAINS ALL ZEROS
+if [ $(tail -n 1000 $tempfile.1b | xe-statsd1 stdin | xe-getkey stdin VARIANCE) == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in1 has no valid data" ; echo ; exit; } ; fi
+if [ $(tail -n 1000 $tempfile.2b | xe-statsd1 stdin | xe-getkey stdin VARIANCE) == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in2 has no valid data" ; echo ; exit; } ; fi
+
+
+################################################################################
+# DETERMINE THE RECORDING PARAMETERS - START/END TIME, DURATION, SAMPLE RATE
+#################################################################################
+start=$(cat $tempfile.1a | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | head -n 1) ;
+end=$(cat $tempfile.1a | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | tail -n 1) ;
+duration=$(echo $start $end | awk '{print $2-$1}' )
+sample_rate=$(xe-getsamplefreq1 $tempfile.1a)
+let ntimebins=$(echo $duration $setavg | awk '{printf("%d\n",($1/$2))}' )
+if [ $ntimebins -gt 100 ] ; then { echo ; echo "--- Error ["$thisprog"]: averaging window (-a $setavg) too small for trial length ($duration sec.)"; echo "	- this would produce more than 10 time bins" ; echo ; exit; } ; fi
+
+
+#################################################################################
+# SEPARATE TIME/DATA1/DATA2 INPUT INTO DIFFERENT FILES FOR EACH DATA BLOCK
+#################################################################################
+rm -f temp_xe-splitfile1*
+paste  $tempfile.1a $tempfile.1b $tempfile.2b | xe-splitfile1 stdin
+listblockfiles=$(ls temp_xe-splitfile1*)
+
+
+#################################################################################
+#################################################################################
+# FOR EACH BLOCK OF DATA, CALCULATE CORRELATION & POWER
+#################################################################################
+#################################################################################
+# determine the number of steps per optimized buffer length to move the sliding window for fft analysis
+# this compensates for for loss of temporal resolution due to the larger window required by the lower frequencies
+stepratio=$(echo $setfmin $setfmax | awk '{printf("%d",($2/$1))}')
+
+echo "	Calculating coherence..."
+rm -f $tempfile"_multifreq.txt"
+rm -f $tempfile"_broad.txt"
+rm -f $tempfile"_pow.txt"
+for blockfile in $listblockfiles ; do
+
+	a=${blockfile%%.*}
+	block=${a##*_}
+
+	# Correlaqtion, output time,freq,coherence (called r_data in the output from this program)
+	#echo "xe-cor3 $blockfile -min $setfmin -max $setfmax -fstep $setfinc -label 1 "
+	xe-cor3 $blockfile -min $setfmin -max $setfmax -fstep $setfinc -label 1 |
+	xe-cut1 stdin time,freq,r_data -o 1 >> $tempfile"_multifreq.txt"
+
+	# broadband correlation coherence, output time,freq,coherence
+	xe-cor3 $blockfile -min $setfmin -max $setfmax -fstep -1 -label 1 |
+	xe-cut1 stdin time,r_data -o 1 >> $tempfile"_broad.txt"
+
+	# power for 2 regions - output region,time,freq,power
+	cut -f 2 $blockfile |
+		xe-fftpow1 stdin -sf $sample_rate -min $setfmin -max $setfmax -s $stepratio -o 2 |
+		awk '{printf("001\t%f\t%f\t%f\n",($1+'$start'),$2,$3)}' >> $tempfile"_pow.txt"
+	cut -f 3 $blockfile |
+		xe-fftpow1 stdin -sf $sample_rate -min $setfmin -max $setfmax -s $stepratio -o 2 |
+		awk '{printf("002\t%f\t%f\t%f\n",($1+'$start'),$2,$3)}' >> $tempfile"_pow.txt"
+
+done
+
+# NOW AVERAGE RESULTS ACROSS BLOCKS - ADD FISHER-TRANSFORM TO BROADBAND OUTPUT
+outfile=$outbase"multifreq.txt"
+echo "time freq corr" | xe-delimit stdin > $outfile
+xe-statsgrp2  $tempfile"_multifreq.txt" | xe-cut1 stdin grp1,grp2,mean -o 1 >> $outfile
+
+outfile=$outbase"broad.txt"
+echo "time corr fcorr" | xe-delimit stdin > $outfile
+xe-statsgrp1 $tempfile"_broad.txt" |
+	xe-cut1 stdin grp1,mean,mean -o 1 |
+	xe-norm2 stdin -n 5 -cy 3 >> $outfile
+
+outfile=$outbase"pow.txt"
+echo "region time freq power" | xe-delimit stdin > $outfile
+xe-statsgrp3 $tempfile"_pow.txt" | xe-cut1 stdin grp1,grp2,grp3,mean -o 1 >> $outfile
+
+
+#################################################################################
+#################################################################################
+# DETERMINE CORRELATION TIME/FREQ LIMITS
+#################################################################################
+#################################################################################
+infile=$outbase"multifreq.txt"
+mintime=$(xe-cut1 $infile time | xe-statsd1 stdin | xe-getkey stdin MIN | xe-math_round2 stdin -b $setavg )
+maxtime=$(xe-cut1 $infile time | xe-statsd1 stdin | xe-getkey stdin MAX | xe-math_round2 stdin -b $setavg )
+minfreq=$(xe-cut1 $infile freq | xe-statsd1 stdin | xe-getkey stdin MIN)
+maxfreq=$(xe-cut1 $infile freq | xe-statsd1 stdin | xe-getkey stdin MAX)
+
+#################################################################################
+#################################################################################
+# GENERATE CORRRELATION MATRIX FOR THIS SUBJECT, AND PLOT
+#################################################################################
+#################################################################################
+echo "	Calculating correlation matrix..."
+infile=$outbase"multifreq.txt"
+outfile=$outbase"matrix.txt"
+plotfile=$outbase"matrix.ps"
+plotlist=$plotlist" "$plotfile
+cat $infile |
+	xe-cut1 stdin freq,time,corr |
+	xe-densitymatrix2 stdin 1 2 3 > $outfile
+# plot t
+plotopts="-xmin $mintime -xmax $maxtime -xint $setavg -ymin $minfreq -ymax $maxfreq  -zmin -1 -zmax 1 -xpad 0 -ypad 0 -vline 0 "
+xe-plotmatrix1 $outfile $plotopts -xlabel "Time_(s)" -ylabel "Freq.(Hz)_vs_Correlation" -out $plotfile #-xscale 1
+# get width and height of correlation matrix
+width=$(head -n 1 $outfile | wc -w)
+height=$(cat $outfile | wc -l)
+
+#################################################################################
+#################################################################################
+# PLOT THE BROADBAND CORRELATION
+#################################################################################
+#################################################################################
+echo "	Plotting broadband correlation..."
+infile=$outbase"broad.txt"
+plotfile=$outbase"corr_broadband.ps"
+plotlist=$plotlist" "$plotfile
+plotopts="-cx 1 -cy 2 -line 1 -ps 0 -ew 0 -xmin $mintime -xmax $maxtime -xint $setavg -ymin -1 -ymax 1 -yint 0.2 -vline 0"
+xe-plottable1 $infile $plotopts -xlabel "Time_(s)" -ylabel "Correlation (broadband)" -out $plotfile
+
+
+#################################################################################
+#################################################################################
+# CALCULATE THE BROADBAND POWER (AVERAGE ACROSS FREQUENCIES)
+#################################################################################
+#################################################################################
+echo "	Calculating broadband power..."
+infile=$outbase"pow.txt"
+outfile=$outbase"pow_broad.txt"
+echo "region time power" | xe-delimit stdin > $outfile
+plotfile=$outbase"pow_broadband.ps"
+plotlist=$plotlist" "$plotfile
+xe-cut1 $infile region,time,power |
+	xe-statsgrp2 stdin -cg1 1 -cg2 2 -cy 3  |
+	xe-checkisnum2 stdin -t 2 -f 0 -m "-" |
+	cut -f 1,2,4 >> $outfile
+xe-plottable1 $outfile -cg 1 -cx 2 -cy 3 -line 1 -ps 4 -xmin $mintime -xmax $maxtime -xint $setavg -xlabel "Time_(s)" -ylabel "Broadband_power" -vline 0 -out $plotfile
+
+#################################################################################
+#################################################################################
+# PLOT FILTERED VERSION OF THE DATA
+#################################################################################
+#################################################################################
+cat $tempfile.1b |
+	xe-filter_butterworth1 stdin -sf $sample_rate -low $setfmin -high $setfmax -pad -1 |
+	paste $tempfile.1a - |
+	awk '{print $0"\t"1}' > $tempfile
+cat $tempfile.2b |
+	xe-filter_butterworth1 stdin -sf $sample_rate -low $setfmin -high $setfmax -pad -1 |
+	paste $tempfile.1a - |
+	awk '{print $0"\t"2}' >> $tempfile
+plotfile=$outbase"traces.ps"
+plotlist=$plotlist" "$plotfile
+plotopts="-cx 1 -cy 2 -cg 3 -line 1 -ps 0 -ew 0 -xmin $start -xmax $end -xint $setavg -vline 0 -lwd .25"
+xe-plottable1 $tempfile $plotopts -xlabel "Time_(s)" -ylabel "Filtered_signal_[nA]" -out $plotfile
+
+
+xe-plotmerge1 -xo 50 -yo 550 -xinc 250 -xmax 2 -yinc 190  $plotlist -out $outbase"summary"
+
+
+rm -f $tempfile*
+
+echo
+exit

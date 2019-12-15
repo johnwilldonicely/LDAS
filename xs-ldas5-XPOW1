@@ -1,0 +1,305 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+# parameters for immobility detection
+setvelint=0.4
+setvel1="0.5"
+setdur1="10"
+# parameters for running detection
+setvel2="5"
+setdur2="0.1"
+
+setregion="hipp.dorsal.ca1.pyr"
+settrial="all"
+setplot="1"
+setplotbin="1"
+setplotdec=""
+setplotopts=""
+sfxyd=25
+
+setfftmin="0.5"
+setfftmax="140"
+setfftunits="0"
+
+setclean="1"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": LFP/EEG spectral power analysis (0-100Hz) - Taini + Ethovision"
+	echo "REQUIRES: .bin LFP files and a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [options]"
+	echo "	[base]= [yyyymmdd]-[ses]_[subject]"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-r: region ["$setregion"]"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "Movement options:"
+	echo "	-i: set integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	--immobvel: set low-velocity max (cm/s) for immobility ["$setvel1"]"
+	echo "	--immobdur: set min duration (s) for immobility ["$setdur1"]"
+	echo "	--runvel: set high-velocity min (cm/s) for running ["$setvel2"]"
+	echo "	--rundur: set min duration (s) for running ["$setdur2"]"
+	echo "FFT options:"
+	echo "	--fmin: FFT minimum frequency ["$setfftmin"]"
+	echo "	--fmax: FFT maximum frequency ["$setfftmax"]"
+	echo "	--funits: FFT output units (0=amp 1=dB 2=RMS 3=power ie. RMS-squared) ["$setfftunits"]"
+	echo "Plot options:"
+	echo "	-p: plot the velocity timecourse (0=NO 1=YES) [$setplot]"
+	echo "	-b: bin-size (sec) for averaging (0= no binning) ["$setplotbin"]"
+	echo "	-x: decimation (sec - will override -b if set) ["$setplotdec"]"
+	echo "	-P: extra plot options for xe-plottable1 (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000_2881801 -t all -b .4 -P \"-ymax 10\""
+	echo "OUTPUT: "
+	echo "	"$progbase1"_summary.txt"
+	echo "	"$progbase1"_specmean.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="r:t:i:v:V:d:D:b:x:p:P:"
+vl="rundur:,runvel:,immobdur:,immobvel:,fmin:,fmax:,funits:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+ 	case $1 in
+		--immobvel ) setvel1=$2 ; shift ;;
+ 		--immobdur ) setdur1=$2 ; shift ;;
+ 		--runvel ) setvel2=$2 ; shift ;;
+ 		--rundur ) setdur2=$2 ; shift ;;
+ 		--fmin ) setfftmin=$2 ; shift ;;
+		--fmax ) setfftmax=$2 ; shift ;;
+		--funits ) setfftunits=$2 ; shift ;;
+ 		-r ) setregion=$2 ; shift ;;
+ 		-t ) settrial=$2 ; shift ;;
+  		-i ) setvelint=$2 ; shift ;;
+		-p ) setplot=$2 ; shift ;;
+		-b ) setplotbin=$2 ; shift ;;
+		-x ) setplotdec=$2 ; shift ;;
+		-P ) setplotopts=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# SET FILE NAMES (.bin FILE MUST BE DEFINED AFTER CHANNEL IS DETERMINED)
+################################################################################
+filenotes=$base".notes"
+filexydt=$base".xydt"
+filexyd=$base"-body.xyd"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+if [ ! -e $filexydt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexydt' missing" ; echo ; exit ; } fi
+if [ ! -e $filexyd ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexyd' missing" ; echo ; exit ; } fi
+
+# CLEANUP FILES BEFORE PROCEDING
+rm -f $tempfile*
+rm -f $progbase1*
+
+################################################################################
+# GET BASIC PARAMETERS
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+bindec=$(xe-getkey $filenotes bin_decimation=)
+binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z $bindec ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+if [ -z $start_time ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of start_time $filenotes" ; echo ; exit ; } fi
+
+# IDENTIFY THE CHANNEL IN THE DESIRED CELL-LAYER
+chan=$(xe-dbmatch1 $filenotes region $setregion -xml CHANNELS -oc chan -m 1 -o 1 | awk '{printf("%03d\n",$1)}')
+if [ "$chan" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify region \"$setregion\" in the CHANNELS section" ; echo ; exit ; } fi
+# - if multiple channels match, use the first one
+let z=$(echo $chan | wc -w)
+if [ $z -gt 1 ] ; then
+	chan=$(echo $chan | awk '{print $1}')
+	echo "--- Warning ["$thisprog"]: multiple channels match \"$setregion\" in $filenotes : using channel $chan "
+fi
+
+# IDENTIFY THE APPROPRIATE .bin FILE
+filebin=$base"-"$chan".bin"
+if [ ! -e $filebin ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin' missing" ; echo ; exit ; } fi
+
+echo "	region= $setregion"
+echo "	channel= $chan"
+echo "	bin_file= $filebin"
+
+########################################################################################
+# MAKE AN SSP LIST (TRIALS) FOR SCREENING THE XYD(T) FILES
+########################################################################################
+echo "	...getting start/stop times for specified trials ($settrial)"
+screenlist=$(xs-ldas-gettrials1 $filenotes $settrial)
+if [ "$screenlist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial in $filenotes" ; echo ; exit ; } fi
+let z=$(echo $screenlist | tr ',' ' ' | wc -w | awk '{print $1/2}' )
+echo "		$z blocks of data found"
+
+
+################################################################################
+# RUN THE POWER ANALYSIS FOR SELECTED TRIALS
+# - run xe-fftpow2 with a downsampled "trials.ssp" file
+# - all the data is read, but the FFT jumps to each block
+#	- calculates the number of windows for that block
+#	- window timestamp = blockstart + window*winsize + halfwindow
+# - information on the spectrum is saved to $tempfile"_info.txt"
+################################################################################
+# make a trials-specific, downsampled SSP file
+xs-ldas-gettrials1 $filenotes $settrial -d $bindec -o 2 >  $tempfile"_trials.ssp"
+
+# run the FFT - output all values plus timestamps
+echo "	...running FFT"
+fftwin=$(echo "$binrate * 2" | bc) # 2-second window
+fftopts="-dt 8 -sf $binrate -w $fftwin -s 2 -t 1 -m 1 -min $setfftmin -max $setfftmax -u $setfftunits"
+echo "	xe-fftpow2 $filebin $fftopts -scrf $tempfile"_trials.ssp" -o 2 -v 1"
+xe-fftpow2 $filebin $fftopts -scrf $tempfile"_trials.ssp" -o 2 -v 1 2>$tempfile"_info.txt" > $progbase1"_spectimes.txt"
+
+# get some parameters from the verbose output
+freqmin=$(xe-getkey $tempfile"_info.txt" minfreq=)
+freqmax=$(xe-getkey $tempfile"_info.txt" maxfreq=)
+freqres=$(xe-getkey $tempfile"_info.txt" frequency_resolution=)
+freqrate=$(echo "scale=3; 1.0/$freqres" | bc)
+
+
+################################################################################
+# EXTRACT THE MEAN SPECTRAL OUTPUT FOR TIMES OF IMMOBILITY AND RUNNING
+# - this is better than trying to analyze spectra separately for run/immobile epochs
+# - first determine total time spent immobile or running - timestamps downsampled to 1KHz
+# - NOTE this is first screened so it only includes periods within the specified trial(s)
+################################################################################
+echo "	...generating "$tempfile"_immobile.ssp and "$tempfile"_running.ssp"
+opts="-sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint"
+xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 |
+ 	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_immobile.ssp"
+xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 |
+	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_running.ssp"
+
+echo "	...extracting portions of spectrum matching immobility and running"
+echo "move freq amp" | xe-delimit stdin > $progbase1"_specmean.txt"
+for state in immobile running ; do
+	let z=$(xe-ldas5-readssp1 $tempfile"_"$state".ssp" | wc -l)
+	if [ $z -gt 0 ] ; then
+		xe-ldas5-screentxt1 $progbase1"_spectimes.txt" -scrf $tempfile"_"$state".ssp" |
+		cut -f 2- |
+		xe-statscol1 stdin |
+		xe-cut1 stdin col,mean -s 1 -o 1 |
+		awk '{ freq= '$freqmin'+($1*'$freqres') ; print "'$state'\t"freq"\t"$2}' >> $progbase1"_specmean.txt"
+	else
+		seq $freqmin $freqres $freqmax | awk '{print "'$state'\t"$1"\t-"}' >> $progbase1"_specmean.txt"
+	fi
+done
+
+
+
+################################################################################
+# SAVE THE POWER SUMMARY
+# - use the mean spectrum
+# - pad the spectrum to simulate a value at zero - then the spectrum is like a standard time-series
+# - use xe-curvestats1 to get the AUC using proper methods
+# - make sure something is output even if things go wrong
+################################################################################
+outfile=$progbase1"_summary.txt"
+listbands="0,4,4,12,12,30,30,70,70,140"
+let n1=$(xe-ldas5-readssp1 $tempfile"_"immobile".ssp" | wc -l)
+let n2=$(xe-ldas5-readssp1 $tempfile"_"running".ssp" | wc -l)
+
+if [ $n1 -gt 0 ] ; then
+	auc1=$(xe-dbmatch1 $progbase1"_specmean.txt" move immobile -oc amp -o 1 |
+	xe-pad1 stdin -t 1 -e 4 -n 1 |
+	xe-curvestats1 stdin -sf $freqrate -index $listbands |
+	xe-cut1 stdin AUC -o 1 |
+	paste -s)
+else auc1="- - - - -" ; fi
+if [ $n2 -gt 0 ] ; then
+	auc2=$(xe-dbmatch1 $progbase1"_specmean.txt" move running -oc amp -o 1 |
+	xe-pad1 stdin -t 1 -e 4 -n 1 |
+	xe-curvestats1 stdin -sf $freqrate -index $listbands |
+	xe-cut1 stdin AUC -o 1 |
+	paste -s)
+else auc2="- - - - -" ; fi
+
+echo "delta1 theta1 beta1 lgamma1 hgamma1 delta2 theta2 beta2 lgamma2 hgamma2" | xe-delimit stdin > $outfile
+echo $auc1 $auc2 | xe-delimit stdin >> $outfile
+
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+if [ "$setplot" == "1" ] ; then
+
+	# PLOT THE MEAN SPECTRUM FOR RUNNING VS IMMOBILE
+	echo "	...plotting the mean power spectra"
+	plotopts="-line 1 -ps 0 -cg 1 -cx 2 -cy 3 -xscale .45 -xmin 0 -xmax $setfftmax -xint 10 -ymin 0 -legend 1 -vline 0.5,4,12,30,50 -out $progbase1""_specmean.ps"
+	xe-plottable1 $progbase1"_specmean.txt" $plotopts -xlabel "Frequency (Hz)" -ylabel "Amplitude" -title "TRIAL: $settrial"
+
+	# PLOT SPECTRAL TIMECOURSE
+	echo "	...plotting the power timecourse"
+	# get the total duration
+	timetot=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -cy 1 -v $binrate )
+	# get the lines
+	vlines=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" -com 1 -div $binrate | cut -f 1 | tail -n +2 | paste -s | tr '\t' ',')
+	if [ "$vlines" != "" ] ; then vlines="-vline "$vlines ; fi
+	plotopts="-xscale 1 -xmax $timetot -ymin 0 -ymax $setfftmax -zmin 0 $vlines -out $progbase1""_spectimes.ps"
+	cut -f 3- $progbase1"_spectimes.txt" |
+		grep -v "#" |
+		xe-matrixmod1 stdin -r -90 -w 500 -h 100 -sx 1 -sy 1 -n 2 |
+		xe-plotmatrix1 stdin $plotopts -title "Trials: $settrial" -xlabel "Time (seconds)" -ylabel "Frequency (Hz)"
+
+	# PLOT VELOCITY  TIMECOURSE
+	xe-ldas5-readxyd1 $filexydt $filexyd $opts -out 1 |
+		xe-cut1 stdin elapsed,vel |
+		xe-bin2 stdin -t 10 -m 1 |
+		xe-plottable1 stdin -line 1 -ps 0 -xscale 1 -xpad 0 -colour 16 -lwd 0.5  -out $progbase1"_velocity.ps"
+
+	# OVERLAY VELOCITY ON THE SPECTRUM
+	echo "" > $tempfile
+	cp $progbase1"_velocity.ps" $tempfile".ps"
+	xs-plotmodtics $tempfile".ps" $tempfile xtic
+	xs-plotmodtics $tempfile".ps" $tempfile ytic
+	xe-plotmerge1 -xinc 0 -yinc 0 $progbase1"_spectimes.ps" $tempfile".ps" -out $progbase1"_velspect"
+fi
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

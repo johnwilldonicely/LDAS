@@ -1,0 +1,113 @@
+#!/bin/bash
+
+thisprog="xs-ldas-scoresummary1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_time=$(date +'%s')
+setformat="1"
+
+setstart=0
+setn=360
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": summarize 16 SCORE data files"
+	echo "REQUIRES: a properly formatted database file listing files in cage-order"
+	echo "	- should be 16 files listed in the database"
+	echo "	- files are currently assumed to be SCORE raw format"
+	echo "	- missing files should be designated by a \"-\""
+	echo "	- xe-readscore1 used to read the files and assess clipping"
+	echo "	- xe-fftpow2 used to calculate amplitude spectrum"
+	echo "USAGE: "
+	echo "	"$thisprog" [dbfile]"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-s: start record (integer) or time (YY:MM:DD:hh:mm:ss) ["$setstart"]"
+	echo "	-n: number of 10s records to read ["$setn"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+filedb=$1 ; shift 
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":s:n:" flag ; do
+ 	case $flag in
+		s) setstart=$OPTARG;;
+		n) setn=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit; } ; fi
+
+
+#??? CHECK FOR EMPTY DATABASE OR NOT 16 ENTRIES!
+
+listfile1=$(cat $filedb)
+listfile2="" 
+let count=1
+rm -f  $tempfile".2"
+
+for infile in $listfile1 ; do 
+
+	# make a 2-digit version of the counter for file names
+	count2=$(echo $count | awk '{printf("%02d",$1)}')
+
+	if [ $infile != "-" ] ; then 
+		subject=$(echo $infile | cut -f 1 -d ".")
+		outfile=$tempfile"."$count2"."$subject".txt"
+		listfile2=$listfile2" "$outfile
+		
+		# read the SCORE raw file quickly to assess %clipping
+		clip[count]=$(xe-readscore1 $infile -start $setstart -n $setn -out 0 | xe-cut1 stdin "%clip" -d "\t" -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.2f",$1)}' )
+
+
+		# read the SCORE raw file and calculate the amplitude spectrum for a 2s window
+		echo "	xe-readscore1 $infile -start $setstart -n $setn"
+		xe-readscore1 $infile -start $setstart -n $setn | 
+		xe-fftpow2 stdin -sf 400 -w 800 -min 1 -max 150 -v 0 > $outfile
+		# get the maximum for frequencies <40Hz 
+		cat $outfile | awk '$1<40{print $2}' | xe-statsd1 stdin | xe-getkey stdin MAX >> $tempfile".2"
+		let count=$count+1
+
+	elif [ $infile == "-" ] ; then 
+		subject="-"
+		echo "	"$subject
+		outfile=$tempfile"."$count2"."$subject".txt"
+		listfile2=$listfile2" "$outfile
+		# create 1 second's worth of fake data - all ones
+		seq 0  150 | awk '{print $1"\t"0.0001}' > $outfile
+		clip[count]="0.00"
+		let count=$count+1
+	fi 
+
+done
+
+# CALCULATE THE MAXIMUM FFT VALUE
+ymax=$(xe-statsd1 $tempfile".2" | xe-getkey stdin MAX)
+
+plotlist=""
+plotopts="-line 1 -ps 0 -colour 3 -xmin 0 -xmax 150 -xint 50 -xpad 0 -ypad 0 -ymin 0 -xscale 0.19 -yscale 0.1750 -lwd 0.5 -lwa 0.5 "
+
+let count=1
+for infile in $listfile2 ; do 
+	subject=$(echo $infile | cut -f 3 -d ".")
+	
+	noise=$(cat $infile | awk '{if($1==50)printf("%.2f\n",$2)}')
+	
+	plotfile=$infile".ps"
+	plotlist=$plotlist" "$plotfile 	
+	xe-plottable1	$infile $plotopts -xlabel $subject -ylabel $noise"__"${clip[count]} -out $plotfile -ymax $ymax 	
+
+	let count=$count+1
+done 
+
+xe-plotmerge1 -xmax 4 -ymax 4 -xinc 130 -yinc 130 $plotlist 
+rm -f $plotlist

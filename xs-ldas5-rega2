@@ -1,0 +1,159 @@
+#!/bin/bash
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+
+# BUILD PATH TO THE LINK-EXECUTEABLE (THIS FILE): VARIES FROM MACHINE TO MACHINE
+path1=$(which $thisprog);
+# BUILD PATH TO EXECUTABLE, which sould be in a "source" subdirectory relative to the link-executable
+execpath=${path1%/*}/bin/regaamc8
+
+gain="0.1000"
+let chmin=0
+let chmax=15
+let chstep=1
+let chtot=(1+$chmax-$chmin)/$chstep
+let spacer=32*32/$chtot
+
+setfilemap=""
+setoffset="0"
+setnchans=""
+
+# default channel depth profile
+# based on the CRACKIT transmitter paired with a CambridgeNeurotech 16-ch probe
+chan[0]="7" ; chan[1]="10" ; chan[2]="6" ; chan[3]="8"
+chan[4]="4" ; chan[5]="11" ; chan[6]="5" ; chan[7]="9"
+chan[8]="3" ; chan[9]="12" ; chan[10]="1" ; chan[11]="14"
+chan[12]="2" ; chan[13]="13" ; chan[14]="0" ; chan[15]="15"
+
+if [  $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "Invoke regaamc8 for .dat (16-channel) or .bin (1-channel)"
+	echo "	- CRACK-IT version"
+	echo "	- assumes sampling frequency = 19531.25 Hz (.dat) or 1000Hz (.bin)"
+	echo "EXECUTABLE PATH: "
+	echo "	$execpath"
+	echo "USAGE:"
+	echo "	$thisprog [filename] "
+	echo "		[filename]: a binary .dat or .bin file"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-t | --table: channel-table, format= <probe chan> <depth> <.dat chan> ["$setfilemap"]"
+	echo -n "		default depth-order = "
+	for i in $(seq 0 14) ; do echo -n ${chan[$i]}"," ; done ; echo ${chan[15]}
+	echo "	-o | --offset: plot offset (if data is not zero-ed) ["$setoffset"]"
+	echo "	-n | --nchans: : override number of channels if set ["$setnchans"]"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="t:o:n:" ; vl="table:,offset:,nchans:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		-t | --table ) setfilemap=$2 ; shift ;;
+		-o | --offset ) setoffset=$2 ; shift ;;
+		-n | --nchans ) setnchans=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: input file '$infile' missing" ; echo ; exit; } ; fi
+if [ ! -e $setfilemap ] ; then { echo ; echo "--- Error ["$thisprog"]: channel-table file '$setfilemap' missing" ; echo ; exit; } ; fi
+
+########################################################################################
+# DETERMINE WHETHER ARGUMENT 1 REFERS TO A .DAT OR .bin FILE
+# - set default parameters accordingly
+########################################################################################
+if [ $(echo "$infile" | grep .dat -c) -gt 0 ]; then
+	n_chans=16
+	let chmin=0
+	let chmax=15
+	let chstep=1
+	sampint=51.2 # in nanoseconds.
+elif [ $(echo "$infile" | grep .bin -c) -gt 0 ]; then
+	n_chans=1
+	let chmin=0
+	let chmax=0
+	let chstep=1
+	sampint=1000 # in nanoseconds.
+	echo "	- generating temporary file $tempfile.bin"
+	xe-readbinary3 $infile -dt 8 | xe-writebinary1 stdin -dt 3 > $tempfile.bin
+	infile=$tempfile.bin
+else
+	{ echo ; echo "--- Error ["$thisprog"]: $infile is neither a .dat nor a .bin file" ; echo ; exit; }
+fi
+
+# OVERRIDE NUMBER OF CHANNELS, IF SETNCHANS WAS DEFINED
+if [ "$setnchans" != "" ] ; then n_chans=$setnchans ; fi
+
+# DETERMINE TOTAL CHANNELS TO BE DISPLAYED BASED ON ARGUMENTS
+let chtot=(1+$chmax-$chmin)/$chstep
+
+# REPLACE DEFAULT CHANNEL LIST WITH DEPTH-ORDER DEFINED IN PROBE-CHANNEL TABLE
+if [ $setfilemap ] ; then
+	# BUILD A TEMPFILE CONTAINING COLUMNS CHANNEL & DEPTH - KEEP HEADER
+	# first try reading the file as a simple table
+	xe-cut1 $setfilemap depth,chan -s 1 > $tempfile
+	let z=$(cat $tempfile | wc -l)
+	# if that fails, try extracting columns from an XML sub-section
+	if [ $z -lt 1 ] ; then
+		xe-strxmlparse1 $setfilemap CHANNELS | xe-cut1 stdin depth,chan -s 1 > $tempfile
+		let z=$(cat $tempfile | wc -l)
+		# if THAT fails, then error!
+		if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: $setfilemap does not contain the required channel information" ; echo ; exit ; } fi
+	fi
+	# MAKE A SPACE-DELIMITED DEPTH-ORDERED LIST OF ALL POSSIBLE CHANNELS - ZERO-PADDED
+	list=$(xe-cut1 $tempfile depth,chan -s 1 -o 1 | cut -f 2)
+	# BUILD AN ARRAY HOLDING THE CHANNEL LIST
+	let count=0 ; for i in $list ; do { chan[$count]=$i ; let count=$count+1 ; } done
+
+fi
+#for i in $(seq $chmin $chstep $chmax) ; do echo "chan $i: "${chan[$i]} ; done ; exit
+
+
+echo "regaa2.0" > $tempfile
+echo "0" >> $tempfile		# prtypelo or prtypefl = ???
+echo "965" >> $tempfile		# cx= window width
+echo "1095" >> $tempfile	# cy= window height
+echo "30" >> $tempfile		# xs= ???
+echo "500" >> $tempfile		# ys= ???
+echo "10" >> $tempfile		# res= starting zoom (time)
+echo "1" >> $tempfile		# ncol= fraction of data to show in time-axis
+echo $chtot >> $tempfile	# cnon= total channels to be displayed
+
+# DEFINE CHANNEL COLOURS
+c[0]=19; c[1]=19; c[2]=1; c[3]=1; c[4]=8; c[5]=8; c[6]=17; c[7]=17;
+c[8]=5; c[9]=5; c[10]=29; c[11]=29; c[12]=26; c[13]=26; c[14]=34; c[15]=34;
+
+# DEFINE CHANNEL SPACING
+let spacer=32*32/$chtot
+let count=0
+for i in $(seq $chmin $chstep $chmax) ; do
+	let count=$count+1
+	let pos=$count*$spacer+$setoffset
+	echo ${chan[$i]} 0 $pos $gain ${c[i]} >> $tempfile
+done
+for i in 1 2 3 4 5 6 ; do echo "0" >> $tempfile ; done
+
+# INVOKE REGAAMC8
+command=$execpath" "$infile" "$n_chans" "$sampint" "$tempfile
+echo "	"$command ; echo
+$command
+
+# CLEANUP
+#rm -f $tempfile

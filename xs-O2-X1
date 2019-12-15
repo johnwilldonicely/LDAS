@@ -1,0 +1,293 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog ; rm -f $tempfile*
+outbase="X1_" ; rm -f $outbase*
+
+# default options for block alignment using for xe-ldas-align1
+set_start="Start"
+set_stop=""
+set_firstblock=""
+set_lastblock=""
+set_dur=""
+set_pre="10"
+set_sz="0"
+set_prenorm=""
+set_norm="2"
+set_bin="0"
+set_inthigh="10" 	# default filter integration over 10 seconds or cutoff at 10 units/s or low-pass frequency of 0.1 hz
+set_intlow="0" 	# default no filtering of low frequencies
+set_comfile=""
+set_mult="1"
+set_flip="1"
+set_demean="1"
+set_skip="-"
+set_sdthresh="0"
+set_rmsthresh="0"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": generate average O2-sensing response curve for a given subject"
+	echo "USAGE: "$thisprog" [base] [hem] [region] [options]"
+	echo "	[base]: base-name [subject]-[yymmdd]"
+	echo "	[hem]: hemisphere (L or R)"
+	echo "	[region]: brain region (e.g. DHIPP, MPFC)"
+	echo "		Note: [hem] & [region] are matched against .notes file"
+	echo "		CHANNEL records to identify the correct .dat file for that channel"
+	echo
+	echo "	[options] (defaults in []) :"
+	echo
+	echo "	-c specify the exact name of the comment-file to use for alignment ["$set_comfile"]"
+	echo "		(by default, unset, and original [base].[probe].cmt file is used) "
+	echo "	-i integration period for high-cutoff filtering, in seconds ["$set_inthigh"]"
+	echo "		- events occuring faster than this will be attenuated"
+	echo "		- set to zero to skip"
+	echo "	-j integration period for low-freqeuncy filtering, in seconds ["$set_intlow"]"
+	echo "		- events occurring longer than this will be attenuated"
+	echo "		- set to zero to skip"
+	echo "	-x skip certain processing steps ["$set_skip"]"
+	echo "		p: no plots (numerical output only - good for highly dense data)"
+	echo
+	echo " 	[options] passed to xe-ldas-align1 (converted to arguments in ():"
+	echo
+	echo "	-s (-start) start signal (partial match, case-sensitive) ["$set_start"]"
+	echo "	-e (-stop) end, or stop signal (partial match, case-sensitive) ["$set_stop"]"
+	echo "	-a (-first) first block to use ["$set_firstblock"]"
+	echo "	-z (-last) last block to use ["$set_lastblock"]"
+	echo "	-d (-dur) block duration ["$set_dur"]"
+	echo "	-n (-norm) normalization ["$set_norm"]"
+	echo "	-p (-pre) presample time ["$set_pre"]"
+	echo "	-N (-pn) normalization presample time if diff. from -p [unset be default]"
+	echo "	-r (-pz) re-zero to start of presample ["$set_sz"]"
+	echo "	-b (-bin) averaging bin-size - aids block-averaging (0=none) ["$set_bin"]"
+	echo "	-f (-flip) invert the data on the y-axis ["$set_flip"]"
+	echo "	--rmsthresh (-rmsthresh) RMS power rejection threshold ["$set_rmsthresh"]"
+	echo "	--sdthresh (-sdthresh) std.deviation rejection threshold ["$set_sdthresh"]"
+	echo
+	echo "EXAMPLE: "
+	echo "	"$thisprog" rat002-101116-KET01 R DHIPP -s Pump_on"
+	echo "OUTPUT: average response curve in format [time] [value]"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# SAVE AND PRINT THE COMMAND LINE
+command_line=$@ ; echo ; echo $thisprog $command_line ; echo "----------------------------------------"
+
+# READ THE REQUIRED COMMAND-LINE ARGUMMENTS
+base=$1; shift
+hemis=$1; shift
+region=$1; shift
+opts=$@
+
+################################################################################
+# READ OPTIONAL ARGUMENTS
+################################################################################
+vs="a:b:c:d:e:f:i:j:n:p:N:r:s:z:x:" ; vl="sdthresh:,rmsthresh:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-a ) set_firstblock=$2 ; shift ;;
+		-z ) set_lastblock=$2 ; shift ;;
+		-i ) set_inthigh=$2 ; shift ;;
+		-j ) set_intlow=$2 ; shift ;;
+		-s ) set_start=$2 ; shift ;;
+		-e ) set_stop=$2 ; shift ;;
+		-d ) set_dur=$2 ; shift ;;
+		-n ) set_norm=$2 ; shift ;;
+		-p ) set_pre=$2 ; shift ;;
+		-N ) set_prenorm=$2 ; shift ;;
+		-r ) set_sz=$2 ; shift ;;
+		-b ) set_bin=$2 ; shift ;;
+		-f ) set_flip=$2 ; shift ;;
+		-c ) set_comfile=$2 ; shift ;;
+		-x ) set_skip=$2 ; shift ;;
+		--sdthresh ) set_sdthresh=$2 ; shift ;;
+		--rmsthresh ) set_rmsthresh=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+
+################################################################################
+# CHECK VALIDITY OF OPTIONAL ARGUMENTS
+################################################################################
+subject=$(echo $base | cut -f 1 -d "-")
+yymmdd=$(echo $base | cut -f 2 -d "-")
+if [ -z "$subject" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad base-name format ($base)" ; echo ; exit ; } fi
+if [ -z "$yymmdd" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad base-name format ($base)" ; echo ; exit ; } fi
+if [ "$set_firstblock" ] && [ ! $(echo $set_firstblock | xe-checkisnum2 stdin -t 0) ] ; then { echo ; echo "--- Error ["$thisprog"]: -a cannot be \""$set_firstblock"\" - must be an integer" ; echo ; echo ; exit ; } ; fi
+if [ "$set_lastblock" ] && [ ! $(echo $set_lastblock | xe-checkisnum2 stdin -t 0) ] ; then { echo ; echo "--- Error ["$thisprog"]: -z cannot be \""$set_lastblock"\" - must be an integer" ; echo ; echo ; exit ; } ; fi
+if [ "$set_pre" ] && [ ! $(echo $set_pre | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -p cannot be \""$set_pre"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_prenorm" ] && [ ! $(echo $set_prenorm | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -P cannot be \""$set_prenorm"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_prenorm" ] && [ $(echo $set_prenorm $set_pre | awk '{if($1>$2) print "bad"}' ) ] ; then { echo ; echo "--- Error ["$thisprog"]: -N ("$set_prenorm") cannot be greater than -p ("$set_pre")" ; echo ; echo ; exit ; } ; fi
+if [ "$set_dur" ] && [ ! $(echo $set_dur | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -d cannot be \""$set_dur"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_inthigh" ] && [ ! $(echo $set_inthigh | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -i cannot be \""$set_inthigh"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_intlow" ] && [ ! $(echo $set_intlow | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -j cannot be \""$set_intlow"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_bin" ] && [ ! $(echo $set_bin | xe-checkisnum2 stdin -t 1) ] ; then { echo ; echo "--- Error ["$thisprog"]: -b cannot be \""$set_bin"\" - must be a number" ; echo ; echo ; exit ; } ; fi
+if [ "$set_norm" ] && [ $set_norm != "0" ] && [ $set_norm != "1" ] && [ $set_norm != "2" ] && [ $set_norm != "3" ] ; then { echo ; echo "--- Error ["$thisprog"]: -n cannot be \""$set_norm"\" - must be 0,1,2 or 3" ; echo ; echo ; exit ; } ; fi
+if [ "$set_sz" ] && [ $set_sz != "0" ] && [ $set_sz != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: -r cannot be \""$set_sz"\" - must be 0 or 1" ; echo ; echo ; exit ; } ; fi
+if [ "$set_demean" ] && [ $set_demean != "0" ] && [ $set_demean != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: -M cannot be \""$set_demean"\" - must be 0 or 1" ; echo ; echo ; exit ; } ; fi
+if [ "$set_filp" ] && [ $set_filp != "0" ] && [ $set_filp != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: -f cannot be \""$set_filp"\" - must be 0 or 1" ; echo ; echo ; exit ; } ; fi
+
+
+# BUILD INPUT AND NOTES FILENAMES - CHECK THEY ARE PRESENT
+notesfile=$base".notes" ; if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' missing" ; echo ; echo ; exit ; } ; fi
+
+# MAKE SURE A VALID HEMISPHERE WAS SPECIFIED
+if [ $hemis != "L" ] && [ $hemis != "R" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid hemisphere ("$hemis") - must be L or R" ; echo ; echo ; exit ; } ; fi
+
+# IDENTIFY THE CHANNEL ASSOCIATED WITH THE SPECIFIED HEMISPHERE AND BRAIN REGION
+channel=$(awk '$1=="CHANNEL"&&$4=="'$hemis'"&&$5=="'$region'"{printf("%03d",$2)}' $notesfile)
+if [ -z $channel ] ;  then { echo ; echo "--- Error ["$thisprog"]: notes file has no CHANNEL specifying hemisphere \""$hemis"\" and region \""$region"\"" ; echo ; echo ; exit ; } ; fi
+
+# GET THE SAMPLE RATE
+sample_rate=$(xe-getkey $notesfile SAMPLE_RATE)
+if [ -z $sample_rate ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file "$notesfile" is missing SAMPLE_RATE keyword" ; echo ; echo ; exit ; } ; fi
+# make sure binning-factor is not less than sample interval
+x=$(echo $set_bin $sample_rate | awk '{if($1!=0 && $1<(1.0/$2)) print "error"}')
+if [ ! -z $x ] ; then { echo ; echo "--- Error ["$thisprog"]: binning (-b $set_bin) too small for data sample rate ($sample_rate)" ; echo ; echo ; exit ; } ; fi
+
+
+# BUILD THE TIME, DATA AND COMMENT FILE NAMES
+timefile=$base".time" ; if [ ! -e $timefile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$timefile' missing" ; echo ; echo ; exit ; } ; fi
+infile=$base"."$channel".dat" ; if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; echo ; exit ; } ; fi
+if [ "$set_comfile" ] ; then cmtfile=$set_comfile ; else cmtfile=$base"."$channel".cmt" ; fi
+if [ ! -e $cmtfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$cmtfile' missing" ; echo ; echo ; exit ; } ; fi
+
+# BUILD FILTER PARAMETERS - CHECK VALIDITY
+# determine minimum value for -i (set_inthigh) - must not produce a filter cutoff higher than half the sample rate
+highthresh1=$(echo $sample_rate| awk '{printf("%g",($1/2.0))}')
+highthresh2=$(echo $highthresh1| awk '{printf("%g",(1.0/$1))}')
+# calculate low and high frequency cutoffs for filtering
+if [ $set_intlow == "0" ] ; then freqlow=0
+else freqlow=$(echo $set_intlow | awk '{printf("%g",(1.0/$1))}')
+fi
+if [ $set_inthigh == "0" ] ; then freqhigh=0
+else freqhigh=$(echo $set_inthigh | awk '{printf("%g",(1.0/$1))}')
+fi
+
+message=$(echo $freqhigh $highthresh1 | awk '{if($1>=$2) print "error1" } ')
+if [ $message ] ; then { echo ; echo "--- Error ["$thisprog"]: \"-i "$set_inthigh"\" sets high-freq cutoff at "$freqhigh"Hz - too high for data sampled at "$sample_rate"Hz - chose a value for -1 larger than $highthresh2" ; echo ; echo ; exit ; } ; fi
+
+
+# BUILD THE OPTIONS FOR xe-ldas-align1 ; NOTE THAT IF $SET_STOP IS UNDEFINED IT BECOMES THE SAME AS $SET_START
+echo "set_low="$set_intlow
+echo "set_high="$set_inthigh
+aopts="-sdthresh "$set_sdthresh" -rmsthresh "$set_rmsthresh
+if [ $set_intlow != "0" ] ; then aopts=$aopts" -low "$freqlow ; fi
+if [ $set_inthigh != "0" ] ; then aopts=$aopts" -high "$freqhigh ; fi
+if [ $set_start ] ; then aopts=$aopts" -start "$set_start ; fi
+if [ $set_stop ] ; then aopts=$aopts" -stop "$set_stop ; fi
+if [ $set_firstblock ] ; then aopts=$aopts" -first "$set_firstblock ; fi
+if [ $set_lastblock ] ; then aopts=$aopts" -last "$set_lastblock ; fi
+if [ $set_dur ] ; then aopts=$aopts" -dur "$set_dur ; fi
+if [ $set_pre ] ; then aopts=$aopts" -pre "$set_pre ; fi
+if [ $set_prenorm ] ; then aopts=$aopts" -pn "$set_prenorm ; fi
+if [ $set_sz ] ; then aopts=$aopts" -sz "$set_sz ; fi
+if [ $set_flip ] ; then aopts=$aopts" -flip "$set_flip ; fi
+if [ $set_bin ] && [ "$set_bin" != "0" ] ; then
+	aopts=$aopts" -bin "$set_bin
+	# set multiplier for averaging blocks to the inverse of the binning factor: disallow values <1
+	set_mult=$(echo $set_bin| awk '{m=(1.0/$1); if(m<1)m=1; print m}')
+else
+	# if there is no binning, the multiplier to preserve decimal precision in the averaged output is the sample rate - again, 1 is the minimum
+	set_mult=$(echo $sample_rate| awk '{m=$1; if(m<1)m=1; print m}')
+fi
+
+if [ $set_norm ] ; then aopts=$aopts" -norm "$set_norm ; fi
+
+#################################################################################
+# GENERATE THE AVERAGE ALIGNED RESPONSE CURVE
+#################################################################################
+echo "input_file: "$infile
+echo "timefile: "$timefile
+
+# print headers to output files (all curves, labelled by block)
+echo "block	time	nA" > $outbase"aligned.txt"
+echo "time	nA" > $outbase"average.txt"
+echo "subj yymmdd hemis region blocks auc aneg apos com median xpeak ypeak slope" | xe-delimit stdin > $outbase"summary.txt"
+
+# COMBINE WITH TIMESTAMPS - TWO COLUMNS (TIME,DATA) FROM HERE ON
+# SEND MAIN OUTPUT TO ALIGNED FILE AND STDERR OUTPUT TO TEMPORARY FILE
+echo "timefile="$timefile
+echo "cmtfile="$cmtfile
+echo "
+	paste $timefile $infile |
+	xe-ldas-align1 stdin $cmtfile $aopts -verb 1 >> "$outbase"aligned.txt
+"
+{
+paste $timefile $infile |
+	# align with appropriate comments (includes binning) and save
+	xe-ldas-align1 stdin $cmtfile $aopts -verb 1 >> $outbase"aligned.txt"
+} 2> $tempfile
+cat $tempfile
+
+# CHECK THAT AT LEAST ONE BLOCK WAS DETECTED
+let nblocks=$(grep block: $tempfile | wc -l)
+if [ $nblocks -lt 1 ] ; then
+	echo "--- Warning ["$thisprog"]: no blocks found for "$base ; echo
+	echo $subject $yymmdd $hemis $region "0 - - - - - - - - "| xe-delimit stdin >> $outbase"summary.txt"
+	exit
+fi
+
+# AVERAGE THE CURVES AND INVERT
+outfile=$outbase"average.txt"
+echo "time	nA" > $outfile
+# cut the block column from the alignment output - just output re-aligned time and data
+xe-cut1 $outbase"aligned.txt" time,nA -o 1 |
+	# get the average for each time-point across blocks, applying the appropriate multiplier and omitting output of the header
+	xe-statsgrp0 stdin -cg 1 -cy 2 -mult $set_mult -h 0 |
+	# keep columns 1 (time) and 3 (mean response)
+	cut -f 1,3 >> $outfile
+	#echo "set_mult="$set_mult
+
+
+#################################################################################
+# SUMMARY STATS RESTRICTED TO TIME POINTS >0 (DON'T ANALYZE PRE-SAMPLE PERIOD)
+#################################################################################
+
+# AUC DERIVED FROM XE-ALIGN1 OUTPUT FILE (MEAN OF INDIVIDUAL AUC's BASED ON UNBINNED DATA)
+aucfile="temp_xe-ldas-align1.txt"
+if [ ! -e $aucfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$aucfile' missing" ; echo ; echo ; exit ; } ; fi
+areatot=$(xe-cut1 $aucfile auc -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+areaneg=$(xe-cut1 $aucfile aucpos -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+areapos=$(xe-cut1 $aucfile aucneg -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+
+# OTHER STATS DERIVED FROM MEAN CURVE
+cat $outbase"average.txt"|xe-checkisnum2 stdin -t 2 -f 0 -m "-"|awk '$1>=0{print $0}' > $tempfile
+x=$(xe-histstats1 $tempfile)
+com=$(echo $x | xe-getkey stdin COM)
+median=$(echo $x | xe-getkey stdin MEDIAN)
+xpeak=$(echo $x | xe-getkey stdin XMAX)
+ypeak=$(echo $x | xe-getkey stdin YMAX)
+
+slope=$(xe-cor1 $tempfile -v 1 | xe-getkey stdin "slope=")
+
+echo $subject $yymmdd $hemis $region $nblocks $areatot $areaneg $areapos $com $median $xpeak $ypeak $slope | xe-delimit stdin >>  $outbase"summary.txt"
+
+#################################################################################
+# PLOT FILTERED, ALIGNED, AVERAGED CURVE
+#################################################################################
+if [ "$(echo $set_skip | grep -v p)" ] ; then
+	plotopts1="-cx 1 -cy 2 -line 1 -ps 0 -xscale .2 -yscale .1 -font 4 -colour 3 -lwa .25 -lwd .5 -vline 0"
+	if [ $set_dur ] ; then plotopts1=$plotopts1" -xmax "$set_dur ; fi
+	xe-cut1 $outbase"average.txt" time,nA -o 1 |
+		xe-plottable1 stdin $plotopts1 -xlabel "Time (s) $infile" -ylabel "Current (nA)" -out $outbase"average.ps"
+
+		echo "Raw & filtered plots sent to "$outbase"diagnostic.ps"
+		echo "Aligned data sent to "$outbase"average.ps"
+fi
+
+echo
+rm -f $tempfile*
+exit

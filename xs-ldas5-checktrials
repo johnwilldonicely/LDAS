@@ -1,0 +1,153 @@
+#!/bin/bash
+thisprog="xs-ldas5-checktrials"
+tempfile="temp_"$thisprog #"."$$
+
+######################################################################
+# SUMMARIZE THE CRACK_IT SESSIONS AND ETHOVISION TRIALS 
+######################################################################
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": summarize the CRACK-IT sessions and ethovision trials"
+	echo "	- to help determine which EV trials belong in which sessions"
+	echo "	- use this to generate or confirm the table_trialmapping.txt file"
+	echo "	- uses start-times and duration (minutes)"
+	echo "	- will rename Track* and Hardware files to remove spaces"
+	echo "REQUIRES: "
+	echo "	- CRACK-IT [yyyymmdd]-[ses]_[sbject].datraw files"
+	echo "	- EthoVision tracking files "
+	echo ""
+	echo "USAGE: "
+	echo "	$thisprog [subject_ID] or \"*\""
+	echo ""
+	echo "EXAMPLES: "
+	echo "	$thisprog \"*\""
+	echo "	$thisprog 1234567"
+	echo ""
+	echo "SAMPLE OUTPUT: "
+	echo "	Electrophysiology sessions:"
+	echo "	SESS  START	DUR"
+	echo "	000   16:00:55	41.82"
+	echo ""
+	echo "	EthoVision Trials for subject 000001:"
+	echo "	TRIAL TIME	DUR	NAME"
+	echo "	1     16:02:36	10.00	FAM1"
+	echo "	2     16:14:56	10.00	CARD1"
+	echo "	3     16:33:22	10.00	SLEEP1"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+# RENAME THE FILES AND CONVERT FROM DOS to LINUX (remove linefeed at end of lines) 
+xs-renamespace "*.txt" "_"
+dos2unix -q *.txt 
+chmod a-x *.txt
+
+# get the subject id
+subj=$1 ; shift 
+
+# BUILD THE .DAT FILE LIST FOR A GIVEN SUBJECT OR ALL SUBJECTS
+list=""
+if [ "$subj" == "*" ] ; then 
+	a=$(ls *.dat | cut -f 1 -d _ | cut -f 2 -d - | sort -u)
+	for b in $a ; do 
+		list=$list" "$(ls ????????"-"$b"_"*".dat" | head -n 1) 
+	done 
+else 
+	# list all the recording sessions for this subject 
+	list=$(ls 2>/dev/null ????????-???_$subj.dat)
+	if [ "$list" == "" ] ; then { echo ; echo "--- Warning ["$thisprog"]: no .dat records found for subject $subj" ; echo ; exit ; } fi
+fi 
+
+######################################################################
+# LIST THE ELECTROPHYSIOLOGY SESSIONS (EACH MAY ENCOMPASS MULTIPLE TRIALS)
+######################################################################
+echo
+echo "######################################################################"
+echo "Electrophysiology sessions:"
+echo "######################################################################"
+for filedat in $list ; do 
+	echo "SESS  START	DUR	FILE"
+	filedatraw=$(xs-strsub $filedat .dat .datraw)
+	filesyn=$(xs-strsub $filedat .dat .syn)
+
+	if [ ! -e "$filesyn" ] ; then { 
+	warn=$(echo " ...Warning ["$thisprog"]: no matching .syn file '$filesyn'")
+	datasize=$(xe-getkey $filesyn data_bits= | awk '{print $1/8}') # converted to bytes
+	nch=$(xe-getkey $filesyn num_channels=) # number of channels
+	sr=$(xe-getkey $filesyn sample_rate=) # sample-rate (Hz)
+	sess=$(echo $filedat | cut -f 1 -d "_" | cut -f 2 -d "-")
+	} 
+	else {
+	warn=""
+	sr=$(xe-getkey $filesyn sample_rate=)
+	nchan=$(xe-getkey $filesyn num_channels=)
+	datasize=$(xe-getkey $filesyn data_bits= | awk '{print $1/8}')
+	sess=$(xe-getkey $filesyn session= | awk '{printf("%03d\n",$1)}')
+	}
+	fi
+	
+	# derive duration from .dat file (missing samples restored)
+	d1=$(ls -l $filedat | cut -f 5 -d " " | awk '{printf("%d",($1/('$datasize'*'$nchan'*'$sr')))}') # duration in seconds
+	d2=$(echo $d1 | awk '{printf("%.2f",($1/60))}')
+
+	# get start time if specified in .syn file : must match pattern ??:??:??
+	t3=$(xe-getkey $filesyn start_time= | grep -e '..:..:..')
+	if [ -z $t3 ] ; then 
+		warn=" ...Warning: estimating start_time"
+		# derive start-time from the original .datraw file : the .dat file will have been created later
+		t1=$(ls -l $filedatraw --time-style="+%H:%M:%S" | awk '{print $(NF-1)}') # start time in hh:mm:ss
+		t2=$(echo $t1 | xe-timeconv1 stdin -f 1) # start time in seconds
+		# corrected start time (because file is written about 60s after end of recording)
+		t3=$(echo $t2 $d1 | awk '{print $1-$2-60}' | xe-timeconv1 stdin -f 2) 
+	fi 
+	echo $sess"   "$t3"	"$d2"	"$filedat"	"$warn
+
+	cat $filesyn | grep sync_0| cut -f 1 -d " " > $tempfile.0
+	let x=$(cat $tempfile.0 | wc -l)
+	cat $filesyn | grep sync_1| cut -f 1 -d " " > $tempfile.1
+	let y=$(cat $tempfile.1 | wc -l)
+	if [ $x -ne $y ] ; then
+		echo "	--- Warning ["$thisprog"]: number of start and stop sync signals do not match in $filesyn" ;
+	elif [ $x -eq 0 ] ; then 
+		echo "	--- Warning ["$thisprog"]: no sync pulses in $filesyn" 
+	else
+		echo "sync-pair   duration"| awk '{printf("%-10s%-10s%-10s\n","",$1,$2)}'
+		paste $tempfile.0 $tempfile.1 | 
+		awk '{printf("%-10s%-10d%-8.2f\n","",(++n),((($2-$1)/(19531.26))/60))}'  
+	fi
+	
+	echo 
+done
+
+######################################################################
+# LIST THE ETHOVISION TRIALS 
+######################################################################
+list0=$(ls 2>/dev/null Track*Arena*)
+if [ "$list0" == "" ] ; then 
+	echo "--- Warning ["$thisprog"]: no EthoVision records found" 
+else 
+	ls Track*Arena* > $tempfile.1
+	ls Track*Arena* | awk -F "Trial_" '{print $2}' | awk -F "-Arena" '{print $1}' > $tempfile.2
+	list=$(paste $tempfile.2 $tempfile.1 | sort -n | cut -f 2)
+fi
+
+
+echo "######################################################################"
+echo "EthoVision Trials for subject $subj:"
+echo "######################################################################"
+echo "TRIAL TRIALNUM DUR TIME NAME" | awk '{printf("%-10s%-10s%-10s%-10s%-10s\n",$1,$2,$3,$4,$5)}' 
+for i in $list ; do 
+	subj2=$(xs-ldas-readethovision1 $i -h vSUBJECT | awk '{printf("%s",$1)}' | tr -d '_')
+	#echo "***$subj***   ***$subj2***"
+	if [ "$subj2" != "$subj" ] && [ "$subj" != "*" ]  ; then continue ; fi 
+	t=$(xs-ldas-readethovision1 $i -h Start_time | cut -f 2 -d "_" | cut -f 1 -d ".")
+	d=$(xs-ldas-readethovision1 $i -h Recording_duration | cut -f 2 -d "_"  | xe-timeconv1 stdin | awk '{printf("%4.2f\n",($1/60.0))}')
+	n=$(xs-ldas-readethovision1 $i -h vTRIALNAME)
+	trial1=$(echo $i | cut -f 3 -d "-" | cut -f 2 -d "_")
+	trial2=$(xs-ldas-readethovision1 $i -h vTRIALNUM)
+	echo $trial1" "$trial2" "$d" "$t" "$n| awk '{printf("%-10s%-10s%-10s%-10s%-10s\n",$1,$2,$3,$4,$5)}'
+done 
+echo

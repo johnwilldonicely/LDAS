@@ -1,0 +1,203 @@
+#!/bin/bash
+thisprog="xs-ldas5-clucombine1"
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setoutbase=$tempfile
+setsign=-1
+setverb=1
+setkwik=""
+sethistout="0"
+setfiltlow=500
+setfilthigh=3000
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "POST-KLUSTAKWIK COMBINATION  OF CLUSTERS (NOV. 2016)"
+	echo "--------------------------------------------------------------------------------"
+	echo "- assumes KK was run without using time as a feature"
+	echo "- combine clusters based on common refractoriness and waveform correlation"
+	echo "- iterative process with gradually declining criteria"
+	echo "- at each step output is sent to a temporary file"
+	echo "DEPENDENCIES: "
+	echo "	xe-ldas5-clucombine1"
+	echo "USAGE: "$thisprog" [clubt] [club] [wfm]"
+	echo "		[clubt]: binary cluster timestamp file"
+	echo "		[club]:  binary cluster ID file"
+	echo "		[wfm]:   ASCII waveform file"
+	echo "ADDITIONAL ARGUMENTS (defaults in []):"
+	echo "	-v | --verb : verbose output [$setverb]"
+	echo "	--base: base-name for output files [$setoutbase]"
+	echo "	--kwik : specify a .kwik file to update [\"$setkwik\"]"
+	echo "	--low : low-cut filter to apply to .wfm file [$setfiltlow]"
+	echo "	--high : high-cut filter to apply to .wfm file [$setfiltlow]"
+	echo "		NOTE: filter settings affect the .wfm output"
+	echo "OUTPUT: "
+	echo "	- "$outfileclub
+	echo "	- "$outfilewfm
+	echo "	- "$outfilereport
+	echo "EXAMPLE:"
+	echo "	"$thisprog" file.clubt file.club file.wfm  -u"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# READ RREQUIRED ARGUMENTS AND OPTIONS
+################################################################################
+# required arguments
+fileclubt=$1 ; shift
+fileclub=$1  ; shift
+filewfm=$1  ; shift
+# read additional options
+eval set -- $(getopt -o uv: -l outbase:,unsort,verb:,kwik,low:,high: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb="$2" ; shift ;;
+		--outbase ) setoutbase="$2" ; shift ;;
+		--kwik ) setkwik="$2" ; shift ;;
+		--low ) setfiltlow="$2" ; shift ;;
+		--high ) setfilthigh="$2" ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+# check options
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit; } ; fi
+if [ ! -e $filewfm ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filewfm' missing" ; echo ; exit; } ; fi
+if [ "$setkwik" != "" ] && [ ! -e $setkwik ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$setkwik' missing" ; echo ; exit; } ; fi
+if [ $(echo $setoutbase | wc -w) == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: --base is empty" ; echo ; exit; } ; fi
+
+# DEFINE FINAL OUTPUT FILES
+outfileclub=$setoutbase".club"
+outfilewfm=$setoutbase".wfm"
+outfilereport=$setoutbase".report"
+
+# GET BASIC PARAMETERS OF INPUT FILES
+xe-ldas5-readclub1 $fileclubt $fileclub -out -2 > $tempfile
+let nclusters=$(cat $tempfile | wc -l)
+let nspikes=$( xe-cut1 $tempfile count -o 1 | xe-math_sum1 stdin -long  1)
+
+# READ KEY PARAMETERS FROM .WFM FILE
+sf=$(xe-getkey $filewfm SAMPLE_RATE)
+nchans=$(xe-getkey $filewfm N_CHANNELS)
+nsamps=$(xe-getkey $filewfm SAMPLES_PER_CHANNEL) # number of samples per waveform capture
+
+echo "input files:"
+echo "	"$fileclubt
+echo "	"$fileclub
+echo "	"$filewfm
+echo "data:"
+echo "	nclusters="$nclusters
+echo "	nspikes="$nspikes
+echo "parameters:"
+echo "	setverb="$setverb
+echo "	sf="$sf
+echo "	nchans="$nchans
+echo "	setfiltlow="$setfiltlow
+echo "	setfilthigh="$setfilthigh
+
+# REMOVE TEMPORARY FILES
+rm -f $tempfile*
+rm -f $setoutbase*
+
+
+#####################################################################################
+# MAKE INITIAL CLUB AND WFM TEMPORARY FILES
+# APPLY FILTER TO .WFM FILE
+#####################################################################################
+cp $fileclub $setoutbase".club.0" ;
+xe-ldas5-readwave1 $filewfm -low $setfiltlow -high $setfilthigh > $setoutbase".wfm.0"
+
+#####################################################################################
+# CLUSTER-REFINEMENT BEGINS HERE!
+#####################################################################################
+
+# define main options for clucombine program
+prog1="xe-ldas5-clucombine1"
+opt1="-sign $setsign -v $setverb"
+tempclub="temp_"$prog1".club"
+tempwfm="temp_"$prog1".wfm"
+temphist="temp_"$prog1".hist"
+
+# DEFINE COMBINE FUNCTION
+# - calls command and increments in/out filename extensions
+# - generates report
+function func_combine () {
+	let in=$in+1; let out=$in+1 ;
+	command="$prog1 $fileclubt "$setoutbase".club."$in" $setoutbase".wfm."$in $opt1"
+	plotopts="-pt histo -cx 2 -cy 3 -lwd 2 -colour 1 -vline -.015,.015,-.002,.002 -xpad 0 -ypad 0 -yscale 0.12 -xscale 0.17 -font 6"
+	mergeopts="-xmax 5 -xinc 100 -yinc 100"
+	if [ $in -eq 0 ] ; then
+		echo "Base command: "$command
+	fi
+	echo "# Step "$out": "$command $opt2 >> $outfilereport
+	echo "	Step "$out": "$opt2
+	# run command and save report
+	$command $opt2 > $setoutbase".report."$out
+	let x=$(xe-dbmatch1 $setoutbase".report."$out combine 3 -o 1 | wc -l)
+	if [ $x -gt 0 ] ; then
+		xe-dbmatch1 $setoutbase".report."$out combine 3 >> $outfilereport
+	fi
+	echo >> $outfilereport
+	mv $tempclub $setoutbase".club."$out
+	mv $tempwfm $setoutbase".wfm."$out
+
+	if [ $sethistout == "1" ] ; then
+		mv $temphist $setoutbase".hist."$out
+		xs-plotmulti $setoutbase".hist."$out pair -P "$plotopts" -M "$mergeopts" > $setoutbase"_histplot.ps"
+	fi
+}
+
+# # CLUSTER COMBINE BLOCKS - START COMBINING!
+echo "<COMBINE>" >> $outfilereport
+let in=-1;
+# combine very similar waveforms - refractoriness should be excellent even if based on few spikes - ignore t-test
+opt2="-s 000 -a .080 -r .025 -t 0 -p 1.0 -w .98" ; func_combine
+# combine the very best refractory clusters (high spike-count)
+opt2="-s 100 -a .025 -r .025 -t 5 -p .01 -w .00" ; func_combine
+# combine the very best refractory clusters (lower spike-count)
+opt2="-s 050 -a .025 -r .025 -t 5 -p .01 -w .00" ; func_combine
+# combine excellent refractory clusters
+opt2="-s 100 -a .050 -r .050 -t 3 -p .05 -w .00" ; func_combine
+# combine good refractory clusters (requires higher spike-count and reasonable waveform similarity)
+opt2="-s 150 -a .080 -r .080 -t 1 -p .05 -w .75" ; func_combine
+echo "</COMBINE>" >> $outfilereport
+
+
+#########################################################################################
+# CREATE NEW CLUSTER AND WAVEFORM FILES
+# - note that the output waveform file will be filtered, compared to the input
+#########################################################################################
+cp $setoutbase".club."$out $outfileclub
+cp $setoutbase".wfm."$out $outfilewfm
+
+echo "Output files: "
+echo "	"$outfileclub
+echo "	"$outfilewfm
+echo "	"$outfilereport
+
+#########################################################################################
+# UPDATE A KWIK FILE IF REQUIRED
+#########################################################################################
+if [ "$setkwik" != "" ] ; then
+	echo "Creating new KWIK files: "
+	# make new .kwik file $base.new.kwik
+	/usr/bin/python2.7 /opt/LDAS/xp-ldas5-hdf5_convert1.py --club $fileclub".new" -g 3 update $setkwik
+	# make link to kwx file
+	base=${setkwik%%.kwik*}
+	ln -sf $base.kwx $base.new.kwx
+	echo "	"$base.new.kwik
+	echo "	"$base.new.kwx
+fi
+
+exit

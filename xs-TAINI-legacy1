@@ -1,0 +1,105 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"_"$$
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setndatraw=4
+setdur=0
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": process .datraw files for ripple-detection"
+	echo "	- this legacy code uses Taini's legacy \"CRACKIT\" program output"
+	echo "	- runs xs-TAINI-legacy0 to replace missing samples and de-mean the data"
+	echo "	- assumes there are 4 files to process"
+	echo "	- runs xs-ldas5-ripdet1"
+	echo "REQUIRES: "
+	echo "	- corresponding .synraw files"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [options]"
+	echo "		[base]: date-session basename to define input files (.datraw)"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-d: expected number of .datraw files [$setndatraw]"
+	echo "	-n: read duration (seconds, 0=whole-file) [$setdur]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20100208-010 -n 4"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+date
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+pattern=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+while getopts  ":d:n:" flag ; do
+ 	case $flag in
+ 		d) setndatraw=$OPTARG;;
+ 		n) setdur=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MAKE SURE THERE ARE [SETNDATRAW] .DATRAW FILES MATCHING $BASE
+listdatraw=$(ls *$pattern*.datraw)
+let ndatraw=$(echo $listdatraw | wc -w )
+if [ $ndatraw -ne $setndatraw ] ; then { echo ; echo "--- Error ["$thisprog"]: number of .datraw files matching $pattern ( $ndatraw ) should be $setndatraw" ; echo ; exit; } ; fi
+
+# REMOVE EXISTING .DAT OUTPUT TO AVOID BEING PROMPTED TO CONTINUE BY PREPROC0
+rm -f *$pattern*.dat
+
+
+# PREPROC0: DEAL WITH MISSING PACKETS
+# - this should start [setndataw] processes running in parallel
+# - preproc0 should wait till these finish before exiting
+xs-TAINI-legacy0 $pattern
+# make sure the right number of .dat files were produced
+listdat=$(ls *$pattern*.dat)
+let ndat=$(echo $listdat | wc -w )
+
+if [ $ndat -ne $setndatraw ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: number of .dat files matching $pattern ( $ndat ) should be $setndatraw"
+	echo
+	exit
+else
+	# clean up unnecessary files
+	rm -f *.datraw
+	rm -f *.ids
+	rm -f *.log
+	rm -f *.tss
+fi
+
+# START RIPPLE DETECTION and visualization
+echo "STARTING RIPPLE DETECTION..."
+for datfile in $listdat ; do
+	subject=$(echo $datfile | cut -f 2 -d _ | cut -f 1 -d . )
+	xs-ldas5-ripdet2 $datfile -s 0 -n $setdur -d 1
+	xs-rename ripdet2_ ripdet_$subject "*ripdet2*"
+done
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

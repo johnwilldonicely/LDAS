@@ -1,0 +1,24 @@
+#!/bin/bash
+# <TAGS> string file </TAGS>
+thisprog="xs-strsub"
+
+if [ $# -ne 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": substitute text in an input string and print"
+	echo "USAGE: $thisprog [string] [old] [new]"
+	echo "	[string]: string of text to be altered"
+	echo "	[old]: the old characters to be replaced"
+	echo "	[new]: what the old characters should be replaced with"
+	echo "EXAMPLE: "$thisprog" \"I like cats\" \"cats\" \"dogs and cats\""
+	echo "OUTPUT: the modified string"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+instring=$1
+old=$2
+new=$3
+
+echo $instring | awk '{str=$0;sub(/'"$old"'/,"'"$new"'",str);print str}'

@@ -1,0 +1,392 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setphase="2,25"
+setamp="30,250"
+settrial="all"
+setplot0=""
+setplot1=""
+setplot2=""
+setwinsize="2"
+setdelta="2,4"
+settheta="6,12"
+setgamma="30,70,70,140,140,250"
+setpow=1
+setclean="1"
+setskip="0"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Phase-amplitude coupling (PAC) analysis for LFP/EEG recordings"
+	echo "- does low-freq. wave-phase modulate high-freq. wave-amplitude?"
+	echo "- low-frequency (phase-modulating) range: "$setphase" Hz"
+	echo "- high-frequency (amplitude-modulated) range: "$setamp" Hz"
+	echo "- REQUIRES:"
+	echo "	- a properly formatted .notes file"
+	echo "	- a .bin file for the appropriate brain-region channel"
+	echo "USAGE:  "
+	echo "	$thisprog [base] [c1] [c2] [options]"
+	echo "		[base]= base-name, typically yyyymmdd-ses_subject"
+	echo "		[c1]: phase(low)-freq.      channel-number or region-name"
+	echo "		[c2]: amplitude(high)-freq. channel-number or region-name"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	--skip: skip calculaltion of PAC - summarize & plot only (0=NO 1=YES)"
+	echo "		- automatically disables initial removal of old output"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--trial: trial number, name, TOD_LIGHT, TOD_DARK \"all\" or \"no\" ["$settrial"]"
+	echo "		- \"all\" uses data from all trials"
+	echo "		- \"no\" uses data from the entire recording"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "...spectral analysis options..."
+	echo "	--win: window size (seconds) ["$setwinsize"]"
+	echo "	--phase: limits for phase-frequencies, CSV pair ["$setphase"]"
+	echo "	--amp: limits for amplitude-frequencies, CSV pair ["$setamp"]"
+	echo "	--pow: method of power-calculation for PAC ["$setpow"]"
+	echo "		0: Goertzel algorithm (slowest)"
+	echo "		1: Butterworth filter + RMS (fastest)"
+	echo "		2: 101-tap FIR filter + RMS"
+	echo "...band analysis options..."
+	echo "	--delta: delta band, CSV pair ["$setdelta"]"
+	echo "	--theta: theta band, CSV pair ["$settheta"]"
+	echo "	--gamma: gamma/HFO bands, CSV 3xpairs ["$setgamma"]"
+	echo "...plot options..."
+	echo "	--mmod: (see xe-matrixmod1) smooth, normalize (etc.) matrix [$setplot0]"
+	echo "	--plot1: (see xe-plotmatrix) options for matrix plot (-1 to skip) [$setplot1]"
+	echo "	--plot2: (see xe-plottable1) options for line-plots (-1 to skip) [$setplot2]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000_2881801 prefront amyg --trial all"
+	echo "OUTPUT: "
+	echo "	"$progbase1"_log.txt"
+	echo "	"$progbase1"_pacparams.txt"
+	echo "	"$progbase1"_matrix.txt"
+	echo "	"$progbase1"_coupling.txt"
+	echo "	"$progbase1"_summary.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+setchan1=$1; shift
+setchan2=$1; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="v:"
+vl="trial:,win:,pow:,mmod:,plot1:,plot2:,phase:,amp:,delta:,theta:,gamma:,skip:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+ 	case $1 in
+		--trial ) settrial=$2 ; shift ;;
+		--win )   setwinsize=$2 ; shift ;;
+		--pow )   setpow=$2 ; shift ;;
+		--phase ) setphase=$2 ; shift ;;
+		--amp )   setamp=$2 ; shift ;;
+		--delta ) setdelta=$2 ; shift ;;
+		--theta ) settheta=$2 ; shift ;;
+		--gamma ) setgamma=$2 ; shift ;;
+		--mmod )  setmmod=$2 ; shift ;;
+		--plot1 ) setplot1=$2 ; shift ;;
+		--plot2 ) setplot2=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--skip ) setskip=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setskip" != "0" ] && [ "$setskip" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --skip ($setskip) -  must be 0 or 1" ; echo ; exit; } ; fi
+let z=$(echo $setphase | tr ',' '\n' | wc -l)
+if [ $z -ne 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --phase ($setphase) should be two numbers, comma separated" ; echo ; exit ; } fi
+let z=$(echo $setamp | tr ',' '\n' | wc -l)
+if [ $z -ne 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --amp ($setamp) should be two numbers, comma separated" ; echo ; exit ; } fi
+let z=$(echo $setdelta | tr ',' '\n' | wc -l)
+if [ $z -ne 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --delta ($setdelta) should be two numbers, comma separated" ; echo ; exit ; } fi
+let z=$(echo $settheta | tr ',' '\n' | wc -l)
+if [ $z -ne 2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --theta ($settheta) should be two numbers, comma separated" ; echo ; exit ; } fi
+let z=$(echo $setgamma | tr ',' '\n' | wc -l)
+if [ $z -ne 6 ] ; then { echo ; echo "--- Error ["$thisprog"]: --gamma ($setgamma) should be six numbers, comma separated" ; echo ; exit ; } fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] && [ "$setskip" == "0" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# READ THE .NOTES FILE AND PARAMETERS
+################################################################################
+filenotes=$base".notes"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+# GET BASIC PARAMETERS
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+bindec=$(xe-getkey $filenotes bin_decimation=)
+binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z $bindec ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+if [ -z $start_time ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of start_time $filenotes" ; echo ; exit ; } fi
+
+
+################################################################################
+# DERIVE pmin1/2 and pmax1/2 FROM setphase and setamp
+################################################################################
+# low frequency bounds (modulating by phase)
+let pmin1=$(echo $setphase | xe-cut1 stdin 1 -d ',' -n 1)
+let pmax1=$(echo $setphase | xe-cut1 stdin 2 -d ',' -n 1)
+# high frequency bounds (modulated in amplitude)
+let pmin2=$(echo $setamp | xe-cut1 stdin 1 -d ',' -n 1)
+let pmax2=$(echo $setamp | xe-cut1 stdin 2 -d ',' -n 1)
+
+################################################################################
+# DEFINE AND CHECK DELTA, THETA AND HIGH-FREQUENCY BANDS
+################################################################################
+let deltamin=$(echo $setdelta | cut -f 1 -d ,)
+let deltamax=$(echo $setdelta | cut -f 2 -d ,)
+if [ $deltamin -lt $pmin1 ] || [ $deltamax -gt $pmax1 ] ; then { echo ; echo "--- Error ["$thisprog"]: --delta ($setdelta) exceeds acceptable range ($pmin1-$pmax1)" ; echo ; exit ; } fi
+
+let thetamin=$(echo $settheta | cut -f 1 -d ,)
+let thetamax=$(echo $settheta | cut -f 2 -d ,)
+if [ $thetamin -lt $pmin1 ] || [ $thetamax -gt $pmax1 ] ; then { echo ; echo "--- Error ["$thisprog"]: --theta ($settheta) exceeds acceptable range ($pmin1-$pmax1)" ; echo ; exit ; } fi
+
+for band in $(echo $setgamma|tr ',' ' ') ; do
+	let z=$band
+	if [ $z -lt $pmin2 ] || [ $z -gt $pmax2 ] ; then { echo ; echo "--- Error ["$thisprog"]: --bands ($setgamma) exceeds acceptable range ($pmin2-$pmax2)" ; echo ; exit ; } fi
+done
+
+################################################################################
+# IDENTIFY THE CHANNEL IN THE DESIRED CELL-LAYER
+################################################################################
+# FIRST CHANNEL-1...------------------------------------------------------------
+z=$(echo  "$setchan1" | grep '[^-,0-9]')
+if [ "$z" != "" ] ; then
+	chan1=$(xe-dbmatch1 $filenotes region $setchan1 -m 1 -xml CHANNELS -oc chan -o 1)
+	region1=$(xe-dbmatch1 $filenotes region $setchan1 -m 1 -xml CHANNELS -oc region -o 1)
+else
+	chan1=$setchan1
+	region1=$(xe-dbmatch1 $filenotes chan $chan1 -m 1 -xml CHANNELS -oc region -o 1)
+fi
+
+if [ "$chan1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchan1\"" ; echo ; exit ; } fi
+# if multiple channels match, use the first one
+let z=$(echo $chan1 | wc -w)
+if [ $z -gt 1 ] ; then
+	chan1=$(echo $chan1 | awk '{print $1}')
+	echo "--- Warning ["$thisprog"]: multiple channels match \"$setchan1\" in $filenotes : using channel $chan1"
+fi
+
+# THEN CHANNEL-2...-------------------------------------------------------------
+z=$(echo  "$setchan2" | grep '[^-,0-9]')
+if [ "$z" != "" ] ; then
+	chan2=$(xe-dbmatch1 $filenotes region $setchan2 -m 1 -xml CHANNELS -oc chan -o 1)
+	region2=$(xe-dbmatch1 $filenotes region $setchan2 -m 1 -xml CHANNELS -oc region -o 1)
+else
+	chan2=$setchan2
+	region2=$(xe-dbmatch1 $filenotes chan $chan2 -m 1 -xml CHANNELS -oc region -o 1)
+fi
+
+if [ "$chan2" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchan2\"" ; echo ; exit ; } fi
+# if multiple channels match, use the first one
+let z=$(echo $chan2 | wc -w)
+if [ $z -gt 1 ] ; then
+	chan1=$(echo $chan2 | awk '{print $1}')
+	echo "--- Warning ["$thisprog"]: multiple channels match \"$setchan2\" in $filenotes : using channel $chan2"
+fi
+
+# IDENTIFY THE APPROPRIATE .bin FILES-------------------------------------------
+chan1=$(printf "%03d" "$chan1")
+chan2=$(printf "%03d" "$chan2")
+filebin1=$base"-"$chan1".bin"
+filebin2=$base"-"$chan2".bin"
+if [ ! -e $filebin1 ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin1' missing" ; echo ; exit ; } fi
+if [ ! -e $filebin2 ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin2' missing" ; echo ; exit ; } fi
+
+echo "	region1= $region1"
+echo "	region2= $region2"
+echo "	channel1= $chan1"
+echo "	channel2= $chan2"
+echo "	filebin1= $filebin1"
+echo "	filebin2= $filebin2"
+echo "	binrate= $binrate"
+echo "	trial= $settrial"
+echo "	pmin1= $pmin1"
+echo "	pmax1= $pmax1"
+echo "	pmin2= $pmin2"
+echo "	pmax2= $pmax2"
+echo "	delta= $setdelta"
+echo "	theta= $settheta"
+echo "	gamma= $setgamma"
+echo ""
+
+################################################################################
+# EXTRACT DESIRED TRIAL(S) AND SET in1 & in2
+################################################################################
+if [ "$settrial" == "no" ] ; then
+	in1=$filebin1
+	in2=$filebin2
+else
+	xs-ldas-gettrials2 $filenotes --name $settrial --in1 $filebin1 --out file --verb 1
+	mv -f "temp_xs-ldas-gettrials2.bin" $tempfile.1.bin
+	in1=$tempfile.1.bin
+	if [ "$filebin1" == "$filebin2" ] ; then
+		in2=$in1
+	else
+		xs-ldas-gettrials2 $filenotes --name $settrial --in1 $filebin2 --out file --verb 1
+		mv -f "temp_xs-ldas-gettrials2.bin" $tempfile.2.bin
+		in2=$tempfile.2.bin
+	fi
+fi
+
+################################################################################
+################################################################################
+# CALCULATE PHASE-AMPLITUDE COUPLING
+################################################################################
+################################################################################
+# determine window-size in samples
+pwinsize=$(echo "scale=6; $binrate * $setwinsize" | bc)
+# build options
+pacopts="-dt 8 -sf $binrate -w $pwinsize -t 1 -min1 $pmin1 -max1 $pmax1 -min2 $pmin2 -max2 $pmax2 -v 1 -a 16 -p $setpow"
+
+# run PAC
+if [ "$setskip" == "0" ] ; then
+	# report command
+	echo "	xe-pac2 $in1 $in1 $pacopts"
+	echo "	xe-pac2 $in1 $in1 $pacopts" > $progbase1"_log.txt"
+	# run command
+	xe-pac2 $in1 $in2 $pacopts 1> $progbase1"_matrix.txt" 2> $progbase1"_pacparams.txt"
+	z=$(grep Error $progbase1"_pacparams.txt")
+	if [ "$z" != "" ] ; then echo ; echo "$z" ; echo ; exit ; fi
+fi
+
+#--------------------------------------------------------------------------------
+# modulation spectrum in the delta-range (AUC)
+col1=$(echo "scale=6; ($deltamin-$pmin1) * $setwinsize +1"  | bc)
+col2=$(echo "scale=6; ($deltamax-$pmin1) * $setwinsize +1"  | bc)
+psteps2=100 # this is set in xe-pac2
+prate2=$(echo "scale=6; $psteps2 / ($pmax2-$pmin2)"  | bc)
+echo "freq delta" | xe-delimit stdin > $tempfile".delta"
+cat $progbase1"_matrix.txt" | tr ' ' '\t' | cut -f $col1"-"$col2 |
+	xe-curvestats2 stdin -min $deltamin -max $deltamax -avg 1 |
+	xe-cut1 stdin AUC | tac | xe-timestamp1 stdin -o $pmin2 -sf $prate2 -p 3 >> $tempfile".delta"
+
+# modulation spectrum in the theta-range (AUC)
+col1=$(echo "scale=6; ($thetamin-$pmin1) * $setwinsize +1"  | bc)
+col2=$(echo "scale=6; ($thetamax-$pmin1) * $setwinsize +1"  | bc)
+psteps2=100 # this is set in xe-pac2
+prate2=$(echo "scale=6; $psteps2 / ($pmax2-$pmin2)"  | bc)
+echo "theta" > $tempfile".theta"
+cat $progbase1"_matrix.txt" | tr ' ' '\t' | cut -f $col1"-"$col2 |
+	xe-curvestats2 stdin -min $thetamin -max $thetamax -avg 1 |
+	xe-cut1 stdin AUC | tac >> $tempfile".theta"
+
+paste $tempfile".delta" $tempfile".theta" > $progbase1"_coupling.txt"
+
+#--------------------------------------------------------------------------------
+# summary stats
+stats_d=$(
+	xe-cut1 $progbase1"_coupling.txt" delta -o 1 |
+	tr '\n' ' '|
+	xe-curvestats2 stdin -min $pmin2 -max $pmax2 -index $setgamma |
+	xe-cut1 stdin AUC -o 1
+)
+stats_t=$(
+	xe-cut1 $progbase1"_coupling.txt" theta -o 1 |
+	tr '\n' ' '|
+	xe-curvestats2 stdin -min $pmin2 -max $pmax2 -index $setgamma |
+	xe-cut1 stdin AUC -o 1
+)
+
+echo "dg1 dg2 dhfo tg1 tg2 thfo" | xe-delimit stdin > $progbase1"_summary.txt"
+echo $stats_d $stats_t >> $progbase1"_summary.txt"
+
+
+################################################################################
+# GENERATE THE PLOTS
+################################################################################
+if [ "$setplot1" != "-1" ] ; then
+
+	plotfile=$progbase1"_matrix.ps"
+	plotopts="-xmin $pmin1 -xmax $pmax1 -xint 5 -ymin $pmin2 -ymax $pmax2 -yint 25 -frame 0 -lwa .25 -lwd .25 -tics 0 -font 10 -xscale .12 -yscale .3 -vline $thetamin,$thetamax -hline $setgamma -out $plotfile"
+	xl="Phase-freq. (Hz)"
+	yl="Amplitude-freq. (Hz)"
+	title="PA-Coupling"
+	cat $progbase1"_matrix.txt" |
+		xe-matrixmod1 stdin $setmmod |
+		xe-plotmatrix1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" $setplot1
+fi
+
+if [ "$setplot2" != "-1" ] ; then
+
+	in1=$progbase1"_coupling.txt"
+	plotlist=""
+	plotopts="-line 1 -ps 0 -xscale .4 -yscale .15 -xmin $pmin2 -xmax $pmax2 -xint 25 -xpad 0 -colour 4 -font 10 -vline $setgamma $setplot2"
+	xl="Amplitude Frequency (Hz)"
+	yl="Coupling (AUC)"
+
+	plotfile=$tempfile".delta.ps"
+	plotlist=$plotlist" "$plotfile
+	z=$(echo $setdelta | tr ',' '-')
+	xe-cut1 $in1 freq,delta |
+		xe-plottable1 stdin $plotopts -title "PA-Coupling: $z Hz delta" -xlabel "$xl" -ylabel "$yl" -out $plotfile
+
+	plotfile=$tempfile".theta.ps"
+	plotlist=$plotlist" "$plotfile
+	z=$(echo $settheta | tr ',' '-')
+	xe-cut1 $in1 freq,theta |
+		xe-plottable1 stdin $plotopts -title "PA-Coupling: $z Hz theta" -xlabel "$xl" -ylabel "$yl" -out $plotfile
+
+	xe-plotmerge1 $plotlist -xo 100 -xmax 1 -yinc 140
+	mv temp_xe-plotmerge1.001.ps $progbase1"_coupling.ps"
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+fi
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+echo "	-output sent to:"
+
+echo "		"$progbase1"_log.txt"
+echo "		"$progbase1"_pacparams.txt"
+echo "		"$progbase1"_matrix.txt"
+if [ "$setplot1" != "-1" ] ; then echo "		"$progbase1"_matrix.ps" ; fi
+echo "		"$progbase1"_coupling.txt"
+if [ "$setplot2" != "-1" ] ; then echo "		"$progbase1"_coupling.ps" ; fi
+echo "		"$progbase1"_summary.txt"
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+exit

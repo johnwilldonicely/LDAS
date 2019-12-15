@@ -1,0 +1,576 @@
+#!/bin/bash
+# <TAGS>programming ldas</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+# for batch scripts...
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+#...or...
+progbase1="XSERIES1"
+thisprog="xs-ldas5-"$progbase1"b"
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+setskip="-"
+setbatch=""
+
+# colours for use with optional error messages
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": template BASH script"
+	echo $thisprog": batch-run $thatprog"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: $thisprog [in] [options]"
+	echo "	[in]: input file, format= <time> <data>"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-a: set a-flag to 1 ["$setaflag"]"
+	echo "	-b: set b-flag to 1 ["$setbflag"]"
+	echo "	-f: format ["$setformat"]"
+	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
+	echo "		NOTE: in batch mode, quote arguments with wildcards as well"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--opt1: quoted options to pass to $thatprog [$setopt1]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt  2>&1 | tee log"$thisprog".txt"
+	echo "	"$thisprog" \"*.plan\" --batch dir1,dir2,dir3"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+################################################################################
+# INTERACTIVE TEST TO OVERWRITE DATA
+################################################################################
+read -p  "--- Warning: data will be overwritten. Continue? [y/n] " answer
+while true ; do
+	case $answer in
+		[yY]* ) break ;;
+		*) exit ;;
+	esac
+done
+echo "continuing..."
+exit
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+list=$@         # list of channels to analyse together
+nchans=$#      # number of channels in the list
+
+# check file exists & isn't empty
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+
+# or for directories...
+dest="./" ; if [ ! -d "$dest" ]; then { echo -e "\n--- Error ["$thisprog"]: missing directory $dest\n" ;  exit; } ; fi
+
+# alternatively, build a list of infiles and check that the files exist
+listinfiles=$(ls $1 2>/dev/null)
+let ninfiles=$(echo $listinfiles | wc -w)
+if [ $ninfiles -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no files found matching \"$1\"\n" ;  exit; } ; fi
+shift
+
+# CHECK IF DEPENDENCY IS INSTALLED - EG PANDOC
+if [ "$(command -v pandoc)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: pandoc is not installed on this machine: cannot convert to HTML\n" ;  exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# initialize variables
+aflag=no
+bflag=no
+setformat="unset"
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="s:b:v:c:" ; vl="batch:,skip:,verb:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		-a | --long ) aflag="yes" ;;
+		-b | --blong ) bflag="yes" ;;
+		# arguments with required options (an additional shift is required)
+		--batch ) setbatch=$2 ; shift ;;
+		-s | --skip ) setskip=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo -e "--------------------------------------------------------------------------------\n"$thisprog" "$allopts"\n"
+fi
+
+exit
+################################################################################
+# BATCH PROCESSING OPTION - WHERE --batch SPECIFIES A LIST OF DIRECTORIES
+################################################################################
+if [ "$setbatch" != "" ] ; then
+	list=$(echo $setbatch | tr ',' ' ') # convert from CSV to whitespace-delimited list
+	z=2; # define the starting-field for options - ie. exclude required arguments
+	opts=$(echo $allopts|awk '{for(i='$z';i<=NF;i++){if($i=="--batch"){i++;continue};a=a" "$i}}END{print a}') # build options excluding --batch
+	cd $startdir # confirm start in the start directory
+	for dir in $list ; do # for each batch-directory...
+		if [ -d "$dir" ]; then
+			cd $dir
+			if [ "$setverb" != "0" ] ; then echo -e "\n$dir\n" ; fi
+			$thisprog $infile $opts 2>&1| tee "log_"$thisprog".txt"
+			cd $startdir
+		else
+			{ echo -e "\n--- Error ["$thisprog"]: missing directory $dir\n" ;  exit; } ;
+		fi
+	done
+	exit # DO NOT DO ANYTHING ELSE!
+fi
+
+
+################################################################################
+# DATABASE PRE-PROCESSING
+################################################################################
+# check if file needs dos2unix conversion
+if [ "$(dos2unix -q < myfile.txt | cmp -s - myfile.txt)" ] ; then dos2unix -q myfile.txt ; fi
+# check database integrity
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+# or alternaltively...
+xs-dbcheck1 $filedb --verb 0 --xml PATHS > $tempfile
+# report any errors
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+# extract group-names (eg. # group_[no]= name )
+xs-getgroupnames1 $filedb --names $setfilenames --xml PATHS --head 1 > $tempfile".groupnames"
+# create a flag for whether this file has any contents
+let setgroupnames=$(cat $tempfile.groupnames | wc -l)
+
+
+# make sure a table has all required entries filled (no spaces, no hyphens)
+xe-cut1 $tempfile session,subject,batch,box -s 1 -d '\t' | awk -F'[- \t]+' 'NF!=4{print $0}' > $tempfile".error"
+if [ -s $tempfile.error ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing field (session,subject,batch,box) in MAPPING section of $fileplan$NC" ; xe-delimit $tempfile ; echo ; exit; } ; fi
+# make sure a table has no illegal duplicate field-combinations
+xe-cut1 $tempfile session,subject -o 1 | uniq -d > $tempfile".error"
+if [ -s $tempfile.error ] ; then { echo -e "\n$RED*** duplicate session-subject combination in $fileplan: $NC" ; cat $tempfile".error\n" ;  exit; } ; fi
+
+
+# construct a database list in format <path>,<group>
+dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $filedb | xe-delimit stdin -d comma)
+# or...
+dblist=$(xe-strxmlparse1 $filedb PATHS | awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' | xe-delimit stdin -d comma)
+# or...
+dblist=$(xe-strxmlparse1 $filedb PATHS | xe-cut1 stdin path,group -s 1 -o 1 | xe-strgroup1 stdin -n 2 -d2 ",")
+
+################################################################################
+# PERFORM A PROCESSING LOOP WITHOUT USING WHILE READ
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path
+		if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls --color=never *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN PROGRAMS
+		xs-ldas-$progbase1 $base $setregion -c "$setfilecmt" -s "$set_start" -p "$set_pre" -d "$set_post" -w "$set_window" -F "$setfftopts"
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb $progbase1"_summary1.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_summary2.txt" --verb 0
+fi
+
+########################################################################################
+# REFER TO ARGUMENTS AND VALUES USING VARIABLES
+########################################################################################
+echo "$@" 	# all arguments after the program name - enclose in quotes to avoid expansion
+echo "${@:2}"	# everything from argument #2 onwards
+echo $#		# the number of arguments
+
+base=$1 ; shift
+echo $base
+for i in $(seq 1 2 $#) ; do
+	let j=$i+1
+	echo ${!i}" "${!j}
+done
+
+
+################################################################################
+# SOME BASIC TERMINAL OPTIONS
+################################################################################
+# USE-ID
+echo $USER
+# list directories only
+ls -d */
+# FOR LOOPS
+for i in 1 2 3 4 5 ; do echo $i ; done
+for (( i=1 ; i<=5 ; i++ )) do echo $i ; done
+# SET TAB SIZE TO 12-CHARACTERS
+tabs -12
+# GET VERSION OF LINUX OPERATING SYSTEM (OS)
+lsb_release -a
+# KEEP A PROCESS RUNNING (PERSIST) AFTER LOGOUT
+nohup long-running-command &
+# BASH ALARM BELL
+tput bel
+
+# BUILDING A LIST OF FILES FOR ALL PROBES
+if [ $probe == "all" ] ; then
+	probe=$(ls $base.clu.? | awk 'BEGIN{FS="."}{print $NF}')
+	probe=$probe" "$(ls $base.clu.?? | awk 'BEGIN{FS="."}{print $NF}')
+fi
+
+# WAIT FOR PROCESSSES TO FINISH
+{ sleep 5; echo waking up after 5 seconds; } &
+{ sleep 1; echo waking up after 1 second; } &
+wait
+echo all jobs are done!
+
+
+################################################################################
+# REDIRECTION
+################################################################################
+1>filename # Redirect stdout to file "filename."
+2>filename # Redirect stderr to file "filename."
+&>filename # redirect both stdout & stderr to "filename" - as of Bash v.4
+2>&1 | program # redirect to a program accepting stdin
+ls time* 2> jjj  | grep ssp # send stderr to a file while piping stdout to another program
+[program] 1> out.txt 2> error.txt  # stdout to one file and stderr to another
+[program] 2>&1 | tee logfile.txt # all output to both a logfile and screen
+echo "error" >&2  # send bash command to stderr: ">&2" literally means redirect the address of file descriptor 1 (stdout) to the address of file descriptor 2 (stderr) for that command1. Depending on how deeply you want to understand it, read this: http://wiki.bash-hackers.org/howto/redirection_tutorial
+(>&2 echo "error") # as above but to avoid interaction with other redirections use subshell
+# example: quiet list (suppress error message for ls)
+ls *bin 2>/dev/null
+# example: output stderr to a temporary file
+{ seq 1 10 ; ls missingfilename ; } 2> jj_error
+# To get the stderr of cmd while leaving its stdout untouched
+# https://unix.stackexchange.com/questions/474177/how-to-redirect-stderr-in-a-variable-but-keep-stdout-in-the-console
+{ err=$(cmd 2>&1 >&3 3>&-); } 3>&1
+
+################################################################################
+# STRING OPERATIONS AND TEXT FORMATTING
+################################################################################
+# SYNTAX HIGHLIGHTING (COLOUR) USING NANO: https://ourcodeworld.com/articles/read/807/how-to-enable-syntax-highlighting-for-markdown-files-in-gnu-nano
+# create a reference to the LDAS markdown templates in the user's .nanorc
+cat /opt/LDAS/docs/templates/template.nanorc >> ~/.nanorc
+	# alternatively, save the templates themselves to /usr/share/nano/
+	sudo cp nano_ldas.nanorc /usr/share/nano/
+	sudo cp nano_md.nanorc /usr/share/nano/
+
+# PARSING PATHS AND FILENAMES
+infile=$1
+path=${infile%/*};
+file=${infile##*/};
+base=${file%%.*};
+ext=${file##*.}
+outfile=$prefix""$base
+subject=${file%%-*}
+base=${clufile%%.clu*}
+ext=${clufile#*clu*.}
+probe=${ext%%.*}
+
+# PULLING OUT CHARACTER SUBSETS FROM A WORD
+echo $base | cut -c 1-2	# pulls out first two chracters
+echo FP01.bin | rev | cut -c 1-6 | rev # pulls out the last 6 characters
+echo $thisprog | rev | cut -c 2- | rev # trim the last 1 characters
+echo "123456789 987654321" | awk '{print substr($1,2,3)"\t"substr($2,5)}'
+
+# FIND A WORD IN A LIST
+list="dog cat pig -- cow"
+word="rabbit"
+if [[ $list =~ $word ]] ; then echo "FOUND" ; fi
+if [[ ! $list =~ $word ]] ; then echo "MISSING" ; fi
+
+# FIND A SUBSTRING IN A STRING
+haystack="123cat456"
+needle="cat"
+case $haystack in *$needle*) echo "found" ;;  esac
+# ... alternatively...
+if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
+
+# PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
+setkeys="one man,two women,three children"
+IFS=$','
+for key in $setkeys ; do echo $key ; done
+unset IFS
+
+# ECHO NEWLINE AND BACKSPACE
+echo -n "number:  " ; for i in 1 2 3 4 5 ; do echo -en '\b'$i ; done ; echo
+
+# USING THE TRANSLATE TOOL...
+# to do character substitution
+echo "abcdefg" | tr a x
+# to remove windows formating at end of lines
+echo $line | tr -d '\r'
+# to squeeze multiple delimiters in a row to a single one (default replacement is the same as the specified one)
+d="_" ; echo _one_two__three___end | tr -s $d $d
+# to also remove leading/trailing delimiters
+d="_" ; echo _one_two__three___end_ | tr -s $d | sed 's/^['$d']//g;s/['$d']*$//g;'
+
+# STRING SUBSTITUTION WITH SED
+sed -i 's/OLD/NEW/g' $infile
+cat $infile | sed -e 's/OLD/NEW/g'
+
+# USING PASTE TO TRANSPOSE A COLUMN INTO A ROW
+paste -s [input]
+
+# PRINT A LIST TO PAIRS OF COLUMNS
+printf "%s\t%s\n" $(cat data.txt)
+
+# SET COLOUR FOR BASH ECHO OUTPUT
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+printf "I ${RED}love${NC} Stack Overflow\n"
+
+
+################################################################################
+# FILE OPERATIONS
+################################################################################
+
+# FILE VIEWING, FILE READING
+less $filename]
+more $filename
+nano $filename --view --smooth # smooth allows smooth scrolling
+cat $infile | while read line ; do echo -e "$line" ; done
+
+# SORT A FILE USING MULTIPLE COLUMNS
+# example: sort a file using columns 7 and 8
+# use numeric sort for both columns, but reversed-order for column 8
+# note that column-7 ranges from 140 to 200
+# note notation is -k[start],[end][options]
+# therefore -k7,7n means sort solumns 7 to 7 using numeric sort
+sort XRIP1_ripples.txt -k7,7n -k8,8nr
+
+	chan	event	start	peak	stop	mid	freq	amp
+	0	376	7964515	7964533	7964556	7964535	140	105.773
+	0	377	7964625	7964641	7964659	7964642	140	98.078
+	0	1145	9014738	9014764	9014804	9014771	140	96.7112
+	0	1098	8961522	8961563	8961608	8961565	140	95.7478
+
+
+# READ BINARY FILES
+hexdump -v -e '1/[bytes] "[format]"' [input]
+# example: to read a file containing 2-byte integers:
+hexdump -v -e '1/2 "%d\n"' data.bin
+
+# GET FILE STATS - LAST MODIFICATION DATE ETC
+date1=$(stat -L $infile | grep Modify: | cut -f 2 -d ' ' | tr '-' '/')
+time1=$(stat -L $infile | grep Modify: | cut -f 3 -d ' ')
+
+# GET FILE SIZE - PORTABLE - BETTER THAN USING ls, WHERE FORMAT MAY VARY
+# note use of -L modifier to dereference links to files (read the target)
+bytes=$(du -bL $filename | cut -f 1)
+
+# GET BINARY FILE SAMPLECOUNT
+ xe-filesize1 $filename -dt 8 -sf 1000 -nch 1
+ # ...or alternatively...
+datasize="4" # example for a float
+nchans="1" # number of interlaced channels
+nsamps=$(echo "scale=12; $bytes/($datasize*$nchans)" |bc| xe-math_round2 stdin)
+
+# PULLING LINES FROM ASCII FILES
+# delete/trim the top 3 lines of a file
+tail -n +4 $infile # output the tail starting at line 4
+# delete/trim the bottom 3 lines of a file
+head -n -3 $infile # output the head excluding the last 3 lines
+# print every nth line of a file
+sed -n '0~16p' file.txt
+# remove blank lines
+sed '/^\s*$/d' file.txt
+grep '[^[:blank:]]' file.txt
+# remove blank lines or comment lines starting with a "#"
+awk 'NF>0&&$1!~/^#/{print $0}' file.txt
+# remove trailing whitespace
+sed --in-place 's/[[:space:]]\+$//' $infile
+# remove leading and trailing blank lines in a file
+cat file.txt |
+	# remove leading blank lines
+	sed '/./,$!d' |
+	# remove trailing blank lines
+	sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+# for all lines in infile containing "<TAGS>", substitute (s) the exact (\<   \>) word "pig" with "cow", in every instance (g)
+infile="jjj" ; match="<TAGS>" ; old="pig" ; new="cow"
+sed '/'$match'/s/\<'$old'\>/'$new'/g' $infile
+# put a sequence of 4 rows on a single line
+ncols=4 ; awk 'ORS=NR%'$ncols'?" ":"\n"' input.txt
+
+# CONVERT MARKDOWN TO HTML
+pandoc -s -f markdown --toc $infile.md > $outfile.html
+
+# USING GREP
+# grep with with a logical expression - in this case, finding either of two strings, case-insensitive
+grep -iE 'error|warning' file.txt
+# using grep to find strings beginning with a hyphen or dash "-" : often causes trouble!
+# this also works with ls
+grep  -- "-sr" xe*.c
+# using grep to find words with numeric characters
+grep '[-,0-9]' infile  # numeric
+grep '[^-,0-9]' infile # non-numeric
+# grep doesn't have an AND - This example matches lines which do NOT contain x AND c, regardless of order
+echo "_x_junk_c_" | grep -vE 'x.*c|c.*x'
+
+# READ LINES USING WHILE, PRESERVING TABS & SUCH IN THE INPUT
+cat $infile | while read line ; do echo -e "$line" ; done
+
+
+
+################################################################################
+# MATHS WITH BASH CALCULATOR
+echo "scale=3; 100/3" | bc	# scale sets the precision of the output - in this case 3 decimal places
+# round bc results to integer
+echo "scale=12; 0.123456789 * 1000" | bc | xe-math_round1 stdin
+# test if number is negative
+if [ $(echo "$x<0"|bc) -eq 1 ] ; then echo "negative" ; else echo "positive" ; fi
+# calculate log base-2 of a number - say, 16
+ echo 'l(16)/l(2)' | bc -l
+
+
+################################################################################
+# ARRAYS
+arr=(Hello World)
+# or...
+arr[0]=Once
+arr[1]=Upon
+arr[2]=a
+arr[3]=Time
+
+echo "# Item 1 in the array"
+x=1 ; echo ${arr[$x]}
+
+echo "# All of the items in the array"
+echo ${arr[*]}
+echo
+echo "All of the indexes in the array:"
+echo ${!arr[*]}
+echo
+echo "Number of items in the array:"
+echo ${#arr[*]}
+echo
+echo "Length of item zero:"
+echo ${#arr[0]}
+
+# increment an array
+let count[$i]=5   ; echo ${count[$i]}
+(( count[$i]++ )) ; echo ${count[$i]}
+
+
+
+################################################################################
+# DATE AND TIME PROCESSING
+# get yyyymmdd format date
+date +'%Y%m%d'
+# get the week-number for a date
+date --date="2019/01/23" +%V
+# get the day-number for a date
+date --date="2019/01/23" +%j
+# calculate start/end time
+end_time=$(date +'%s')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo; echo "	Time to finish job: "$s" seconds = "$m" minutes"
+# get date_time from directory listing :  yyyymmdd_hh:mm:ss, eg.  1999/12/31_12:00:00
+ls -l $filedat  --time-style="+%Y%m%D_%H:%M:%S"
+# calculate the date and time 5 hours ago
+setstart="99:12:31:23:59:59" # reference date/time, YY:MM:DD:hh:mm:ss
+setprehours=5 # adjustment to be applied
+x=$(echo $setstart2 | awk -F : '{print $2"/"$3"/""20"$1,$4":"$5":"$6}') # convert to DD/MM/YYYY hh:mm:ss (a format the date command can consume)
+y=$(echo $setprehours | awk '{printf("%d\n",($1*60))}') # convert to minutes
+newtime=$(date -du --date="$x $y minutes ago" +"%y:%m:%d:%H:%M:%S")
+
+
+################################################################################
+# POSTSCRIPT FUNCTIONS WITH GHOSTSCRIPT (GS)
+# convert postscript to jpg
+gs -sDEVICE=jpeg -r300 -sPAPERSIZE=a4 -dBATCH -dNOPAUSE -sOutputFile=$outfile $infile
+# convert postscript to pdf
+ps2pdf $infile $outfile
+# get the minimal bounding box containing all coded items
+gs -q -sDEVICE=bbox -dBATCH -dNOPAUSE $infile
+	%%BoundingBox: 46 638 216 803
+	%%HiResBoundingBox: 46.421999 638.499988 215.513993 802.007976
+# convert postscript to format of choice, with or without cropping
+	xs-plotconvert1 $infile --format [format]
+
+
+################################################################################
+# DEFINE FUNCTION: CALL FORMAT: count=$(func_filecat <$infile> <$count> <$ncols>)
+function func_filecat () {
+	fv_in=$1        # input file - output file name will be the same
+	let fv_count=$2 # rolling counter
+	let fv_ncols=$3 # expected number of columns, in case data is missing
+	fv_out=$startdir"/"$fv_in
+
+	let fv_count=$fv_count+1
+	echo $fv_count # this returns to the calling function
+	echo -n $group"	"$subject"	" >> $fv_out # send output to file
+}
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

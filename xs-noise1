@@ -1,0 +1,95 @@
+#!/bin/bash
+# <TAGS> signal_processing </TAGS>
+
+thisprog="xs-noise1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$
+start_time=$(date +'%s')
+
+setdatatype="R" # SCORE raw file
+sfreqin=400
+setwin=10
+setstep=1
+setdur=3600
+setnorm=1
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Calculate the noise-ratio in a time-series "
+	echo "USAGE: "
+	echo "	"$thisprog" [infile]"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-t: data type ["$setdatatype"]"
+	echo "		T: ASCII text file"
+	echo "		R: SCORE raw file"
+	echo "	-d: duration of data to use (seconds) ["$setdur"]"
+	echo "	-f: sampling frequency (Hz) ["$sfreqin"]"
+	echo "	-w: FFT window size (seconds) ["$setwin"]"
+	echo "	-s: FFT step (window overlap) ["$setstep"]"
+	echo "	-n: normalize? (-1=NO 1=YES) ["$setnorm"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":t:w:s:f:d:n:" flag ; do
+ 	case $flag in
+		t) setdatatype=$OPTARG;;
+		w) setwin=$OPTARG;;
+		s) setstep=$OPTARG;;
+		f) sfreqin=$OPTARG;;
+		d) setdur=$OPTARG;;
+		n) setnorm=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+# MISSING-VARIABLE HANDLING
+if [ -z $setdatatype ] ; then { echo ; echo "--- Error ["$thisprog"]: variable \"setdatatype\" has not been defined" ; exit; } ; fi
+
+
+if [ $setdatatype=="T" ] ; then
+	x=$(echo $setdur $sfreqin| awk '{print $1*$2}')
+	readcommand="head -n $x $infile "
+fi
+if [ $setdatatype=="R" ] ; then
+	x=$(echo $setdur | awk '{print $1/10.0}')
+	readcommand="xe-readscore1 $infile -sf $sfreqin -start 0 -n $x"
+fi
+
+# calculate samples required for each noise estimate
+nwin=$(echo $sfreqin $setwin | awk '{print $1*$2}')
+# calculate the sample frequency of the output, in
+sfreqout=$(echo $setstep $setwin | awk '{print (60.0*$1)/$2}')
+
+
+#echo "readcommand="$readcommand
+#echo "sfreqout="$sfreqout
+#echo "nwin="$nwin
+#echo "setstep="$setstep
+
+# CALCULATE THE NOISE TIME-SERIES
+$readcommand |
+	xe-fftpow2 stdin -sf $sfreqin -w $nwin -s 1 -min 47 -max 53 -o 1 |
+	tail -n +2 |
+	xe-curvestats2 stdin -min 47 -max 53 -index 47,49,49,51,51,53 -f 2 |
+	xe-cut1 stdin AUC0,AUC1,AUC2 -o 1 | awk '{print $2/(($1+$3)/2.0)}' |
+	xe-norm2 stdin -n $setnorm |
+	xe-timestamp1 stdin -sf $sfreqout > $tempfile".txt"
+
+
+plotopts="-cx 1 -cy 2 -line 1 -lwd 1 -ps 0 -xmin 0 -xscale 1 -xpad 0 -xint 10"
+xe-plottable1 $tempfile".txt" $plotopts -xlabel "Time (min)" -ylabel "Noise" -out $tempfile".ps"

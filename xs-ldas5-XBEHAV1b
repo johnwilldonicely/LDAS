@@ -1,0 +1,149 @@
+#!/bin/bash
+
+progbase1="XBEHAV1"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$
+
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setopt1=""
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process for electrophysiology experiments"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database file to use"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--opt1: options (in quotes) for xs-ldas5-$progbase1 [$setopt1]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: calculation of values"
+	echo "		c: collate results"
+	echo "		p: plot results"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_REACT_all.txt --opt1 \"-p 0\" 2>&1 | tee log_"$progbase1".txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+
+################################################################################
+# ARGUMENT HANDLING
+################################################################################
+# REQUIRED
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+# OPTIONS
+vs="s:" ; vl="opt1:,skip:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--opt1 ) setopt1=$setopt1" "$2 ; shift ;;
+		-s | --skip ) setskip=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+rm -f $tempfile*
+
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+################################################################################
+# RUN THE ANALYSIS FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	echo "	...running analysis..."
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path
+		if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN THE ANALYSIS IN THE CURRENT DIRECTORY (IF THIS STEP IS NOT PART OF THE SKIP FLAG)
+		xs-ldas5-$progbase1 $base body $setopt1
+	done
+fi
+cd $startdir
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	rm -f $progbase1*
+	xs-collate1 $filedb $progbase1"_summary.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_velocity.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_matrix.txt" --verb 0 --head 0
+fi
+
+
+
+################################################################################
+# PLOT THE BEHAVIOURAL DATA
+################################################################################
+if [ "$(echo $setskip | grep -v p)" ] ; then
+	let count=0;
+	plotlist=""
+	infile=$progbase1"_summary.txt"
+	echo "	...plotting summary stats..."
+	list=$(xs-getheader $infile | cut -f 5-)
+	for measure in $list ; do
+		let count=$count+1
+		if [ $count -eq 1 ] ; then title="$progbase1 $setopt1" ; else title="" ; fi
+		plotfile=$tempfile"_"$count".ps"
+		plotlist=$plotlist" "$plotfile
+		plotoptsA="-cg 1 -cx 1 -cy 2 -ce 3 -ew 0 -pt box -xmin 0 -ymin 0 -xint 1 -xscale .175"
+		plotoptsB="-ymin 0 -pf 1"
+
+		xs-plotmeans1 $infile group $measure -o $plotfile -A "$plotoptsA -bz 1 -ew .33" -B "$plotoptsB" ; continue
+
+		xe-cut1 $infile group,$measure |
+		xe-statsgrp1 stdin |
+		xe-cut1 stdin grp1,mean,sem |
+		xe-plottable1 stdin $plotoptsA -title "$title" -xlabel "group" -ylabel "$measure" -out $plotfile
+	done
+	xe-plotmerge1 -xmax 4 -xinc 125 -out $progbase1"_summary" $plotlist
+	rm -f $plotlist
+fi
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+#echo "Time to finish job: "$s" seconds = "$m" minutes"

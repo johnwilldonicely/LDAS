@@ -1,0 +1,277 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog="xs-ldas5-plotwave1"
+tempfile="temp_"$thisprog #"."$$"."
+
+setlistclu="all"
+setsign=-1
+setscale=0
+setplottype=1
+setdepthoff=150
+setfiltlow=0
+setfilthigh=0
+setfiltplots=1
+setclean="1"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot the compound waveform from a .wfm file"
+	echo "USAGE: "
+	echo "	"$thisprog" [wave] [options]"
+	echo "		[wave]: waveform file as produced by xe-ldas5-datwavemean"
+	echo "VALID OPTIONS:"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	-c: comma-separated list of clusters to plot (or \"all\") [$setlistclu] "
+	echo "	-s: set scale to min/max waveform for all clusters (0=NO 1=YES) [$setscale]"
+	echo "	-t: set plot-type [$setplottype]"
+	echo "		0: multi-channel waveform, 1 cluster per line, compressed"
+	echo "		1: multi-channel waveform + max waveform, 1 cluster per line"
+	echo "		2: 5x10 summary of max waveforms"
+	echo "		3: 10x5 depth-profile plots"
+	echo "		4: single-row depth-profile plots"
+	echo "...peak detection options..."
+	echo "	--sign: .wfm detection sign, for peak-detection (-1:neg 1:pos) [$setsign]"
+	echo "	--low:  .wfm low-cut filter for xs-ldas5-clucombine1 [$setfiltlow]"
+	echo "	--high: .wfm high-cut filter for xs-ldas5-clucombine1 [$setfilthigh]"
+	echo "...plotting options..."
+	echo "	-f: apply filter to plots (0=NO 1=YES) [$setfiltplots]"
+	echo "	-d: depth profile trace-offset (-t 3 only) [$setdepthoff]"
+	echo "	-P: mean waveform plot options (in quotes) [$setplotopts]"
+	echo "	-M: xe-plotmerge1 options (in quotes) [$setmergeopts]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" waves.wfm"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+# PARSING PATHS AND FILENAMES
+filewfm=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+vs="f:s:t:c:d:P:M:" # single-character options
+vl="sign:,low:,high:,clean:"     # long-options
+zz=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$zz" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$zz ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-f) setfiltplots="$2" ; shift ;;
+		-s) setscale="$2" ; shift ;;
+		-t) setplottype="$2" ; shift ;;
+		-c) setlistclu="$2" ; shift ;;
+		-d) setdepthoff="$2" ; shift ;;
+		-P) setplotopts="$2" ; shift ;;
+		-M) setmergeopts="$2" ; shift ;;
+		--sign ) setsign="$2" ; shift ;;
+		--low ) setfiltlow="$2" ; shift ;;
+		--high ) setfilthigh="$2" ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filewfm ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filewfm' missing" ; echo ; exit; } ; fi
+if [ "$setplottype" != "0" ] && [ "$setplottype" != "1" ]  && [ "$setplottype" != "2" ] && [ "$setplottype" != "3" ] && [ "$setplottype" != "4" ] ; then { echo ; echo "--- Error ["$thisprog"]: -t  ($setplottype) must be 0, 1, 2 or 3" ; echo  ; exit ; } fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+probe=$(xe-getkey $filewfm PROBE)
+nchans=$(xe-getkey $filewfm N_CHANNELS)
+spklen=$(xe-getkey $filewfm SAMPLES_PER_CHANNEL)
+spkpre=$(xe-getkey $filewfm SAMPLES_PRE_PEAK)
+samprate=$(xe-getkey $filewfm SAMPLE_RATE)
+
+msint=$(echo "scale=12; 1000 / $samprate" | bc)
+msecs=$(echo "scale=12; 1000 * $spklen / $samprate" | bc) # duration (ms) of each spike window
+sampratems=$(echo "scale=12; $samprate / 1000" | bc )
+spkprems=$(echo "scale=12; 1000 * $spkpre / $samprate" | bc)
+
+# DEFINE PLOT-FILTER OPTIONS
+if [ "$setfiltplots" == "1" ] ; then filtplot=" -low $setfiltlow -high $setfilthigh"
+else filtplot=""; fi
+
+# make a list of zones for the estimation of power in each channel, below
+y=$(echo $nchans | awk '{print $1-1}')
+zones=$(seq 0 $y | awk '{print ($1*'$spklen')"\n"($1*'$spklen')+('$spklen'-1)}' | paste -s | tr '\t' ',')
+# make a temp file for removing ticmarks from plots, if required
+echo "" > $tempfile"_notics.txt"
+# save the channel list for modifying xtics on the multi-wave plots
+xe-getkey $filewfm CHANNEL_LIST | tr ',' '\n' | awk 'BEGIN{i=0}{print $1"\t"i++}' > $tempfile"_chans.txt"
+
+
+# IF "ALL" IS SPECIFIED, MAKE A LIST OF ALL THE CLUSTERS WITH CONTENTS
+if [ $setlistclu == "all" ] ; then
+	setlistclu=$(cat $filewfm | awk '{print $1,$2}' | xe-checkisnum2 stdin | awk '$2>0{print $1}' | paste -s | tr '\t' '\,')
+fi
+
+# CONVERT COMMAS IN CLUSTER-LIST TO SPACES
+listclu=$(echo $setlistclu | tr ',' ' ')
+let nclu=$(echo $listclu | wc -w)
+
+# MAKE Y-SCALE OPTION FOR PLOTS - GET WAVEFORM STATS - SPECIFICALLY MIN & MAX
+if [ "$setscale" == "1" ] ; then
+	stats=$(xe-checkisnum2 $filewfm | tr ' ' '\t' | cut -f 3- | xe-statsd1 stdin)
+	ymin=$(echo $stats | xe-getkey stdin MIN)
+	ymax=$(echo $stats | xe-getkey stdin MAX)
+	yscaletext="-ymin $ymin -ymax $ymax"
+else
+	yscaletext=""
+fi
+
+
+################################################################################
+# NOW, PROCESS EACH CLUSTER IN THE LIST
+# - this is the list of actual cluster ID's
+################################################################################
+echo "	- analyzing $nclu waveforms"
+
+# store waveform parameters (pmax) - use filter settings
+xe-ldas5-wavestats1 $filewfm -sign $setsign -low $setfillow -high $setfilthigh |
+	xe-cut1 stdin cluster,n,pchan,peak > $tempfile.wavestats
+
+for cluster in $listclu ; do
+
+	if [ $cluster == "0" ] ; then continue ; fi
+
+	# GET THE WAVEFORM STATISTICS
+	results=$(xe-dbmatch1 $tempfile.wavestats cluster $cluster -m 2 -o 1)
+	nspikes=$(echo $results | cut -f 2 -d " ")
+	maxchan=$(echo $results | cut -f 3 -d " ")
+	peak=$(echo $results | cut -f 4 -d " ")
+
+	if [ "$nspikes" == "" ] ; then  { echo "	--- Warning ["$thisprog"]: cluster $cluster is invalid" ; continue; } ; fi
+	if [ "$nspikes" == "0" ] ; then { echo "	--- Warning ["$thisprog"]: cluster $cluster has zero spikes" ; continue; } ; fi
+
+ 	if [ "$setplottype" == "0" ] ; then
+		# PLOT THE MULTI-CHANNEL WAVEFORM
+		plotfile=$tempfile"_"$cluster"a.ps"
+		plotlist=$plotlist" "$plotfile
+		vlines=$(seq 0 $nchans | paste -s | tr '\t' ',')
+		plotopts="-cx 1 -cy 2 -line 1 -ps 0 -colour 1 -xscale .45 -lwa .5 -yscale 0.05 -frame 0 -xpad 0 -vline $vlines "
+		title=$(echo $probe $cluster $nspikes | awk '{printf("Cluster %d:%d  n= %d",$1,$2,$3)}')
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 $filtplot |
+			xe-cut1 stdin uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-timestamp1 stdin -sf $spklen |
+			xe-plottable1 stdin $plotopts -ylabel $cluster -out $plotfile
+		# correct the channel labels
+		xs-plotmodtics $plotfile $tempfile"_chans.txt" xtic
+		xs-plotmodtics $plotfile $tempfile"_notics.txt" ytic
+
+	elif [ "$setplottype" == "1" ] ; then
+		# PLOT THE MULTI-CHANNEL WAVEFORM
+		plotfile=$tempfile"_"$cluster"a.ps"
+		plotlist=$plotlist" "$plotfile
+		vlines=$(seq 0 $nchans | paste -s | tr '\t' ',')
+		plotopts="-colour 1 -font 8 -pt cir -ps 0  -line 1 -lwd 1 -lwa .5 -xpad 0 -xscale .6 -yscale 0.2 -xmin 0 -xint 1 -vline $vlines "
+		title=$(echo $probe $cluster $nspikes | awk '{printf("Cluster %d:%d  n= %d",$1,$2,$3)}')
+		xlabel=$(echo $msecs | awk '{printf("Channel (%.1f ms window)",$1)}')
+		ylabel="Voltage (uV)"
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2  $filtplot |
+			xe-cut1 stdin uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-timestamp1 stdin -sf $spklen |
+			xe-plottable1 stdin $plotopts -title "$title" -xlabel "$xlabel" -ylabel "$ylabel" $yscaletext -out $plotfile
+		# correct the channel labels
+		xs-plotmodtics $plotfile $tempfile"_chans.txt" xtic
+
+		# PLOT THE MAX WAVEFORM
+		plotfile=$tempfile"_"$cluster"b.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-colour 1 -font 8 -line 1 -lwd 1 -lwa .5 -xscale .3 -yscale 0.2 -xint 0.5 -vline 0"
+		xlabel="Time (ms)"
+		ylabel="Voltage (uV)"
+		title=$(echo $maxchan | awk '{printf("Max channel: %d",$1)}')
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 -chan $maxchan $filtplot |
+			xe-cut1 stdin ms,uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-plottable1 stdin  $plotopts -title "$title" -xlabel "$xlabel" -ylabel "$ylabel" $yscaletext -out $plotfile $setplotopts
+
+	# MAKE 1-PAGE SUMMARY OF MAX WAVEFORM
+	elif [ "$setplottype" == "2" ] ; then
+		plotfile=$tempfile"_"$cluster"b.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-colour 1 -xscale 0.14 -xint 0.5 -yscale 0.1 -font 6 -ps 0 -line 1 -lwd 1 -lwa .5 -vline 0"
+		xlabel=""
+		ylabel="Voltage (uV)"
+		title=$(echo $cluster $nspikes | awk '{printf("#%d  n=%s",$1,$2)}')
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 -chan $maxchan $filtplot |
+			xe-cut1 stdin ms,uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-plottable1 stdin  $plotopts -title "$title" -xlabel "$xlabel" -ylabel "$ylabel" $yscaletext -out $plotfile $setplotopts
+
+	# MAKE A DEPTH-PROFILE PLOT OF EACH CLUSTER
+	elif [ "$setplottype" == "3" ] ; then
+		plotfile=$tempfile"_"$cluster"b.ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-line 1 -ps 0 -cx 1 -cy 2 -lb 2 -colour 1 -font 6 -xscale 0.04 -yscale 0.2 -xint .5 -xpad 0 -frame 0 -lwd 0.5 -lwa 0.5 -xpad 0 -ypad 0"
+		xlabel="$cluster"
+		ylabel="n= $nspikes   $peak uV"
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 $filtplot |
+			xe-cut1 stdin uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-timestamp1 stdin -sf $spklen -p 0 | # add column representing the channel-number
+			awk 'BEGIN{z=0;p='$spkpre';i='$msint'}{print (z-p)*i,$2-($1*'$setdepthoff'); z++; if(z>='$spklen')z=0}' |
+			xe-plottable1 stdin $plotopts -xlabel "$xlabel" -ylabel "$ylabel" -out $plotfile $setplotopts
+		xs-plotmodtics $plotfile $tempfile"_notics.txt" xtic
+		xs-plotmodtics $plotfile $tempfile"_notics.txt" ytic
+	# MAKE A DEPTH-PROFILE PLOT OF EACH CLUSTER - SINGLE ROW
+	elif [ "$setplottype" == "4" ] ; then
+		plotfile=$tempfile"_"$cluster"b.ps"
+		plotlist=$plotlist" "$plotfile
+		xscalewave=$(echo $nclu | awk '{printf("%.4f",(1.0/($nclu+1)))}')
+		xincwave=$(echo $nclu | awk '{printf("%.4f",(595/($nclu+1.5)))}')
+		if [ $nclu -gt 15 ] ; then fontsize=6 ; else fontsize=8 ; fi
+		plotopts="-line 1 -ps 0 -cx 1 -cy 2 -lb 2 -colour 1 -xscale $xscalewave -yscale 0.2 -xint -1 -yint -1 -xpad 0 -frame 0 -lwd 0.5 -lwa 0.5 -xpad 0 -ypad 0 -yzero 0 -font $fontsize"
+		xlabel="$cluster"
+		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 $filtplot |
+			xe-cut1 stdin uV -o 1 |
+			xe-strsub1 stdin nan 0 |
+			xe-timestamp1 stdin -sf $spklen -p 0 | # add column representing the channel-number
+			awk 'BEGIN{z=0;p='$spkpre';i='$msint'}{print (z-p)*i,$2-($1*'$setdepthoff'); z++; if(z>='$spklen')z=0}' |
+			xe-plottable1 stdin $plotopts -xlabel $xlabel -out $plotfile #$setplotopts
+	fi
+done
+
+################################################################################
+# MERGE THE PLOTS
+################################################################################
+rm -f plot_wave*ps
+
+if [ "$setplottype" == "0" ] ; then
+	setmergeopts="-xmax 1 -yinc 50 -ymax 20 -yo 780 -out plot_wave1 "$setmergeopts
+	xe-plotmerge1 $plotlist $setmergeopts
+elif [ "$setplottype" == "1" ] ; then
+	setmergeopts="-xmax 2 -xinc 350 -yinc 150 -out plot_wave1 "$setmergeopts
+	xe-plotmerge1 $plotlist $setmergeopts
+elif [ "$setplottype" == "2" ] ; then
+	setmergeopts="-xmax 5 -xinc 107 -ymax 10 -yinc 70 -yo 720 -out plot_wave1 "$setmergeopts
+	xe-plotmerge1 $plotlist $setmergeopts
+elif [ "$setplottype" == "3" ] ; then
+	setmergeopts="-xmax 10 -xinc 50 -ymax 5 -yinc 120 -yo 700 -out plot_wave1 "$setmergeopts
+	xe-plotmerge1 $plotlist $setmergeopts
+elif [ "$setplottype" == "4" ] ; then
+	setmergeopts="-xmax $nclu -xinc $xincwave -ymax 2 -yinc 120 -xo 25 -yo 700 -out plot_wave1 "$setmergeopts
+	xe-plotmerge1 $plotlist $setmergeopts
+fi
+
+outbase=$(echo $setmergeopts | xe-getkey stdin -out | tail -n 1)
+list=$(ls $outbase*)
+echo "	- plots sent to: "
+for i in $list ; do echo "		- "$i ; done
+echo
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+rm -f $plotlist
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+
+exit

@@ -1,0 +1,82 @@
+#!/bin/bash
+# <TAGS string </TAGS>
+
+thisprog="xs-ldas5-getbase1"
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setquiet="no"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": find the [date]-[session]_[subject] basename for an experiment"
+	echo "- scans multiple .notes files for the experiment= field"
+	echo "- only one .notes file should match the user-defined experiment type"
+	echo "REQUIRES: at least one properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [exp]"
+	echo "		[exp]: name of experiment"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-q --quiet: suppress error messages"
+	echo "EXAMPLE: "
+	echo "	$thisprog REACT"
+	echo "OUTPUT: yyyymmdd-ses_subject basename, example:"
+	echo "	20170131-001_123456"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setexpt=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+eval set -- $(getopt -o q -l quiet -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-q | --quiet ) setquiet="yes" ;;
+		-- ) shift ; break ;;
+		# bad arguments or invalid options will produce an error
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+########################################################################################
+# BUILD LIST OF NOTES FILES
+########################################################################################
+list=$(ls  2>/dev/null *.notes)
+if [ "$list" == "" ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: no notes files in current directory" ; echo ; } fi ; exit; } ; fi
+
+########################################################################################
+# FIND EXPERIMENT AND BUILD BASE
+########################################################################################
+let count=0
+for i in $list ; do
+	expt=$(xe-getkey $i experiment=)
+	if [ "$expt" == "$setexpt" ] ; then
+		date=$(xe-getkey $i start_date= | xe-dateconv1 stdin -i 3 -o 4)
+		session=$(xe-getkey $i session=)
+		subject=$(xe-getkey $i subject=)
+		if [ "$date" == "" ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file $i does not define date=" ; echo ; } fi ; exit ; } ; fi
+		if [ "$session" == "" ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file $i does not define session=" ; echo ;  } fi ; exit ; } ; fi
+		if [ "$subject" == "" ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file $i does not define subject=" ; echo ; } fi ; exit ; } ; fi
+		let count++
+	fi
+done
+
+if [ $count -eq 0 ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: no notes file header containing experiment= $setexpt" ; echo ; } fi ; exit ; } ; fi
+if [ $count -gt 1 ] ; then { if [ $setquiet == "no" ] ; then { echo ; echo "--- Error ["$thisprog"]: more than one notes file header containing experiment= $setexpt" ; echo ; } fi ; exit ; } ; fi
+
+########################################################################################
+# OUTPUT BASE
+########################################################################################
+base=$date"-"$session"_"$subject
+if [ "$base" != "" ] ; then echo $base ; fi
+
+exit

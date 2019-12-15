@@ -1,0 +1,714 @@
+%!
+%%BoundingBox: 0 0 595 842
+/Helvetica findfont 12.00 scalefont setfont
+
+% DEFINE_COLOUR      DESCRIPTION    GROUP-LABEL
+/c0 {.0 .0 .0} def   % black        0
+/c1 {.6 .1 .2} def   % dark_red     
+/c2 {.2 .5 .1} def   % dark_green   
+/c3 {.0 .25 .6} def  % dark_blue    
+/c4 {.5 .25 .5} def  % dark_magenta 
+/c5 {.2 .7 .7} def   % dark_cyan    
+/c6 {.5 .25 .0} def  % brown        
+/c7 {.8 .8 .2} def   % dark_yellow  
+/c8 {.3 .3 .3} def   % 70%_black    
+/c9 {1. .0 .0} def   % red          
+/c10 {.0 1. .0} def  % green        
+/c11 {.0 .0 1.} def  % blue         
+/c12 {1. .0 1.} def  % magenta      
+/c13 {.0 1. 1.} def  % cyan         
+/c14 {1. .4 .1} def  % orange       
+/c15 {1. 1. .0} def  % yellow       
+/c16 {.5 .5 .5} def  % 50%_black    
+/c17 {1. .5 .5} def  % pink         
+/c18 {.5 1. .5} def  % soft_green   
+/c19 {.5 .6 1.} def  % soft_blue    
+/c20 {1. .5 1.} def  % soft_magenta 
+/c21 {.5 1. 1.} def  % soft_cyan    
+/c22 {1. .7 .3} def  % soft_orange  
+/c23 {.7 .7 .7} def  % 30%_black    
+/cw {1. 1. 1.} def   % open_points_fill
+/cf {.0 .0 .0} def   % frame_colour
+/ct {.5 .5 .5} def   % title colour
+
+% DEFINE_AXIS_LABEL_FUNCTIONS
+/ticsize {-3} def
+/basefontsize {10} def
+/yticmaxchar {2} def
+ticsize 0 lt {/ticout ticsize def} {/ticout 0 def} ifelse 
+/xaloff { basefontsize 2 add 1 mul basefontsize add -1 mul ticout add } def
+/yaloff { (10) stringwidth pop ticout sub basefontsize 2 div add } def
+/xaxislabel { moveto dup stringwidth pop 2 div neg xaloff rmoveto show } def
+/yaxislabel { 90 rotate moveto dup stringwidth pop 2 div neg yaloff rmoveto show -90 rotate } def
+/f_plottitle { ct setrgbcolor basefontsize .25 mul add moveto yaloff neg basefontsize 2 div rmoveto show cf setrgbcolor } def
+/f_plotlegend {
+	setrgbcolor
+	2 copy
+
+	yaloff neg xaloff moveto
+	basefontsize mul neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+
+	yaloff neg pointsize 1.5 mul add  xaloff moveto
+	basefontsize mul neg rmoveto
+	show
+	cf setrgbcolor
+} def
+
+% DEFINE_TIC_LABEL_FUNCTIONS
+/xtloff { basefontsize -1 mul ticout add } def
+/ytloff { basefontsize -0.25 mul ticout add } def
+/xticlabel { moveto dup stringwidth pop 2 div neg xtloff rmoveto show } def
+/yticlabel { moveto dup stringwidth pop neg ytloff add -0.25 basefontsize mul rmoveto show } def
+
+% DEFINE_TIC_FUNCTIONS
+/xtic { newx dup 0 exch 0 moveto 0 ticsize rlineto stroke xticlabel} def
+/ytic { newy 0 exch 1 index 1 index moveto ticsize 0 rlineto stroke yticlabel } def
+
+% DEFINE_DRAWING_FUNCTIONS
+
+/pfill {fill} def 
+/popen {closepath} def 
+/line {
+	newpoint lineto
+	} def 
+
+/histo {
+	newpoint moveto
+	currentpoint pop boxyzero lineto
+	stroke
+	} def 
+
+/box	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	pointdraw
+	} def
+
+/boxw	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/squ	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+	} def
+
+/squw	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/tri {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	pointdraw
+	} def
+
+/triw {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/cir {
+	newpoint pointsize 2 div 0 360 arc
+	pointdraw
+	stroke
+	} def
+
+/cirw {
+	newpoint pointsize 2 div 0 360 arc
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/errorbar	{
+	newpath
+	newpoint moveto
+	dup
+	0 exch rmoveto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	ewidth 2 div neg 0 rmoveto
+	0 exch neg 2 mul rlineto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	stroke
+	} def
+
+% SHIFT_COORDINATES
+63 652 translate
+
+% PLOT_CODE_START
+
+% DEFINE_PLOT_PARAMETERS
+/xfactor {0.5} def
+/yfactor {11.61027555828} def
+/xoffset {-25} def
+/yoffset {-16.246374691457} def
+/newx {0.5 mul xoffset add } def
+/newy {11.61027555828 mul yoffset add } def
+/newpoint {newy exch newx exch} def
+/xlabel {(Frequency (Hz))} def
+/ylabel {(Amplitude)} def
+/plottitle {()} def
+
+% DEFINE_DATA_RELATED_VALUES
+/linewidth_data {0.5} def
+/linewidth_error {0.25} def
+/linewidth_axes {1} def
+/plottype {cir} def
+/pointsize {5} def
+/ewidth { 9.375 } def 
+/boxwidth { 18.75 } def 
+/setboxwidth { 37.5 } def 
+/boxyzero {0 newy} def
+/pointdraw { popen } def
+
+% PLOT_VALUES_GROUP_0
+c0 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	130.208 6.95923 plottype
+	110.176 3.6547 plottype
+	120.192 4.10715 plottype
+	100.16 3.25421 plottype
+	140.224 5.80597 plottype
+	170.272 8.17365 plottype
+	110.176 4.91303 plottype
+	170.272 11.244 plottype
+	160.256 6.76513 plottype
+	140.224 4.65043 plottype
+	130.208 5.29158 plottype
+	170.272 3.92842 plottype
+	130.208 6.96613 plottype
+	100.16 3.39679 plottype
+	150.24 7.39296 plottype
+	120.192 5.18131 plottype
+	120.192 4.31388 plottype
+	130.208 4.13483 plottype
+	120.192 6.67477 plottype
+	120.192 3.55727 plottype
+	110.176 4.77448 plottype
+	160.256 7.08659 plottype
+	130.208 6.22204 plottype
+	110.176 4.31142 plottype
+	140.224 5.66229 plottype
+	150.24 5.62073 plottype
+	130.208 6.53178 plottype
+	150.24 6.78187 plottype
+	120.192 4.67983 plottype
+	100.16 3.60737 plottype
+	130.208 3.63387 plottype
+	120.192 4.5923 plottype
+	120.192 6.10176 plottype
+	150.24 3.48046 plottype
+	120.192 2.97943 plottype
+	230.369 3.02959 plottype
+	120.192 2.77936 plottype
+	110.176 3.19049 plottype
+	150.24 3.19017 plottype
+	150.24 4.65231 plottype
+	150.24 11.2663 plottype
+	110.176 3.65421 plottype
+	180.288 7.76876 plottype
+	170.272 5.3415 plottype
+	170.272 10.8575 plottype
+	130.208 3.63471 plottype
+	110.176 2.98645 plottype
+	120.192 5.49925 plottype
+	150.24 7.11931 plottype
+	110.176 3.83486 plottype
+	160.256 2.90848 plottype
+	100.16 3.82897 plottype
+	110.176 4.25995 plottype
+	120.192 4.30782 plottype
+	120.192 5.08578 plottype
+	150.24 5.53107 plottype
+	170.272 3.38412 plottype
+	110.176 5.08921 plottype
+	130.208 3.70428 plottype
+	120.192 2.81275 plottype
+	100.16 3.97347 plottype
+	130.208 3.48355 plottype
+	130.208 4.23046 plottype
+	100.16 3.86617 plottype
+	120.192 3.87448 plottype
+	130.208 3.85298 plottype
+	130.208 3.95181 plottype
+	150.24 4.57423 plottype
+	90.1442 2.65858 plottype
+	120.192 2.61179 plottype
+	130.208 6.39293 plottype
+	150.24 5.74748 plottype
+	170.272 8.51259 plottype
+	140.224 2.89718 plottype
+	180.288 4.75628 plottype
+	230.369 3.09307 plottype
+	130.208 3.55342 plottype
+	120.192 3.38553 plottype
+	180.288 12.1108 plottype
+	150.24 4.04599 plottype
+	140.224 3.1189 plottype
+	200.321 2.80028 plottype
+	150.24 4.60399 plottype
+	130.208 3.07343 plottype
+	170.272 8.12182 plottype
+	100.16 4.81331 plottype
+	170.272 4.46129 plottype
+	140.224 3.85794 plottype
+	170.272 5.64936 plottype
+	160.256 5.51398 plottype
+	170.272 3.51989 plottype
+	100.16 5.04138 plottype
+	160.256 7.89519 plottype
+	150.24 4.04449 plottype
+	130.208 5.03782 plottype
+	110.176 5.9912 plottype
+	120.192 6.93181 plottype
+	100.16 5.03604 plottype
+	110.176 4.76949 plottype
+	150.24 4.67993 plottype
+	100.16 3.90009 plottype
+	150.24 6.77998 plottype
+	110.176 3.3997 plottype
+	160.256 4.3467 plottype
+	140.224 4.43776 plottype
+	140.224 5.24557 plottype
+	130.208 3.32551 plottype
+	110.176 3.55436 plottype
+	170.272 6.56545 plottype
+	160.256 4.91238 plottype
+	180.288 6.72198 plottype
+	150.24 5.80338 plottype
+	120.192 4.20683 plottype
+	160.256 5.41978 plottype
+	150.24 4.45343 plottype
+	130.208 5.97217 plottype
+	160.256 8.34912 plottype
+	130.208 6.46717 plottype
+	160.256 4.51611 plottype
+	100.16 3.78489 plottype
+	110.176 4.88533 plottype
+	180.288 7.75723 plottype
+	170.272 3.05943 plottype
+	140.224 3.23921 plottype
+	170.272 8.79833 plottype
+	160.256 12.53 plottype
+	160.256 8.35639 plottype
+	140.224 5.09896 plottype
+	140.224 3.5869 plottype
+	180.288 2.72297 plottype
+	230.369 4.14148 plottype
+	160.256 10.3327 plottype
+	110.176 3.74792 plottype
+	110.176 4.15762 plottype
+	130.208 3.29202 plottype
+	180.288 6.3859 plottype
+	180.288 5.03674 plottype
+	130.208 4.21862 plottype
+	150.24 7.07191 plottype
+	110.176 3.13185 plottype
+	120.192 3.57053 plottype
+	110.176 5.72514 plottype
+	120.192 5.85641 plottype
+	130.208 3.79943 plottype
+	170.272 5.69108 plottype
+	110.176 3.74619 plottype
+	110.176 4.89263 plottype
+	150.24 3.07139 plottype
+	170.272 8.62459 plottype
+	150.24 5.99663 plottype
+	110.176 3.60306 plottype
+	120.192 3.82437 plottype
+	160.256 9.25798 plottype
+	100.16 3.43237 plottype
+	110.176 3.40733 plottype
+	160.256 7.76084 plottype
+	130.208 2.86767 plottype
+	120.192 3.55514 plottype
+	130.208 6.2098 plottype
+	110.176 3.75705 plottype
+	110.176 5.23427 plottype
+	110.176 4.81815 plottype
+	170.272 11.5713 plottype
+	180.288 10.667 plottype
+	130.208 3.47099 plottype
+	140.224 4.99552 plottype
+	100.16 4.09847 plottype
+	120.192 3.95346 plottype
+	130.208 7.19678 plottype
+	130.208 3.274 plottype
+	110.176 4.66605 plottype
+	130.208 5.89219 plottype
+	160.256 6.9207 plottype
+	120.192 4.95391 plottype
+	110.176 3.03386 plottype
+	110.176 4.17232 plottype
+	130.208 5.01049 plottype
+	190.304 6.07718 plottype
+	110.176 3.4632 plottype
+	120.192 3.42036 plottype
+	140.224 5.20515 plottype
+	140.224 3.39367 plottype
+	150.24 7.91639 plottype
+	130.208 3.65369 plottype
+	120.192 2.80072 plottype
+	220.353 3.55806 plottype
+	120.192 3.39824 plottype
+	170.272 4.12899 plottype
+	90.1442 3.9378 plottype
+	120.192 4.46938 plottype
+	160.256 12.0095 plottype
+	150.24 13.3189 plottype
+	110.176 3.4694 plottype
+	110.176 3.52217 plottype
+	140.224 8.98385 plottype
+	170.272 5.02247 plottype
+	160.256 7.63544 plottype
+	190.304 5.25028 plottype
+	150.24 9.45677 plottype
+	120.192 3.40946 plottype
+	130.208 3.06509 plottype
+	150.24 6.92711 plottype
+	130.208 4.90149 plottype
+	100.16 2.94433 plottype
+	110.176 3.53932 plottype
+	150.24 3.96086 plottype
+	120.192 6.64286 plottype
+	110.176 4.83586 plottype
+	110.176 3.84025 plottype
+	170.272 10.1456 plottype
+	120.192 4.92265 plottype
+	160.256 6.1752 plottype
+	120.192 5.43614 plottype
+	170.272 5.8322 plottype
+	120.192 4.58407 plottype
+	140.224 3.20022 plottype
+	160.256 3.82515 plottype
+	120.192 3.07687 plottype
+	170.272 3.25951 plottype
+	180.288 3.80296 plottype
+	130.208 3.8586 plottype
+	150.24 7.99388 plottype
+	150.24 3.48817 plottype
+	160.256 2.60261 plottype
+	230.369 4.4882 plottype
+	150.24 3.19505 plottype
+	160.256 3.70174 plottype
+	130.208 3.74686 plottype
+	140.224 3.39401 plottype
+	130.208 3.77755 plottype
+	130.208 2.72624 plottype
+	170.272 3.24154 plottype
+	170.272 3.22793 plottype
+	160.256 3.57785 plottype
+	170.272 3.38562 plottype
+	240.385 3.44445 plottype
+	170.272 4.254 plottype
+	200.321 3.25827 plottype
+	140.224 4.88174 plottype
+	240.385 3.62742 plottype
+	150.24 2.41194 plottype
+	200.321 4.28902 plottype
+	150.24 4.55285 plottype
+	160.256 4.14769 plottype
+	170.272 3.72413 plottype
+	190.304 3.29734 plottype
+	150.24 7.84175 plottype
+	180.288 3.57795 plottype
+	190.304 3.66735 plottype
+	160.256 4.82575 plottype
+	160.256 3.77948 plottype
+	170.272 3.43259 plottype
+	160.256 2.75675 plottype
+	190.304 3.83895 plottype
+	220.353 3.33021 plottype
+	220.353 3.4234 plottype
+	190.304 3.55471 plottype
+	190.304 4.9286 plottype
+	260.417 4.46103 plottype
+	250.401 2.76782 plottype
+	210.337 2.97644 plottype
+	200.321 6.69592 plottype
+	160.256 4.94256 plottype
+	110.176 2.72288 plottype
+	120.192 2.81733 plottype
+	140.224 4.69207 plottype
+	200.321 6.50199 plottype
+	160.256 7.20441 plottype
+	190.304 6.90927 plottype
+	250.401 3.61311 plottype
+	130.208 5.96829 plottype
+	180.288 5.24961 plottype
+	230.369 7.43964 plottype
+	160.256 5.13278 plottype
+	170.272 5.65744 plottype
+	210.337 5.50846 plottype
+	270.433 5.0493 plottype
+	180.288 4.49862 plottype
+	230.369 3.36438 plottype
+	210.337 3.6977 plottype
+	170.272 4.86579 plottype
+	240.385 5.51822 plottype
+	130.208 3.60778 plottype
+	240.385 3.46148 plottype
+	230.369 3.54235 plottype
+	310.497 2.50729 plottype
+	220.353 3.85784 plottype
+	140.224 3.45763 plottype
+	190.304 4.66256 plottype
+	130.208 3.31205 plottype
+	140.224 3.56752 plottype
+	270.433 2.39931 plottype
+	230.369 4.34033 plottype
+	270.433 5.73787 plottype
+	120.192 3.43433 plottype
+	190.304 3.79448 plottype
+	160.256 3.79527 plottype
+	220.353 7.8156 plottype
+	200.321 3.57731 plottype
+	180.288 5.4181 plottype
+	260.417 2.83432 plottype
+	180.288 3.09103 plottype
+	230.369 6.01237 plottype
+	140.224 4.43347 plottype
+	180.288 5.56194 plottype
+	200.321 10.6196 plottype
+	180.288 8.18783 plottype
+	250.401 6.23805 plottype
+	220.353 5.27928 plottype
+	210.337 4.50654 plottype
+	190.304 6.35324 plottype
+	210.337 6.52389 plottype
+	210.337 5.24571 plottype
+	210.337 7.53389 plottype
+	190.304 9.49561 plottype
+	180.288 3.55142 plottype
+	210.337 4.71322 plottype
+	220.353 9.10712 plottype
+	240.385 7.41173 plottype
+	150.24 6.43217 plottype
+	140.224 4.60911 plottype
+	240.385 4.52051 plottype
+	180.288 7.39216 plottype
+	200.321 3.52646 plottype
+	130.208 4.39779 plottype
+	140.224 4.79409 plottype
+	230.369 3.52271 plottype
+	230.369 5.03106 plottype
+	250.401 4.15656 plottype
+	180.288 5.89609 plottype
+	230.369 4.97313 plottype
+	220.353 6.5205 plottype
+	170.272 4.97923 plottype
+	150.24 4.63158 plottype
+	160.256 4.16577 plottype
+	180.288 5.91469 plottype
+	180.288 4.41812 plottype
+	160.256 4.84639 plottype
+	250.401 2.71748 plottype
+	260.417 2.81944 plottype
+	220.353 3.56992 plottype
+	260.417 2.82476 plottype
+	160.256 3.0326 plottype
+	190.304 4.02541 plottype
+	160.256 2.75706 plottype
+	210.337 4.73915 plottype
+	230.369 5.12225 plottype
+	190.304 4.60689 plottype
+	130.208 4.30147 plottype
+	240.385 3.98969 plottype
+	150.24 4.3373 plottype
+	260.417 2.9659 plottype
+	190.304 3.48188 plottype
+	220.353 3.25815 plottype
+	180.288 3.979 plottype
+	140.224 3.45826 plottype
+	160.256 3.42174 plottype
+	260.417 3.08062 plottype
+	150.24 3.25973 plottype
+	180.288 3.56121 plottype
+	190.304 3.25258 plottype
+	150.24 4.23964 plottype
+	200.321 5.13122 plottype
+	190.304 5.37586 plottype
+	210.337 6.12719 plottype
+	160.256 3.16995 plottype
+	200.321 4.68767 plottype
+	220.353 2.97744 plottype
+	150.24 2.94756 plottype
+	160.256 3.2869 plottype
+	150.24 3.23856 plottype
+	150.24 5.20987 plottype
+	170.272 3.33032 plottype
+	220.353 3.03962 plottype
+	240.385 3.69108 plottype
+	130.208 3.36842 plottype
+	250.401 4.85449 plottype
+	220.353 3.44764 plottype
+	140.224 2.92682 plottype
+	140.224 3.42929 plottype
+	150.24 3.69259 plottype
+	190.304 3.14663 plottype
+	160.256 4.72426 plottype
+	250.401 2.64392 plottype
+	220.353 4.16418 plottype
+	210.337 4.06488 plottype
+	140.224 5.66343 plottype
+	170.272 2.62588 plottype
+	210.337 4.76716 plottype
+	190.304 8.24648 plottype
+	180.288 2.69834 plottype
+	190.304 3.08724 plottype
+	170.272 3.0328 plottype
+	190.304 6.48548 plottype
+	190.304 7.52321 plottype
+	190.304 5.29992 plottype
+	190.304 3.06757 plottype
+	230.369 4.70633 plottype
+	210.337 3.57273 plottype
+	150.24 3.50454 plottype
+	200.321 2.99617 plottype
+	150.24 3.89241 plottype
+	140.224 2.83243 plottype
+	230.369 6.90956 plottype
+	190.304 4.36703 plottype
+	170.272 5.5322 plottype
+	180.288 5.25726 plottype
+	250.401 4.6512 plottype
+	200.321 5.35353 plottype
+	230.369 4.99032 plottype
+	180.288 3.34436 plottype
+	160.256 2.93971 plottype
+	230.369 5.9338 plottype
+	250.401 4.77056 plottype
+	210.337 8.25841 plottype
+	230.369 3.53639 plottype
+	220.353 8.09055 plottype
+	230.369 7.28899 plottype
+	140.224 6.73039 plottype
+	200.321 5.55118 plottype
+	180.288 7.5743 plottype
+	200.321 5.70084 plottype
+	200.321 5.44332 plottype
+	170.272 4.42952 plottype
+	230.369 3.7368 plottype
+	140.224 7.13523 plottype
+	160.256 9.70431 plottype
+	200.321 6.16444 plottype
+	180.288 5.72097 plottype
+	240.385 3.37496 plottype
+	180.288 5.18495 plottype
+	150.24 3.44773 plottype
+	210.337 4.95952 plottype
+	160.256 3.39689 plottype
+	130.208 2.593 plottype
+	160.256 4.10521 plottype
+	270.433 3.27946 plottype
+	160.256 4.3219 plottype
+	200.321 5.6445 plottype
+	130.208 2.77046 plottype
+	180.288 3.26793 plottype
+	170.272 4.22873 plottype
+	120.192 3.2596 plottype
+	150.24 5.37963 plottype
+	stroke
+	closepath
+
+% DRAW_FRAME
+cf setrgbcolor
+linewidth_axes setlinewidth
+newpath
+150 0 moveto 0 0 lineto
+0 150 lineto
+stroke
+stroke
+
+% DRAW_TICS_AND_LABELS
+/Helvetica findfont basefontsize scalefont setfont
+cf setrgbcolor
+	linewidth_axes setlinewidth
+newpath
+(75) 75 xtic
+(125) 125 xtic
+(175) 175 xtic
+(225) 225 xtic
+(275) 275 xtic
+(325) 325 xtic
+stroke
+newpath
+(2) 2 ytic
+(4) 4 ytic
+(6) 6 ytic
+(8) 8 ytic
+(10) 10 ytic
+(12) 12 ytic
+stroke
+
+
+% DRAW_AXIS_LABELS
+/Helvetica-Bold findfont basefontsize 2 add scalefont setfont
+/yaloff { (10) stringwidth pop ticout sub basefontsize 2 div add } def
+xlabel 75 0 xaxislabel
+ylabel 75 0 yaxislabel
+
+% DRAW_PLOT_TITLE
+/Helvetica-Bold findfont basefontsize 4 add scalefont setfont
+plottitle 0 150 f_plottitle
+
+% PLOT_USERLINES_VERTICAL
+linewidth_axes setlinewidth
+newpath
+140 1.39931 newpoint moveto
+140 14.3189 line
+[3] 0 setdash stroke
+closepath
+
+newpath
+220 1.39931 newpoint moveto
+220 14.3189 line
+[3] 0 setdash stroke
+closepath
+
+
+% PLOT_CODE_END
+
+% SHOW_PAGE
+showpage

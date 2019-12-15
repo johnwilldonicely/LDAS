@@ -1,0 +1,147 @@
+#!/bin/bash
+# <TAGS>programming</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+thatprog="xe-ldas5-packetloss3"
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setopts1="-win 60 -min 0 "
+setverb="0"
+setclean="1"
+setskip="-"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-visualise packet-loss based on -lost.ssp files"
+	echo "REQUIRES: a -lost.ssp file in each folder"
+	echo "USAGE: $thisprog [db] [options]"
+	echo "	[in]: input file, format= <time> <data>"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--opts1: quoted options to pass to $thatprog [$setopts1]"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db.txt "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+# check file exists & isn't empty
+if [ ! -e "$filedb" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $filedb\n" ;  exit; } ; fi
+if [ ! -s "$filedb" ] ; then { echo -e "\n--- Error ["$thisprog"]: $filedb is empty\n" ;  exit; } ; fi
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="opts1:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--opts1 ) setopts1=$setopts1" "$2 ; shift ;;
+		--skip  ) setskip=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--verb  ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+
+################################################################################
+# DATABASE PRE-PROCESSING
+################################################################################
+xs-dbcheck1 $filedb --verb 0 --xml PATHS > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+# construct a database list in format <path>,<group>
+dblist=$(xe-strxmlparse1 $filedb PATHS | awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' | xe-delimit stdin -d comma)
+
+################################################################################
+# PERFORM A PROCESSING LOOP WITHOUT USING WHILE READ
+################################################################################
+fileplot="plot_"$progbase1".ps"
+plotopts="-line 1 -ps 0 -xscale 1 -out $fileplot"
+xl="Time (hours)"
+yl="% Packet Loss"
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	if [ "$setverb" == "1" ] ; then echo "...analyzing..." ; fi
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		cd $startdir ; 	cd $path
+		if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filessp=$(ls --color=never *lost.ssp)
+		if [ ! "$filessp" ] ; then { echo -e "--- Warning ["$thisprog"]: no lost.ssp file in $path" ;  continue; } ; fi
+		# RUN PROGRAMS
+		$thatprog $filessp $setopts1 |
+			cut -f 2 |
+			xe-timestamp1 stdin -sf 60 |
+			xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl"
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLECT THE PLOTS
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	if [ "$setverb" == "1" ] ; then echo "...collecting plots..." ; fi
+	xs-collect1 $filedb $fileplot --xml PATHS --verb 1
+fi
+
+################################################################################
+# MERGE THE PLOTS
+################################################################################
+if [ "$setverb" == "1" ] ; then echo "...merging plots..." ; fi
+if [ "$fileplot" != "" ] ; then
+	rm -f $fileplot
+	list=*$fileplot
+	echo $list | tr ' ' '\n' | awk '{print "\t"$1}'
+	xe-plotmerge2 $list > $tempfile
+	rm -f $list
+	mv $tempfile $fileplot
+fi
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

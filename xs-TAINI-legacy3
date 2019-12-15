@@ -1,0 +1,113 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+
+thisprog=`basename "$0"`
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+setformat="1"
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": run CRACKIT acquitision"
+	echo "	- assumes four subjects are recorded at once"
+	echo "	- automaticaly generates .xml control file"
+	echo "	- uses current directory as output path"
+	echo "	- the xml <ACQUISITION> field in README.txt defines subject for each device"
+	echo "	- the same field also defines the device transmission frequency (GHz)"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [readme]"
+	echo "		[readme]: a properly formatted README.txt file"
+	echo ""
+#	echo "VALID OPTIONS (defaults in []):"
+#	echo "	-f: format (0=simple 1=verbose) ["$setformat"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" README.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":nxyb:t:" flag ; do
+ 	case $flag in
+ 		n) norm=1;;
+		x) logx=1;;
+		y) logy=1;;
+		b) bottom=$OPTARG;;
+		t) top=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+# GET LIST OF DEVICE-NUMBERS
+listdev=$(xe-strxmlparse1 README.txt ACQUISITION | xe-cut1 stdin device -s 1 -o 1)
+let count=0; for i in $listdev ; do { dev[$count]=$i ; let count=$count+1; } done
+if [ $count -ne 4 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' defines $count devices (should be 4)" ; echo ; exit; } ; fi
+let refcount=$count
+listdev2=$(echo $listdev | paste -s | tr ' ' ',')
+# GET LIST OF SUBJECTS
+listsub=$(xe-strxmlparse1 README.txt ACQUISITION | xe-cut1 stdin subject -s 1 -o 1)
+let count=0; for i in $listsub ; do { sub[${dev[count]}]=$i ; let count=$count+1; } done
+if [ $count -ne $refcount ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' defines $count subjects (should be $refcount)" ; echo ; exit; } ; fi
+# GET LIST OF TRANSMISSION FEQUENCIES
+listfreq=$(xe-strxmlparse1 README.txt ACQUISITION | xe-cut1 stdin frequency -s 1 -o 1)
+let count=0; for i in $listfreq ; do { freq[${dev[count]}]=$i ; let count=$count+1; } done
+if [ $count -ne 4 ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' defines $count frequencies (should be $refcount)" ; echo ; exit; } ; fi
+
+# MAKE THE ACQUISITION CONTROL FILE
+echo "<?xml version=\"1.0\" ?>
+<GRC_py_variables>
+    <!--Ensure you keep ' <single quotes> ' around text strings-->
+    <!-- -->
+    <!--Directory to log data in-->
+    <log_path>'$start_dir'</log_path>
+    <!-- -->
+    <!--Device selection-->
+    <device_selection>[$listdev2]</device_selection>
+    <!-- -->
+    <d1_subject>'"${sub[1]}"'</d1_subject><d1_center_frequency>"${freq[1]}"e9</d1_center_frequency>
+    <d2_subject>'"${sub[2]}"'</d2_subject><d2_center_frequency>"${freq[2]}"e9</d2_center_frequency>
+    <d3_subject>'"${sub[3]}"'</d3_subject><d3_center_frequency>"${freq[3]}"e9</d3_center_frequency>
+    <d4_subject>'"${sub[4]}"'</d4_subject><d4_center_frequency>"${freq[4]}"e9</d4_center_frequency>
+    <!-- -->
+</GRC_py_variables>
+" > $tempfile.xml
+
+# RUN THE CRACKIT SOFTWARE IN ACQUIRE MODE
+logfile="log_"$thisprog".txt"
+echo "################################################################################
+crackit acquire -d 4 $tempfile.xml
+################################################################################
+" > $logfile
+cat $tempfile.xml >> $logfile
+
+crackit acquire -d 4 $tempfile.xml 2>&1 | tee -a $logfile
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"
+
+# CHECK FOR ERRORS
+z=$(grep -i error log_$thisprog.txt)
+if [ "$z" != "" ] ; then { echo ; echo "--- Error ["$thisprog"]: problems encountered: check log_$thisprog.txt" ; echo ; exit; } ; fi

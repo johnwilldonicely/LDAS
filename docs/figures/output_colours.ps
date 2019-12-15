@@ -1,0 +1,401 @@
+%!
+%%BoundingBox: 0 0 595 842
+/Helvetica findfont 12.00 scalefont setfont
+
+% DEFINE_COLOUR      DESCRIPTION    GROUP-LABEL
+/c0 {.0 .0 .0} def   % black        0
+/c1 {.6 .1 .2} def   % dark_red     1
+/c2 {.2 .5 .1} def   % dark_green   2
+/c3 {.0 .25 .6} def  % dark_blue    3
+/c4 {.5 .25 .5} def  % dark_magenta 4
+/c5 {.2 .7 .7} def   % dark_cyan    5
+/c6 {.5 .25 .0} def  % brown        6
+/c7 {.8 .8 .2} def   % dark_yellow  7
+/c8 {.3 .3 .3} def   % 70%_black    8
+/c9 {1. .0 .0} def   % red          9
+/c10 {.0 1. .0} def  % green        10
+/c11 {.0 .0 1.} def  % blue         11
+/c12 {1. .0 1.} def  % magenta      12
+/c13 {.0 1. 1.} def  % cyan         13
+/c14 {1. .4 .1} def  % orange       14
+/c15 {1. 1. .0} def  % yellow       15
+/c16 {.5 .5 .5} def  % 50%_black    
+/c17 {1. .5 .5} def  % pink         
+/c18 {.5 1. .5} def  % soft_green   
+/c19 {.5 .6 1.} def  % soft_blue    
+/c20 {1. .5 1.} def  % soft_magenta 
+/c21 {.5 1. 1.} def  % soft_cyan    
+/c22 {1. .7 .3} def  % soft_orange  
+/c23 {.7 .7 .7} def  % 30%_black    
+/cw {1. 1. 1.} def   % open_points_fill
+/cf {.0 .0 .0} def   % frame_colour
+/ct {.5 .5 .5} def   % title colour
+
+% DEFINE_AXIS_LABEL_FUNCTIONS
+/ticsize {-3} def
+/basefontsize {10} def
+/yticmaxchar {2} def
+ticsize 0 lt {/ticout ticsize def} {/ticout 0 def} ifelse 
+/xaloff { basefontsize 2 add 1 mul basefontsize add -1 mul ticout add } def
+/yaloff { (12) stringwidth pop ticout sub basefontsize 2 div add } def
+/xaxislabel { moveto dup stringwidth pop 2 div neg xaloff rmoveto show } def
+/yaxislabel { 90 rotate moveto dup stringwidth pop 2 div neg yaloff rmoveto show -90 rotate } def
+/f_plottitle { ct setrgbcolor basefontsize .25 mul add moveto yaloff neg basefontsize 2 div rmoveto show cf setrgbcolor } def
+/f_plotlegend {
+	setrgbcolor
+	2 copy
+
+	yaloff neg xaloff moveto
+	basefontsize mul neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+
+	yaloff neg pointsize 1.5 mul add  xaloff moveto
+	basefontsize mul neg rmoveto
+	show
+	cf setrgbcolor
+} def
+
+% DEFINE_TIC_LABEL_FUNCTIONS
+/xtloff { basefontsize -1 mul ticout add } def
+/ytloff { basefontsize -0.25 mul ticout add } def
+/xticlabel { moveto dup stringwidth pop 2 div neg xtloff rmoveto show } def
+/yticlabel { moveto dup stringwidth pop neg ytloff add -0.25 basefontsize mul rmoveto show } def
+
+% DEFINE_TIC_FUNCTIONS
+/xtic { newx dup 0 exch 0 moveto 0 ticsize rlineto stroke xticlabel} def
+/ytic { newy 0 exch 1 index 1 index moveto ticsize 0 rlineto stroke yticlabel } def
+
+% DEFINE_DRAWING_FUNCTIONS
+
+/pfill {fill} def 
+/popen {closepath} def 
+/line {
+	newpoint lineto
+	} def 
+
+/histo {
+	newpoint moveto
+	currentpoint pop boxyzero lineto
+	stroke
+	} def 
+
+/box	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	pointdraw
+	} def
+
+/boxw	{
+	newpoint moveto
+	boxwidth 2 div neg 0 rmoveto boxwidth 0 rlineto
+	currentpoint pop boxyzero lineto
+	boxwidth neg 0 rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/squ	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	pointdraw
+	} def
+
+/squw	{
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	0 pointsize rlineto
+	pointsize 0 rlineto
+	0 pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/tri {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	pointdraw
+	} def
+
+/triw {
+	newpoint moveto
+	pointsize 2 div neg pointsize 2 div neg rmoveto
+	pointsize 2 div pointsize rlineto
+	pointsize 2 div pointsize neg rlineto
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/cir {
+	newpoint pointsize 2 div 0 360 arc
+	pointdraw
+	stroke
+	} def
+
+/cirw {
+	newpoint pointsize 2 div 0 360 arc
+	closepath
+	gsave
+	1.0 setgray fill
+	grestore
+	stroke
+	} def
+
+/errorbar	{
+	newpath
+	newpoint moveto
+	dup
+	0 exch rmoveto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	ewidth 2 div neg 0 rmoveto
+	0 exch neg 2 mul rlineto
+	ewidth 2 div neg 0 rmoveto ewidth 0 rlineto
+	stroke
+	} def
+
+% SHIFT_COORDINATES
+63 652 translate
+
+% PLOT_CODE_START
+
+% DEFINE_PLOT_PARAMETERS
+/xfactor {31.25} def
+/yfactor {8.3333333333333} def
+/xoffset {15.625} def
+/yoffset {12.5} def
+/newx {31.25 mul xoffset add } def
+/newy {8.3333333333333 mul yoffset add } def
+/newpoint {newy exch newx exch} def
+/xlabel {()} def
+/ylabel {()} def
+/plottitle {()} def
+
+% DEFINE_DATA_RELATED_VALUES
+/linewidth_data {1} def
+/linewidth_error {0.5} def
+/linewidth_axes {1} def
+/plottype {box} def
+/pointsize {5} def
+/ewidth { 11.71875 } def 
+/boxwidth { 23.4375 } def 
+/setboxwidth { 0.75 } def 
+/boxyzero {0 newy} def
+/pointdraw { pfill } def
+
+% PLOT_VALUES_GROUP_0
+c0 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	0 0 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_1
+c1 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	1 1 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_2
+c2 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	2 2 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_3
+c3 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	3 3 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_4
+c4 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	4 4 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_5
+c5 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	5 5 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_6
+c6 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	6 6 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_7
+c7 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	7 7 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_8
+c8 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	8 8 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_9
+c9 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	9 9 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_10
+c10 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	10 10 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_11
+c11 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	11 11 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_12
+c12 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	12 12 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_13
+c13 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	13 13 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_14
+c14 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	14 14 plottype
+	stroke
+	closepath
+
+% PLOT_VALUES_GROUP_15
+c15 setrgbcolor
+	% PLOT_POINTS
+	linewidth_data setlinewidth
+	newpath
+	15 15 plottype
+	stroke
+	closepath
+
+% DRAW_FRAME
+cf setrgbcolor
+linewidth_axes setlinewidth
+newpath
+500 0 moveto 0 0 lineto
+0 150 lineto
+stroke
+stroke
+
+% DRAW_TICS_AND_LABELS
+/Helvetica findfont basefontsize scalefont setfont
+cf setrgbcolor
+	linewidth_axes setlinewidth
+newpath
+(0) 0 xtic
+(1) 1 xtic
+(2) 2 xtic
+(3) 3 xtic
+(4) 4 xtic
+(5) 5 xtic
+(6) 6 xtic
+(7) 7 xtic
+(8) 8 xtic
+(9) 9 xtic
+(10) 10 xtic
+(11) 11 xtic
+(12) 12 xtic
+(13) 13 xtic
+(14) 14 xtic
+(15) 15 xtic
+stroke
+newpath
+(0) 0 ytic
+(3) 3 ytic
+(6) 6 ytic
+(9) 9 ytic
+(12) 12 ytic
+(15) 15 ytic
+stroke
+
+
+% DRAW_AXIS_LABELS
+/Helvetica-Bold findfont basefontsize 2 add scalefont setfont
+/yaloff { (12) stringwidth pop ticout sub basefontsize 2 div add } def
+xlabel 250 0 xaxislabel
+ylabel 75 0 yaxislabel
+
+% DRAW_PLOT_TITLE
+/Helvetica-Bold findfont basefontsize 4 add scalefont setfont
+plottitle 0 150 f_plottitle
+
+% PLOT_CODE_END
+
+% SHOW_PAGE
+showpage

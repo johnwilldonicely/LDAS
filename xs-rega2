@@ -1,0 +1,135 @@
+#!/bin/bash
+
+# <TAGS>file,plot</TAGS>
+
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+
+# build path to executable, which sould be in a "source" subdirectory relative to this program
+path1=$(which $thisprog);
+execpath=${path1%/*}/bin/regaamc8
+# initialize options
+setlistchans=""
+setclean="1"
+
+if [  $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "Invoke regaamc8 to view multi-channel binary files (16-bit short-integers)"
+	echo "	- "
+	echo "EXECUTABLE PATH: $execpath"
+	echo "USAGE: $thisprog [in] [nch] [sf]"
+	echo "	[in]: a binary .dat file (16-bit short integer)"
+	echo "	[nch]: number of interlaced channels"
+	echo "	[sf]: the sample-frequency (Hz)"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--chans: CSV list of channels to display [$setlistchans]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" results.dat 64 20000 --chans 3,20,34,60"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setnchans=$1 ; shift
+setsf=$1 ; shift
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="z:" ; vl="chans:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		--chans ) setlistchans=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+# missing-file handling
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: input file '$infile' missing" ; echo ; exit; } ; fi
+# determine the sample-interval, in micro-seconds
+sampintus=$(echo "scale=0; 1000000/$setsf" | bc)
+# define channel min, max and step
+chmin=0
+chmax=$(echo $setnchans-1|bc)
+
+########################################################################
+# BUILD CHANNEL-LIST
+########################################################################
+if [ "$setlistchans" != "" ] ; then
+	chanlist=$(echo $setlistchans | tr ',' ' ')
+	for i in $chanlist ; do
+		if [ $i -gt $chmax ] ; then { echo ; echo "--- Error ["$thisprog"]: set channel $i is greater than max ($chmax)" ; echo ; exit; } ; fi
+	done
+else
+	chanlist=$(seq $chmin 1 $chmax)
+fi
+# assign channels and colours to arrays
+let chancount=0
+for i in $chanlist ; do
+	chan[$chancount]=$i
+	c[$chancount]=1
+	let chancount=$chancount+1
+done
+
+########################################################################
+# BUILD THE REGA CONTROL-FILE
+########################################################################
+echo "regaa2.0" > $tempfile
+echo "0" >> $tempfile		# prtypelo or prtypefl = ???
+echo "965" >> $tempfile		# cx= window width
+echo "1095" >> $tempfile	# cy= window height
+echo "30" >> $tempfile		# xs= ???
+echo "500" >> $tempfile		# ys= ???
+echo "10" >> $tempfile		# res= starting zoom (time)
+echo "1" >> $tempfile		# ncol= fraction of data to show in time-axis
+echo $chancount >> $tempfile	# cnon= total channels to be displayed
+# define channel spacing
+let spacer=32*32/$chancount
+let offset=$(echo "scale=0; $spacer/2" |bc)
+# set gain
+if [ $chancount -gt 32 ] ; then gain="0.005";
+elif [ $chancount -gt 16 ] ; then gain="0.01";
+elif [ $chancount -gt 8 ] ; then gain="0.02";
+elif [ $chancount -gt 4 ] ; then gain="0.05";
+else gain="0.1"; fi
+# gain=$(echo "scale=12; 0.2/$chancount" |bc| sed 's/^\./0./')
+
+# save the per-channel information
+let j=0
+for i in $chanlist ; do
+	let pos=$j*$spacer+$offset
+	echo ${chan[$j]} 0 $pos $gain ${c[$j]} >> $tempfile
+	let j=$j+1
+done
+# end-of-file padding
+for i in $(seq 1 6) ; do echo "0" >> $tempfile ; done
+
+########################################################################
+# INVOKE REGAAMC8
+########################################################################
+
+
+command=$execpath" "$infile" "$setnchans" "$sampintus" "$tempfile
+echo "	"$command ; echo
+$command
+
+########################################################################
+# CLEANUP
+########################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi

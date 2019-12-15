@@ -1,0 +1,229 @@
+#!/bin/bash
+# <TAGS>programming</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": re-process TAINI Hargreaves data"
+	echo " - plot mean-spectra for regions (rows) and date (page) "
+	echo " - each column summarizes data by:"
+	echo " 		- column1: per-subject, coloured by subject"
+	echo " 		- column2: per-subject, coloured by group"
+	echo " 		- column3: group averages, with error-bars"
+	echo "REQUIRES: "
+	echo "	- must run xs-ldas5-XHAR1b to generate required input:"
+	echo "		- XHAR1_COH_summary_avg.txt"
+	echo "		- XHAR1_POW_summary_avg.txt"
+	echo "USAGE: $thisprog "
+	echo "	[]: "
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+# check file exists & isn't empty
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="s:b:v:c:" ; vl="batch:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+########################################################################################
+# AVERAGE-POWER PROCESSING
+########################################################################################
+in1="XHAR1_POW_summary_avg.txt"
+plotlist1=""
+exclude="33339"
+#exclude="00000"
+
+listregions="prefrontal amygdala.central insular.agranular"
+let nregions=$(echo $listregions| wc -w)
+
+for dname in 0 2 5 10 ; do
+	plotlist2=""
+	echo "Week: "$dname
+	let countregions=0
+	for region1 in $listregions ; do
+		let countregions=$countregions+1
+		if [ $countregions -eq $nregions ] ; then legend=1 ; else legend=0 ; fi
+
+		plotopts="-xmin 30 -xmax 100 -line 1 -ps 0 -ew 0 -lb 2 -xscale .25 -legend $legend"
+		xl="Frequency (Hz)"
+		yl="Power (amplitude)"
+		title=$region1" week "$dname
+		echo -e "\t"$title
+
+		echo -e "subject\tgroup\tfreq\t"$region1 > jj1
+		xe-dbmatch1 $in1 dname $dname |
+		xe-dbmatch1 stdin subject $exclude -m -2 |
+		xe-cut1 stdin subject,group,freq,$region1 |
+		xe-norm2 stdin -cy 4 -n -1 | # or norm 7 for log-transform
+		xe-statsgrp3 stdin -gint 1 |
+		xe-cut1 stdin grp1,grp2,grp3,mean -o 1 >> jj1
+
+		plotfile="temp_"$dname"_"$region1"_a.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-plottable1 jj1 $plotopts -cg 1 -cx 3 -cy 4 -xlabel "$xl" -ylabel "$yl" -title "$title" -out $plotfile
+
+		plotfile="temp_"$dname"_"$region1"_b.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-plottable1 jj1 $plotopts -cg 2 -cx 3 -cy 4 -xlabel "$xl" -ylabel "$yl" -out $plotfile
+		xs-plotmod1 $plotfile --legend table_groupnames.txt --out 1
+
+		plotfile="temp_"$dname"_"$region1"_c.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-statsgrp2 jj1 -cg1 2 -cg2 3 -cy 4 |
+		xe-cut1 stdin grp1,grp2,mean,sem |
+		xe-plottable1 stdin $plotopts -cg 1 -cx 2 -cy 3 -ce 4 -xlabel "$xl" -ylabel "$yl" -out $plotfile
+		xs-plotmod1 $plotfile --legend table_groupnames.txt --out 1
+
+	done
+
+	plotfile="temp_merge_"$dname".ps"
+	plotlist1=$plotlist1" "$plotfile
+	xe-plotmerge1 -xmax 3 -xinc 180 -yinc 210 $plotlist2
+	mv temp_xe-plotmerge1.001.ps $plotfile
+	rm -f $plotlist2
+
+done
+
+plotfile="plot_pow_"$in1"exclude_"$exclude".ps"
+xe-plotmerge2 $plotlist1 > $plotfile
+echo "output sent to $plotfile"
+rm -f $plotlist1
+
+
+
+
+########################################################################################
+# AVERAGE-COHERENCE PROCESSING
+########################################################################################
+in1="XHAR1_COH_summary_avg.txt"
+plotlist1=""
+exclude="33340"
+#exclude="00000"
+
+listpairs="prefrontal,amygdala.central prefrontal,insular.agranular amygdala.central,insular.agranular"
+let npairs=$(echo $listpairs| wc -w)
+
+for dname in 0 2 10 ; do
+	plotlist2=""
+	echo "Week: "$dname
+	let countpairs=0
+	for pair in $listpairs ; do
+		let countpairs=$countpairs+1
+		if [ $countpairs -eq $npairs ] ; then legend=1 ; else legend=0 ; fi
+
+		region1=$(echo $pair | cut -f 1 -d ,)
+		region2=$(echo $pair | cut -f 2 -d ,)
+
+		plotopts="-line 1 -ps 0 -ew 0 -lb 2 -ymin 0 -ymax 1 -xscale .25 -legend $legend"
+		xl="Frequency (Hz)"
+		yl="Coherence"
+		title=$region1" : "$region2"  week "$dname
+		echo -e "\t"$title
+
+		echo -e "subject\tgroup\tfreq\t"$region1"_"$region2 > jj1
+		xe-dbmatch1 $in1 dname $dname |
+		xe-dbmatch1 stdin subject $exclude -m -2 |
+		xe-cut1 stdin subject,group,freq,$region1"_"$region2 |
+		xe-statsgrp3 stdin -gint 1 |
+		xe-cut1 stdin grp1,grp2,grp3,mean -o 1 >> jj1
+
+		plotfile="temp_"$dname"_"$region1"_"$region2"_a.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-plottable1 jj1 $plotopts -cg 1 -cx 3 -cy 4 -xlabel "$xl" -ylabel "$yl" -title "$title" -out $plotfile
+
+		plotfile="temp_"$dname"_"$region1"_"$region2"_b.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-plottable1 jj1 $plotopts -cg 2 -cx 3 -cy 4 -xlabel "$xl" -ylabel "$yl" -out $plotfile
+		xs-plotmod1 $plotfile --legend table_groupnames.txt --out 1
+
+		plotfile="temp_"$dname"_"$region1"_"$region2"_c.ps"
+		plotlist2=$plotlist2" "$plotfile
+		xe-statsgrp2 jj1 -cg1 2 -cg2 3 -cy 4 |
+		xe-cut1 stdin grp1,grp2,mean,sem |
+		xe-plottable1 stdin $plotopts -cg 1 -cx 2 -cy 3 -ce 4 -xlabel "$xl" -ylabel "$yl" -out $plotfile
+		xs-plotmod1 $plotfile --legend table_groupnames.txt --out 1
+
+	done
+
+	plotfile="temp_merge_"$dname".ps"
+	plotlist1=$plotlist1" "$plotfile
+	xe-plotmerge1 -xmax 3 -xinc 180 -yinc 210 $plotlist2
+	mv temp_xe-plotmerge1.001.ps $plotfile
+	rm -f $plotlist2
+
+done
+plotfile="plot_"$in1"exclude_"$exclude".ps"
+xe-plotmerge2 $plotlist1 > $plotfile
+echo "output sent to $plotfile"
+rm -f $plotlist1
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

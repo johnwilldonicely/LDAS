@@ -1,0 +1,319 @@
+#!/bin/bash
+# <TAGS>MEA file</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+setverb="0"
+setclean="1"
+sample_rate="1000000" # default sample-rate for spike records - based on timestamps in microseconds
+bindecimation="1000" # based on the assumption that .bin files are 1KHz, = sample_rate/1000
+
+# GENERATE THE BASE-NAME FROM THE CURRENT FOLDER NAME
+outbase=$(echo $startdir | rev | cut -f 1 -d "/" | rev)
+# GET THE DATE, SESSION, SUBJECT FROM $OUTBASE
+# if it cannot be derived from the base name, leave them blank
+date1=$(xs-ldas-parsename $outbase date)
+if [[ $date1 = *"Error"* ]]; then  date1="UNDEFINED" ; fi
+session=$(xs-ldas-parsename $outbase session)
+if [[ $session = *"Error"* ]]; then  session="UNDEFINED" ; fi
+subject=$(xs-ldas-parsename $outbase subject)
+if [[ $subject = *"Error"* ]]; then  subject="UNDEFINED" ; fi
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": "
+	echo "	- merge multiple Multi Channel Systems binary MEA files (.h5)"
+	echo "	- this script is for HDF5-format files containing spike-times and waveforms"
+	echo "	- requires xp-hdf5_parse1"
+	echo "	*** NOTE: for now assumes trials are each 600 seconds long"
+	echo "	*** NOTE: we need Aidan to extract the correct HDF5 file attributes "
+	echo "USAGE: $thisprog [pattern] [options]"
+	echo "	[pattern]: text to match anywhere in the filename (not wildcards)"
+	echo "		- at run-time, this becomes *[pattern]*"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog"  190520_2_aCSF_spikes.h5"
+	echo "OUTPUT: "
+	echo "	output.clubt (timestamps, as samples, 64-bit integer)"
+	echo "	output.club (channel-number, 16-bit integer)"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+pattern=$1 ; shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="v:c:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	rm -f *.dat
+	rm -f *.notes
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+################################################################################
+# BUILD LIST OF FILES, ORDERED BY LAST FIELD IN NAME
+################################################################################
+listfiles=$(ls 2>/dev/null *$pattern* | awk -F "_" '{print $NF"\t" $0}' | sort -n | cut -f 2-)
+let nfiles=$(echo $listfiles | wc -w)
+if [ $nfiles -eq 0 ] ;  then { echo ; echo "--- Error ["$thisprog"]: no files matching \"$pattern\" in this folder" ; echo ; exit; } ; fi
+
+
+################################################################################
+# CYCLE THROUGH THE FILES, EXTRACTING AND MERGING
+################################################################################
+echo "--------------------------------------------------------------------------------"
+echo "Merging files:"
+let count=0
+let nsampstot=0
+for in1 in $listfiles ; do
+	let count=$count+1
+	echo -e "\n\tinfile= "$in1
+
+	###############################################################################
+	# GET THE ATTRIBUTES AND METADATA
+	echo -e "\t...extracting the attributes and metadata:"
+	echo -e "\t\txp-hdf5_parse1.py metadata $in1 ..."
+	echo -e "\t\txp-hdf5_parse1.py --recording 0 attributes $in1 ..."
+
+	xp-hdf5_parse1.py --recording 0 attributes $in1 > $outbase".attributes"
+
+	xp-hdf5_parse1.py metadata $in1 |
+		head -n 1 |
+		sed -e 's/ChannelID/chan/g' |
+		sed -e 's/GroupID/grpid/g' |
+		sed -e 's/ElectrodeGroup/egrp/g' |
+		sed -e 's/Label/map/g' |
+		sed -e 's/RawDataType/type/g' |
+		sed -e 's/Unit/unit/g' |
+		sed -e 's/Exponent/exponent/g' |
+		sed -e 's/ADZero/adzero/g' |
+		sed -e 's/Tick/tick/g' |
+		sed -e 's/ConversionFactor/conv/g' |
+		sed -e 's/ADCBits/adcbits/g' |
+		sed -e 's/HighPassFilterType/hptype/g' |
+		sed -e 's/HighPassFilterCutOffFrequency/hpcut/g' |
+		sed -e 's/HighPassFilterOrder/hpord/g' |
+		sed -e 's/LowPassFilterType/lptype/g' |
+		sed -e 's/LowPassFilterCutOffFrequency/lpcut/g' |
+		sed -e 's/LowPassFilterOrder/lpord/g' > $outbase".meta"
+	xp-hdf5_parse1.py metadata $in1 | tail -n +2 >> $outbase".meta"
+
+	################################################################################
+	# DETERMINE THE NUMBER OF CHANNELS AND THE LAYOUT
+	listchans=$(xe-cut1 $outbase.meta chan -o 1)
+	listmap=$(xe-cut1 $outbase.meta map -o 1)
+	listmap2=$(echo $listmap | tr ' ' ',')
+	let nchans=$(echo $listchans | wc -w)
+	let width=$(echo "sqrt($nchans+4)" | bc)
+	missingmap="11 "$width"1 1"$width" "$width""$width
+
+	################################################################################
+	# MAKE A MAP TEMPORARY MAP FILE
+	echo -e "\t...defining the default map..."
+	rm -f $tempfile".map"
+	for i in $(seq 1 $width) ; do
+		for j in $(seq 1 $width) ; do echo -n $j""$i" " >> $tempfile".map" ; done
+		echo >> $tempfile".map"
+	done
+	xe-delimit $tempfile".map" -d space > $tempfile".1"
+	mv $tempfile".1" $tempfile".map"
+	# add the empty channels in the corner
+	for i in $missingmap ; do
+		xe-strsub1 $tempfile".map" $i "--" > $tempfile".1"
+		mv $tempfile".1" $tempfile".map"
+	done
+
+	################################################################################
+	# DETERMINE THE REFERENCE CHANNEL AND MAP-POSITION
+	echo -e "\t...determine the reference channel and map-location..."
+	refchans=$(xe-dbmatch1 $outbase".meta" map Ref -oc chan -o 1)
+	let nrefchans=$(echo $refchans | wc -w)
+	# get list of expected positions from the map file
+	z=$(xe-strsub1 $tempfile".map" "--" "" | xe-delimit stdin | paste -s | tr '\t' '\n' | sort -nu | tr '\n' ' ')
+	# find reference map position - look for map entries which do not match any channel entries in the metadata
+	refmaps="nan"
+	let nrefmaps=0
+	for i in $z ; do
+		let found=0
+		for j in $listmap ; do
+			if [ "$j" == "$i" ] ; then let found=1 ; break ; fi
+		done
+		if [ $found -eq 0 ] ; then
+			let nrefmaps=$nrefmaps+1
+			if [ $nrefmaps -eq 1 ] ; then refmaps=$i ; else refmaps=$refmaps" "$i ; fi
+		fi
+	done
+	if [ $nrefchans -ne $nrefmaps ] ; then { echo -e "\n--- Error ["$thisprog"]: mismatch between no. of Ref channels ($nrefchans) and non-numeric electrode mapping entries ($nrefmaps) - metadata may contain additional non-numeric, non-Ref channels\n" ;  exit; } ; fi
+
+
+	################################################################################
+	# DETERMINE THE ORIGINAL SAMPLE RATE FROM THE TICKS, ASSUMING TIMESTAMPS ARE IN MICROSECONDS (1000000 HZ)
+	ticks=$(xe-cut1 $outbase".meta" tick -o 1 | sort -nu )
+	let z=$(echo $ticks | wc -w)
+	if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: metadata does not specify ticks\n" ;  exit; } ; fi
+	if [ $z -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: metadata specifies more than one tick ($ticks)\n" ;  exit; } ; fi
+	sample_rate_raw=$(echo $sample_rate / $ticks | bc)
+
+	################################################################################
+	# GET ADC_ZERO
+	adzero=$(xe-cut1 $outbase".meta" adzero -o 1 | sort -nu )
+	let z=$(echo $adzero | wc -w)
+	if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: metadata does not specify adzero\n" ;  exit; } ; fi
+	if [ $z -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: metadata specifies more than one adzero ($adzero)\n" ;  exit; } ; fi
+
+
+	# DETERMINE THE START-STOP TIME AND RUNNING-TOTAL-SAMPLES
+	# get the number of samples from the HDF5 file attributes
+	nsamps=$(xe-getkey2 $outbase".attributes" Duration)
+	# alternatively, estimate from the .clubt
+	# ??? - this could be improved n terms of speed
+	if [ "$nsamps" == "" ] ; then
+		echo -e "\t--- Warning: estimating trial-length from spike-times"
+		rm -f $tempfile".timestamps"
+		for chan in $listchans ; do
+			if [ "$setverb" == "1" ] ; then echo "channel: "$chan ; fi
+			xp-hdf5_parse1.py --recording 0 export $chan $in1 2>/dev/null
+			outfile=$in1"."$chan".i64.timestamp.dat"
+			if [ -e $outfile ] ; then
+				xe-readbinary1 $outfile -dt 7 | tail -n 1 >> $tempfile".timestamps"
+			fi
+		done
+		nsamps=$(sort -n $tempfile".timestamps" | tail -n 1)
+	fi
+	# get trial length in seconds
+	seconds=$(echo "scale=3; $nsamps / $sample_rate" | bc)
+	# define thet start-stop pair for this trial, and the runnin sample-total
+	let start=$nsampstot
+	let stop=$start+$nsamps
+	let nsampstot=$nsampstot+$nsamps
+
+	################################################################################
+	################################################################################
+	# BUILD THE CLUBT & CLUB FILES (TIMESTAMP AND CHANNEL)
+	################################################################################
+	################################################################################
+	echo -e "\t...build the club/t files for this trial..."
+	echo "" > $tempfile
+	if [ $count -eq 1 ] ; then
+		 rm -f $outbase".clubt"
+		 rm -f $outbase".club"
+	 fi
+	for chan in $listchans ; do
+		map=$(xe-dbmatch1 $outbase".meta" chan $chan -oc map -o 1)
+		if [ "$setverb" == "1" ] ; then echo -e "\t\tchannel: "$chan"\tmap: $map" ; fi
+		xp-hdf5_parse1.py --recording 0 export $chan $in1 2>/dev/null
+
+		outfile=$in1"."$chan".i64.timestamp.dat"
+		if [ -e $outfile ] ; then
+			xe-readbinary1 $outfile -dt 7 | awk '{print $1+'$start'"\t'$map'"}' >> $tempfile
+			rm -f $outfile
+		else
+			echo -e "\t\t--- Warning: no spikes on channel $chan (map $map)"
+		fi
+	done
+	sort $tempfile -k1,1n > $tempfile".1"
+	xe-cut1 $tempfile".1"  1 -n 1 | xe-writebinary1 stdin -dt 7 >> $outbase".clubt"
+	xe-cut1 $tempfile".1"  2 -n 1 | xe-writebinary1 stdin -dt 3 >> $outbase".club"
+
+	################################################################################
+	# BUILD THE .NOTES FILE
+	################################################################################
+	# for the first file, start rthe temp trials section
+	if [ $count -eq 1 ] ; then
+		echo "<TRIALS>" > $tempfile".trials"
+		echo -e "trial\tstart\tstop\tseconds\tname"  >> $tempfile".trials"
+	fi
+
+	# for all files, enter the start, stop etc data in the temp trials file
+	echo -e "$count\t$start\t$stop\t$seconds\t$in1" >> $tempfile".trials"
+
+	# for the last file, generate the final version of the notes file
+	if [ $count -eq $nfiles ] ; then
+		voltsperunit="UNKNOWN"
+		dursamps=$nsampstot
+		dursecs=$(echo "scale=3; $dursamps / $sample_rate" | bc)
+		echo "" > $outbase".notes"
+		echo "session= $session" >> $outbase".notes"
+		echo "subject= $subject" >> $outbase".notes"
+		echo "sample_rate= $sample_rate" >> $outbase".notes"
+		echo "sample_rate_raw= $sample_rate_raw" >> $outbase".notes"
+		echo "bin_decimation= $bindecimation" >> $outbase".notes"
+		echo "duration_samples= $dursamps" >> $outbase".notes"
+		echo "duration_seconds= $dursecs" >> $outbase".notes"
+		echo "adc_zero= $adzero" >> $outbase".notes"
+		echo "volts_per_unit= $voltsperunit" >> $outbase".notes"
+		echo "n_channels= $nchans" >> $outbase".notes"
+		echo "channel_list= $listmap2" >> $outbase".notes"
+		echo "refchan= $refchans" >> $outbase".notes"
+		echo "refmap= $refmaps" >> $outbase".notes"
+		echo "" >> $outbase".notes"
+		# save the map
+		echo "<MAP>" >> $outbase".notes"
+		cat $tempfile".map" | xe-strsub1 stdin $refmaps "--" >> $outbase".notes"
+		echo "</MAP>" >> $outbase".notes"
+		echo "" >> $outbase".notes"
+		# save the channel list
+		echo "<CHANNELS>" >> $outbase".notes"
+		echo -e "channel\tmap\tgood\tregion" >> $outbase".notes"
+		xe-cut1 $outbase".meta" chan,map -o 1 | awk '{print $1"\t"$2"\t1\t-"}' >>  $outbase".notes"
+		echo "</CHANNELS>" >> $outbase".notes"
+		echo "" >> $outbase".notes"
+		# append the trials records and finish the TRIALS XML section
+		cat $tempfile".trials" >> $outbase".notes"
+		echo "</TRIALS>" >> $outbase".notes"
+		echo "" >> $outbase".notes"
+	fi
+done
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

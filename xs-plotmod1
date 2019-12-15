@@ -1,0 +1,197 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setps=""
+setfont=""
+setcswap=""
+setlegend=""
+setxtics=""
+setytics=""
+
+setclean="1"
+setout="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": replace basic LDAS postscript plot parameters"
+	echo " - will make changes for all plots in a multi-plot file"
+	echo " - output sent to stdout - input file is unchanged"
+	echo "USAGE: "
+	echo "	"$thisprog" [psfile] [options]"
+	echo "		[psfile]:  postscript output from program xe-plottable1"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--ps: change point size [$setps]"
+	echo "	--font: change base font size [$setfont]"
+	echo "	--cswap: swap colours (old,new) [$setcswap]"
+	echo "	--legend: name of group-labels file to rebuild legend [$setlegend]"
+	echo "	--xtics: CSV list of value,label pairs [$setxtics]"
+	echo "	--ytics: CSV list of value,label pairs [$setytics]"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--out: output to stdout (0) or overwrite original file (1) [$setout]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" plotfile.ps --cswap 1,9 --ps 12 > newplot.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="c:" ; vl="out:,clean:,ps:,font:,cswap:,legend:,xtics:,ytics:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--out ) setout=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--ps ) setps=$2 ; shift ;;
+		--font ) setfont=$2 ; shift ;;
+		--cswap ) setcswap=$2 ; shift ;;
+		--legend ) setlegend=$2 ; shift ;;
+		--xtics ) setxtics=$2 ; shift ;;
+		--ytics ) setytics=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setout" != "0" ] && [ "$setout" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --out ($setout) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+cp $infile $tempfile.0
+
+########################################################################################
+# MODIFY THE PLOT
+# options are:
+#	- ps : pointsize
+#	- font : font-size
+#	- cswap : swap colours
+#	- legend: replace group-numbers with labels from a groups-table (group name)
+########################################################################################
+
+#-------------------------------------------------------------------------------
+if [ "$setps" != "" ] ; then
+	sed "s/\/pointsize {.*} def/\/pointsize {$setps} def/g" $tempfile.0 > $tempfile.1
+	mv $tempfile.1 $tempfile.0
+fi
+
+#-------------------------------------------------------------------------------
+if [ "$setfont" != "" ] ; then
+	sed "s/\/basefontsize {.*} def/\/basefontsize {$setfont} def/g" $tempfile.0 > $tempfile.1
+	mv $tempfile.1 $tempfile.0
+fi
+
+#-------------------------------------------------------------------------------
+if [ "$setlegend" != "" ] ; then
+	keyword="DRAW_PLOT_LEGEND"
+	if [ ! -e $setlegend ] ; then { echo ; echo "--- Error ["$thisprog"]: legend file '$setlegend' missing" ; echo ; exit; } ; fi
+	# save the legend-substitutions
+	listsub=$(xe-cut1 $setlegend group,name -o 1|awk '$1~/[0-9]/{print $0}'|sort -k2,2n|sort -u|tr '\t' '#')
+	# build new legend
+	xe-cut2 $infile "$keyword" -s1 1 > $tempfile.2a
+	for i in $listsub ; do
+		old=$(echo $i|cut -f 1 -d "#")
+		new=$(echo $i|cut -f 2 -d "#")
+		xe-strsub1 $tempfile.2a "($old)" "($new)" -in f_plotlegend > $tempfile.2b
+		mv $tempfile.2b $tempfile.2a
+	done
+	mv $tempfile.2a $tempfile.2
+	# save top of file
+	awk '{if($0~"'$keyword'")exit;print $0}' $infile > $tempfile.1
+	# save bottom of file - first bank line after legend block
+	xe-cut2 $infile $keyword | awk 'BEGIN{z=0}{if(NF==0)z=1;if(z==1) print $0}' > $tempfile.3
+	# new output, inserting new legend section
+	cat $tempfile.1 $tempfile.2 $tempfile.3 > $tempfile.0
+fi
+
+#-------------------------------------------------------------------------------
+if [ "$setcswap" != "" ] ; then
+	old=$(echo $setcswap | cut -f 1 -d ,)
+	new=$(echo $setcswap | cut -f 2 -d ,)
+	cat $tempfile.0 |
+		sed "s/c"$old" setrgbcolor/c"$new" setrgbcolor/g" |
+		sed "s/c"$old" f_plotlegend/c"$new" f_plotlegend/g" > $tempfile.1
+	mv $tempfile.1 $tempfile.0
+fi
+
+
+#-------------------------------------------------------------------------------
+if [ "$setxtics" != "" ] || [ "$setytics" != "" ] ; then
+
+	# save top of file - up to tic definition section
+	awk 'BEGIN{start=0}{if($0~"% DRAW_TICS_AND_LABELS") exit; print $0}' $tempfile.0 > $tempfile.1
+	# extract tics section
+	xe-cut2 $tempfile.0 "% DRAW_TICS_AND_LABELS" -s1 1 > $tempfile.1a
+
+	if [ "$setxtics" != "" ] ; then
+		# build list of value#label pairs
+		list=$(echo $setxtics | tr ',' '\n' | awk 'BEGIN{n=0}{n++;printf $1; if(n==1) printf "#" ; if(n==2) {printf "\n"; n=0;} }')
+		# perform substitutions
+		for i in $list ; do
+			value=$(echo $i | cut -f 1 -d '#' )
+			label=$(echo $i | cut -f 2 -d '#' )
+			awk '{if($3=="xtic" && $2=="'$value'") print "('$label') '$value' xtic" ; else print $0}' $tempfile.1a > $tempfile.1b
+			mv $tempfile.1b $tempfile.1a
+		done
+	fi
+	if [ "$setytics" != "" ] ; then
+		# build list of value#label pairs - allow for empty replacements
+		list=$(echo $setytics | tr ',' '\n' | awk 'BEGIN{n=0}{n++;printf $1; if(n==1) printf "#" ; if(n==2) {printf "\n"; n=0;} }')
+		# perform substitutions
+		for i in $list ; do
+			value=$(echo $i | xe-cut1 stdin 1 -d '#' -n 1 )
+			label=$(echo $i | xe-cut1 stdin 2 -d '#' -n 1 )
+			awk '{if($3=="ytic" && $2=="'$value'") print "('$label') '$value' ytic" ; else print $0}' $tempfile.1a > $tempfile.1b
+			mv $tempfile.1b $tempfile.1a
+		done
+	fi
+
+	# save the new tics section
+	cat $tempfile.1a >> $tempfile.1
+	# save the bottom of the file
+	awk 'BEGIN{z=0}{if($0~"% DRAW_TICS_AND_LABELS")z=1;if(z==1 && NF==0)z=2;if(z==2) print $0}' $tempfile.0 >> $tempfile.1
+	mv $tempfile.1 $tempfile.0
+fi
+
+
+################################################################################
+# OUTPUT THE MODIFIED VERSION OF THE INPUT
+################################################################################
+if [ "$setout" == "0" ] ; then
+	cat $tempfile.0
+else
+	mv $tempfile.0 $infile
+fi
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

@@ -1,0 +1,206 @@
+#!/bin/bash
+# <TAGS>MEA</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}' | rev | cut -c 2- | rev )
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+allopts=$@
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setverb="0"
+setclean="1"
+setopt1=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": batch-run $thatprog"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [map] [options]"
+	echo "		[db]: database file defining paths and group designations"
+	echo "		[map]: name of layout file in directories (bad channels =\"-\")"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execute analysis in each database directory"
+	echo "		c: collate analyis results"
+	echo "	--opt1: quoted options to pass to $thatprog [$setopt1]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	nohup "$thisprog" db.txt map.txt --opt1 \"-s +1\" > log.txt &"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+filemap=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+if [ ! -s $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: $filedb is empty" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="skip:,opt1:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--skip ) setskip=$2 ; shift ;;
+		--opt1 ) setopt1=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+
+################################################################################
+# DATABASE PRE-PROCESSING
+################################################################################
+# check database integrity
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+# construct a database list in format <path>,<group>
+dblist=$(awk '$0!~/^#/&&NF>0&&$1!="path"{print $0}' $filedb | xe-delimit stdin -d comma)
+# extract group-labels (eg. # group_[no]= name )
+xs-getgroupnames1 $filedb > $tempfile.groupnames
+# create a flag for whether this file has any contents
+let setgroupnames=$(cat $tempfile.groupnames | wc -l)
+
+
+################################################################################
+# PERFORM A PROCESSING LOOP WITHOUT USING WHILE READ
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path
+		if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes date=)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# CHElog_xs-MEArate1.txtCK MAP FILE
+		if [ ! -e $filemap ] ; then { echo ; echo "--- Error ["$thisprog"]: missing map file $filemap" ; echo ; continue; } ; fi
+		if [ ! -s $filemap ] ; then { echo ; echo "--- Error ["$thisprog"]: $filemap is empty" ; echo ; continue; } ; fi
+		# RUN PROGRAM
+		$thatprog $base $filemap $setopt1
+	done
+	cd $startdir
+fi
+
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb "log_"$thatprog".txt" --verb 0
+	xs-collate1 $filedb $progbase1"_average.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_AUC.txt" --verb 0
+	xs-collate1 $filedb $progbase1"_matrix.txt" --head 0 --verb 0
+fi
+
+# read the collated logs to get key parameters for plotting
+samprate=$(xe-getkey "log_"$thatprog".txt" samprate= -f 1)
+setbin=$(xe-getkey "log_"$thatprog".txt" setbin= -f 1)
+setnorm=$(xe-getkey "log_"$thatprog".txt" setnorm= -f 1)
+setgauss=$(xe-getkey "log_"$thatprog".txt" setgauss= -f 1)
+binsamps=$(xe-getkey "log_"$thatprog".txt" binsamps= -f 1)
+ntrials=$(xe-getkey "log_"$thatprog".txt" ntrials= -f 1)
+dursec=$(xe-getkey "log_"$thatprog".txt" dursec= -f 1)
+dursamp=$(xe-getkey "log_"$thatprog".txt" dursamp= -f 1)
+vlines=$(xe-getkey "log_"$thatprog".txt" vlines= -f 1 | tr '\t' ',')
+
+echo "
+	samprate= $samprate
+	setbin= $setbin
+	setnorm= $setnorm
+	setgauss= $setgauss
+	binsamps= $binsamps
+	ntrials= $ntrials
+	dursec= $dursec
+	dursamp= $dursamp
+	vlines= $vlines
+"
+
+################################################################################
+# PLOT THE DATA
+################################################################################
+
+# DETERMINE TITLES ASSOCIATED WITH NORMALIZATION
+if [ $setnorm == "-1" ] ; then  { title="Rate (Hz)" ;  }
+elif [ $setnorm == "0" ] ; then { title="Rate (0-1)" ;  }
+elif [ $setnorm == "1" ] ; then { title="Z-score (start-stop)" ;  }
+elif [ $setnorm == "2" ] ; then { title="Change (Hz, from start)" ;  }
+elif [ $setnorm == "3" ] ; then { title="Change (Hz, start-stop)" ;  }
+elif [ $setnorm == "4" ] ; then { title="% Change (Hz, start-stop)" ;  }
+fi
+
+
+# CROSS-CHANNEL MEAN RATE TIMECOURSE
+in1=$progbase1"_average.txt"
+plotfile3=$(echo $in1 | xe-strsub1 stdin .txt .ps)
+plotopts="-cg 1 -cx 2 -cy 3 -ce 4 -line 1 -ps 0 -ew 0 -out $plotfile3 -vline $vlines"
+xl="Time ("$setbin"-s bins)"
+yl="Mean Rate"
+xe-cut1 $in1 group,col,mean -s 1 -o 1 |
+	xe-statsgrp2 stdin |
+	xe-cut1 stdin grp1,grp2,mean,sem |
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title"-legend 1
+
+xs-getgroupnames1 db_all.txt > $tempfile
+xs-plotmodlegend $plotfile3 $tempfile
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

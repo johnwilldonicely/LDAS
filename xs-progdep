@@ -1,0 +1,48 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progdep"
+tempfile="temp_"$thisprog
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": get dependencies for LDAS scripts/progs/functions"
+	echo "- assumes source code will be in a sub-directory called \"source\""
+	echo "- USAGE: "$thisprog" [file] [setindent]"
+	echo "- ADDITIONAL ARGUMENTS:"
+	echo "- EXAMPLE: "$thisprog" xs-myscript 2 "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+inpath=$1
+let setindent=$2
+
+basename=${inpath##*/}
+basename=${basename%%.*};
+
+let z=$(pwd|rev|cut -f 1 -d /|rev|grep source|wc -l)
+if [ $z -eq 0 ] ; then sd="source/" ; else sd="./" ; fi
+if [ ! -d "$sd" ]; then { echo ; echo "--- Error ["$thisprog"]: missing source directory ($sd)" ; echo ; exit; } ; fi
+
+for((j=0;j<setindent;j++)) do echo -n "	" ; done ; echo $basename
+let setindent=$setindent+1
+list=$(xe-progdep $inpath)
+
+for i in $list ; do
+	#echo "--"$i"--"
+	if [ $(echo $i|grep xs- --color=never|wc -l) -gt 0  ] ; then j=$i
+	elif [ $(echo $i|grep xe- --color=never|wc -l) -gt 0  ] ; then j=$sd""$i".*c"
+	elif [ $(echo $i|grep xf_ --color=never|wc -l) -gt 0  ] ; then j=$sd""$i".*c"
+	fi
+	#echo "	---"$j"---"
+
+	if [ $(echo $j | wc -w) -gt 1 ] ; then echo "--- Warning: multiple source codes for $i - using the latest version" ; fi
+	j=$(echo $j | awk '{print $NF}')
+
+ 	xs-progdep $j $setindent
+
+done

@@ -1,0 +1,110 @@
+#!/bin/bash
+# <TAGS> O2 file </TAGS>
+thisprog=`basename "$0"`
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": check validity of CHART export files"
+	echo "---------------------------------------------------------"
+	echo "USAGE: "$thisprog" [source] [hem] [region]"
+	echo "	[source]: full path to folder with CHART export files"
+	echo "	    NOTE: files must match pattern [num]-[yymmdd].txt"
+	echo "	    where [num] is 3-digits, eg. 019-991231"
+	echo "	[hem]: comma-separated hemispheres (L,R) to be used"
+	echo "	[reg]: comma-separated regions to be used"
+	echo "	    NOTE: [hem] and [reg] are used to make sure all"
+	echo "	    regions and hemispheres are in the channel labels"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" /media/UDISK/data/  L,R  HIPP,ACC"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "------------------------------------------------------------"
+
+################################################################################
+# READ ARGUMENTS
+################################################################################
+source=$1 ; shift
+listhemis=$(echo $1|awk -F "," '{for(i=1;i<=NF;i++) print $i" "}') ; shift
+listregions=$(echo $1| awk -F "," '{for(i=1;i<=NF;i++) print $i" "}') ; shift
+
+# check that hemispheres listed are either "L" or "R" or both, but no other characters
+for hemis in $listhemis ; do
+	if [ $hemis != "R" ] && [ $hemis != "L" ] ; then { echo ; echo "	--- Error ["$thisprog"]: invalid hemisphere \""$hemis"\" - must be L or R" ; echo ; exit ; } ; fi
+done
+
+################################################################################
+# Check that folder contains files matching [sub]-[yymmdd]*.txt format
+################################################################################
+if [ ! -e "$source" ] ; then { echo ; echo "--- Error ["$thisprog"]: source '$source' not found" ; echo ; exit; } ; fi
+badsource=$(echo $source | awk 'NF>1{print "bad"}')
+if [ $badsource ] ; then { echo ; echo "--- Error: source path contains spaces. Rename or move data to another location for transfer" ; echo ; exit; } ; fi
+
+# make list of files matching [sub-yymmdd*.txt]
+listfiles=$(ls $source/???-??????*.txt 2>/dev/null)
+
+# how many files to check?
+let nfiles=$(echo $listfiles | wc -w )
+
+# error if no such files exist in the data-path
+if [ $nfiles -lt 1 ] ; then { echo ; echo "--- Error: no files matching ???-?????*.txt in '$source'" ; echo ; exit; } ; fi
+
+
+################################################################################
+# check that each file mentions the regions & hemispheres specified in the ChannelTitle line
+################################################################################
+for infile in $listfiles ; do
+	echo $infile
+	infile2=$(echo $infile | awk -F / '{print $NF}')
+
+	# DEFINE THE CHANNEL TITLES: convert multiple-spaces to single underscore, take field#2 onwards and remove Windows carriage returns
+	titles=$(grep ChannelTitle= $infile | head -n 1 | xe-strsub1 stdin " " "_" | xe-delimitkiller stdin -d underscore | cut -f 2- | tr -d '\r')
+	let ntitles=$(echo $titles | wc -w)
+	# DETERMINE NUMBER OF CHANNELS: take last 10 lines, remove lines with non-numerics, take the last of the remaining lines and do word-count
+	let nchans=$(tail $infile | xe-checkisnum2 stdin | tail -n 1 | cut -f 2- | tr -d '\r' | wc -w )
+	# CHECK DATA INTEGRITYcut -f 2- |
+	if [ $ntitles -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: "$infile2" contains no channel titles" ; errorfound="1" ; } ; fi
+	if [ $nchans -lt 1 ] ; then
+		echo "	--- Error ["$thisprog"]: "$infile2" contains no valid data on last lines: fix and re-run"
+		errorfound="1"
+	elif [ $ntitles -ne $nchans ] ; then
+		echo "	--- Error ["$thisprog"]: $infile2 contains unequal number of titles ($ntitles) and channels ($nchans on the last valid data line)"
+		errorfound="1"
+	fi
+
+	for setregion in $listregions ; do
+		for sethemis in $listhemis ; do
+			let found=0
+			for title in $(seq 1 $ntitles) ; do
+
+				# find the channel label
+				label=$(echo "$titles" | awk -F "\t" '{print $'$title'}')
+				# replace spaces in the label with underscores, remove extra underscores
+				label2=$(echo "$label" | xe-strsub1 stdin " " "_" | xe-delimitkiller stdin -d underscore)
+
+				# read hemisphere and region specified by the label
+				hemis=$(echo $label2 | awk -F "_" '{print $(NF-1)}')
+				region=$(echo $label2 | awk -F "_" '{print $(NF)}')
+				if [ $region == $setregion ] && [ $hemis == $sethemis ] ; then let found=1 ; fi
+			done
+			if [ $found == 0 ] ; then echo "	--- Error ["$thisprog"]: $infile2 missing hemisphere_region "$sethemis"_"$setregion ; fi
+		done
+	done
+done
+
+################################################################################
+# Check if folder contains non-matching file-names (Warning, not error if found)
+################################################################################
+echo
+ls -1 $source | grep -v '...-.......txt' | while read i ; do
+	echo "	Warning: \""$i"\" doesn't follow the num-yymmdd.txt naming convention"
+done
+echo
+
+echo "------------------------------------------------------------"
+echo
+exit

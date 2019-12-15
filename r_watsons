@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [ ! $4 ] ; then 
+echo "	--------------------------------------------------------"
+echo "	Perform Watsons 2-sample test sing R"
+echo "	Format: r_watsons [filename] [column1] [column2] [alpha]"
+echo "	--------------------------------------------------------"
+exit
+fi
+
+
+datafile="temp_r_watsons"
+awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $1 > $datafile
+
+echo "
+library('circular')
+datamatrix <- read.table('"$datafile"', header = FALSE)
+attach(datamatrix)
+data1<-circular(V"$2",units=\"degrees\")
+data2<-circular(V"$3",units=\"degrees\")
+
+watson.two.test(data1,data2,alpha="$4")
+" | R -q --no-save --slave 
+
+echo

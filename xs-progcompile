@@ -1,0 +1,190 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog=`basename "$0"`
+allopts=$@
+logfile="temp_"$thisprog".log"
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+# DEFINE DEFAULT ARGUMENTS
+func_path="./"
+out_path="../bin/"
+out_prefix=""
+out_package=""
+set_opt="3"
+set_warn="2"
+set_compiler="gcc"
+
+# REDUCE WARN LEVEL IF OS IS RED HAT VERSION 6 OR EARLIER
+x=$(lsb_release -a | grep "Red Hat")
+if [ "$x" != "" ] ; then 
+	y=$(lsb_release -a | grep Release: | awk '{print $2}')
+	let z=$(echo "$y<7.0" | bc)
+	if [ $z -eq 1 ] ; then set_warn="1" ; fi 
+fi 
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "------------------------------------------------------------"
+	echo "Compiler script for programs using external functions"
+	echo "Avoids having to create a Makefile for the program"
+	echo "Function prototypes should be defined in \"main\""
+	echo "Prototypes must be formatted as in the following example..."
+	echo
+	echo "	/* external functions start */"
+	echo "	void errorhandler(char error_txt[]);"
+	echo "	int substring(char *source, char *target, int case);"
+	echo "	/* external functions end */"
+	echo
+	echo "USAGE: "$thisprog" [source] [options]"
+	echo "	[source]: name of source file, or pattern in quotes"
+	echo "OPTIONS, defaults in []:"
+	echo "	--comp compiler to use, gcc or g++ ["$set_compiler"]"
+	echo "	--func path to function source files ["$func_path"]"
+	echo "	--dest path for executable output ["$out_path"]"
+	echo "	--prefix to add to executable output ["$out_prefix"]"
+	echo "	--opt optimization-level [0-3] ["$set_opt"]"
+	echo "	--warn warning level (0=low,1=high,2=all) ["$set_warn"]"
+	echo "	--pack package output into folder name ["$out_package"]"
+	echo
+	echo "EXAMPLES:"
+	echo "- make executable \"xe-anova\" in current dir: "
+	echo "	"$thisprog" anova.cpp --pre \"xe-\" --dest ./"
+	echo "- compile files matching \"xe-*.c\", show all warnings:"
+	echo "	"$thisprog" \"xe-*.c\" --warn 2"
+	echo "------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# READ INPUT FILE LIST. SHIFT IS NECESSARY FOR ARGUMENT HANDLING (BELOW)
+listinfiles=$(ls 2>/dev/null $1)
+let ninfiles=$(echo $listinfiles | wc -w)
+if [ $ninfiles -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no source-code files found matching \"$1\"" ; echo ; exit; } ; fi
+shift
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+vs="k:" ; vl="comp:,func:,dest:,prefix:,opt:,warn:,pack:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--comp) set_compiler=$2 ; shift ;;
+		--func) func_path=$2 ; shift ;;
+		--dest) out_path=$2 ; shift ;;
+		--prefix) out_prefix=$2 ; shift ;;
+		--opt) set_opt=$2 ; shift ;;
+		--warn) set_warn=$2 ; shift ;;
+		--pack) out_package=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$set_compiler" != "gcc" ] && [ "$set_compiler" != "g++" ] ; then { echo ; echo "--- Error ["$thisprog"]: -c (compiler) cannot be "$set_compiler" - must be gcc or g++" ; echo ; exit ; } fi
+
+################################################################################
+# SET UP WARNING FLAGS
+case $set_warn in
+	0) warnval="-w";;
+	1) warnval="-Wno-unused-variable -Wformat -Wno-format-zero-length -Wparentheses";;
+	2) warnval="-Wno-unused-variable -Wmaybe-uninitialized -Wunused-value -Wformat -Wunsafe-loop-optimizations";;
+	3) warnval="-Wall -Wno-unused-variable";;
+esac
+
+################################################################################
+# SET UP COMPILER FLAGS
+case $set_compiler in
+	gcc) compval="gcc -O$set_opt -std=gnu99 -D_FILE_OFFSET_BITS=64" ;;
+	g++) compval="g++ -O$set_opt -D_FILE_OFFSET_BITS=64" ;;
+esac
+
+
+# PRINT HEADER TO LOG FILE AND SCREEN
+echo "--------------------------------------------------------------------------------" > $logfile
+echo $thisprog $allopts >> $logfile
+echo >> $logfile
+cat $logfile
+
+
+################################################################################
+# COMPILE INPUT FILES
+################################################################################
+for infile in $listinfiles ; do
+	echo $infile
+
+	# PARSE FILENAME - PROGRAM BASENAME=EVERYTHING AFTER FIRST DOT - ALLOWS FOR VERSIONING
+	path=${infile%/*};
+	file=${infile##*/};
+	base=${file%%.*};
+	ext=${file#*.};
+	outfile=$out_prefix""$base;
+
+	# BUILD LIST OF REQUIRED FUNCTIONS
+	listfunc1=$( cat $infile |
+		# pull out the lines between /external functions start/ and /external functions end/
+		awk '{
+			if($0~/external functions start/) start=1;
+			else if($0~/external functions end/) start=0;
+			else if(start==1 && NF>2) print $0
+		}' |
+		# omit blank lines and lines starting with "//"
+		awk 'NF>0 && $0!~/^\/\//{ print $0}' |
+		# print everything before the first "("
+		cut -d "(" -f 1 |
+		# print the last word if there are two or more words
+		awk '{print $NF}'
+	)
+
+	# CHECK FOR PRESENCE OF FUNCTION SOURCE CODE ENDING IN EITHER .C or .CPP
+	listfunc2=""
+	for i in $listfunc1 ; do
+		j=$func_path""$i".cpp"
+		k=$func_path""$i".c"
+		if [ -e $j ] ; then listfunc2=$listfunc2""$j" "
+		elif [ -e $k ] ; then listfunc2=$listfunc2""$k" "
+		else { echo ; echo $infile ; echo "--- Error ["$thisprog"]: source code for function $i in $infile is missing" ; echo ; exit ; } fi
+	done
+
+	# SET UP PACKAGE OUTPUT
+	if [ "$out_package" != "" ] ; then
+		# make the output directory if it doesn't exist
+		if [ ! -e $out_package ] ; then mkdir $out_package ; fi
+		# find lines matching #include "headername.h" , where the header is in quotes indicating a local file
+		headers=$(grep "#include \"" $infile | awk -F '"' '{print $2}')
+		# add the headers to the list of functions
+		listfunc2=$listfunc2" "$headers
+		# copy the main source file and dependencies to the output directory
+		cp $infile $out_package"/"
+		for i in $listfunc2 ; do cp $i $out_package"/" ; done
+		echo ; echo "--- Error: This method (--pack) is not completely implemented" ; echo ; exit
+	fi
+
+	# DEFINE THE COMPILE JOB
+	job="$compval $warnval $infile $listfunc2 -o $out_path$outfile -lm"
+
+	# REPORT AND RUN THE JOB
+	{ echo ; echo $infile ; echo $job ; $job ; } &>> $logfile
+done
+echo >> $logfile
+
+################################################################################
+# REPORT
+echo
+echo "--------------------------------------------------------------------------------"
+nwarnings=$(grep " warning:" $logfile | wc -l )
+echo "Warnings: "$nwarnings
+grep " warning:" $logfile --color=yes | awk '{print "\t"$0}'
+echo
+echo "--------------------------------------------------------------------------------"
+nerrors=$(grep " error:" $logfile | wc -l )
+echo "Errors: "$nerrors
+grep " error:" $logfile --color=yes | awk '{print "\t"$0}'
+echo
+echo "Check log file $logfile for details"
+echo

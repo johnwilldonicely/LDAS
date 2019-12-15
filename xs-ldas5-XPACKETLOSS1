@@ -1,0 +1,177 @@
+#!/bin/bash
+thisprog="xs-ldas5-XPACKETLOSS1"
+outbase="XPACKETLOSS1"
+
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# parameters for immobility detection
+setvelint=0.4
+setvel1="1"
+setdur1="10"
+# parameters for running detection
+setvel2="5"
+setdur2=".1"
+
+settrial="all"
+setplot="1"
+setbin="1"
+setplotdec=""
+setplotopts=""
+sfxyd=25
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": estimate packet loss in a trial from the binary .dat file"
+	echo "REQUIRES: a properly formatted .notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [options]"
+	echo "	[base]= [yyyymmdd]-[ses]_[subject]"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "plot options:"
+	echo "	-b: bin-size (seconds) for averaging (0= no binning) ["$setbin"]"
+	echo "	-P: extra plot options for xe-plottable1 (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000_2881801 -t all -b .4 -P \"-ymax 10\""
+	echo "OUTPUT: $outbase files"
+	echo "	"$outbase"_summary.txt : summary statistics"
+	echo "	"$outbase"_trace.txt   : data trace for the binned packet-loss"
+	echo "	"$outbase"_trace.ps    : plot of the above"
+	echo "	"$outbase"_hist.ps     : probability histogram for packet loss"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+filenotes=$base".notes"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":t:b:P:" flag ; do
+ 	case $flag in
+ 		t) settrial=$OPTARG;;
+		b) setbin=$OPTARG;;
+		P) setplotopts=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# IDENTIFY THE .DAT FILE
+filedat=$(xe-getkey $filenotes datpath=)
+if [ ! -e "$filedat" ] ; then filedat=$base".dat" ; fi
+if [ ! -e "$filedat" ] ; then { echo ; echo "--- Error ["$thisprog"]: .dat file '$filedat' missing" ; echo ; exit ; } fi
+
+# CLEANUP FILES BEFORE PROCEDING
+rm -f $tempfile*
+rm -f $outbase*
+
+################################################################################
+# GET BASIC PARAMETERS
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+nch=$(xe-getkey $filenotes n_channels=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+
+########################################################################################
+# DETERMINE TRIAL START-STOP PAIRS (MAKE A LIST)
+########################################################################################
+echo "	...getting start/stop times for specified trials ($settrial)"
+screenlist=$(xs-ldas-gettrials1 $filenotes $settrial)
+if [ "$screenlist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial in $filenotes" ; echo ; exit ; } fi
+let z=$(echo $screenlist | tr ',' ' ' | wc -w | awk '{print $1/2}' )
+echo "		$z blocks of data found"
+
+########################################################################################
+# DETERMINE TOTAL TIME SPENT IMMOBILE OR RUNNING
+# - timestamps relative to .dat file
+# - only include periods within the specified trial(s)
+########################################################################################
+# IDENTIFY XYD(T) PAIR FOR CHECKING RUNNING SPEED
+filexydt=$base".xydt"
+filexyd=$base"-body.xyd"
+if [ -e $filexydt ] && [ -e $filexyd ] ; then
+
+	echo "	...generating times_immobile.ssp and times_running.ssp"
+	opts="-sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint"
+	xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
+	xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+
+	echo "ANALYZING IMMOBILITY"
+	fileout=$outbase"_immobile.txt"
+	xe-ldas5-packetloss1 $filedat -nch $nch -sf $sf -scrf  times_immobile.ssp -bin $setbin -verb 1 > $fileout
+
+	echo "ANALYZING RUNNING"
+	fileout=$outbase"_running.txt"
+	xe-ldas5-packetloss1 $filedat -nch $nch -sf $sf -scrf  times_running.ssp -bin $setbin -verb 1 > $fileout
+
+else
+	echo "--- Warning ["$thisprog"]: no ruunning/immobility analysis possible without xyd/t file pair "
+fi
+
+
+################################################################################
+# READ THE DATA FILE EXTRACTING THE SPECIFIED TRIAL
+################################################################################
+let start=$(echo $screenlist | cut -f 1 -d ,)
+let stop=$(echo $screenlist | cut -f 2 -d ,)
+
+echo "ANALYZING ALL DATA"
+xe-ldas5-packetloss1 $filedat -nch $nch -sf $sf -scrl $screenlist -bin $setbin -verb 1 > $tempfile
+
+# extract the summary-header
+nhead=$(grep -Ei '[a-z]' $tempfile| wc -l)
+head $tempfile -n $nhead > $outbase"_summary.txt"
+
+# extract and timestamp the trace
+echo "seconds loss" | xe-delimit stdin > $outbase"_trace.txt"
+tail $tempfile -n +$((nhead+1)) |
+	xe-timestamp1 stdin -si $setbin >> $outbase"_trace.txt"
+
+# generate the packet-loss-probability histogram
+echo "loss prob" | xe-delimit stdin > $outbase"_histo.txt"
+cut -f 2 $outbase"_trace.txt" |
+	xe-hist1 stdin -t 3 -w 1 -min 0 -max 101 -label 1 >> $outbase"_histo.txt"
+
+################################################################################
+# GENERATE THE PLOTS
+################################################################################
+plotopts="-line 1 -ps 0 -xscale .4 -ymax 100 -lwd .2 -hline 1,5 -colour 1 -title $base -out "$outbase"_trace.ps"
+cat $outbase"_trace.txt" |
+	xe-plottable1 stdin $plotopts -ylabel "% Packet loss" -xlabel "Time (seconds)" $setplotopts
+
+plotopts="-pt histo -xmin 0 -xmax 50 -ymin 0 -ymax 1.0 -ylabel Probability -title TRIAL:$settrial -out "$outbase"_hist.ps"
+cat $outbase"_histo.txt" |
+	xe-plottable1 stdin $plotopts -xlabel "% Packet loss" setplotopts
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

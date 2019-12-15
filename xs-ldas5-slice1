@@ -1,0 +1,285 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setconv="0"
+setclean="1"
+setverb="0"
+setskip="-"SLICE1_summary.ps
+setopts1="-min1 2.5 -max1 15"
+setopts2="-max1 1.25 -max2 2.5 -max3 15.0"
+setplot1=""
+setplot2=""
+setchanpop="AD0"
+setchanepsp="AD1"
+settlabel=""
+setxmax="50"
+let setfout="2"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Analyze slice electrophysiology data (WinLTP files)"
+	echo " - calls xe-ldas5-slicePOP for POP-spike analysis"
+	echo " - calls xe-ldas5-sliceEPSP for fEPSP and fibre-voley analysis"
+	echo " - generates a plot for each input file and a summary ("$progbase1"_summary.txt)"
+	echo " 	POP-spike"
+	echo "		- red dots: POP-spike area"
+	echo " 	fEPSP"
+	echo "		- red-dots: stimulation artefact"
+	echo "		- blue-dots: scan-area for fEPSP slope"
+	echo "		- green-dots: fibre-volley (if detected)"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [pattern]"
+	echo "		file-name pattern to match (use double-quotes)"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--pop: name of channel defining the POP-spike [$setchanpop]"
+	echo "	--epsp: name of channel defining the fEPSP [$setchanepsp]"
+	echo "	--fout: filter output traces? (0=NO_FILTER, or 1,2,3) [$setfout]"
+	echo "		1= POP-spike and fEPSP-artefact"
+	echo "		2= POP-spike and fEPSP-fiber-volley"
+	echo "		3= POP-spike and fEPSP-trough"
+	echo "	--opt1: quoted options for xe-ldas5-slicePOP (POP-spike) [$setopts1]"
+	echo "	--opt2: quoted options for xe-ldas5-sliceEPSP (fEPSP/fibre-volley) [$setopts2]"
+	echo "	--plot1: quoted options POP-spike plot [unset]"
+	echo "	--plot2: quoted options fEPSP plot [unset]"
+	echo "	--tlabel: add a label to the plot titles"
+	echo "	--xmax: control maximum time (ms) on x-axis of plots (\"\"= auto) [$setxmax]"
+	echo "	--clean: remove temporary files on completion (0=NO 1=YES) [$setclean]"
+	echo "	--conv: convert postscript output to .gif files (0=NO 1=YES) [$setconv]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" \"6329*.AP0\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setinfile=$1 ; shift
+listfile=$(ls $setinfile --color=never)
+let z=$(echo $listfile | wc -l)
+if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no files found matching pattern *$setinfile*" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:" ; vl="pop:,epsp:,fout:,opt1:,opt2:,plot1:,plot2:,xmax:,tlabel:,conv:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--pop ) setchanpop=$2 ; shift ;;
+		--epsp ) setchanepsp=$2 ; shift ;;
+		--fout ) let setfout=$2 ; shift ;;
+		--opt1 ) setopts1=$setopts1" "$2 ; shift ;;
+		--opt2 ) setopts2=$setopts2" "$2 ; shift ;;
+		--plot1 ) setplot1=$2 ; shift ;;
+		--plot2 ) setplot2=$2 ; shift ;;
+		--xmax ) setxmax=$2 ; shift ;;
+		--tlabel ) settlabel=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--conv ) setconv=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+if [ $setfout -lt 0 ] || [ $setfout -gt 3 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --fout ($setfout) -  must be 0,1,2 or 3" ; echo ; exit; } ; fi
+if [ "$setconv" != "0" ] && [ "$setconv" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --conv ($setconv) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+########################################################################################
+# SET THE FILTER-OUT VARIABLES FOR POP-SPIKES (FOUT1) AND FEPSP (FOUT2)
+########################################################################################
+let fout1=$setfout
+let fout2=$setfout
+if [ $fout1 -gt 1 ] ; then fout1=1 ; fi
+setopts1=$setopts1" -fout $fout1"
+setopts2=$setopts2" -fout $fout2"
+
+########################################################################################
+# FOR EACH FILE IN THE LIST, PROCESS THE fEPSP AND POP SPIKE
+########################################################################################
+rm -f $progbase1"_summary.txt"
+list3=""
+let count=0
+for infile in $listfile ; do
+
+	echo
+	echo $infile
+	# base=${infile%%.*};
+	base=$infile
+
+	########################################################################################
+	# ANALYZE THE POP SPIKE
+	let z=$(grep AD_Chs $infile | grep \"$setchanpop\" | wc -l)
+	if [ $z -gt 0 ] ; then
+		command="xe-ldas5-slicePOP $infile $setchanpop -verb $setverb "$setopts1
+		echo "	"$command
+		$command > $tempfile.1
+		out1a="temp_xe-ldas5-slicePOP_trace.txt"
+		out1b="temp_xe-ldas5-slicePOP_nodes.txt"
+
+		if [ -f $out1a ] ; then
+			# define plot ranges
+			xstats=$(xe-cut1 $out1a ms | xe-statsd1 stdin)
+			xmin=$(echo $xstats | xe-getkey stdin MIN)
+			if [ "$setxmax" == "" ] ; then
+				xmax=$(echo $xstats | xe-getkey stdin MAX)
+			else
+				xmax=$setxmax
+			fi
+			ystats=$(xe-cut1 $out1a mV | xe-statsd1 stdin)
+			ymin=$(echo $ystats | xe-getkey stdin MIN)
+			ymax=$(echo $ystats | xe-getkey stdin MAX)
+			# determine the lines to plot
+			vlines="0"
+			x=$(echo $setopts1 | xe-getkey stdin -min1 | tail -n 1); if [ "$x" != "" ] ; then vlines=$vlines","$x ; fi
+			y=$(echo $setopts1 | xe-getkey stdin -max1 | tail -n 1); if [ "$y" != "" ] ; then vlines=$vlines","$y ; fi
+			# set common plot options for trace and nodes
+			plotopts0="-xscale 1 -yscale .2 -xpad 0 -xmin $xmin -xmax $xmax -ymin $ymin -ymax $ymax -xint 5 -lwa 0.5 "$setplot1
+			# plot the trace
+			plotopts1="-lwd 0.5 -line 1 -ps 0 -colour 0 -vline $vlines"
+			xe-plottable1 $out1a $plotopts0 $plotopts1 -xlabel "Time (ms)" -ylabel "Voltage (mV)" -title "$infile: POP-spike$settlabel" -out $tempfile"_pop1.ps"
+			# plot the nodes
+			plotopts2="-line 0 -lwd 0.5 -ps 3 -pf 0 -cg 2 -cx 3 -cy 4 -xint -1 -yint -1"
+			xe-plottable1 $out1b $plotopts0 $plotopts2 -xlabel "" -ylabel "" -out $tempfile"_pop2.ps"
+		else
+			echo "pop1ms pop1mv pop3ms pop3mv popauc rms" | xe-delimit stdin > $tempfile.1
+			echo "nan nan nan nan nan nan" | xe-delimit stdin >> $tempfile.1
+			echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -title "$infile: no POP-spike channel $setchanpop$settlabel" -out $tempfile"_pop1.ps"
+			echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -out $tempfile"_pop2.ps"
+		fi
+	else
+		echo "pop1ms pop1mv pop3ms pop3mv popauc rms" | xe-delimit stdin > $tempfile.1
+		echo "nan nan nan nan nan nan" | xe-delimit stdin >> $tempfile.1
+		echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -title "$infile: no POP-spike channel $setchanpop$settlabel" -out $tempfile"_pop1.ps"
+		echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -out $tempfile"_pop2.ps"
+	fi
+
+	########################################################################################
+	# ANALYZE THE EPSP
+	let z=$(grep AD_Chs $infile | grep \"$setchanepsp\" | wc -l)
+	if [ $z -gt 0 ] ; then
+		command="xe-ldas5-sliceEPSP $infile AD1 -verb $setverb "$setopts2
+		echo "	"$command
+		$command > $tempfile.2
+		echo
+
+		out2a="temp_xe-ldas5-sliceEPSP_trace.txt"
+		out2b="temp_xe-ldas5-sliceEPSP_nodes.txt"
+
+		if [ -f $out2a ] ; then
+			# define plot ranges
+			xstats=$(xe-cut1 $out2a ms | xe-statsd1 stdin)
+			xmin=$(echo $xstats | xe-getkey stdin MIN)
+			if [ "$setxmax" == "" ] ; then
+				xmax=$(echo $xstats | xe-getkey stdin MAX)
+			else
+				xmax=$setxmax
+			fi
+			ystats=$(xe-cut1 $out2a mV | xe-statsd1 stdin)
+			ymin=$(echo $ystats | xe-getkey stdin MIN)
+			ymax=$(echo $ystats | xe-getkey stdin MAX)
+			# determine the lines to plot
+			vlines="0"
+			x=$(echo $setopts2 | xe-getkey stdin -max1 | tail -n 1); if [ "$x" != "" ] ; then vlines=$vlines","$x ; fi
+			y=$(echo $setopts2 | xe-getkey stdin -max2 | tail -n 1); if [ "$y" != "" ] ; then vlines=$vlines","$y ; fi
+			z=$(echo $setopts2 | xe-getkey stdin -max3 | tail -n 1); if [ "$z" != "" ] ; then vlines=$vlines","$z ; fi
+			# set common plot options for trace and nodes
+			plotopts0="-xscale 1 -yscale .2 -xpad 0 -xmin $xmin -xmax $xmax -ymin $ymin -ymax $ymax -xint 5 -lwa 0.5 "$setplot2
+			# plot the trace
+			plotopts1="-lwd 0.5 -line 1 -ps 0 -colour 0 -vline $vlines"
+			xe-plottable1 $out2a $plotopts0 $plotopts1 -xlabel "Time (ms)" -ylabel "Voltage (mV)" -title "$infile: fEPSP$settlabel" -out $tempfile"_fepsp1.ps"
+			# plot the nodes
+			plotopts2="-line 0 -lwd 0.5 -ps 3 -pf 0 -cg 2 -cx 3 -cy 4 -xint -1 -yint -1"
+			xe-plottable1 $out2b $plotopts0 $plotopts2 -xlabel "" -ylabel "" -out $tempfile"_fepsp2.ps"
+		else
+			echo "artmv fvms fvmv epspms epspmv epspslope" | xe-delimit stdin > $tempfile.2
+			echo "nan nan nan nan nan nan" | xe-delimit stdin >> $tempfile.2
+			echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -title "$infile: no fEPSP channel $setchanepsp" -out $tempfile"_fepsp1.ps"
+			echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -out $tempfile"_fepsp2.ps"
+		fi
+	else
+		echo "artmv fvms fvmv epspms epspmv epspslope" | xe-delimit stdin > $tempfile.2
+		echo "nan nan nan nan nan nan" | xe-delimit stdin >> $tempfile.2
+		echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -title "$infile: no fEPSP channel $setchanepsp" -out $tempfile"_fepsp1.ps"
+		echo "1 1" | xe-plottable1 stdin -xscale 1 -yscale .2 -xpad 0 -out $tempfile"_fepsp2.ps"
+	fi
+
+
+	########################################################################################
+	# merge all four plots, overlaying trace+points for POPspike and EPSP
+	list2=$tempfile"_pop1.ps "$tempfile"_pop2.ps "$tempfile"_fepsp1.ps "$tempfile"_fepsp2.ps"
+	xe-plotmerge1 -xinc 0 -yinc 150 -xmax 2 -out $progbase1"_"$base $list2
+	list3=$list3" "$progbase1"_"$base".001.ps"
+
+
+	########################################################################################
+	# merge summaries
+	if [ $count -eq 0 ] ; then
+		paste $tempfile.1 $tempfile.2 |
+		awk 'BEGIN{n=0}{if(n==0) print "infile\t"$0 ; else print "'$base'\t"$0 ; n++ }' >> $progbase1"_summary.txt"
+	else
+		paste $tempfile.1 $tempfile.2 |
+		awk 'BEGIN{n=0}{if(n>0) print "'$base'\t"$0 ; n++ }' >> $progbase1"_summary.txt"
+	fi
+
+
+	let count=$count+1
+
+done
+
+# MAKE A MULTI-PAGE PLOT SUMMARY (OR JUST RENAME FILE IF THERE WAS ONLY ONE INPUT)
+if [ $count -gt 1 ] ; then
+	xe-plotmerge2 $list3 > $progbase1"_summary.ps"
+else
+	mv $list3 $progbase1"_summary.ps"
+fi
+
+# CONVERT IMAGES TO GIFS
+if [ "$setconv" == "1" ] ; then
+	echo
+	xs-plotconvert1 $list3 
+fi
+
+# REPORT TIME TO FINISH THE JOB
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+
+# REMOVE TEMPORARY FILES AND INTERMEDIATE PLOTS, AND EXIT
+if [ $setclean == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	rm -f temp_xe-ldas5-slicePOP*
+	rm -f temp_xe-ldas5-sliceEPSP*
+	rm -f $list3
+fi
+exit

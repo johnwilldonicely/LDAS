@@ -1,0 +1,60 @@
+#!/bin/bash
+thisprog=xs-ldas5-crunch2
+
+
+# BUILD PATH TO THE LINK-EXECUTEABLE (THIS FILE): MAY VARY FROM MACHINE TO MACHINE
+path1=$(which $thisprog); 
+# BUILD PATH TO CRUNCH.EXE, which sould be in the bin directory
+execpath=${path1%/*}/bin/CRUNCH
+
+
+# EXECUTE CRUNCH USING FULL PATH AND VARIABLES FROM NOTES FILE
+if [ $# -lt 1 ] ; then 
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": invocation script for CRUNCH"
+	echo "key variables defined by reading the .notes file in the data directory"
+	echo "	data sampling rate"
+	echo "	video sampling rate"
+	echo "	video resolution"
+	echo "	total number of channels"
+	echo "	eeg (theta) channel"
+	echo "EXECUTABLE PATH: "
+	echo "	$execpath"
+	echo "USAGE:"
+	echo "	$thisprog [basename] [CRUNCH arguments]"
+	echo "EXAMPLE:"
+	echo "	$thisprog jh001-091231_01 -maptype 1"
+	$execpath
+	exit
+fi 
+
+base=$1 ; shift 
+opts=$@
+
+# READ KEY VARIABLES FROM NOTES FILE
+notesfile=$(ls 2>/dev/null *.notes); if [ ! -e $notesfile ] ; then { echo "Error: missing file "$notesfile; exit; } ; fi
+exp=$(xe-getkey $notesfile EXPERIMENT) # name of experiment - may be used to detemine pixel size & smoothing
+sfreq=$(xe-getkey $notesfile SAMPLE_RATE) # sampling frequency
+efreq=$(echo "scale=3; "$sfreq"/16"|bc) # eeg sampling frequency
+vfreq=$(xe-getkey $notesfile VIDEO_RATE) # video sampling frequency
+vidres=$(xe-getkey $notesfile VIDEO_RESOLUTION) # video resolution (pixels/cm)
+nchans=$(xe-getkey $notesfile N_CHANS) # total number of channels in original data and eeg files
+tchan=$(xe-getkey $notesfile THETACHAN)
+
+if [ -z $exp ] ; then { echo "Error: missing keyword EXPERIMENT from "$notesfile; exit; } ; fi 
+if [ -z $sfreq ] ; then { echo "Error: missing keyword SAMPLE_RATE from "$notesfile; exit; } ; fi 
+if [ -z $vfreq ] ; then { echo "Error: missing keyword VIDEO_RATE from "$notesfile; exit; } ; fi 
+if [ -z $vidres ] ; then { echo "Error: missing keyword VIDEO_RESOLUTION from "$notesfile; exit; } ; fi 
+if [ -z $nchans ] ; then { echo "Error: missing keyword N_CHANS from "$notesfile; exit; } ; fi 
+if [ -z $tchan ] ; then { echo "Error: missing keyword THETACHAN from "$notesfile; exit; } ; fi 
+
+sets="-vidres "$vidres" -posfreq "$vfreq" -spikefreq "$sfreq" -efreq "$efreq" -echantot "$nchans" -echannel "$tchan
+
+resfile=$base.res ; if [ ! -e $resfile ] ; then resfile="" ; fi 
+xydfile=$base.xyd ; if [ ! -e $xydfile ] ; then xydfile="" ; fi 
+eegfile=$base.eeg ; if [ ! -e $eegfile ] ; then eegfile="" ; fi 
+
+$execpath $resfile $xydfile $eegfile $sets $opts
+	
+

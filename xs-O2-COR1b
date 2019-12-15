@@ -1,0 +1,477 @@
+#!/bin/bash
+# <TAGS> O2 signal_processing </TAGS>
+
+# TO DO!!!
+# new assumption is that Data_Working folders hold raw, unsmoothed, un-adjusted data
+# new assumption is that smoothing is applied to individual maps, not the group average maps
+# 30 APRIL 2013
+# - SHOULD FISHER TRANSFORMATION BE PERFORMED WHILE DATA IS COLLATED FROM EACH ANIMAL ?
+# - MAY BE BETTER TO DO ANY AVERAGING FIRST (EG. ACROSS TIME)
+# - NOTE THAT TRANSFORM IS NOT CURRENTLY APPLIED TO BROADBAND STATS ANYWAY, BUT COULD BE, USING XE-NORM2
+
+
+startdir=$(pwd)
+thisprog=`basename "$0"`
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+outbase="COR1_"
+tempfile="temp_"$thisprog ; rm -f $tempfile"*"
+logfile=$outbase"log.txt"
+
+# default options
+setdiag=0
+setavg=1
+setfmin=0.01
+setfmax=0.1
+setfinc=0.005
+setrepeated=1
+let setfishers=0
+setsmooth=""
+setrefgrp=0
+setdiffprob=0.05
+setdifftype=1
+sx="0"
+sy="0"
+setcolourmin="-1.0"
+setcolourmax="1.0"
+
+if [ $# -lt 4 ]; then
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": calculate and collate correlation between probes for whole database"
+	echo "- calls $thatprog"
+	echo "- adds subject and group columns"
+	echo "USAGE: $thisprog [database] [in1] [in2] [opts]"
+	echo "	[database]: name of the database (.db) file to use"
+	echo "	[in1]: name of input file for region1, containing <time> and <data>"
+	echo "	[in2]: name of input file for region2, containing <time> and <data>"
+	echo "OPTIONS:as for $thatprog:"
+	echo "	-l: lowest frequency in the series [$setfmin]"
+	echo "	-u: highest frequency in the series [$setfmax]"
+	echo "	-i: frequency incriment between -l and -u (above) [$setfinc]"
+	echo "	-a: time interval for plots and binned broadband data [$setavg]"
+	echo "	-d: diagnostic mode (0=re-analyze each subject, 1=re-collate) [$setdiag]"
+	echo ""
+	echo "	OPTIONS APPLIED DURING COLLATION OF MATRIX DATA FROM INDIVIDUAL SUBJECTS"
+	echo "	-s: smoothing factor (turn on smoothing)"
+	echo "		: value = seconds on x-axis"
+	echo "		: smoothing on y-axis = 1/10 frequency range"
+	echo "	-f: apply Fisher's transform to correlation matrix"
+	echo ""
+	echo "	OPTIONS APPLIED TO ALL MATRIX PLOTS"
+	echo "	-v: vertical lines (comma-separated, no spaces)"
+	echo "	-h: horizontal lines (comma-separated, no spaces)"
+	echo "	-y: colour scaling: value reprented by black [$setcolourmin]"
+	echo "	-z: colour scaling: value reprented by red [$setcolourmax]"
+	echo ""
+	echo "	OPTIONS APPLIED TO MATRIX DIFFERENCE PLOTS"
+	echo "	-t: difference plot type (1=diff,2=ratio,3=t-statistic) [$setdifftype]"
+	echo "	-r: repeated-measures design? (0=NO, 1=YES) [$setrepeated]"
+	echo "		0. assumes each subject has a unique group ID"
+	echo "		1. assumes subjects are members of multiple groups"
+	echo "		- cohereograms for each subject subtracted from a reference"
+	echo "		- the reference group is defined with the -g option"
+	echo "	-g: reference group (subtracted from others) [$setrefgrp]"
+	echo "	-p: probability threshold for plotting [$setdiffprob]"
+	echo ""
+	echo "EXAMPLE: $thisprog db_NAc.txt X1-NAc_aligned.txt X1-PFC_aligned.txt -a 300"
+	echo "------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+user_arguments=$@
+echo
+echo "------------------------------------------------------------------------------"
+echo $thisprog $user_arguments
+echo "------------------------------------------------------------------------------"
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filedb=$1 ; shift
+set_in1=$1; shift
+set_in2=$1; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":fs:l:u:i:a:d:t:r:g:p:h:v:y:z:" flag ; do
+	case $flag in
+		f) let setfishers=1;;
+		s) setsmooth=$OPTARG;;
+		l) setfmin=$OPTARG;;
+		u) setfmax=$OPTARG;;
+		i) setfinc=$OPTARG;;
+		a) setavg=$OPTARG;;
+		d) setdiag=$OPTARG;;
+		t) setdifftype=$OPTARG;;
+		r) setrepeated=$OPTARG;;
+		g) setrefgrp=$OPTARG;;
+		p) setdiffprob=$OPTARG;;
+		h) sethlines=$OPTARG;;
+		v) setvlines=$OPTARG;;
+		y) setcolourmin=$OPTARG;;
+		z) setcolourmax=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+################################################################################
+# CHECK VALIDITY OF ARGUMENTS
+################################################################################
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: filedb file '$filedb' missing" ; echo ; exit ; } fi
+
+# use bash calculator (bc) to detect if a string is a proper number
+x=$(echo "scale=3; $setsmooth" | bc | awk '$1<=0{print "error"}')
+if [ "$setsmooth" != "" ]  && [ "$x" != "" ] ; then { echo ; echo "	--- Error ["$thisprog"]: smoothing (-s $setsmooth) if set, must be numeric and positive" ; echo ; exit ; } fi
+
+################################################################################
+# CHECK IF OUTPUT IS GOING TO BE OVERWRITTEN _ PROMPT TO CONTINUE?
+################################################################################
+i=$outbase"log.txt"
+if [ -e $i ] ; then
+	read -p  "--- Warning: previous $outbase files may be overwritten. Continue? [y/n] " answer
+	while true ; do
+		case $answer in
+			[yY]* ) break ;;
+			*) exit ;;
+		esac
+	done
+fi
+
+################################################################################
+# MAKE SURE DATABASE LINE FORMATTING IS LINUX-STYLE
+################################################################################
+dos2unix -q $filedb
+
+################################################################################
+# DO QUICK CHECK OF INTEGRITY OF DATABASE - ARE PATHS CORRECT?
+################################################################################
+rm -f $tempfile
+cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis_db rest ; do
+	if [ ! -e $path ] ; then  {
+		cd $startdir ;
+		echo "	--- Error ["$thisprog"]: "$path" is an invalid path specified in "$filedb  >> $tempfile ;
+		continue ;
+	}
+	fi
+done
+
+# if the words "Check ok" do not appear, exit
+let x=$(cat 2>/dev/null $tempfile|wc -l)
+if [ $x -gt 0 ] ; then  { echo ; cat $tempfile ; rm -f $tempfile ; echo ; exit ; } fi
+
+# remove the temporary file and any old output files
+rm -f $tempfile
+rm -f $outbase*
+
+
+################################################################################
+# CRAWL THROUGH THE DATABASE AND RUN THE ANALYSIS
+# 	- CHECK WHICH HEMISPHERE TO USE
+#	- RUN THE ANALYSIS
+#	- COLLATE THE OUTPUT AND PLOTS
+################################################################################
+echo
+echo "Analyzing data" ;
+echo "NOTE: an error/warning summary will follow completion..."
+echo "This could take some time: check "$(basename $logfile)" for progress"
+echo
+{
+	# FROM HERE BELOW GETS SENT TO THE LOG FILE
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog $user_arguments
+	echo "------------------------------------------------------------------------------"
+
+	# BUILD OPTION STRING TO PASS TO PER-SUBJECT SCRIPT
+	opts="-l $setfmin -u $setfmax -i $setfinc -a $setavg"
+
+	let count=0
+	plotlist=""
+	cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis rest ; do
+
+		# CHECK FOR BAD PATH - HAS TO BE SAVED TO FILE BECAUSE CANNOT EXIT FROM WITHIN WHILE LOOP
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$filedb": "$path ; exit ; } fi
+		echo ; echo $path ;
+		cd $path ;
+
+		base=$(basename $path)
+		subname=${base%%-*}
+		subject=${subname#rat*}
+
+		# CHECK THAT INPUT FILES EXIST
+		if [ ! -e  $set_in1 ] ; then { echo ; echo "--- Warning ["$thisprog"]: missing data file "$set_in1" - skipping" ; cd $startdir ; continue ; } fi
+		if [ ! -e  $set_in2 ] ; then { echo ; echo "--- Warning ["$thisprog"]: missing data file "$set_in2" - skipping" ; cd $startdir ; continue ; } fi
+		# CHECK THAT INPUT FILES CONTAIN DATA AND ARE THE SAME LENGTH
+		let wcd1=$(cat $set_in1 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | wc -l)
+		let wcd2=$(cat $set_in2 | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | wc -l)
+		if [ $wcd1 -lt 1 ] ; then { echo ; echo "--- Warning ["$thisprog"]: file $set_in1 is empty - skipping" ; cd $startdir ; continue ; } fi
+		if [ $wcd2 -lt 1 ] ; then { echo ; echo "--- Warning ["$thisprog"]: file $set_in2 is empty - skipping" ; cd $startdir ; continue ; } fi
+		if [ $wcd1 -ne $wcd2 ] ; then { echo ; echo "--- Warning ["$thisprog"]: mismatch between length of $set_in1 and $set_in2 - skipping" ; cd $startdir ; continue ; } fi
+		if [ $(tail -n 1000 $set_in1 | xe-cut1 stdin nA -o 1 | xe-statsd1 stdin | xe-getkey stdin VARIANCE) == "0" ] ; then { echo ; echo "--- Warning ["$thisprog"]: file $set_in1 has no valid data" ; cd $startdir ; continue ; } ; fi
+		if [ $(tail -n 1000 $set_in2 | xe-cut1 stdin nA -o 1 | xe-statsd1 stdin | xe-getkey stdin VARIANCE) == "0" ] ; then { echo ; echo "--- Warning ["$thisprog"]: file $set_in2 has no valid data" ; cd $startdir ; continue ; } ; fi
+
+		# GET THE DURATION OF THE INPUT FILES _ THIS IS USED FOR CALCULATING SMOOTHING
+		duration=$(xe-cut1 $set_in1 time -o 1 | xe-statsd1 stdin | xe-getkey stdin RANGE)
+
+		# RUN THE ANALYSIS
+		if [ $setdiag == "0" ] ; then
+			rm -f $outbase*
+			$thatprog $set_in1 $set_in2 $opts
+
+		fi
+
+		# COLLATE THE DATA
+		infile=$outbase"multifreq.txt"
+		outfile=$startdir"/"$infile
+		if [ $count -eq 0 ] ; then  { header=$(xs-getheader $infile) ; header="subj grp "$header ; echo $header | xe-delimit stdin > $outfile ; } fi
+		cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+		infile=$outbase"broad.txt"
+		outfile=$startdir"/"$infile
+		if [ $count -eq 0 ] ; then  { header=$(xs-getheader $infile) ; header="subj grp "$header ; echo $header | xe-delimit stdin > $outfile ; } fi
+		cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+		# collate correlation matrices - normalize widths, apply smoothing and z-transform
+		infile=$outbase"matrix.txt"
+		outfile=$startdir"/"$outbase"matrix."$group".txt"
+		if [ $count -eq 0 ] ; then
+			rm -f $startdir"/"$outbase"matrix."*".txt" ;
+			w1=$(head -n 1 $infile | wc -w)
+			h1=$(cat $infile | wc -l)
+			sx1=0; sy1=0
+			if [ "$setsmooth" != "" ] ; then
+				sx1=$(echo $setsmooth $w1 $duration |awk '{ a= 0.5+ $1*($2/$3); printf("%d",a)}')
+				sy1=$(echo $h1|awk '{a=0.5+($1/5.0); printf("%d",a)}')
+			fi
+		else
+			# check if a correction has to be applied to the matrix dimensions
+			w2=$(head -n 1 $infile | wc -w)
+			h2=$(cat $infile | wc -l)
+			if [ $w2 -ne $w1 ] ; then echo "--- Warning ["$thisprog"]: matrix in $base requires adjustment to reference width $w1" ; fi
+			if [ $h2 -ne $h1 ] ; then echo "--- Warning ["$thisprog"]: matrix in $base requires adjustment to reference height $h1" ; fi
+		fi
+
+		echo >> $outfile
+		echo "# "$subject >> $outfile
+		if [ $setfishers -eq 1 ] ; then f=1 ; else f=0 ; fi
+		xe-matrixmod1 $infile -w $w1 -h $h1 -sx $sx1 -sy $sy1 -f $f >> $outfile
+		echo >> $outfile  # insert a blank line after each matrix
+
+
+		# collate the power plots
+		infile=$outbase"pow.txt"
+		outfile=$startdir"/"$infile
+		if [ $count -eq 0 ] ; then  { header=$(xs-getheader $infile) ; header="subj grp "$header ; echo $header | xe-delimit stdin > $outfile ; } fi
+		cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+		infile=$outbase"pow_broad.txt"
+		outfile=$startdir"/"$infile
+		if [ $count -eq 0 ] ; then  { header=$(xs-getheader $infile) ; header="subj grp "$header ; echo $header | xe-delimit stdin > $outfile ; } fi
+		cat $infile | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | awk '{print "'$subject' '$group' "$0}' | xe-delimit stdin >> $outfile
+
+		let count=$count+1
+		cd $startdir
+
+	done
+	echo
+	echo "Finished! :) " ; echo
+
+	# CHECK POSSIBILITY THAT NO DATA WAS DETECTED FOR ANY SUBJECT - SUGGESTS MIS-TYPED OR OMITTED START-SIGNAL
+	let ndata=$(cat $outbase"pow_broad.txt" | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | wc -l)-1
+	if [ $ndata -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no data found" ; echo ; } fi
+
+
+} &> $logfile
+
+cd $startdir
+
+let nwarnings=$(cat $logfile | grep -i warning | wc -l)
+let nerrors=$(cat $logfile | grep -i error | wc -l)
+if [ $nerrors -gt 0 ] ; then
+	echo "*** ALERT!! "$nerrors" errors found  - check "$logfile
+	if [ $nwarnings -gt 0 ] ; then echo "*** ALERT!! "$nwarnings" warnings found  - check "$logfile ; fi
+	echo "---------------------------------------------------------"
+	echo
+	rm -f $tempfile"_"*
+	exit
+fi
+
+if [ $nerrors -gt 0 ] ; then exit ; fi
+
+
+
+################################################################################
+# IDENTIFY TIME RANGE
+################################################################################
+infile=$outbase"multifreq.txt"
+mintime=$(xe-cut1 $infile time | xe-statsd1 stdin | xe-getkey stdin MIN | xe-math_round2 stdin -b $setavg )
+maxtime=$(xe-cut1 $infile time | xe-statsd1 stdin | xe-getkey stdin MAX | xe-math_round2 stdin -b $setavg )
+
+
+################################################################################
+# PLOT CORRELATION MATRICES
+################################################################################
+echo "	PLOT CORRELATION MATRICES"
+# set default plot options
+plotopts="stdin -xmin $mintime -xmax $maxtime -xint $setavg -vline 0 -ymin $setfmin -ymax $setfmax -xpad 0 -ypad 0 -frame 15 -zmin $setcolourmin -zmax $setcolourmax"
+if [ "$sethlines" != "" ] ; then plotopts=$plotopts" -hline "$sethlines ; fi
+if [ "$setvlines" != "" ] ; then plotopts=$plotopts" -vline "$setvlines ; fi
+
+plotlist=""
+listgrp=$(xe-cut1 $outbase"multifreq.txt" grp | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | sort -nu)
+for grp in $listgrp ; do
+	filebase=$outbase"matrix"
+	infile=$filebase"."$grp".txt"
+	outfile=$filebase"_avg.txt"
+	plotfile=$filebase"."$grp".ps"
+	plotlist=$plotlist" "$plotfile
+	cat $infile |
+		xe-matrixavg2 stdin  |
+		xe-matrixmod1 stdin -f 1 |
+		xe-plotmatrix1 $plotopts -xlabel "Time_[grp_"$grp"]" -ylabel "Frequency (Hz)" -out $plotfile
+done
+
+
+xe-plotmerge1 -xinc 250 -xmax 2 -yinc 190  $plotlist -out $outbase"summary_matrix"
+rm -f $plotlist
+
+
+
+################################################################################
+# MAKE THE DIFFERENCE MATRICES
+################################################################################
+echo "	PLOTTING CORRELATION CHANGE FROM REFERENCE GROUP $setrefgrp"
+# compile lsist of groups from matrix output files
+listgrp=$(ls -1 $outbase"matrix."*".txt" | cut -f 2 -d ".")
+# find the file group number which numerically matches the reference group
+ref2=$(echo $setrefgrp $listgrp | awk '{for(i=2;i<=NF;i++) if($1==$i) {print $i;exit;} }')
+if [ -z "$ref2" ] ; then { echo ; echo "	--- Error ["$thisprog"]: reference group $setrefgrp not found in group list" ; echo ; exit ; } fi
+plotlist=""
+plotopts="-xmin $mintime -xmax $maxtime -xint $setavg -vline 0 -ymin $setfmin -ymax $setfmax -xpad 0 -ypad 0 -frame 15"
+for grp in $listgrp ; do
+
+	file1=$outbase"matrix."$ref2".txt"
+	file2=$outbase"matrix."$grp".txt"
+
+	# output the difference-matrices for each subject
+	outfile=$outbase"matrix_diff."$grp".txt"
+	if [ $grp != $ref2 ]  ; then
+		xe-matrixdiff1 $file1 $file2 -a $setdiffprob -t $setdifftype -p $setrepeated |
+		xe-math_round2 stdin -b .001 > $outfile
+		if [ $setdifftype == "1" ] ; then plotopts2="-xlabel Time_[grp_"$grp"] -zmin -1 -zmax 1" ; fi
+		if [ $setdifftype == "2" ] ; then plotopts2="-xlabel Time_[grp_"$grp"]" ; fi
+		if [ $setdifftype == "3" ] ; then plotopts2="-xlabel Time_[grp_"$grp"]" ; fi
+	else
+		cat $file1 | xe-matrixavg2 stdin > $outfile
+		plotopts2="-xlabel Time_[grp_"$grp"_=_ref] -zmin 0 -zmax 1 "
+	fi
+
+	plotfile=$outbase""$COR1b"matrix_diff."$grp".ps"
+	plotlist=$plotlist" "$plotfile
+	xe-plotmatrix1 $outfile $plotopts $plotopts2 -ylabel "Freq.(Hz) vs delta-r" -out $plotfile
+
+done
+xe-plotmerge1 -xinc 250 -xmax 2 -yinc 190  $plotlist -out $outbase"summary_matrix_diff"
+rm -f $plotlist
+
+
+################################################################################
+# PLOT BROADBAND STATS
+################################################################################
+echo "	PLOT BROADBAND POWER SUMMARY"
+plotlist=""
+plotopts="stdin -cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -line 1 -ps 0 -xmin $mintime -xmax $maxtime -xint $setavg -vline 0 -xscale 0.4 -frame 15"
+xe-cut1 $outbase"pow_broad.txt" region,grp,time,power | xe-statsgrp3 stdin > $tempfile
+for region in 1 2 ; do
+	plotfile=$tempfile"_pow."$region".ps"
+	plotlist=$plotlist" "$plotfile
+	awk '$1=="grp1"||$1=='$region'{print $0}' $tempfile |
+	xe-cut1 stdin grp2,grp3,mean,sem |
+	xe-plottable1 $plotopts -xlabel "Time_(s)_[region"$region"]" -ylabel "Mean power" -out $plotfile
+done
+
+echo "	PLOT BROADBAND CORRELATION SUMMARY"
+plotopts="stdin -cg 1 -cx 2 -cy 4 -ce 6 -ew 0 -line 1 -ps 0 -xmin $mintime -xmax $maxtime -xint $setavg -xscale .4 -vline 0 -xlabel Time_(s) -frame 15"
+infile=$outbase"broad.txt"
+plotfile=$tempfile"_broad_corr.ps"
+plotlist=$plotlist" "$plotfile
+xe-cut1 $infile grp,time,corr |
+	xe-statsgrp2 stdin |
+	xe-plottable1 $plotopts -ymin -1 -ymax 1 -yint 0.25 -hline -1,1 -ylabel "Correlation (broadband)" -out $plotfile
+
+# BIN THE BROADBAND DATA BY TIME INTERVAL
+infile=$outbase"broad.txt"
+outfile=$outbase"broad_bin_corr.txt"
+plotfile=$tempfile"_broad_bin_corr.ps"
+plotlist=$plotlist" "$plotfile
+echo "subj grp time n mean sd sem" | xe-delimit stdin > $outfile
+xe-cut1 $infile subj,grp,time,corr |
+	xe-math_round1 stdin -cy 3 -d 1 -b $setavg |
+	xe-statsgrp3 stdin -cg1 1 -cg2 2 -cg3 3 -cy 4  | tail -n +2 >> $outfile # get subject/grp/time averages
+xe-statsgrp2 $outfile -cg1 2 -cg2 3 -cy 5  |
+	xe-plottable1 stdin $plotopts -ymin -1 -ymax 1 -yint 0.25 -hline -1,1 -ps 4 -ylabel "Correlation (broadband)" -out $plotfile
+
+echo "	PLOT FISHER-ADJUSTED BROADBAND CORRELATION SUMMARY"
+plotopts="stdin -cg 1 -cx 2 -cy 4 -ce 6 -ew 0 -line 1 -ps 0 -xmin $mintime -xmax $maxtime -xint $setavg -xscale .4 -vline 0 -xlabel Time_(s) -frame 15"
+infile=$outbase"broad.txt"
+plotfile=$tempfile"_broad_fcorr.ps"
+plotlist=$plotlist" "$plotfile
+xe-cut1 $infile grp,time,fcorr |
+	xe-statsgrp2 stdin |
+	xe-plottable1 $plotopts -ylabel "F-Correlation (broadband)" -out $plotfile
+
+# BIN THE FISHER_ADJUSTED BROADBAND DATA BY TIME INTERVAL
+infile=$outbase"broad.txt"
+outfile=$outbase"broad_bin_fcorr.txt"
+plotfile=$tempfile"_broad_bin_fcorr.ps"
+plotlist=$plotlist" "$plotfile
+echo "subj grp time n mean sd sem" | xe-delimit stdin > $outfile
+xe-cut1 $infile subj,grp,time,fcorr |
+	xe-math_round1 stdin -cy 3 -d 1 -b $setavg |
+	xe-statsgrp3 stdin -cg1 1 -cg2 2 -cg3 3 -cy 4  | tail -n +2 >> $outfile # get subject/grp/time averages
+xe-statsgrp2 $outfile -cg1 2 -cg2 3 -cy 5  |
+	xe-plottable1 stdin $plotopts -ps 4 -ylabel "F-Correlation (broadband)" -out $plotfile
+
+
+xe-plotmerge1 -xinc 270 -xmax 2 -ymax 4 -yinc 190  $plotlist -out $outbase"summary_broadband"
+rm -f $plotlist
+
+
+# MAKE TRANSPOSED VERSIONS OF THE BINNED DATA FOR STATS
+infile=$outbase"broad_bin_corr.txt"
+outfile=$outbase"broad_bin_corr_trans.txt"
+xe-transpose4 $infile -cg1 1 -cg2 2 -cg3 3 -cy 5 > $outfile
+
+infile=$outbase"broad_bin_fcorr.txt"
+outfile=$outbase"broad_bin_fcorr_trans.txt"
+xe-transpose4 $infile -cg1 1 -cg2 2 -cg3 3 -cy 5 > $outfile
+
+
+
+################################################################################
+# PLOT CORRELATION SUMMARIES (LINE GRAPHS)
+################################################################################
+echo "	PLOT CORRELATION SUMMARIES (LINE GRAPHS)"
+infile=$outbase"multifreq.txt"
+xe-cut1 $infile time,grp,freq,corr | xe-math_round2 stdin -c 1 -b $setavg > $tempfile
+listblock=$(xe-cut1 $tempfile time | xe-checkisnum2 stdin -t 2 -f 0 -m "-" | sort -nu)
+plotopts="stdin -cg 1 -cx 2 -cy 4 -ce 6 -ew 0 -line 1 -ps 4 -xscale .4 -font 8 -ymin -1 -ymax 1 "
+plotlist=""
+for block in $listblock ; do
+	plotfile=$tempfile"."$block
+	plotlist=$plotlist" "$plotfile
+	awk '$1=='$block'{print $2,$3,$4}' $tempfile |
+	xe-statsgrp2 stdin -cg1 1 -cg2 2 -cy 3 |
+	xe-plottable1 $plotopts -xlabel "Freq.(Hz) block $block" -ylabel "Correlation (r)" -out $plotfile
+done
+xe-plotmerge1  -xinc 250 -xmax 2 -ymax 4 -yinc 190  $plotlist -out $outbase"summary_multifreq_blocks"
+rm -f $plotlist
+
+
+
+
+rm -f $tempfile*
+echo
+
+exit

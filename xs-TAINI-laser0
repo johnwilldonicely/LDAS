@@ -1,0 +1,257 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+
+setsf="19531.25"
+setnchans="16"
+setdestbase="../../Data_Library/"
+setstimdur="0.004"
+setpre="SYNC_"
+setseq0="2,0"
+setblank="0"
+
+# calculate the stim duration based on settings
+stimdursamps=$(echo "$setstimdur * $setsf" | bc | xe-math_round1 stdin)
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract laser-ERP trial-records from acquisition PLAN file"
+	echo " - trial start-stop pairs are inserted into the .notes file for each subject"
+	echo "USAGE: $thisprog [plan] [options]"
+	echo "	[plan]: a file defining how the eperiment was run"
+	echo "		- defines date= and experiment= "
+	echo "		- <MAPPING> section summarizes session, subject and trial"
+	echo "			- batch,box,device,band,subject"
+	echo "		- <TRIALS> section describes individual trials"
+	echo "			- batch,box,paw,response,stim"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--seq: CSV list of valid sync-number sequence [$setseq0]"
+	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
+	echo "		NOTE: use \"*.plan\" as the plan name - the quotes matter!"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" PLAN.txt  2>&1 | tee log_$thisprog.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+echo "################################################################################"
+echo $thisprog "$allopts"
+date
+echo "################################################################################"
+
+
+################################################################################
+# ARGUMENT HANDLING
+# - don't check for file presence until after we confirm this is not a batch job
+################################################################################
+fileplan=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="seq:,batch:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--seq ) setseq0=$2 ; shift ;;
+		--batch ) setbatch=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog "$allopts"
+	echo
+fi
+
+
+################################################################################
+# IS THIS ACTUALLY A BATCH JOB?
+# - if so, make recursive calls to this script, omitting --batch arguments
+################################################################################
+if [ "$setbatch" != "" ] ; then
+	list=$(echo $setbatch | tr ',' ' ') # convert from CSV to whitespace-delimited list
+	z=2; # define the starting-field for options - ie. exclude required arguments
+	opts=$(echo $allopts|awk '{for(i='$z';i<=NF;i++){if($i=="--batch"){i++;continue};a=a" "$i}}END{print a}') # build options excluding --batch
+	cd $startdir # confirm start in the start directory
+	for dir in $list ; do # for each batch-directory...
+		if [ -d "$dir" ]; then
+			cd $dir
+			if [ "$setverb" != "0" ] ; then echo -e "\n$dir\n" ; fi
+			$thisprog $fileplan $opts 2>&1| tee "log_"$thisprog".txt"
+			cd $startdir
+		else
+			{ echo -e "\n--- Error ["$thisprog"]: missing directory $dir\n" ;  exit; } ;
+		fi
+	done
+	exit # DO NOT DO ANYTHING ELSE!
+fi
+
+
+################################################################################
+# CHECK AND PROCESS THE PLAN FILE
+# - these are essentially the same checks run by xs-TAINI-preproc1
+################################################################################
+if [ ! -e $fileplan ] ; then { echo -e "\n--- Error ["$thisprog"]: missing PLAN-file $fileplan\n" ; exit; } ; fi
+if [ ! -s $fileplan ] ; then { echo -e "\n--- Error ["$thisprog"]: empty PLAN-file $fileplan\n" ; exit; } ; fi
+
+echo "PROCESSING PLAN FILE $fileplan ..."
+if [ "$(dos2unix -q < $fileplan | cmp -s - $fileplan)" ] ; then dos2unix -q $fileplan ; fi
+
+# GET THE DATE AND EXPERIMENT NAME
+date1=$(xe-getkey $fileplan "date=")
+if [ "$date1" == "" ] ; then  { echo -e "\n--- Error ["$thisprog"]: date undefined in $fileplan \n" ; exit ; } fi
+exptname=$(xe-getkey $fileplan "experiment=")
+if [ "$exptname" == "" ] ; then  { echo -e "\n--- Error ["$thisprog"]: experiment name undefined in $fileplan \n" ; exit ; } fi
+echo "	date= "$date1
+echo "	experiment= "$exptname
+
+
+# CHECK THE .PLAN MAPPING SECTION & MAKE .DAT LIST
+xe-strxmlparse1 $fileplan MAPPING > $tempfile
+# make sure the MAPPING section exists
+let z=$(cat $tempfile | wc -l)
+if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no MAPPING section in $fileplan \n" ; exit ; } fi
+# build dat file list
+listdat=$(
+	xe-strxmlparse1 $fileplan MAPPING |
+	xe-cut1 stdin session,subject -s 1 -o 1 |
+	awk '$1~/^[0-9]+$/ && $2~/^[0-9]+$/ {print "'$date1'-"$1"_"$2".dat"}')
+# make sure there were some entries
+if [ ! "$listdat" ] ; then { echo -e "\n--- Error ["$thisprog"]: no session/subject entries in the MAPPING section of $fileplan \n" ; exit ; } fi
+# check that each subject-session combination appears only once
+z=$(echo $listdat | tr ' ' '\n' | uniq -d)
+if [ "$z" ] ; then { echo -e "\n--- Error ["$thisprog"]: duplicates of session-subject combinations in $fileplan\n" ; exit ; } fi
+
+
+# CHECK IF TRIALS SECTION IS JUST PRELIMINARY CODE (SINGLE-COLUMN 4 CHARS: [box][paw][response])
+let z=$(xe-strxmlparse1 $fileplan TRIALS | awk 'NF>0&&$0!~/^#/{print $0; exit}' | grep batch | grep code --colour=never | wc -l)
+if [ $z -eq 1 ] ; then
+	echo -e "\t...converting TRIAL codes to columns..."
+	echo -e "<TRIALS>" > $tempfile".trials"
+	echo -e "batch\tbox\tpaw\tresponse" >> $tempfile".trials"
+	xe-strxmlparse1 $fileplan TRIALS |
+		xe-cut1 stdin batch,code -s 1 -o 1 |
+		awk '{a=$1;b=substr($2,1,1);c=substr($2,2,2);d=substr($2,4,1); if(c=="")c="-"; if(d=="")d="-"; print a,b,c,d}'  |
+		xe-delimit stdin >> $tempfile".trials"
+	echo -e "</TRIALS>" >> $tempfile".trials"
+	# now update the TRIALS section in the original plan
+	xs-ldas-updatenotes2 $fileplan TRIALS $tempfile".trials" > $tempfile".trialsb"
+	mv $tempfile".trialsb" $fileplan
+fi
+
+
+########################################################################################
+# FOR EACH .DAT FILE IN THE LIST...
+# - identify the .sync file
+# - get the session parameters
+# - table_trialmapping file to use the
+# - find the matching Ethovision trials
+########################################################################################
+# pre-check that .dat and matching .sync files required for this experiment are present
+echo "CHECKING FOR PRESENCE OF .dat FILES ..."
+for filedat in $listdat ; do
+	if [ ! -e $filedat ] ; then { echo -e "\n--- Error ["$thisprog"]: missing .dat file $filedat - check date and MAPPING section in $fileplan\n" ; exit ; } fi
+	if [ ! -s $filedat ] ; then { echo -e "\n--- Error ["$thisprog"]: empty .dat file $filedat\n" ; exit; } fi
+	z=$(xe-ldas5-readdat2 $filedat -nch $setnchans -n 1 2>&1 | grep -i error --color=never)
+	if [ "$z" ] ; then echo -e "\n	"$z ; echo ; exit ; fi
+done
+
+echo -e "\nEXTRACTING SYNC/TRIAL DATA..."
+for filedat in $listdat ; do
+	echo -e "\tProcessing $filedat"
+	rm -f $tempfile.notes
+
+	#-----------------------------------------------------------------------
+	# PARSE THE .DAT FILENAME FOR DATE, SESSION AND SUBJECT
+	# no need to check name-format, since list of filenames was built from the MAPPING fields in the first place
+	date2=$(xs-ldas-parsename $filedat date -f)
+	session=$(xs-ldas-parsename $filedat session -fs)
+	subject=$(xs-ldas-parsename $filedat subject -f)
+	base=$date2"-"$session"_"$subject
+	dest=$setdestbase"/"$date2"-"$session"_"$subject
+	filelost=$(ls $dest/$base"-lost.ssp" 2>/dev/null)
+	filesync=$(xs-strsub $filedat .dat .sync)
+
+	#-----------------------------------------------------------------------
+	# CREATE A TEMP FILE HOLDING THE TRIAL INFO AND START/STOP SEQUENCES
+	# build the trial+sync records
+	xs-TAINI-tools trials --seq $setseq0 --file $filesync --append stim > $tempfile
+	# check for errors
+	let z=$(grep Error $tempfile | wc -l)
+	if [ $z -gt 0 ] ; then cat $tempfile ; exit ; fi
+	# write the trials section, stop-sample derived from the stim-duration
+	xe-strsub1 $tempfile SYNC_2 start -in SYNC_2 |
+		xe-cut1 stdin start,stim,paw,response -o 1 |
+		awk '
+		BEGIN{n=0; print "<TRIALS>\ntrial\tstart\tstop\tstim\tpaw\tresponse\tname" }
+		{ print ++n"\t"$1"\t"$1"\t"$2"\t"$3"\t"$4"\t"n"_"$2"_"$3"_"$4 }
+		END{print "</TRIALS>"}
+		' |
+		xe-math_add1 stdin -cy 3 -v $stimdursamps -long 1  > $tempfile".trials"
+
+	#-----------------------------------------------------------------------
+	# ADD THE TRIALS SECTION TO THE NOTES FILE
+	# - if the TRIALS section already exists, it will be overwritten
+	mkdir -p $dest
+	filenotes=$dest"/"$base".notes"
+
+	if [ -e "$filenotes" ] ; then
+		xs-ldas-updatenotes2 $filenotes TRIALS $tempfile".trials" > $tempfile
+		mv $tempfile $filenotes
+	else
+		echo -e "$RED\n--- Error ["$thisprog"]: no notes file in $dest/$base"
+		echo -e "\t- plan file $fileplan might not been have been pre-processed"
+		echo -e "\t- run xs-TAINI-preproc1 before running $thisprog $NC\n"
+		exit
+	fi
+
+
+done # END OF LOOP: for filedat in $listdat ; do
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

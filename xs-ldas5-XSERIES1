@@ -1,0 +1,289 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setregion="hipp.dorsal.ca1.pyr"
+settrials="all"
+setclean="1"
+setnorm="-1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": create table of 1s-window time-series data for:"
+	echo "	- velocity"
+	echo "	- firing rates for pyramidal cells and interneurons"
+	echo "	- spectral power in the delta,theta,beta, and gamma bands"
+	echo "USAGE: "
+	echo "	"$thisprog" [base]"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-t | --trials: CSV list of trials to use for rate (or \"all\") [$settrials]"
+	echo "	-r | --region: brain region to analyze [$setregion]"
+	echo "	-n | --norm: normalization applied to cell firing rates [$setnorm]"
+	echo "			- refer to xe-norm2 for options"
+	echo "			- e.g. -1= no normalization"
+	echo "			- e.g.  1= z-scores"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20170731-001_000016"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo "--------------------------------------------------------------------------------"
+echo $thisprog "$@"
+
+
+rm -f $tempfile*
+rm -f $progbase1*
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setbase=$1 ; shift
+
+filenotes=$setbase".notes"
+filewfm=$setbase".wfm"
+fileclubt=$setbase".clubt"
+fileclub=$setbase".club"
+filexydt=$setbase".xydt"
+filexyd=$setbase"-nose.xyd"
+filecellstats=$setbase".cellstats"
+if [ ! -e $filenotes ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filenotes"; echo; exit; } fi
+if [ ! -e $filecellstats ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filecellstats"; echo; exit; } fi
+if [ ! -e $filewfm ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filewfm"; echo; exit; } fi
+if [ ! -e $fileclubt ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $fileclubt"; echo; exit; } fi
+if [ ! -e $fileclub ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $fileclub"; echo; exit; } fi
+if [ ! -e $filexydt ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filexydt"; echo; exit; } fi
+if [ ! -e $filexyd ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filexyd"; echo; exit; } fi
+if [ ! -e $filexyd ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filexyd"; echo; exit; } fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="t:r:n:" ; vl="trials:,region:,norm:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-t | --trials ) settrials=$2 ; shift ;;
+		-r | --region ) setregion=$2 ; shift ;;
+		-n | --norm ) setnorm=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# GET PARAMETERS FROM .NOTES FILE
+################################################################################
+# get the sample-frequency
+sf=$(xe-getkey $filenotes sample_rate=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+# get the channel-nuber - express as 3-digits
+chan=$(xe-dbmatch1 $filenotes region $setregion -xml CHANNELS -m 1 -oc chan -o 1 | head -n 1 | awk '{printf("%03d",$1)}')
+if [ "$chan" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: problem finding channel ($setregion) in $filenotes" ; echo ; exit; } ; fi
+# make ssp files for FAM trials - with or without downsampling (latter for LFP analysiis)
+xs-ldas-gettrials2 $filenotes --name $settrials --out ssp --down 0 > $tempfile".0.ssp"
+xs-ldas-gettrials2 $filenotes --name $settrials --out ssp --down 1 > $tempfile".1.ssp"
+let z=$(grep Error $tempfile".1.ssp" | wc -l)
+if [ $z -gt 0 ] ; then { cat $tempfile".1.ssp" ; exit ; } fi
+# define lfp (.bin) input file
+filebin=$setbase"-"$chan".bin"
+if [ ! -e $filebin ] ; then { echo; echo "--- Error ["$thisprog"]: missing file $filebin"; echo; exit; } fi
+
+
+################################################################################
+# GET RUNNING SPEED TRACE  (filter with un-downsampled .ssp file)
+################################################################################
+echo "	...processing running speed..."
+echo "vel" > $tempfile"_vel.txt"
+xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile".0.ssp"  |
+	xe-cut1 stdin vel -o 1 |
+	xe-bin1 stdin 25 |
+	xe-math_round1 stdin -b 0.0001 >> $tempfile"_vel.txt"
+
+################################################################################
+# GET POWER OVER TIME FOR TRIALS "FAM1 & FAM2" (filter with downsampled .ssp file)
+################################################################################
+echo "	...processing spectral amplitude..."
+xe-fftpow2 $filebin -dt 8 -sf 1000 -o 3 -w 1000 -scrf $tempfile".1.ssp" |
+ 	xe-cut1 stdin delta,theta,beta,gamma > $tempfile"_pow.txt"
+
+################################################################################
+# GET CELL-TYPE FIRING RATES (filter with un-downsampled .ssp file)
+################################################################################
+echo "	...processing cell firing rates..."
+# build cell lists
+listpyr=$(xe-dbmatch1 $filecellstats class 1 -oc cluster -o 1)
+listint=$(xe-dbmatch1 $filecellstats class 2 -oc cluster -o 1)
+listall=$(xe-cut1 $filecellstats cluster -o 1)
+let npyr=$(echo $listpyr | wc -w)
+let nint=$(echo $listint | wc -w)
+let nall=$(echo $listall | wc -w)
+
+# get mean-pyramidal-cell rate timecourse
+echo "pyr" > $tempfile"_pyr.txt"
+if [ $npyr -gt 0 ] ; then
+	echo "		- $npyr pyramidal cells"
+	for clu in $listpyr ; do
+		xe-ldas5-clurate1 $fileclubt $fileclub -scrf $tempfile".0.ssp" -verb 0 -clu $clu |
+		xe-norm2 stdin -n $setnorm > $tempfile".pyr."$clu
+	done
+	paste $tempfile".pyr."* | xe-statsrow1 stdin -t 3 | xe-math_round1 stdin -b 0.0001 >> $tempfile"_pyr.txt"
+else
+	tail -n +2 $tempfile"_vel.txt" | awk '{print "NAN"}'  >> $tempfile"_pyr.txt"
+fi
+# get mean-interneuron rate timecourse
+echo "int" > $tempfile"_int.txt"
+if [ $nint -gt 0 ] ; then
+	echo "		- $nint interneurons"
+	for clu in $listint ; do
+		xe-ldas5-clurate1 $fileclubt $fileclub -scrf $tempfile".0.ssp" -verb 0 -clu $clu |
+		xe-norm2 stdin -n $setnorm > $tempfile".int."$clu ;
+	done
+	paste $tempfile".int."* | xe-statsrow1 stdin -t 3  | xe-math_round1 stdin -b 0.0001 >> $tempfile"_int.txt"
+else
+	tail -n +2 $tempfile"_vel.txt" | awk '{print "NAN"}'  >> $tempfile"_int.txt"
+fi
+# get mean-allcells rate timecourse
+echo "all" > $tempfile"_all.txt"
+if [ $nall -gt 0 ] ; then
+	echo "		- $nall pyr+int+unclassified cells"
+	for clu in $listall ; do
+		xe-ldas5-clurate1 $fileclubt $fileclub -scrf $tempfile".0.ssp" -verb 0 -clu $clu |
+		xe-norm2 stdin -n $setnorm > $tempfile".all."$clu ;
+	done
+	paste $tempfile".all."* | xe-statsrow1 stdin -t 3  | xe-math_round1 stdin -b 0.0001 >> $tempfile"_all.txt"
+else
+	tail -n +2 $tempfile"_vel.txt" | awk '{print "NAN"}'  >> $tempfile"_all.txt"
+fi
+
+################################################################################
+# GENERATE THE SUMMARIES
+################################################################################
+echo "	...generating summaries..."
+# per-window results
+paste $tempfile"_vel.txt" $tempfile"_pyr.txt" $tempfile"_int.txt" $tempfile"_all.txt" $tempfile"_pow.txt" |
+	awk 'NF>=5{print $0}' > $progbase1"_windows.txt"
+
+# for each predictor and variable....
+listvar="delta theta beta gamma pyr int all"
+listpred="vel "
+if [ $npyr -gt 0 ] ; then listpred=$listpred" pyr" ; fi
+if [ $nint -gt 0 ] ; then listpred=$listpred" int" ; fi
+if [ $nall -gt 0 ] ; then listpred=$listpred" all" ; fi
+
+for predictor in $listpred ; do
+	let count=0
+	listfiles=""
+	for var in $listvar ; do
+		let count=$count+1
+		if [ $var == $predictor ] ; then continue ; fi
+		outfile=$tempfile"."$count
+		listfiles=$listfiles" "$outfile
+		if [ $count -eq 1 ] ; then
+			output="grp,n,mean" ;
+			echo "$predictor n $var"  | xe-delimit stdin > $outfile
+		else
+			output="mean"
+			echo $var > $outfile
+		fi
+		# calculate the average for each category of predictor
+		if [ $var == "pyr" ] && [ $npyr -lt 1 ] ; then { tail -n +2 $tempfile.1 | awk '{print "NAN"}'  >> $outfile ; continue ; } fi
+		if [ $var == "int" ] && [ $nint -lt 1 ] ; then { tail -n +2 $tempfile.1 | awk '{print "NAN"}'  >> $outfile ; continue ; } fi
+		if [ $var == "all" ] && [ $nall -lt 1 ] ; then { tail -n +2 $tempfile.1 | awk '{print "NAN"}'  >> $outfile ; continue ; } fi
+		xe-cut1 $progbase1"_windows.txt" $predictor,$var |
+			xe-statsgrp0 stdin per 1 |
+			xe-cut1 stdin $output -o 1 >> $outfile
+	done
+
+	paste $listfiles > $progbase1"_summary_"$predictor".txt"
+
+done
+
+
+################################################################################
+# PLOT THE RESULTS
+################################################################################
+echo "	...plotting the results..."
+listplots=""
+plotopts="-cx 1 -cy 3 -ce 5 -ew 0 -colour 3 -xscale .22 -yscale .22 -ps 3 "
+
+# VELOCITY VERSUS POWER IN 3 BANDS
+predictor="vel"
+for var in delta theta gamma ; do
+	fileplot=$tempfile"_vel_vs_"$var".ps"
+	listplots=$listplots" "$fileplot
+	# generate the plot
+	xe-cut1 $progbase1"_windows.txt" $predictor,$var -o 1 |
+	xe-statsgrp0 stdin -per 0 2> /dev/null |
+	xe-plottable1 stdin $plotopts -xlabel "Velocity (cm/s)" -ylabel "Amplitude ($var)" -out $fileplot 2> /dev/null
+done
+
+# VELOCITY VERSUS FIRING RATE
+predictor="vel"
+for var in pyr int all ; do
+	fileplot=$tempfile"_"$predictor"_vs_"$var".ps"
+	listplots=$listplots" "$fileplot
+	# generate the plot
+	xe-cut1 $progbase1"_windows.txt" $predictor,$var -o 1 |
+	xe-statsgrp0 stdin -per 0 2> /dev/null |
+	xe-plottable1 stdin $plotopts -xlabel "Velocity (cm/s)" -ylabel "Spikes/s ($var)" -out $fileplot 2> /dev/null
+done
+
+# FIRING RATE VERSUS POWER IN 3 BANDS
+if [ "$setnorm" == "1" ] ; then mult=10
+else mult=1
+fi
+listpred="pyr int all"
+for predictor in $listpred ; do
+for var in delta theta gamma ; do
+	fileplot=$tempfile"_"$predictor"_vs_"$var".ps"
+	listplots=$listplots" "$fileplot
+	xe-cut1 $progbase1"_windows.txt" $predictor,$var -o 1 |
+		xe-statsgrp0 stdin -per 0 -mult $mult 2> /dev/null |
+		xe-plottable1 stdin $plotopts -xlabel "Spikes/s ($predictor)" -ylabel "Amplitude ($var)" -out $fileplot 2> /dev/null
+done
+done
+
+xe-plotmerge1 $listplots -xmax 3 -ymax 6 -xinc 180 -yinc 150 -out $progbase1"_summary"
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+
+echo
+exit

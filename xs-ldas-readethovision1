@@ -1,0 +1,123 @@
+#!/bin/bash
+# TO DO
+#
+#
+
+setdate=$(date +%y%m%d)
+start_time=$(date +'%s')
+startdir=$(pwd)
+startdirshort=$(basename $startdir)
+thisprog="xs-ldas-readethovision1"
+tempfile="temp_"$thisprog
+
+logfile=$startdir/"log_"$thisprog"_"$setdate".txt"
+
+sethead=""
+setcols=""
+setrec=""
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract EthoVision data "
+	echo "--------------------------------------------------------------------------------"
+	echo "Read and convert Ethovision-export data"
+	echo "	- quotation marks removed"
+	echo "	- semicolon delimiters replaced by tabs"
+	echo "	- empty fields replaced with \"nan\""
+	echo "	- spaces and parentheses replaced with underscores"
+	echo "	- multiple consecutive underscores replaced with a single underscore"
+	echo 
+	echo "USAGE: "$thisprog" [source] [options]"
+	echo "	[source]: name of file to read"
+	echo "		- DOS-format files may need to be pre-processed with dos2unix"
+	echo "		- semicolon-delimited"
+	echo "		- fields are enclosed in quotes and may contain spaces"
+	echo "	[options]: values to extract (after reformatting)"
+	echo "		-h header value to extract (1st match) or \"ALL\" (keys + values)"
+	echo "		-c columns to extract, based on column-labels (or \"ALL\") "
+	echo "		-R (flag) extract recording parameters (single line)"
+	echo "			- absolute recording start date (dd/yy/yyyy)"
+	echo "			- absolute recording start time (hh:mm:ss)"
+	echo "				- adjusted for delay at beginning of trial"
+	echo "			- recording duration (hh:mm:ss)"
+	echo "			- example output: 19/08/2015  15:20:43.3  00:00:15.0"
+	echo 
+	echo "EXAMPLE: "
+	echo "	$thisprog ETHO.txt -h vSESSION"
+	echo "	$thisprog ETHO.txt -c Recording_time,X_center,Y_center"
+	echo "	$thisprog ETHO.txt -R"
+	echo "	dur=\$($thisprog ETHO.txt -R |cut -f 3|xe-timeconv1 stdin)"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+setinfile=$1 ; shift 
+if [ ! -e $setinfile ] ; then { echo ; echo "--- Error ["$thisprog"]: input file \"'$setinfile'\" is missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":h:c:R" flag ; do
+ 	case $flag in
+		h) sethead=$OPTARG;;
+ 		c) setcols=$OPTARG;;
+		R) setrec=1;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+# read number of header lines: -a option ensures all files are treated as text
+let lenhead=$(grep -a "Number of header lines" "$setinfile" |head -n 1| cut -d ';' -f 2 | tr -d '"')
+let lenhead_m1=$lenhead-1
+let lenhead_m2=$lenhead-2
+let lenhead_p1=$lenhead+1
+
+# GET RECORDING DATE TIME AND DURATION 
+if [ "$setrec" == "1" ] ; then 
+	echo "date time duration" | tr ' ' '\t' 
+	a=$(grep -am 1 "Start time" $setinfile | cut -f 2 -d ';' | tr -d \" | cut -f 1 -d ' ')
+	b=$(grep -am 1 "Start time" $setinfile | cut -f 2 -d ';' | tr -d \" | cut -f 2 -d ' ' | xe-timeconv1 stdin -f 1)
+	c=$(grep -am 1 "Recording after" $setinfile | cut -f 2 -d ';' | tr -d \" | cut -f 2 -d ' ' | xe-timeconv1 stdin -f 1)
+	d=$(echo $b $c | awk '{print $1+$2}' | xe-timeconv1 stdin -f 2 )
+	e=$(grep -am 1 "Recording duration" $setinfile |cut -f 2 -d ';'|tr -d \"|cut -f 2 -d ' ')
+	echo $a $d $e | tr ' ' '\t'
+fi
+
+
+# GET HEADER VALUE (ASSUMED TO BE SEMICOLON-DELIMITED FIELD NUMBER TWO)
+if  [ "$sethead" != "" ] ; then 
+	if [ "$sethead" == "ALL" ] ; then 
+		head -n +$lenhead_m2 $setinfile | 
+		sed -e 's/[( ]/_/g ; s/[,)]//g ; s/;/\t/g ; s/\"//g' 
+		tr -s '_'
+	else 
+		head -n +$lenhead_m2 $setinfile |
+		sed -e 's/[( ]/_/g ; s/[,)]//g ; s/;/\t/g ; s/\"//g' | 
+		grep -am 1 $sethead |
+		cut -f 2 |
+		tr -s '_' 
+	fi
+fi 
+
+# GET COLUMNS OF DATA 
+if [ "$setcols" != "" ] ; then 
+	if [ "$setcols" == "ALL" ] ; then 
+		tail -n +$lenhead_m1 $setinfile | 
+		sed -e 's/[( ]/_/g ; s/[,)]//g ; s/;/\t/g ; s/""/nan/g ; s/"-"/nan/g ; s/\"//g' |
+		tr -s '_' |
+		sed '2d'
+	else 
+		tail -n +$lenhead_m1 $setinfile | 
+		sed -e 's/[( ]/_/g ; s/[,)]//g ; s/;/\t/g ; s/""/nan/g ; s/"-"/nan/g ; s/\"//g' |
+		sed '2d' |
+		tr -s '_' |
+		xe-cut1 stdin $setcols
+	fi
+fi
+
+
+exit

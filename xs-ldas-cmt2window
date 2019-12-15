@@ -1,0 +1,90 @@
+#!/bin/bash
+thisprog="xs-ldas-cmt2window"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog"."$$"."
+
+set_sfreq="1"
+set_start=""
+set_end=""
+
+if [ $# -lt 4 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert a comment file containing start signals to start/stop pairs"
+	echo "USAGE: "
+	echo "	"$thisprog" [cmtfile] [signal] [pre] [post]"
+	echo "		[cmtfile]: file in format <time> <signal>"
+	echo "			 - time is in seconds and represents the alignment point"
+	echo "		[signal]: text to match in the second column" 
+	echo "		[pre]: time (secs) before the signal to include (positive number)" 
+	echo "		[post]: time (secs) after the signal to include (positive number)" 
+	echo "ADDITIONAL ARGUMENTS, defaults in []:"
+	echo "	-f: sample frequency (Hz) to convert seconds to samples [$set_sfreq]"
+	echo "	-s: minimum start-time: if unset (-s \"\"), include all [$set_start]"
+	echo "	-e: maximum stop-time: if unset (-e \"\"), include all)  [$set_end]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 001-991231.cmt START_000 5 15 -f 400"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+# PARSING REQUIRED ARGUMENTS 
+infile=$1 ; shift
+signal=$1 ; shift
+pre=$1 ; shift
+post=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":f:s:e:" flag ; do
+ 	case $flag in
+		f) set_sfreq=$OPTARG;;
+		s) set_start=$OPTARG;;
+		e) set_end=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CHECK FILE EXISTS
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+#echo "infile="$infile
+#echo "signal="$signal
+#echo "pre="$pre
+#echo "post="$post
+#echo "set_sfreq="$set_sfreq
+
+# CONVERT START AND STOP TIMES TO SAMPLES
+if [ ! -z $set_start ] ; then set_start=$(echo $set_start | awk '{print $1 * '$set_sfreq'}') ; fi 
+if [ ! -z $set_end ] ; then set_end=$(echo $set_end | awk '{print $1 * '$set_sfreq'}') ; fi 
+
+# DETERMINE THE NUMBER OF SAMPLES IN EACH BLOCK 
+nsamps=$(echo $pre $post $set_sfreq | awk '{printf("%d",(($1+$2)*$3))}')
+
+# DEFINE THE WINDOWS, DROPPING SOME IF THEY FAIL THE SET_START AND SET_END CRITERIA
+if [ ! -z $set_start ] && [ ! -z $set_end ]; then 
+	# calculate start sample (convert to integer) and stop sample (from $nsamps)
+	awk '$2~/'$signal'/{ a=int('$set_sfreq'*($1-'$pre')); b=a+'$nsamps'; print a"\t"b}' $infile | 
+	# check values are within range
+	awk '$1>='$set_start' && $2<='$set_end'{print $0}'
+
+elif [ -z $set_start ] && [ -z $set_end ]; then 
+	awk '$2~/'$signal'/{ a=int('$set_sfreq'*($1-'$pre')); b=a+'$nsamps'; print a"\t"b}' $infile 
+
+elif [ ! -z $set_start ] && [ -z $set_end ]; then 
+	awk '$2~/'$signal'/{ a=int('$set_sfreq'*($1-'$pre')); b=a+'$nsamps'; print a"\t"b}' $infile | 
+	awk '$1>='$set_start'{print $0}'
+
+elif [ -z $set_start ] && [ ! -z $set_end ]; then 
+	awk '$2~/'$signal'/{ a=int('$set_sfreq'*($1-'$pre')); b=a+'$nsamps'; print a"\t"b}' $infile | 
+	awk '$2<='$set_end'{print $0}'
+
+fi 
+
+
+
+
+

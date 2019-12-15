@@ -1,0 +1,136 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+
+# thet-delta ratio as defined in 
+# 	Csicsvari J1, Hirase H, Czurkó A, Mamiya A, Buzsáki G.
+# 	Oscillatory coupling of hippocampal pyramidal cells and interneurons in the behaving Rat.
+#	J Neurosci. 1999 Jan 1;19(1):274-87.
+# 		5-10Hz / 2-4 Hz using 2sec windows
+
+
+thisprog="xs-ldas5-plotthetadelta1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+settrial="1"
+setbin="1"
+setdec=""
+setplotopts=""
+srxyd=25
+
+setchan=1
+setsmooth=0
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot the theta-delta ratio for a trial"
+	echo "REQUIRES: a properly formatted ,notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [channel] [options]"
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-t: trial ["$settrial"]"
+	echo "	-b: bin-size (sec) for averaging (0= no binning) ["$setbin"]"
+	echo "	-d: decimation (sec - will override -b if set) ["$setdec"]"
+	echo "	-s: Gaussian smoothng half-window size (0=none) ["$setsmooth"]"
+	echo "	-P: plot options (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+setchan=$1 ; shift
+
+chan=$(echo $setchan | awk '{printf("%03d",$1)}')
+filebin=$base"-"$chan".bin"
+filenotes=$base".notes"
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":t:b:d:s:P:" flag ; do
+ 	case $flag in
+ 		t) settrial=$OPTARG;;
+		b) setbin=$OPTARG;;
+		d) setdec=$OPTARG;;
+		s) setsmooth=$OPTARG;;
+		P) setplotopts=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filebin ] ; then { echo ; echo "--- Error ["$thisprog"]: .bin file '$filebin' missing" ; echo ; exit; } ; fi
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit; } ; fi
+
+# GET NOTESFILE DATA 
+sr=$(xe-getkey $filenotes sample_rate=)
+bindec=$(xe-getkey $filenotes bin_decimation= )
+binrate=$(echo $sr $bindec | awk '{print $1/$2}') 
+start0=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc start -o 1)
+stop0=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc stop -o 1)
+
+
+################################################################################
+# CALCULATE VARIABLES 
+################################################################################
+# convert start times to .bin samples 
+start1=$(echo $start0 $bindec | awk '{printf("%ld",($1/$2))}')
+stop1=$(echo $stop0 $bindec | awk '{printf("%ld",($1/$2))}')
+n1=$(echo $start1 $stop1 | awk '{print $2-$1}') 
+
+setfftwin=2
+setfftstep=2
+fftwin=$(echo $setfftwin $binrate | awk '{printf("%ld",($1*$2))}')
+fftstep=$(echo $setfftstep)
+fftmin=1
+fftmax=100
+newrate=$(echo $fftwin $fftstep $binrate | awk '{print  $3/($1/$2)}') # the effective sampling rate of the FFT (power) output
+halfwin=$(echo $fftwin|awk '{print $1/2.}') # 1/2 the FFT window size
+shiftsecs=$(echo $halfwin $binrate | awk '{print ($1/$2)}') # shift in detected events due to FFT-windowing
+shiftsamps=$(echo $shiftsecs $newrate| awk '{print $1*$2}') # the shift converted to FFT-windows
+setsmooth=$(echo $setsmooth | awk '{print $1+$1+1}') ; 
+
+echo "filebin="$filebin
+echo "binrate="$binrate
+echo "start1="$start1
+echo "n1="$n1
+echo "fftwin="$fftwin
+echo "fftstep="$fftstep
+echo "fftmin="$fftmin
+echo "fftmax="$fftmax
+echo "shiftsecs="$shiftsecs
+echo "shiftsamps="$shiftsamps
+echo "setsmooth="$setsmooth
+
+xe-readbinary1 $filebin -dt 8 -s $start1 -n $n1 |
+	xe-fftpow2 stdin -sf $binrate -w $fftwin -s $fftstep -min $fftmin -max $fftmax -o 1 -v 1 | 
+	tail -n +2 | # omit block header in matrix output 
+#	xe-matrixmod1 stdin -r -90 -sx 2 -sy 2 | xe-plotmatrix1 stdin -xscale 1 -yscale 0.5 -xmin 0 -xmax 600 -ymin $fftmin -ymax $fftmax  
+	xe-curvestats2 stdin -min $fftmin -max $fftmax -index 2,4,5,10 -f 2 | # calculate AUC in the delta and theta  bands
+	xe-cut1 stdin AUC0,AUC1 -o 1 | #extract the delta and theta AUC columns 
+	awk '{print ($2)/($1)}' | # theta-delta ratio
+	xe-smoothgauss1 stdin $setsmooth | 
+	xe-pad1 stdin -n $shiftsamps -e 0 -t 1 | # add padding to compensate for FFT-shift in times 
+	xe-timestamp1 stdin -sf $newrate > $tempfile 
+
+plotopts="-line 1 -ps 0 -xscale 1 -xmin 0 -xpad 0 -ypad 0 -colour 3 -xmax 600 -out plot_$tempfile.ps"
+xe-plottable1 $tempfile $plotopts -xlabel "Time (s)" -ylabel "Theta/Delta ratio" $setplotopts
+
+
+

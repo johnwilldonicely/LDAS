@@ -1,0 +1,141 @@
+#!/bin/bash
+
+# <TAGS>plot signal_processing</TAGS>
+
+thisprog="xs-plotsignal"
+tempfile="temp_"$thisprog
+setstep=1
+setunits=0
+settapers=1
+setstart=0
+setdur=1
+setgauss=0;
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make a summary plot characterizing a time-series "
+	echo
+	echo "USAGE: "
+	echo "	"$thisprog" [infile] [options]"
+	echo "		[infile]: time series in format <time><tab><value>"
+	echo
+	echo "OPTIONS (defaults in []):"
+	echo "	-u: units of FFT output [$setunits]"
+	echo "		0: amplitude"
+	echo "		1: RMS"
+	echo "		2: RMS power"
+	echo "		3: dB amplitude"
+	echo "		4: dB RMS"
+	echo "		5: db RMS power"
+	echo
+	echo "	-l: FFT low frequency [determined by duration]"
+	echo "	-h: FFT high frequency [determined by sample rate]"
+	echo "	-b: FFT buffer (window-size) [detemined by low frequency]"
+	echo "	-s: FFT step (overlap= 1-1/step: 1=0%, 2=50%, 4=75% etc) [$setstep]"
+	echo "	-t: FFT tapers [$settapers]"
+	echo "	-g: FFT output Gaussian smoothing factor (average FFt only)  [$setgauss]"
+	echo "	-u: FFT units: 0=amplitude,1=RMS,2=RMSpower,3=dBamplitude [$setunits]"
+	echo "	-A: start time (s) for signal plot []$setstart"
+	echo "	-D: duration (s) for signal plot [$setdur]"
+	echo "	-S: options (in quotes) for the signal plot"
+	echo "	-M: options (in quotes) for the mean amplitude spectrum plot"
+	echo "	-T: options (in quotes) for the time x frequency x amplitude plot"
+
+	echo "EXAMPLE: "
+	echo "	$thisprog signal.txt -u 3 "
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+infile=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":l:h:b:s:t:g:u:A:D:S:M:T:" flag ; do
+ 	case $flag in
+		l) setlow=$OPTARG;;
+		h) sethigh=$OPTARG;;
+		b) setbuffer=$OPTARG;;
+		s) setstep=$OPTARG;;
+		g) setgauss=$OPTARG;;
+		u) setunits=$OPTARG;;
+		t) settapers=$OPTARG;;
+		A) setstart=$OPTARG;;
+		D) setdur=$OPTARG;;
+		S) setplotopts1=$OPTARG;;
+		M) setplotopts2=$OPTARG;;
+		T) setplotopts3=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CALCULATE SAMPLING RATE & DURATION
+setrate=$(cut -f 1 $infile|xe-checkisnum2 stdin -t 2 -f 0 -m "-"|head -n 1000|xe-getdelta1 stdin|xe-statsd1 stdin |xe-getkey stdin MEAN|awk '{print 1/$1}')
+nlines=$(wc -l $infile |cut -f 1 -d " ")
+totaldur=$(echo $setrate $nlines | awk '{print $2/$1}' )
+
+# SET FFT OPTIONS
+fftopts="-sf $setrate -s $setstep -t $settapers -g $setgauss -u $setunits"
+if [ "$setlow" != "" ] ; then fftopts=$fftopts" -min "$setlow ; fi
+if [ "$sethigh" != "" ] ; then fftopts=$fftopts" -max "$sethigh ; fi
+if [ "$setbuffer" != "" ] ; then fftopts=$fftopts" -b "$setbuffer ; fi
+
+echo
+echo "	infile: "$infile
+echo "	lines: "$nlines
+echo "	duration: "$totaldur
+echo "	sample_rate: "$setrate
+echo "	fft_options: "$fftopts
+echo
+
+# PLOT A CHUNK OF THE RESULTING SIGNAL
+echo "	plotting a chunk of the signal..."
+plotopts1="-line 1 -ps 0 -xscale 1 -xmin $setstart -xpad 0 -xlabel Time"
+plotopts1=$plotopts1" "$setplotopts1
+plotfile=$tempfile".001.ps"
+plotlist=$plotlist" "$plotfile
+# calculate start sample (x) and duration (y)
+x=$(echo $setstart $setrate | awk '{printf("%d",($1*$2+0.5))}')
+y=$(echo $setdur $setrate | awk '{printf("%d",($1*$2+0.5))}')
+# plot a portion of the data
+tail -n +$x $infile | head -n $y |
+	xe-plottable1 stdin $plotopts1 "Time (s)" -ylabel "Amplitude" -out $plotfile
+
+# PLOT THE AVERAGE POWER SPECTRUM
+echo "	plotting average amplitude spectrum..."
+plotopts2="-line 1 -ps 0 -xscale 1 -xmin 0 -xpad 0 -hline 0 "
+plotopts2=$plotopts2" "$setplotopts2
+plotfile=$tempfile".002.ps"
+plotlist=$plotlist" "$plotfile
+
+cut -f 2 $infile |
+	xe-fftpow1 stdin $fftopts -o 0 > $tempfile
+
+ymin=$(head -n 1 $tempfile | cut -f 1 )
+ymax=$(tail -n 1 $tempfile | cut -f 1 )
+
+xe-plottable1 $tempfile $plotopts2 -xlabel "Frequency (Hz)" -ylabel "Average FFT results" -out $plotfile
+
+
+# PLOT THE POWER SPECTRUM OVER TIME
+echo "	plotting timecourse amplitude spectrum..."
+plotopts3="-xscale 1 -xpad 0 -ypad 0 -ymin $ymin -ymax $ymax -xmin 0 -xmax $totaldur"
+plotopts3=$plotopts3" "$setplotopts3
+plotfile=$tempfile".003.ps"
+plotlist=$plotlist" "$plotfile
+cut -f 2 $infile |
+	xe-fftpow1 stdin $fftopts -o 1 |
+	xe-matrixmod1 stdin -r -90 -sx 1 -sy 1  |
+	xe-plotmatrix1 stdin $plotopts3 -xlabel "Time (s)" -ylabel "Frequency (Hz)" -out $plotfile
+
+# MERGE THE PLOTS
+xe-plotmerge1 -xmax 1 -yinc 200 $plotlist -out $tempfile"_summary"
+
+#rm -f $plotlist
+
+echo

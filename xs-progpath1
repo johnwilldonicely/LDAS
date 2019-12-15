@@ -1,0 +1,49 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progpath1"
+start_dir=$(pwd)
+setomit=""
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": modify the \$PATH environment variable (defines program locations)"
+	echo "	- modifications are temporary and only apply to current window"
+	echo ""
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [newpath]"
+	echo "		[newpath]: directory to prepend to the PATH variable"
+	echo ""
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-o: path-pattern to omit [unset]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	source "$thisprog" /run/media/huxprog/DataLocker1/LDAS -o /home/huxprog"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+setpath=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":o:" flag ; do
+ 	case $flag in
+		o) setomit=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ -z $setomit ] ; then
+	path2=$setpath":"$PATH
+	export PATH=$path2
+else
+	path2=$setpath":"$(echo $PATH | tr ':' '\n' | grep -v "$setomit" | tr '\n' ':' | xe-delimitkiller stdin colon)
+	export PATH=$path2
+fi

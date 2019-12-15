@@ -1,0 +1,36 @@
+#!/bin/bash
+thisprog="xs-ldas-matrixcut1"
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+setformat="1"
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": pull data for one subject from an LDAS multi-matrix file"
+	echo "USAGE: "
+	echo "	"$thisprog" [file] [subj]"
+	echo "		[file] file with matrices separated by \"# [subj]\" comments"
+	echo "		[subj] the subject-number to match on each comment line"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data_matrix.txt 28"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+# PARSING PATHS AND FILENAMES
+infile=$1; shift 
+subject=$1 ; shift 
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+cat $infile | 
+	awk '{
+		if($1=="#") {
+			if($2=="'$subject'") on=1; else on=0; 
+		}
+		if(on==1) print $0
+	}' 

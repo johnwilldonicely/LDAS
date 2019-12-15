@@ -1,0 +1,122 @@
+#!/bin/bash
+thisprog="xs-ldas-maketestcurves1"
+tempfile="temp_"$thisprog
+outbase="CURVES"
+
+pimax=1.5
+noise=.25
+setreps=100
+flagplot="no"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN 
+################################################################################
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+         echo $thisprog": #generate a n-segment sin-curve spanning 0 to a fraction of PI"
+	echo "REQUIRES: "
+	echo "USAGE: "
+	echo "	"$thisprog" [npoints] "
+	echo "		npoints: number of segments in curve (points=n+1)"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-p: maximum fraction of PI to generate ["$pimax"]"
+	echo "	-n: level of Gaussian noise ["$noise"]"
+	echo "	-r: repetitions ["$setreps"]"
+	echo "	--plot: flag to generate plot of exemplar and mean curve [unset by default]"
+	echo "NOTES: "
+	echo "		- AUC for each lobe of a sine curve is exaclty 2"
+	echo "		- Example: if pimax=0.75, the total AUC is exactly 1: "
+	echo "			+2 for the positive portion"
+	echo "			-1 for the negative portion"
+	echo "OUTPUT: "
+	echo "	"$outbase"_rows.txt: one curve on each of -r rows"
+	echo "	"$outbase"_mean.txt: mean curve, single column"
+	echo "	"$outbase"_examplar.ps: plot of first curve"
+	echo "	"$outbase"_mean.ps: plot of mean curve"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 10 -n 0.5 -r 100 --plot"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+n=$1 ; shift  # eg. 100
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments 
+########################################################################################
+aflag=no
+bflag=no
+setformat="unset"
+# define acceptable short (-o) and long (-l) options
+eval set -- $(getopt -o p:n:r: -l plot,pimax:,noise:,setreps: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		--plot ) flagplot="yes" ;;
+		# arguments with required options (an additional shift is required)
+		-p | --pimax ) pimax=$2 ; shift ;;
+		-n | --noise ) noise=$2 ; shift ;;
+		-r | --reps ) setreps=$2 ; shift ;;
+		-- ) shift ; break ;;
+		# bad arguments or invalid options will produce an error 
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+pi=$(echo "1" | awk '{printf("%.12f\n",(atan2(0,-1)))}')
+sf=$(echo "scale=12; $n / $pimax" | bc)      # sample-rate for curve generation
+step=$(echo "scale=12; $pi * $pimax / $n" | bc)  # sample-interval for AUC calculation
+outrows=$outbase"_rows.txt"
+rm -f $outrows
+for i in $(seq 1 $setreps) ; do 
+	# make the curve 
+	xe-makedata1 $pimax $sf -f 0.5 -a 1 -n $noise -g 1 -end 1 |
+	paste -s >> $outrows
+done 
+# calculate mean curve 
+outmean=$outbase"_mean.txt"
+xe-statscol1 $outrows  | xe-cut1 stdin mean -o 1 > $outmean
+
+# get the AUC of the mean curve 
+stats=$(xe-curvestats1 $outmean -f 2 -d $step)
+AUC1=$(echo $stats | xe-getkey stdin 1_AUC)
+# get mean of per row AUC 
+stats=$(xe-curvestats2 $outrows -d $step | xe-cut1 stdin AUC -o 1 | xe-statsd1 stdin)
+AUC2=$(echo $stats | xe-getkey stdin MEAN)
+AUCsem=$(echo $stats | xe-getkey stdin SEM)
+
+# get the mean peak-time of the 
+step2=$(echo "scale=12; 1.0/$sf" |bc)
+max1=$(paste $outmean -s | xe-statsrow1 stdin -t 6 | xe-math_mult1 stdin -v $step2)
+# the mean of the per-row peak-time 
+stats=$(xe-statsrow1 $outrows -t 6 | xe-statsd1 stdin)
+max2=$(echo $stats | xe-getkey stdin MEAN | xe-math_mult1 stdin -v $step2)
+maxsem=$(echo $stats | xe-getkey stdin SEM)
+
+
+echo "AUC1	AUC2	AUCsem	MAX1	MAX2 MAXsem"
+echo $AUC1"	"$AUC2"	"$AUCsem"	"$max1"	"$max2"	"$maxsem	
+
+#echo "sf="$sf
+#echo "step="$step
+#wc -l $outmean
+
+# PLOT THE CURVES IF THE --plot FLAG IS SET 
+if [ $flagplot == "yes" ] ; then 
+	vlines=$(seq 0 .25 $pimax | tac | tail -n +2 | tac | paste -s | tr '\t' ',')
+	plotopts="-line 1 -ps 3 -hline 0 -colour 1 -xint .25 -xpad 0 -xscale .45 -yint .25 -vline $vlines -hline -1,1 -frame 15"
+
+	# timestamp and plot exemplar 
+	head -n 1 $outrows | 
+		tr '\t' '\n' | 
+		xe-timestamp1 stdin -sf $sf |
+		xe-plottable1 stdin $plotopts -xlabel "Fraction of Pi" -out $outbase"_exemplar.ps"
+	# timestamp and plot mean
+	xe-timestamp1 $outmean -sf $sf | xe-plottable1 stdin $plotopts -xlabel "Fraction of Pi" -out $outbase"_mean.ps"
+fi 

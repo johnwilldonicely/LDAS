@@ -1,0 +1,128 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progsync1"
+tempfile="temp_"$thisprog ; rm -f $tempfile
+start_time=$(date +'%s')
+setforce="0"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": sync (copy) current program directory with a remote program directory"
+	echo "	- copies the following files :"
+	echo "		.\\xs-* (scripts)"
+	echo "		.\\documents\\*  (documentation)"
+	echo "		.\\source\\* (source code for executables, functions & headers)"
+	echo "	- removes temporary files first"
+	echo "	- archives outdated program source-code in local and remote directories"
+	echo ""
+	echo "USAGE: $thisprog [remote] [mode] [version] [options]"
+	echo "	[remote]: remote top-level program directory"
+	echo "	[mode]: push or pull"
+	echo "		push: push ALL newer local files to remote dest."
+	echo "		pull: pull ONLY newer copies of local files from remote dest."
+	echo "	[version] = algorithm used for cleaning up old versions"
+	echo "		1: use sort --version-sort"
+	echo "		2: use sort -V"
+	echo "		3: use custom algorithm "
+	echo "			- suitableif versions 1&2 are unsupported by operating system"
+	echo "			- may fail for multi-part versions (e.g. file.3.10.c)"
+	echo ""
+	echo "VALID OPTIONS:"
+	echo "	-f: force copy (if unset, only newer files are copied))"
+	echo ""
+	echo "EXAMPLE: to copy local programming files to usb stick:"
+	echo "	cd /home/huxprog/"
+	echo "	$thisprog /media/INTEGRAL/Sync/huxprog/"
+	echo ""
+	echo "EXAMPLE: to copy programs from USB stick to local programming folder:"
+	echo "	cd /media/INTEGRAL/Sync/huxprog/"
+	echo "	$thisprog /home/huxprog/"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+startdir=$(pwd)
+remote=$1; shift
+mode=$1; shift
+version=$1 ; shift
+
+#OPTIONAL ARGUMENT HANDLING
+while getopts  ":f" flag ; do
+ 	case $flag in
+ 		f) setforce="1";;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# SET COPY OPTIONS (UPDATE OR FORCE)
+if [ $setforce == "0" ] ; then cpopts="-aufv" ; else cpopts="-afv" ; fi
+
+# MAKE SURE WE ARE IN THE TOP-LEVEL PROGAM DIRECTORY
+if [ ! -d "source" ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: no \"source\" directory found. Re-run in the top-level programming directory"
+	echo
+	exit
+fi
+
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo "CLEAN UP REMOTE DIRECTORIES"
+	cd $remote
+	xs-progclean $version archive
+
+echo "CLEAN UP LOCAL DIRECTORIES"
+	cd $startdir
+	xs-progclean $version archive
+
+
+if [ $mode == "push" ] ; then
+	echo "-----------------"
+	echo "SYNC MAIN SCRIPTS"
+	echo "-----------------"
+	cd $startdir
+	cp $cpopts xs-* $remote
+	echo "-----------------"
+	echo "SYNC SOURCE CODE"
+	echo "-----------------"
+	cd $startdir"/source/"
+	cp $cpopts  * $remote"/source/"
+	echo "-----------------"
+	echo "SYNC DOCUMENTS"
+	echo "-----------------"
+	cd $startdir"/docs/"
+	cp $cpopts * $remote"/docs/"
+fi
+
+if [ $mode == "pull" ] ; then
+
+	echo "-----------------"
+	echo "SYNC MAIN SCRIPTS"
+	echo "-----------------"
+	cd $startdir
+	for i in $(ls xs-*) ; do cp $cpopts $remote"/"$i ./ ; done
+
+	echo "-----------------"
+	echo "SYNC SOURCE CODE"
+	echo "-----------------"
+	cd $startdir"/source/"
+	for i in $(ls * | awk -F . '{print $1}') ; do cp $cpopts $remote"/source/"$i* ./ ; done
+
+
+	echo "-----------------"
+	echo "SYNC DOCUMENTS"
+	echo "-----------------"
+	cd $startdir"/docs/"
+	for i in $(ls *) ; do cp $cpopts $remote"/docs/"$i ./ ; done
+fi
+
+
+echo "--------------------------------------------------------------------------------"
+echo

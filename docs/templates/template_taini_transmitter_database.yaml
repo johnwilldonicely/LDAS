@@ -1,0 +1,26 @@
+version: TAINIDATABASE 1.0
+transmitters:
+  - id: D001
+    band_id: A
+    carrier_frequency: 2.325e+09
+    sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+  - id: D002
+    band_id: B
+    carrier_frequency: 2.375e+09
+    sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+  - id: D003
+    band_id: C
+    carrier_frequency: 2.525e+09
+    sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1
+  - id: D004
+    band_id: D
+    carrier_frequency: 2.580e+09
+    sample_frequency: 19531.25
+    no_channels: 16
+    mux_version: 1

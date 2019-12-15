@@ -1,0 +1,104 @@
+#!/bin/bash
+thisprog="xs-ldas-dbcheck"
+startdir=$(pwd)
+tempfile="temp_"$thisprog ; rm -f $tempfile
+rm -f $tempfile
+
+if [ $# -lt 2 ]; then 
+	echo
+	echo "------------------------------------------------------------------------------"
+	echo $thisprog": check the validity of an 02-sensing database"
+	echo "	- is each path valid?"
+	echo "	- are group and hemisphere specified for each path?"
+	echo "	- have the appropriate notes, time, dat and cmt files been produced?"
+	echo "	- does the notes file specify number of channels and sample-rate?"
+	echo "	- is the specified region/hemisphere specified in the notes file?"
+	echo "	- are the .time and .cmt files present for those channels?"
+	echo "USAGE: "$thisprog" [database] [region]"
+	echo "	[database]: name of the database (.db) file to use"
+	echo "	[region]: brain region (e.g. DHIPP, MPFC)"
+	echo 
+	echo "EXAMPLE: "$thisprog" database_mpfc.db MPFC"
+	echo "------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+################################################################################
+# READ THE INPUT ARGUMENTS
+################################################################################
+filedb=$1 ; shift ; 
+set_region=$1; shift
+
+
+################################################################################
+# QUICK CHECK OF THE DATABASE FILE
+################################################################################
+echo "	Checking the database file ("$filedb")"
+
+# DOES IT EXIST?
+if [ ! -e $filedb ] ; then { echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; exit ; } ; fi
+
+# REMOVE WINDOWS FORMATTING
+dos2unix -q $filedb
+
+# CHECK FOR NEWLINE AT END OF FILE - CORRECT IF MISSING
+let x=$(cat $filedb | wc -l)
+let y=$(awk '{print $0}' $filedb | wc -l)
+if [ $x -ne $y ] ; then 
+	awk '{print $0}' $filedb > $tempfile
+	mv $tempfile $filedb
+fi
+
+cat $filedb | awk '$0!~/^#/&&NF>0{print$0}' | while read path group hemis_db rest ; do 
+	
+	# DOES THE PATH ACTUALLY EXIST?
+	if [ ! -e $path ] ; then  { cd $startdir ; echo "	--- Error ["$thisprog"]: "$path" is an invalid path specified in "$filedb  ; echo "1" >> $tempfile ; continue ; } fi 
+
+	cd $path ; 
+	base=$(basename $path) 
+
+	# CHECK THAT ENOUGH COLUMNS WERE READ
+	if [ -z "$group" ] || [ -z "$hemis_db" ] ; then { cd $startdir; echo "	--- Error ["$thisprog"]: missing columns from database file "$filedb" - should have path, hemisphere, group on each line" ; echo "1" >>	$tempfile ; continue ; } fi 
+
+	# CHECK THAT HEMISPHERE SPECIFICATION IN FILE IS VALID
+	if [ $hemis_db != "L" ] && [ $hemis_db != "R" ] && [ $hemis_db != "A" ] ; then  {  cd $startdir; echo "	--- Error ["$thisprog"]: invalid hemisphere \""$hemis_db"\" specified in "$filedb ; echo "1" >> $tempfile ; continue ; } fi 
+
+	# CHECK THAT THE NOTES FILE IS PRESENT
+	notesfile=$base".notes" 
+	if [ ! -e $notesfile ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: file '$notesfile' missing" ; echo "1" >> $tempfile ; continue ; } fi 
+
+	# CHECK THAT NUMBER OF CHANNELS IS SPECIFIED
+	N_CH=$(xe-getkey $notesfile N_CH)
+	if [ -z $N_CH ] ; then { echo "	--- Error ["$thisprog"]: notes file "$notesfile" is missing N_CH keyword" ; echo "1" >> $tempfile ; continue ; } fi
+
+	# CHECK THAT SAMPLE_RATE IS SPECIFIED
+	sample_rate=$(xe-getkey $notesfile SAMPLE_RATE)
+	if [ -z $sample_rate ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: notes file "$notesfile" is missing SAMPLE_RATE keyword" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } fi
+
+	# MAKE SURE THAT THERE ARE CHANNELS MATCHING REGION SPECIFIED (L,R or ANY HEMISPHERE)
+	if [ $hemis_db == "A" ] ; then 
+		listchans=$(cat $notesfile | awk '$1=="CHANNEL" && $5=="'$set_region'"{printf("%03d\n",$2)}') 
+		if [ -z "$listchans" ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: notes file "$notesfile" does not list any "$set_region" channels" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } fi
+	else 
+		listchans=$(cat $notesfile | awk '$1=="CHANNEL" && $4=="'$hemis_db'" && $5=="'$set_region'"{printf("%03d\n",$2)}') 
+		if [ -z "$listchans" ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: notes file "$notesfile" does not list any "$hemis_db" "$set_region" channels" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } fi
+	fi
+	
+	# CHECK THAT THE TIME FILE IS PRESENT
+	timefile=$base".time" ; 
+	if [ ! -e $timefile ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: file '$timefile' missing" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } ; fi
+
+	# CHECK THAT THE .dat AND .cmt FILES ARE PRESENT FOR EACH CHANNEL MATCHING THE SET REGION
+	for channel in $listchans ; do 
+		infile=$base"."$channel".dat" ; if [ ! -e $infile ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: file '$infile' missing" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } ; fi
+		cmtfile=$base"."$channel".cmt" ; if [ ! -e $cmtfile ] ; then { cd $startdir ; echo "	--- Error ["$thisprog"]: file '$cmtfile' missing" ; cd $startdir ; echo "1" >> $tempfile ; continue ; } ; fi
+	done
+	cd $startdir
+done
+
+cd $startdir
+
+if [ ! -e $tempfile ] ; then echo "	Check ok" ; fi 
+
+exit

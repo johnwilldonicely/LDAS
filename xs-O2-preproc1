@@ -1,0 +1,277 @@
+#!/bin/bash
+# <TAGS> O2 file </TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+start_time=$(date +'%s')
+
+# define default recommended integration-window size for calculating RMS power
+# 4 is recommended for oxygen-sensing assays
+rmsint=4
+# set y-range for diagnostic plots
+plotbottom=-500
+plottop=0
+autoscale=0
+# set time-units for diagnostic plots
+setunits=min
+set_start=""
+set_pre=0
+set_dur=0
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": extract data from a CHART output file (tab delimited text)"
+	echo "Converts the CHART output to Unix/Linux format (strips CR from end of each line)"
+	echo "Splits the CHART file into it's composite parts"
+	echo "Creates a .notes file with recording parameters for future reference"
+	echo "Calculates true mean sample-rate (Hz) for the extracted data files"
+	echo "	- this is to allow for possible downsampling during extraction"
+	echo "Extracts subject name from filename"
+	echo "From the CHART file header:"
+	echo "	- extracts the recording date (DATE)"
+	echo "	- extracts number of channels (N_CH)"
+	echo "For each channel:"
+	echo "	- extracts the channel label (replacing spaces with underscores)"
+	echo "	- only keeps last two elements of labels (hemisphere & region)"
+	echo "	- extracts the theoretical range"
+	echo "	- calculates percentage of good points (real numbers not at range limits)"
+	echo "	- calculates the RMS power in the signal integrated in user-defined windows"
+	echo
+	echo "USAGE: "$thisprog" [infile] [options]"
+	echo "	[infile]: ascii CHART output (tab delimited) for a single subject"
+	echo "	[options]:"
+	echo "		-w: window-size (s) to calc. RMS power on channels (default "$rmsint")"
+	echo "		-b: bottom of y-axis for diagnostic plots (default "$plotbottom")"
+	echo "		-t: top of y-axis for diagnostic plots (default "$plottop")"
+	echo "		-a: autoscale y-axis (overrides -b and -t) (unset by default)"
+	echo "		-u: time-units (hour,min,sec,ms) for diagnostic plots (default "$setunits")"
+	echo "		...plotmarkers..."
+	echo "		-s:	start signal from comment file"
+	echo "		-d:	time after start signal"
+	echo "		-p: time before start signal"
+	echo "EXAMPLE: "$thisprog" /media/USBDRIVE/002-10111.txt -w 4"
+	echo "OUTPUT:"
+	echo "	[base].notes file summarizing recording prameters"
+	echo "	[base].time file holding the timestamps"
+	echo "	[base].dat files holding the data for each channel"
+	echo "	[base].cmt files holding the comments for each channel"
+	echo "	[base]-rawplot.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# READ INPUT FILE
+################################################################################
+infile=$1 ; shift ; if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+# REMOVE PATH AND EXTENSIONS FROM INPUT FILE TO CREATE BASENAME
+basefile=$(basename $infile)
+base=${basefile%%.*}
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+while getopts  "aw:b:t:u:s:p:d:" flag ; do
+	case $flag in
+		w) rmsint=$OPTARG;;
+		b) plotbottom=$OPTARG;;
+		t) plottop=$OPTARG;;
+		a) let autoscale=1;;
+		u) setunits=$OPTARG;;
+		s) set_start=$OPTARG;;
+		d) set_dur=$OPTARG;;
+		p) set_pre=$OPTARG;;
+	esac
+	let lastarg=$OPTIND-1
+	done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CHECK ARGUMENTS FOR VALIDITY
+if [ $(echo $rmsint|awk '{printf("%d",$1)}' ) -lt 2  ] ; then { echo ; echo "--- Error ["$thisprog"]: -w ("$rmsint") must be >2" ; echo ; exit; } ; fi
+if [ $setunits != "hour" ] && [ $setunits == "min" ] && [ $setunits == "sec" ] && [ $setunits == "ms" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid time-units ("$setunits") - must be hour,min,sec or ms" ; echo ; echo ; exit ; } ; fi
+
+
+######################################################################
+# DETERMINE THE NUMBER OF CHANNELS
+######################################################################
+# store last data line temporarily, deleting any Windows file format carriage returns
+lastdata=$(grep -v "[#=]" $infile | tail -n 1 | tr -d '\r')
+# check that file contains some data that are not comments or header lines
+if [ -z "$lastdata" ] ; then { echo "	--- Error ["$thisprog"]: "$infile" contains no data" ; errorfound="1" ; continue ; } ; fi
+# define number of channels as number of columns in last non-comment, non-header line
+let N_CH=$(echo $lastdata | wc -w)-1
+if [ $N_CH -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: "$infile" contains timestamps but no data" ; errorfound="1" ;  continue ; } ; fi
+
+######################################################################
+# EXTRACT HEADER TO TEMP FILE AND READ THE PARAMETERS (ALL LINES WITH "=" IN THE FIRST COLUMN)
+######################################################################
+headerfile=$tempfile"_header"
+awk '{if($1~/=/) print $0 ; else exit}' $infile |
+	# remove Windows carriage-returns and any redundant tabs
+	tr -d '\r' | xe-delimitkiller stdin -d tab > $headerfile
+
+# determine the subject number from the file name
+SUBJECT=${base%-*}
+# read the date the data was collected
+DATE=$(awk '$1=="ExcelDateTime="{print$3;exit}' $headerfile)
+
+######################################################################
+# DETERMINE THE LIST OF CHANNEL TITLES - CHECK FOR PROBLEMS
+######################################################################
+# define the Channel Titles using first line containing "ChannelTitle=", tab-delimited fields 2 onwards
+i=$(grep ChannelTitle= $headerfile | head -n 1)
+if [ -z "$i" ] ; then { echo "	--- Error ["$thisprog"]: "$infile" header has no \"ChannelTitle=\" keyword" ; errorfound="1" ;  continue ; } ; fi
+# Save actual channel titles, trimming off the keyword and the windows-style carriage-return if present
+CHANNEL_TITLES=$(echo "$i" | cut -f 2- | tr -d '\r')
+# check that titles are not all blank
+let j=$(echo "$CHANNEL_TITLES" | awk '{for(i=0;i<=NF;i++) printf $i"";printf "\n"}' | wc -w)
+if [ $j -lt 1 ] ; then { echo "	--- Error ["$thisprog"]: "$infile" header has \"ChannelTitle=\" keyword but all titles are blank" ; errorfound="1" ;  continue ; } ; fi
+
+
+######################################################################
+# NOW EXTRACT THE TIME AND DATA FROM EACH CHANNEL
+######################################################################
+let count=0
+for ch in $(seq 1 $N_CH) ; do
+	# actual column number is offset by 1, assuming time is column-1
+	let col=$ch+1
+	# extract the channel (and time, if count=0, storing statistics)
+	if [ $count -eq 0 ] ; then
+
+		xe-ldas-readchart1 $infile -chancol $col -time 1 > $tempfile
+
+		N_SAMPLES=$(xe-getkey $tempfile Total_samples:)
+		SAMPLE_RATE=$(xe-getkey $tempfile Sample_rate:)
+		START=$(xe-getkey $tempfile Start_time:)
+		END=$(xe-getkey $tempfile End_time:)
+		DURATION_S=$(echo $START $END | awk '{printf("%.3f\n",($2-$1))}' )
+		DURATION_M=$(echo $DURATION_S | awk '{printf("%.3f\n",($1/60))}' )
+		cat $tempfile
+	else
+		xe-ldas-readchart1 $infile -chancol $col -time 0
+	fi
+	let count=$count+1
+done
+
+######################################################################
+# CREATE THE NOTES FILE HEADER
+######################################################################
+notesfile=$base".notes"
+echo "SUBJECT "$SUBJECT > $notesfile
+echo "DATE "$DATE >> $notesfile
+echo "N_SAMPLES "$N_SAMPLES >> $notesfile
+echo "SAMPLE_RATE "$SAMPLE_RATE" Hz" >> $notesfile
+echo "START "$START" s" >> $notesfile
+echo "END "$END" s" >> $notesfile
+echo "DURATION "$DURATION_S" s = "$DURATION_M" min" >> $notesfile
+echo "RMS_POWER_INTEGRATON "$rmsint" s" >> $notesfile
+echo "N_CH "$N_CH >> $notesfile
+
+
+######################################################################
+# CREATE THE NOTES FILE CHANNEL-RECORDS
+######################################################################
+echo "" >> $notesfile
+echo "#CHANNEL	no.	label		hemis	region	bottom	top	%good	power" >> $notesfile
+echo "" >> $notesfile
+
+for ch in $(seq 1 $N_CH) ; do
+
+	let chcol=$ch+1 # this is the actual column number holding channel $i
+	chpad=$(echo $ch| awk '{printf("%03d",$1)}' ) # convert $ch to 3-digit number to find correct data file
+	echo "Analyzing range and power for channel "$chpad
+
+	timefile=$base".time"; if [ ! -e $timefile ] ; then { echo ; echo "--- Error ["$thisprog"]: data-file '$timefile' was not generated" ; echo ; exit; } ; fi
+	datafile=$base"."$chpad".dat"; if [ ! -e $datafile ] ; then { echo ; echo "--- Error ["$thisprog"]: data-file '$datafile' was not generated" ; echo ; exit; } ; fi
+
+	# find the channel label
+	label=$(echo "$CHANNEL_TITLES" | awk -F "\t" '{print $'$ch'}')
+	# replace spaces in the label with underscores, remove extra underscores
+	label2=$(echo "$label" | xe-strsub1 stdin " " "_" | xe-delimitkiller stdin -d underscore)
+	# read hemisphere and region specified by the label
+	hemis=$(echo $label2 | awk -F "_" '{print $(NF-1)}')
+	region=$(echo $label2 | awk -F "_" '{print $(NF)}')
+	if [ $hemis != "R" ] && [ $hemis != "L" ] ; then { echo "	--- Error ["$thisprog"]: invalid hemisphere \""$hemis"\" for channel title "$ch" in "$infile" header" ; errorfound="1" ; continue ; } ; fi
+
+	# determine the theoretical top and bottom limits on the channel
+	# NOTE: this will depend on version of CHART being run - newer versions do not specify "TopValue" and "BottomValue" - it must be derived from the Range= value
+	top=$(awk -F "\t" '$1=="TopValue="{printf("%.1f\n",$'$chcol'); exit}' $headerfile)
+	if [ -z $top ] ; then top=$(awk -F "\t" '$1=="Range="{printf("%.1f\n",$'$chcol'); exit}' $headerfile) ; fi
+	if [ -z $top ] ; then { echo ; echo "--- Error ["$thisprog"]: neither TopValue nor Range are defined in the header for file '$cmtfile' was not generated" ; echo ; exit; } ; fi
+	bottom=$(awk -F "\t" '$1=="BottomValue="{printf("%.1f\n",$'$chcol');exit}' $headerfile)
+	if [ -z $bottom ] ; then bottom=$(awk -F "\t" '$1=="Range="{printf("%.1f\n",(-1.0*$'$chcol')); exit}' $headerfile) ; fi
+	if [ -z $bottom ] ; then { echo ; echo "--- Error ["$thisprog"]: neither BottomValue nor Range are defined in the header for file '$cmtfile' was not generated" ; echo ; exit; } ; fi
+
+	# calculate percentage of points that are proper numbers
+	fit=0.00
+	let total=$(cat $datafile|wc -l)
+	let good=$(cat $datafile|xe-checkisnum2 stdin -t 1 | wc -l)
+	if [ $total -gt 0 ] && [ $good -gt 0 ] ; then fit=$(echo $good $total | awk '{printf("%.4f\n",$1/$2)}') ; fi
+
+	#calculate the RMS power on the channel
+	power=0.00;
+	let windowsize=$(echo $rmsint $SAMPLE_RATE | awk '{printf("%d",($1*$2))}' )
+	if [ $good -gt $windowsize ] ; then
+		power=$(cat $datafile| xe-rms2 stdin -d 1 -ws $windowsize)
+	elif [ $good -lt 1 ] ; then echo "	--- Warning ["$thisprog"]: no valid numbers in "$datafile
+	else echo "	--- Warning ["$thisprog"]: too few valid numbers in "$datafile" to calculate RMS power"
+	fi
+
+	echo "CHANNEL " $chpad $label2 $hemis $region $bottom $top $fit $power | xe-delimit stdin >> $notesfile
+
+
+	# SAVE DATA FOR DIAGNOSTIC PLOT WITH PEAK DETECTION - 5x DOWNSAMPLE FROM RMS-POWER INTEGRATION WINDOW
+	binwin=$(echo $rmsint | awk '{printf("%.6f",($1*5))}') # eg. if integration window for RMS power calc is 4s, window=20s
+	if [ $ch == "1" ] ; then
+		# for first channel, bin and output time and data
+		paste $timefile $datafile | xe-bin2 stdin -p 1 -m 0 -t $binwin > $tempfile"."$chpad
+	else
+		# for subsequent channels, only output the data
+		paste $timefile $datafile | xe-bin2 stdin -p 1 -m 0 -t $binwin | cut -f 2 > $tempfile"."$chpad
+	fi
+done
+
+######################################################################
+# CREATE A DIAGNOSTIC PLOT, PASTING TOGETHER TEMP DATA  FROM EACH CHANNEL
+######################################################################
+
+plotopts=" -xscale .2 -yscale .1 -font 6 -out "$base"-rawplot.ps "
+
+if [ $autoscale -eq 0 ] ; then
+	plotopts=$plotopts" -ymin "$plotbottom" -ymax "$plottop
+fi
+
+if [ ! -z $set_start ] ; then
+	cmtfile=$base".001.cmt"; if [ ! -e $cmtfile ] ; then { echo ; echo "--- Error ["$thisprog"]: comment-file '$cmtfile' was not generated" ; echo ; exit; } ; fi
+	a=$(head -n 1 $timefile)
+	start=$(grep $set_start $cmtfile | head -n 1 | awk '{print $1-'$a'}')
+	if [ ! -z $start ] ; then
+		x=$(echo $start $set_pre | awk '{print $1-$2}')
+		y=$(echo $start $set_dur | awk '{print $1+$2}')
+		plotopts=$plotopts" -vline $x,$start,$y"
+	fi
+fi
+
+xs-O2-plot1 $base 500 $setunits $plotopts
+
+######################################################################
+# REPORT TIME TO FINISH THE JOB
+######################################################################
+end_time=$(date +'%s')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo; echo "Time to finish job: "$s" seconds = "$m" minutes"
+echo
+
+rm -f $tempfile*
+
+exit

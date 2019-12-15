@@ -1,0 +1,158 @@
+#!/bin/bash
+# <TAGS>time database</TAGS>
+thisprog=`basename "$0"`
+allopts=$@
+
+# define temporary file name, optionally incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setlightson="07:00:00"
+setout=1
+setdiv=""
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": get start-stop-pairs (SSPs) for trials or time of day (TOD)"
+	echo "- requires a properly formatted .notes file"
+	echo "- output is to stdout"
+	echo "USAGE: "
+	echo "	"$thisprog" [notesfile] [trial]"
+	echo "		[notesfile]: file with XML section defining TRIALS"
+	echo "		[trial]: numbers, name, TOD_LIGHT, TOD_DARK or \"all\""
+	echo "			- \"all\" outputs SSPs for all trials, not the whole recording"
+	echo "			- name matches any trial-names containing the text"
+	echo "			- numbers can be a single number or a CSV list"
+	echo "			- TOD_LIGHT and TOD_DARK use the -t option (below)"
+	echo "				- finds periods spanning the session-start or -stop"
+	echo "				- hence negative start-times are possible"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-o: output format (1=CSV list, 2=binary(long) SSPs) ["$setout"]"
+	echo "	-t: set time of lights-on (hh:mm:ss) ["$setlightson"]"
+	echo "	-d: set divisor for SSPs ["$setdiv"]"
+	echo "EXAMPLES: "
+	echo "	"$thisprog" 20160609-002_2881801.notes  TOD_LIGHT"
+	echo "	"$thisprog" 20160609-002_2881801.notes  4,5,6"
+	echo "	"$thisprog" 20160609-002_2881801.notes  SLEEP"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1 ; shift
+settrial=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":o:t:d:" flag ; do
+ 	case $flag in
+		o) setout=$OPTARG;;
+		t) setlightson=$OPTARG;;
+		d) setdiv=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filenotes' missing" ; echo ; exit ; } fi
+
+################################################################################
+# GET BASIC PARAMETERS
+################################################################################
+base=$(echo $filenotes | cut -f 1 -d .)
+date=$(echo $base | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+sf=$(xe-getkey $filenotes sample_rate=)
+start_time=$(xe-getkey $filenotes start_time=) # clock time of sample-zero
+start_secs=$(echo $start_time | xe-timeconv1 stdin) # start time: seconds since midnight
+bindec=$(xe-getkey $filenotes bin_decimation=)
+binrate=$(echo $sf $bindec | awk '{printf("%.4f",($1/$2))}')
+
+if [ "$sf" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no keyword sample_rate= in '$filenotes'" ; echo ; exit ; } fi
+if [ "$start_time" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no keyword start_time= in '$filenotes'" ; echo ; exit ; } fi
+if [ "$bindec" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no keyword bin_decimation= in '$filenotes'" ; echo ; exit ; } fi
+
+################################################################################
+# DEFINE VARIABLES FOR LIGHT/DARK PERIOD DEFINITION
+################################################################################
+# get the maximum possible timestamp range
+let min=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin start -s 1 -o 1 | xe-checkisnum2 stdin -t 0 | head -n 1)
+let max=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin stop  -s 1 -o 1 | xe-checkisnum2 stdin -t 0 | tail -n 1)
+# get sample-interval between light cycles : 43200 seconds = 12 hours
+interval=$(echo $sf 43200 | awk '{printf("%ld",($1*$2))}')
+# get light on/off times for this day
+lightson_secs=$(echo $setlightson | xe-timeconv1 stdin | awk '{printf("%.2f",$1)}' )
+lightsoff_secs=$(echo $lightson_secs 43200 | awk '{ if($1<=$2) print $1+$2; else print $1-$2}' | awk '{printf("%.2f",$1)}')
+# determine light cycle at start of recording
+startcycle=$(echo $lightson_secs $start_secs | awk '{if($1<$2)print "light" ; else print "dark"}')
+# determine the sample-offset to the first lightson and lightsoff cycles
+if [ $startcycle == "light" ] ; then
+	lightson_samps=$(echo $lightson_secs $start_secs $sf | awk '{printf("%d",(($1-$2)*$3))}' )
+	lightsoff_samps=$(echo $lightson_samps $interval | awk '{print $1+$2}' )
+elif [ $startcycle == "dark" ] ; then
+	lightsoff_samps=$(echo $lightsoff_secs $start_secs $sf | awk '{printf("%d",(($1-$2)*$3))}' )
+	lightson_samps=$(echo $lightsoff_samps $interval | awk '{print $1+$2}' )
+fi
+
+
+
+################################################################################
+# DETERMINE TRIAL START-STOP PAIRS (MAKE A TAB-DELIMITED LIST)
+################################################################################
+let z=$(echo $settrial | grep -e '[a-Z]' | wc -w) # determine whether trial contains letters
+
+# for all trials
+if [ $settrial == "all" ] ; then
+	filessp="times_alltrials.ssp"
+	if [ ! -e $filessp ] ; then xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin start,stop -s 1 -o 1 | xe-writebinary1 stdin -dt 7 > $filessp ; fi
+	screenlist=$(xe-ldas5-readssp1 $filessp | paste -s)
+
+# for lights-on only
+elif [ $settrial == "TOD_LIGHT" ] ; then
+	screenlist=$(seq 0 2 13 | awk 'BEGIN { a='$lightson_samps'; b='$interval' }{ c=a+$1*b;d=a+($1+1)*b ; if(d>'$min' && c<'$max') printf("%.0f\t%.0f\n",c,d)}')
+
+# for lights-off only
+elif [ $settrial == "TOD_DARK" ] ; then
+	screenlist=$(seq 0 2 13 | awk 'BEGIN { a='$lightsoff_samps'; b='$interval' }{ c=a+$1*b;d=a+($1+1)*b ; if(d>'$min' && c<'$max') printf("%.0f\t%.0f\n",c,d)}')
+
+# for named trials (contains mode)
+elif [ $z -gt 0 ] ; then
+	screenlist=$(xe-dbmatch1 $filenotes name $settrial -xml TRIALS -m 1 | xe-cut1 stdin start,stop -o 1 | paste -s)
+
+# for numerically-specified trial (exact mode, only one can be specified)
+else
+	screenlist=""
+	for trial in $(echo $settrial | tr ',' ' ') ; do
+		z=$(xe-dbmatch1 $filenotes trial $trial -xml TRIALS -m 2 | xe-cut1 stdin start,stop -o 1)
+		if [ "$z" != "" ] ; then screenlist=$screenlist" "$z ; fi
+	done
+fi
+
+################################################################################
+# APPLY THE DIVISOR IF REQUIRED
+################################################################################
+if  [ "$setdiv" != "" ] ; then
+	a=$(echo $screenlist | tr ' ' '\n' | xe-math_div1 stdin -cy -1 -long 1 -v $setdiv)
+	screenlist=$(echo $a | paste -s | tr '\t' ' ')
+fi
+
+################################################################################
+# OUTPUT THE SSPs
+################################################################################
+if [ "$screenlist" != "" ] ; then
+	if [ "$setout" == "1" ] ; then
+		echo $screenlist | tr ' ' ','
+	else
+		echo $screenlist | xe-writebinary1 stdin -dt 7
+	fi
+fi

@@ -1,0 +1,181 @@
+#!/bin/bash
+# <TAGS>database</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="XSERIES1"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setopt1=""
+setverb="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process time-series analysis"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database file specifying path and group on each line"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: calculation of values"
+	echo "		c: collate results"
+	echo "		p: plot results"
+	echo "	--opt1: options (in quotes) for xs-ldas5-$progbase1 [$setopt1]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_25HOUR.txt -O \"-t FAM1\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+commandline="$thisprog $@"
+echo
+echo "################################################################################"
+echo $commandline
+echo "################################################################################"
+
+################################################################################
+# ARGUMENT HANDLING
+################################################################################
+# REQUIRED
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+# OPTIONS
+vs="s:O:" ; vl="skip:,opt1:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-s | --skip ) setskip=$2 ; shift ;;
+		--opt1 ) setopt1=$setopt1" "$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+rm -f $tempfile*
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+################################################################################
+# RUN THE ANALYSIS FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	echo "Running analysis..."
+	for dbline in $dblist ; do
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $startdir
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+		# RUN THE ANALYSIS IN THE CURRENT DIRECTORY (IF THIS STEP IS NOT PART OF THE SKIP FLAG)
+		echo $path
+		xs-ldas5-$progbase1 $base $setopt1 ;
+	done
+fi
+cd $startdir
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "Collating data..."
+	rm -f $progbase1*
+	for predictor in vel pyr int all ; do
+		xs-collate1 $filedb $progbase1"_summary_"$predictor".txt" --verb 0
+	done
+fi
+
+
+################################################################################
+# GENERATE SUMAMRY PLOTS
+################################################################################
+if [ "$(echo $setskip | grep -v p)" ] ; then
+	echo "Plotting results..."
+
+	# COLLECTED PER-SUBJECT PLOTS
+	rm -f *$progbase1*.ps
+	echo "	...collecting per-subject plots ("$progbase1"_summary.001.ps)..."
+	xs-collect1 $filedb $progbase1"_summary.001.ps"
+	list=$(ls *$progbase1*.ps)
+	xe-plotmerge2 $list > $progbase1"_summary1.ps"
+	rm -f $list
+
+	plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -ew 0 -xscale .22 -yscale .22 -ps 2 "
+	let count=0
+	listpred="vel"
+	listvar="delta theta gamma pyr int all"
+	listplot=""
+	# for each predictor and variable....
+	for predictor in $listpred ; do
+	for var in $listvar ; do
+		let count=$count+1
+		if [ $count -eq 1 ] ; then title="$commandline" ; else title="" ; fi
+		filein=$progbase1"_summary_"$predictor".txt"
+		fileplot=$tempfile"_"$predictor"_vs_"$var".ps"
+		listplot=$listplot" "$fileplot
+		xe-cut1 $filein group,$predictor,$var |
+		xe-math_round2 stdin -c 1 -b 1 |
+		xe-statsgrp2 stdin |
+		xe-plottable1 stdin $plotopts -xlabel $predictor -ylabel $var -title "$title" -out $fileplot
+	done
+	done
+
+	listpred="pyr int all"
+	listvar="delta theta gamma"
+	for predictor in $listpred ; do
+	for var in $listvar ; do
+		filein=$progbase1"_summary_"$predictor".txt"
+		fileplot=$tempfile"_"$predictor"_vs_"$var".ps"
+		listplot=$listplot" "$fileplot
+		xe-cut1 $filein group,$predictor,$var |
+		xe-math_round2 stdin -c 1 -b .01 |
+		xe-statsgrp2 stdin |
+		xe-plottable1 stdin $plotopts -xlabel $predictor -ylabel $var -out $fileplot
+	done
+	done
+	xe-plotmerge1 $listplot -xmax 3 -ymax 6 -xinc 180 -yinc 150 -out $progbase1"_summary2"
+fi
+
+
+
+# CLEAN UP
+rm -f $tempfile*
+
+# REPORT TIME TO FINISH THE JOB
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

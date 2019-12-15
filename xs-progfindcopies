@@ -1,0 +1,64 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progfindcopies"
+tempfile="temp_"$thisprog
+
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": find multiple versions of files matching a pattern"
+	echo "Specifically, finds multiple files matching [pattern].[version].[extention]"
+	echo ""
+	echo "USAGE: "
+	echo "	"$thisprog" [version] [pattern]"
+	echo "		[version] = version of algorithm"
+	echo "			1: use sort --version-sort"
+	echo "			2: use sort -V"
+	echo "			3: use custom algorithm "
+	echo "				- suitableif versions 1&2 are unsupported by operating system"
+	echo "				- may fail for multi-part versions (e.g. file.3.10.c)"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 1 *.c"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+version=$1 ; shift # the rest will be the pattern expansion
+
+
+if [ $version == "1" ] ; then
+	# sort filenames - if current basename matches previous, print previous full-name
+	# logic - when basename changes, last version of previous basename will not get printed
+	ls $@ | sort --version-sort | awk -F . '{if($1==p1) print p2; p1=$1;p2=$0}'
+
+elif [ $version == "2" ] ; then
+	# sort filenames - if current basename matches previous, print previous full-name
+	# logic - when basename changes, last version of previous basename will not get printed
+	ls $@ | sort -V | awk -F . '{if($1==p1) print p2; p1=$1;p2=$0}'
+
+elif [ $version == "3" ] ; then
+
+	# build a list of base-names (everything before the first "."
+	# assume that the first thing after the "." is the beginning of a version number - base.1.2.exe for example
+	list=$(ls $@ | awk -F . '{ print $1 }' | sort -u)
+
+	# for every basename...
+	for i in $list ; do
+		# count how many files match
+		let n=$(ls $i"."* | wc -l)
+		# if there are more than two files with th same basename...
+		if [ $n -gt 1 ] ; then
+			# get a sorted list of all their extentions, except the last one (the latest version)
+			# note that the sort works provided the first number after the "." is a version number
+			ext=$(ls $i.*  | cut -d "." -f 2- | sort -n | head -n -1)
+			# output the names of all the older versions (basename.extension)
+			for j in $ext ; do echo $i"."$j ; done
+		fi
+	done
+
+else { echo ; echo "--- Error ["$thisprog"]: invalid version (\"$version\") - should be 1,2 or 3" ; echo ; exit; }
+
+fi

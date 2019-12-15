@@ -1,0 +1,288 @@
+#!/bin/bash
+
+thisprog=`basename "$0"`
+thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
+progbase1=$(echo $thatprog | awk -F - '{print toupper($NF)}') # baseneame of files to collate
+progbase2=$progbase1"b" # basename for output of this program
+
+tempfile="temp_"$thisprog #"."$$
+allopts=$@
+
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setskip="-"
+setverb="0"
+setclean="1"
+setopts=""
+
+# low frequency bounds (modulating by phase)
+pmin1=4 ; pmax1=25 ;
+# high frequency bounds (modulated in amplitude)
+pmin2=25 ; pmax2=250
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process PAC analysis"
+	echo "- low-frequency (phase-modulating) range: "$pmin1"-"$pmax1" Hz"
+	echo "- high-frequency (amplitude-modulated) range: "$pmin2"-"$pmax2" Hz"
+	echo ""
+	echo "USAGE: "$thisprog" [db] [c1] [c2] [options]"
+	echo "	[db]: database file specifying path and group on each line"
+	echo "	[c1]: channel, phase(low)-freq.      number or region-name"
+	echo "	[c2]: channel, amplitude(high)-freq. number or region-name"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		x: execution of analysis"
+	echo "		c: collation of results files"
+	echo "	--opts: options (in quotes) for $thatprog [$setopts]"
+	echo "EXAMPLE: "
+	echo "	$thisprog db_25HOUR.txt --opts \"-r pfc -t FAM,NOV\"  2>&1 | tee logfile.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# OUTPUT COMMAND LINE
+################################################################################
+echo
+echo "################################################################################"
+echo $thisprog "$@"
+echo "################################################################################"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi
+setchan1=$1 ; shift
+setchan2=$1 ; shift
+
+
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+vs="v:" ; vl="opts:,skip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--opts  ) setopts=$2 ; shift ;;
+		--skip  )  setskip=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--verb | -v )  setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --xml PATHS --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A GROUP-LABEL LIST: looks for "# group_<number>= <label>"
+# ??? note this utility is not implimented yet
+################################################################################
+listlabel=$(xs-getgroupnames1 db_all.txt | xe-cut1 stdin group,name -o 1 | xe-strgroup1 stdin -d2 '=')
+if [ "$listlabel" != "" ] ; then
+	for ii in $listlabel ; do
+		let x=$(echo $ii | cut -f 1 -d =)
+		y=$(echo $ii | cut -f 2 -d =)
+		grouplabel[$x]=$y
+	done
+fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+# construct a database list in format <path>,<group>
+echo "	- building folder-list for analysis"
+dblist=$(xe-strxmlparse1 $filedb PATHS | xe-cut1 stdin path,group -s 1 -o 1 | xe-strgroup1 stdin -n 2 -d2 ",")
+
+################################################################################
+# RUN THE ANALYSIS FOR EACH DIRECTORY IN THE DATABASE FILE....
+################################################################################
+if [ "$(echo $setskip | grep -v x)" ] ; then
+	for dbline in $dblist ; do
+		cd $startdir
+		path=$(echo $dbline | cut -f 1 -d ,)
+		group=$(echo $dbline | cut -f 2 -d ,)
+		cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+
+		# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+		filenotes=$(ls *notes)
+		date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+		session=$(xe-getkey $filenotes session=)
+		subject=$(xe-getkey $filenotes subject=)
+		base=$date"-"$session"_"$subject
+
+		# RUN THE ANALYSIS IN THE CURRENT DIRECTORY
+		$thatprog $base $setchan1 $setchan2 $setopts
+	done
+fi
+cd $startdir
+
+################################################################################
+# COLLATE THE DATA FROM THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo "################################################################################"
+	echo "	...collating data..."
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+	xs-collate1 $filedb $progbase1"_matrix.txt" --xml PATHS --verb 0 --head 0
+	xs-collate1 $filedb $progbase1"_coupling.txt" --xml PATHS --verb 0
+	xs-collate1 $filedb $progbase1"_summary.txt" --xml PATHS --verb 0
+	xs-collate1 $filedb $progbase1"_pacparams.txt" --xml PATHS --verb 0 --head 0
+fi
+
+################################################################################
+# SPLIT THE MATRICES INTO ONE-PER-GROUP
+################################################################################
+grpkey="group="
+grpkeycol=$(grep $grpkey $progbase1"_matrix.txt" --color=never | head -n 1 | xe-getkeycol stdin $grpkey)
+grpvalcol=$(echo "$grpkeycol+1"|bc)
+grplist=$(grep $grpkey $progbase1"_matrix.txt" --color=never | xe-cut1 stdin $grpvalcol -n 1 | sort -nu)
+for grp in $grplist ; do
+	cat $progbase1"_matrix.txt" |
+	awk '{if($0~/'$grpkey'/) { out=0;if($'$grpvalcol'=="'$grp'")out=1;} if(out==1) print $0}' > $progbase1"_matrix_"$grp".txt"
+done
+
+
+################################################################################
+# PLOT THE DATA
+################################################################################
+# just keep the first pac-params - for determining plot options
+in1=$progbase1"_pacparams.txt"
+key=$(head -n 1 $in1)
+xe-cut2 $in1 "$key" -s2 1 > $tempfile".pacparams"
+pmin1=$(xe-getkey2 $tempfile".pacparams" minfreq1=)
+pmax1=$(xe-getkey2 $tempfile".pacparams" maxfreq1=)
+pmin2=$(xe-getkey2 $tempfile".pacparams" minfreq2=)
+pmax2=$(xe-getkey2 $tempfile".pacparams" maxfreq2=)
+
+
+# CREATE A MULTI-MATRIX SUMMARY
+echo "	...collecting all matrix plots..."
+xs-collect1 $filedb $progbase1"_matrix.ps" --xml PATHS
+xe-plotmerge2 *"_"$progbase1"_matrix.ps" > $progbase2"_matrix_all.ps"
+rm -f *"_"$progbase1"_matrix.ps"
+
+# MAKE GROUP-AVERAGE MATRICES
+echo "	...making group-average matrix plots..."
+# find the largest value in the averaged matrices
+listmin=""
+listmax=""
+listgroups=$(xe-dbmatch1 table_groups.txt group "-" -m -2 | xe-cut1 stdin group,name -o 1 | sort -k1,2n | sort -u | tr '\t' '#')
+
+for item in $listgroups ; do
+	grp=$(echo $item|cut -f 1 -d '#')
+	label[$grp]=$(echo $item|cut -f 2 -d '#')
+	x=$(xe-matrixavg2 $progbase1"_matrix_"$grp".txt" | xe-statsd1 stdin)
+	y=$(echo $x | xe-getkey stdin MIN)
+	z=$(echo $x | xe-getkey stdin MAX)
+	listmin=$listmax" "$y
+	listmax=$listmax" "$z
+done
+matrixmin=$(echo $listmin | xe-statsd1 stdin | xe-getkey stdin MIN)
+matrixmax=$(echo $listmax | xe-statsd1 stdin | xe-getkey stdin MAX)
+plotopts="-xmin $pmin1 -xmax $pmax1 -xint 5 -ymin $pmin2 -ymax $pmax2 -yint 25 -zmin $matrixmin -zmax $matrixmax -font 10 -xscale .11 -yscale .3 -vline 12 -hline 30,70,140 -lwa .25 -frame 0 -tics 0"
+xl="$setchan1 (Hz)"
+yl="$setchan2 (Hz)"
+plotlist=""
+for grp in $grplist ; do
+	base=$progbase1"_matrix_"$grp
+	groupname=$(xe-dbmatch1 table_groupnames.txt group $grp -oc name -o 1)
+	plotfile=$base.ps
+	plotlist=$plotlist" "$plotfile
+	xe-matrixavg2 $base.txt |
+		xe-matrixmod1 stdin -sx 1 -sy 1 |
+		xe-plotmatrix1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "${grouplabel[$grp]}" -out $plotfile
+done
+xe-plotmerge1 -xmax 4 -xinc 150 $plotlist
+mv temp_xe-plotmerge1.001.ps $progbase1"_matrices.ps"
+
+# PLOT COUPLING BY BAND COUPLING
+echo "	...making band-coupling plots..."
+in1=$progbase1"_coupling.txt"
+listbands=$(head -n 1 $in1 | xe-delimit stdin | cut -f 5-)
+plotlist=""
+xl="Amplitude Frequency (Hz)"
+let count=0
+for band in $listbands ; do
+	let count=$count+1
+	plotfile=$tempfile"_"$band".ps"
+	plotlist=$plotlist" "$plotfile
+	plotopts="-line 1 -ps 0 -xscale .4 -yscale .15 -xint 25 -xpad 0 -colour 0 -font 10 -ew 0 -cg 1 -cx 2 -cy 3 -ce 4 -legend 1 -out $plotfile"
+	yl="$band coupling"
+	if [ $count -eq 1 ] ; then t="$setchan1 vs $setchan2" ; else t="" ; fi
+	xe-cut1 $in1 group,freq,$band |
+		xe-statsgrp2 stdin |
+		xe-cut1 stdin grp1,grp2,mean,sem |
+		xe-plottable1 stdin $plotopts -title "PA-Coupling: $band" -xlabel "$xl" -ylabel "$yl" -title "$t"
+	xs-plotmod1 $plotfile --legend table_groupnames.txt > $tempfile
+	mv $tempfile $plotfile
+done
+plotfile=$(echo $in1 | xe-strsub1 stdin ".txt" ".ps")
+xe-plotmerge1 -xmax 1 -xo 100 -yinc 150 $plotlist
+mv temp_xe-plotmerge1.001.ps $plotfile
+
+
+# summary stats
+echo "	...making summary plot..."
+in1=$progbase1"_summary.txt"
+plotfile=$(echo $in1 | xe-strsub1 stdin ".txt" ".ps")
+plotopts="-pt box -ew 0 -cg 1 -cx 2 -cy 3 -ce 4 -ew 0 -gs 1 -xint 1 -bw .3 -legend 1 -out $plotfile"
+let count=-1
+xl="Coupling-type"
+yl="Mean AUC"
+title="$setchan1 vs $setchan2"
+rm -f $tempfile
+for var in $(head -n 1 $in1 | cut -f 4-) ; do
+	let count=$count+1
+	echo $count $var >> $tempfile
+	xe-cut1 $in1 group,$var -o 1 |
+	xe-statsgrp1 stdin -cg1 1 -cy 2 |
+	xe-cut1 stdin grp1,mean,sem -o 1 |
+	awk '{print $1,"'$count'",$2,$3}' # convert band to number for x-axis plotting - will be converted back to text in next step
+done |
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title"
+
+xs-plotmodtics $plotfile $tempfile xtic
+xs-plotmod1 $plotfile --legend table_groups.txt > $tempfile
+mv $tempfile $plotfile
+
+plotfile=$(echo $in1 | xe-strsub1 stdin .txt .ps)
+
+
+
+################################################################################
+# CLEANUP & FINISH
+################################################################################
+# clean up
+rm -f $tempfile*
+# report time to finish the job
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"
+# exit
+exit

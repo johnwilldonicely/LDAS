@@ -1,0 +1,7 @@
+bin/
+backups/
+source/temp_xs-progcompile.log
+docs/manual_*.html
+docs/manual_*.pdf
+temp_xs-progcompile.log 
+temp_xs-proginstall.status

@@ -1,0 +1,99 @@
+#!/bin/bash
+#  make a batch file for ANOVA using R
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ ! $3 ] ; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "- Perform ANOVA using R"
+	echo "- Will perform Tukey's HSD post-hoc tests"
+	echo "USAGE: "
+	echo "	r_anova [filename] [data] [predictors]"
+	echo "		filename:  input file with headered columns"
+	echo "		data: name of the column containing the dependent variable"
+	echo "		predictors: CSV list of column-names for independent variables"
+	echo "			- NOTE: predictors should be integer values"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt height age,sex,income"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1; shift
+data=$1; shift
+predictors=$1; shift
+
+datafile=$tempfile".txt"
+scriptfile=$tempfile".R"
+
+########################################################################################
+# CREATE A DATAFILE WITH INVALID OR NON-FINITE NUMBERS REMOVED
+########################################################################################
+xe-cut1 $infile $data,$predictors -s 1 > $tempfile
+head -n 1 $tempfile > $datafile
+xe-checkisnum2 $tempfile -t 1 -m xxxx >> $datafile
+
+#cat $infile > $datafile
+
+
+########################################################################################
+# CREATE AN R-SCRIPT FILE
+########################################################################################
+listpred1=$(echo $predictors | tr ',' ' ')
+listpred2=$(echo $predictors | xe-strsub1 stdin "," " + ")
+
+# READ THE DATA
+echo "
+datamatrix <- read.table('"$datafile"', header = TRUE)
+attach(datamatrix)
+" > $scriptfile
+
+# SPECIFY THAT PREDICTORS ARE CATEGORICAL FACTORS
+for pred in $listpred1 ; do
+	echo "$pred <- factor($pred)" >> $scriptfile
+done
+
+# RUN THE ANOVA
+echo "
+results = aov(formula = $data ~ $listpred2)
+summary(results)
+" >> $scriptfile
+
+# DO THE POST-HOC TESTS
+echo "TukeyHSD(results)" >> $scriptfile
+
+
+########################################################################################
+# RUN THE ANALYSIS - SAVE TO FILE
+########################################################################################
+cat $scriptfile | R -q --no-save --slave > $tempfile
+
+########################################################################################
+# PROCESS THE FILE
+########################################################################################
+cat $tempfile
+
+stats1=$(xe-getkeyline1 temp_r_anova group | head -n 1)
+stats2=$(xe-getkeyline1 temp_r_anova Residuals | head -n 1)
+
+F=$(echo $stats1 | cut -d ' ' -f 5)
+p=$(echo $stats1 | cut -d ' ' -f 6)
+df1=$(echo $stats1 | cut -d ' ' -f 2)
+df2=$(echo $stats2 | cut -d ' ' -f 2)
+echo
+echo "Overview: F("$df1","$df2")= "$F" , p= "$p
+echo
+
+rm -f $tempfile*

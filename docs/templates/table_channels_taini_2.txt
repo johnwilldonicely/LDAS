@@ -1,0 +1,27 @@
+# COMBINED EEG/EMG/LFP MONTAGE 2019/01/01
+# - 8 channels active, 5 grounded (g), 3 floating (x) 
+
+# chan    :  dat-file channel, usually organized by desired display order
+# depth   :  depth below brain surface, or display order 
+# good    :  is channel fit to use (0=NO, 1=YES) 
+# region  :  brain region general.specific, e.g. hipp.dorsal.ca1.pyr
+#         :  - alternatively, (g)grounded, (?)unknown (x)disconnected
+
+chan	depth	good	region
+0	13	0	x
+1	0	1	FRO
+2	3	0	g
+3	6	0	g
+4	2	1	SOM
+5	14	0	x
+6	7	1	prefrontal
+7	4	1	EMG.L
+8	5	1	EMG.R
+9	1	1	OCC
+10	15	0	x
+11	10	0	g
+12	11	0	g
+13	12	0	g
+14	9	1	insular.agranular
+15	8	1	amygdala.central
+

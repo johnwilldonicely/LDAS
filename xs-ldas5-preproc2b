@@ -1,0 +1,137 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog="xs-ldas5-preproc2b"
+command="xs-ldas5-preproc2"
+outbase=PREPROC2
+tempfile="temp_"$thisprog #"."$$
+rm -f $tempfile*
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setoutpath="./"
+setopts1=""
+setkilo="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": spike cluster refinement - batch script"
+	echo "	- convert kwik file to club(t)"
+	echo "	- extract waveforms"
+	echo "	- remove noisy clusters"
+	echo "	- combine clusters based on cross-refractoriness and waveform similarity"
+	echo "	- remove very low-spike-cuont clusters"
+	echo "	- sort clusters based on depth of maximum-waveform"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [expt] [options]"
+	echo "		[db]: database file specifying [path] & [group]"
+	echo "		[expt]: experiment to analyze"
+	echo "OPTIONS:"
+	echo "	--opts1: options for xs-ldas5-preproc2, in quotes [$setopts1]"
+	echo "		--low : .wfm low-cut filter for xs-ldas5-clucombine1 [$setfiltlow]"
+	echo "		--high : .wfm high-cut filter for xs-ldas5-clucombine1 [$setfilthigh]"
+	echo "			NOTE: filter settings are used for combining and sorting clusters"
+	echo "			NOTE: filters are not used for cluster removal steps or final plots"
+	echo "		--kz: kill cluster zero (0=NO 1=YES) [$setkz]"
+	echo "		-s | --skip : skip these steps ["$setskip"]"
+	echo "			e: extract kwik file to club(t) files"
+	echo "			w: extract waveforms from .dat file (make [base].wfm)"
+	echo "			k: kill-step 1, based on histogram & wavecor"
+	echo "			c: combine steps"
+	echo "			K: kill-step 2, based on sparse histograms"
+	echo "			s: sort the clusters by peak-waveform depth"
+	echo "			p: plot the histograms and waveforms"
+	echo "		--clean: remove temporarty files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	$thisprog 20160721-000_2904408 --opts1 \"--skip es --kz 0\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog "$@"
+date
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+filedb=$1 ; shift
+setexpt=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+eval set -- $(getopt -o s: -l opts1:,kz: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--opts1 )  setopts1="$2" ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+# determine if optiosn includes skipping extraction from a kwik file
+# - in this case, use the club(t) files in a kilosort folder
+setkilo=$(echo $setopts1 | xe-getkey stdin --skip | grep e)
+
+
+################################################################################
+# PROCESS THE DATABASE FILE: ASSUMES FORMAT IS [PATH] [GROUP]
+################################################################################
+dos2unix -q $filedb
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+for dbline in $dblist ; do
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; exit ; } fi
+	if [ "$group" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing group in $filedb for path $path" ; exit ; } fi
+	echo
+	echo "################################################################################"
+	echo "################################################################################"
+	echo "# $path"
+	echo "################################################################################"
+	echo "################################################################################"
+
+	# move to directory
+	cd $path
+
+	# determine basename for specified experiment
+	base=$(xs-ldas5-getbase1 $setexpt --quiet)
+	if [ "$base" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: problem with building basename for $setexpt sessions in $path" ; echo ; cd $start_dir ; exit ; } fi
+
+	if [ "$setkilo" != "" ] ; then
+		echo "...copying .clubt and .club files from kilosort folder..."
+		if [ ! -e "kilosort" ] ; then { echo ; echo "--- Error ["$thisprog"]: no kilosort folder in $path" ; exit ; } fi
+		cd kilosort
+		if [ ! -e $base".clubt" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $base.clubt in $path/kilosort" ; exit ; } fi
+		if [ ! -e $base".club" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $base.club in $path/kilosort" ; exit ; } fi
+		cp $base".clubt" ../
+		cp $base".club" ../
+		cd ../
+	fi
+
+	# execute the command
+	$command $base $setopts1
+
+	# return to the start directory
+	cd $start_dir
+done
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

@@ -1,0 +1,30 @@
+#!/bin/bash
+# <TAGS> file string </TAGS>
+thisprog="xs-strsubfile"
+tempfile="temp_"$thisprog
+
+if [ $# -ne 3 ]; then
+	echo $#
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": substitute text in an input file (replaces original)"
+	echo "USAGE: $thisprog [infile] [old] [new]"
+	echo "	[infile]: file name, in quotes if using wildcards"
+	echo "	[old]: the old characters to be replaced"
+	echo "	[new]: what the old characters should be replaced with"
+	echo "EXAMPLE: "$thisprog" \"*.txt\" \"cats\" \"dogs and cats\""
+	echo "OUTPUT: changes saved to original file"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+list=$1
+old=$2
+new=$3
+
+echo "Replacing $old with $new ..."
+for infile in $list ; do
+	echo "	"$infile
+	cat $infile | awk '{gsub('/"$old"'/,"'"$new"'");print}' > $tempfile
+	mv $tempfile $infile
+done

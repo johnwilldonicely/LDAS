@@ -1,0 +1,8 @@
+
+################################################################################
+# LDAS markdown definitions for nano: to append to ~/.nanorc or /etc/nanorc
+################################################################################
+include "/opt/LDAS/docs/templates/nano_md.nanorc"
+include "/opt/LDAS/docs/templates/nano_ldas.nanorc"
+
+

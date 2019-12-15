@@ -1,0 +1,249 @@
+#!/bin/bash
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+allopts=$@
+
+setflip="0"
+setlistclu="all"
+setsmooth="0"
+settrial="all"
+setskip="-"
+setoptsplace=""
+setoptsplot=""
+setoptsmerge=""
+setvmin="NAN"
+setvmax="NAN"
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Generate and plot place fields using a multi-matrix file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base]"
+	echo "		base: base-name in format yyyymmdd-ses_subject"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "	-c: comma-separated list of clusters to analyze (or all) ["$setlistclu"]"
+	echo "	-f: flip maps (0=sno, 1=x-axis, 2=y-axis) ["$setflip"]"
+	echo "	-s: smooth map (pixels) ["$setsmooth"]"
+	echo "	-O: options for xe-ldas5-placefields1 (in quotes) ["$setoptsplace"]"
+	echo "	-P: options for xe-plotmatrix1 (in quotes) ["$setoptsplot"]"
+	echo "	-M: options for xe-plotmerge1 (in quotes) ["$setoptsmerge"]"
+	echo "	--vmin: minimum speed (cm/s) ["$setvmin"]"
+	echo "	--vmax: maximum speed (cm/s) ["$setvmax"]"
+	echo "		NOTE: set both to \"NANa\" to include spikes when vel=NAN"
+	echo "	--skip: skip these steps ["$setskip"]"
+	echo "		p: plot place fields"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20001231-001_000001.data.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+
+################################################################################
+# REQUIRED ARGUMENT HANDLING
+################################################################################
+base=$1 ; shift
+################################################################################
+# OPTIONAL ARGUMENT HANDLING
+################################################################################
+# define acceptable short (vs) and long (vl) options, colon after options requiring values
+vs="t:c:f:s:O:P:M:" ; vl="trial:,clust:,flip:,smooth:,skip:,vmin:,vmax:,verb:,clean:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		-t | --trial ) settrial=$2 ; shift ;;
+ 		-c | --clust ) setlistclu=$2 ; shift ;;
+		-f | --flip ) setflip=$2 ; shift ;;
+		-s | --smooth ) setsmooth=$2 ; shift ;;
+		-O ) setoptsplace=$2 ; shift ;;
+		-P ) setoptsplot=$2 ; shift ;;
+		-M ) setoptsmerge=$2 ; shift ;;
+		--vmin ) setvmin=$2 ; shift ;;
+		--vmax ) setvmax=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--skip ) setskip=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+echo ; echo "--------------------------------------------------------------------------------"
+echo $thisprog $allopts
+
+################################################################################
+# SET FILE NAMES (.bin FILE MUST BE DEFINED AFTER CHANNEL IS DETERMINED)
+################################################################################
+filenotes=$base".notes"
+fileclub=$base".club"
+fileclubt=$base".clubt"
+filexydt=$base".xydt"
+filexyd=$base"-nose.xyd"
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit ; } fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit ; } fi
+if [ ! -e $filexydt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexydt' missing" ; echo ; exit ; } fi
+if [ ! -e $filexyd ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filexyd' missing" ; echo ; exit ; } fi
+
+# CLEANUP FILES BEFORE PROCEDING
+rm -f $tempfile*
+rm -f $progbase1*
+
+########################################################################################
+# GET THE SAMPLE FREQUENCY AND VIDEO RANGE FROM NOTES FILE
+########################################################################################
+sf=$(xe-getkey $filenotes sample_rate=)
+if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+x=$(xe-getkey $filenotes xyd_xmax=)
+y=$(xe-getkey $filenotes xyd_ymax=)
+range="0,0,$x,$y"
+
+
+########################################################################################
+# MAKE AN SSP LIST-FILE FOR SCREENING THE XYD(T) FILES
+# - also filter for running speed if required
+# - final output is $tempfile.ssp
+########################################################################################
+if [ $setverb == "1" ] ; then echo "	...getting start/stop times for specified trials ($settrial)" ; fi
+# save trial SSPs to file
+xs-ldas-gettrials1 $filenotes $settrial -o ssp > $tempfile"_trials.ssp"
+# make sure at least one trial was found
+let z=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" | wc -l)
+if [ $z -gt 0 ] ; then
+	if [ $setverb == "1" ] ; then echo "		$z blocks of data found" ; fi
+else { echo ; echo "--- Error ["$thisprog"]: no trial matching $settrial in $filenotes" ; echo ; exit ; }
+fi
+# define start-stop times meeting running-speed criteria
+if [ "$setvmin" != "NAN" ] || [ "$setvmax" != "NAN" ] ; then
+	if [ $setverb == "1" ] ; then echo "	...extracting periods when running speed is between $setvmin and $setvmax cm/s" ; fi
+	# generate the runnning-restricted speed epochs
+	xe-ldas5-readxyd1 $filexydt $filexyd -sf $sf -out 3 -velmin $setvmin -velmax $setvmax > $tempfile"_vel.ssp"
+	# filter this by the trials-SSP
+	xe-ldas5-readssp1 $tempfile"_vel.ssp" -out 7 -scr 1 -scrf $tempfile"_trials.ssp" > $tempfile".ssp"
+else
+	cp $tempfile"_trials.ssp" $tempfile".ssp"
+fi
+
+########################################################################################
+# GENERATE THE PLACE FIELD MULTI-MATRIX FILES
+# this is done for all clusters in the club/t file
+# note that no smoothing should be applied
+########################################################################################
+in1=$fileclubt
+in2=$fileclub
+in3=$filexydt
+in4=$filexyd
+if [ $setverb == "1" ] ; then
+	echo "		in1=$fileclubt"
+	echo "		in2=$fileclub"
+	echo "		in3=$filexydt"
+	echo "		in4=$filexyd"
+fi
+
+optsplace="-vrange $range -scrf "$tempfile".ssp -binsize 1 "$setoptsplace
+if [ "$setlistclu" != "all" ] ; then optsplace=$optsplace" -clu $setlistclu" ; fi
+
+dwellfile=$progbase1"_matrix_dwell.txt"
+if [ $setverb == "1" ] ; then echo "	...generating place-field dwell-matrix file $dwellfile" ; fi
+if [ $setverb == "1" ] ; then echo "	xe-ldas5-placefields1 "'$in1 $in2 $in3 $in4'" $optsplace -out 1" ; fi
+xe-ldas5-placefields1 $in1 $in2 $in3 $in4 $optsplace -out 1 > $dwellfile
+
+ratefile=$progbase1"_matrix_rate.txt"
+if [ $setverb == "1" ] ; then echo "	...generating place-field rate-matrix file $ratefile" ; fi
+if [ $setverb == "1" ] ; then echo "	xe-ldas5-placefields1 "'$in1 $in2 $in3 $in4'" $optsplace -out 4"  ; fi
+xe-ldas5-placefields1  $in1 $in2 $in3 $in4 $optsplace -out 4 > $ratefile
+
+########################################################################################
+# CALCULATE PLACE FIELD STATS AND ADD CELL-CLASS TO SUMMARY
+########################################################################################
+if [ $setverb == "1" ] ; then echo "	...calculating place-field stats" ; fi
+# place field stats
+xe-ldas5-placestats1 $dwellfile $ratefile > $tempfile.1
+listmap=$(xe-cut1 $tempfile".1" cluster -o 1 | paste -s | tr '\t' ',')
+# mean firing rate
+xe-ldas5-readclub1 $fileclubt $fileclub -scrf $tempfile".ssp" -out -2 |
+	xe-cut1 stdin  cluster,rate |
+	xe-dbmatch1 stdin cluster $listmap -oc rate > $tempfile".2"
+# cell class as defined in pre-processing (based on all trials)
+xe-cut1 $base.cellstats cluster,class |
+	xe-cut1 stdin cluster,class |
+	xe-dbmatch1 stdin cluster $listmap -oc class  > $tempfile".3"
+
+# combine the output - make sure class goes lastso we can easily exclude it later
+paste $tempfile.1 $tempfile.2 $tempfile.3 > $progbase1"_summary1.txt"
+
+########################################################################################
+# CREATE PER-CELL-TYPE SUMMARY
+########################################################################################
+if [ $setverb == "1" ] ; then echo "	...calculating subject-average stats" ; fi
+# create variable list from output - remove first (subject) and last (class) variable
+listvar=$(head $progbase1"_summary1.txt" -n 1 | cut -f 2- | rev | cut -f 2- | rev)
+echo "class count "$listvar | xe-delimit stdin > $progbase1"_summary2.txt"
+for class in 1 2 0 ; do
+	count=$(xe-dbmatch1 XPLACE1_summary1.txt class $class -o 1 | wc -l)
+	echo -n $class $count
+	for var in $listvar  ; do
+		z=$(
+			xe-dbmatch1 XPLACE1_summary1.txt class $class |
+			xe-cut1 stdin $var |
+			xe-statsd1 stdin |
+			xe-getkey stdin MEAN |
+			xe-math_round1 stdin -b .001
+		)
+		echo -n " "$z
+	done
+	echo
+done | xe-delimit stdin >> $progbase1"_summary2.txt"
+
+########################################################################################
+# PLOT THE RESULTS
+########################################################################################
+if [ "$(echo $setskip | grep -v p)" ] ; then
+	if [ $setverb == "1" ] ; then echo "	...plotting the results..." ; fi
+	xs-ldas5-plotplace1 $ratefile -c $setlistclu -f $setflip -s $setsmooth -b $progbase1 -P "$setoptsplot" -M "$setoptsmerge"
+fi
+
+
+########################################################################################
+# CLEANUP AND EXIT
+########################################################################################
+if [ $setverb == "1" ] ; then
+	echo "	...output sent to:"
+	echo "		$dwellfile"
+	echo "		$ratefile"
+	echo "		"$progbase1"_summary1.txt"
+	echo "		"$progbase1"_summary2.txt"
+	if [ "$(echo $setskip | grep -v p)" ] ; then echo "		$progbase1.001.ps" ; fi
+fi
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+exit

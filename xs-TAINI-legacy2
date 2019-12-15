@@ -1,0 +1,510 @@
+#!/bin/bash
+# <TAGS>taini electrophysiology</TAGS>
+
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$
+rm -f $tempfile*
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setoutpath="./"
+setstart="sync_0"
+setstop="sync_1"
+setproc="drvm"
+
+# define hypothetical range (cm) for each video window from the quad-display
+# this must be calculated using a screenshot of the arenas with the EthoVision scale-bar visible
+# use graphical softeware (eg. CorelDraw) to determine the number of pixels corresponding to the scale-bar and one quad-view
+# this is used to correct Ethovision x/y values so they are relative to each camera-view, not to the combined image with 0,0 in the middle
+# assumes the arena layout in the combined image is as follows:
+#    1  2
+#    3  4
+setvidxmax="50.06"
+setvidymax="37.54"
+setskip="-"
+setchantemplate=""
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Process Taini Ephys and EthoVision data from a single Ephys session"
+	echo "	- this legacy code uses Taini's legacy \"CRACKIT\" program output"
+	echo "	- renames files with spaces and converts from DOS format"
+	echo "	- checks date and time from CRACK-IT log & extracts sync-samples"
+	echo "	- extracts xyd info from all EthoVision records in current folder"
+	echo "		- assumes input is semicolon-delimited text"
+	echo "		- generates new timestamps (sample#)"
+	echo "		- corrects EthoVision positions according to Arena"
+	echo "		- assumes 4 arenas each with a $setxmax cm x $setymax cm range"
+	echo "	- creates a .notes and .cmt file"
+	echo "	- creates times_alltrials.ssp file describing trial start-stop samples"
+	echo "	- create date_subject folders:"
+	echo "		- copy above output to local files"
+	echo "		- save link to original .dat in notes file"
+	echo "		- create downsampled .bin files"
+	echo "		- create a local interpolated .dat file with non-trial data removed"
+	echo "REQUIRES: "
+	echo "	- [yyyymmdd]-[ses]_[subject].dat file"
+	echo "	- corresponding .syn file listing trial start-stop samples"
+	echo "	- Ethovision Track files for the corresponding subject and trials"
+	echo "	- Ethovision Hardware Control files containing SyncStartStop times"
+	echo "USAGE: "
+	echo "	"$thisprog" [pattern] [readme]"
+	echo "		[pattern]: pattern to match in .dat file (or \"*\")"
+	echo "		[readme]:"
+	echo "			- defines experiment= "
+	echo "			- <TRIALMAP> section lists EV trials for each session"
+	echo "			- if >1 session listed, .dat files merged <NOT IMPLEMENTED AT PRESENT!>"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-a: EthoVision start-sync label ["$setstart"]"
+	echo "	-z: EthoVision stop-sync label ["$setstop"]"
+	echo "	-s: skip these steps ["$setskip"]"
+	echo "		d: dat file interpolation and chunking for cluster-cutting"
+	echo "		r: make downsampled (1KHz) .bin files"
+	echo "		v: process EthoVision video failes & make xyd(t) files"
+	echo "		m: move files to their destination folders"
+	echo "	-o: output path ["$setoutpath"]"
+	echo "	-t: template to use if table_channels_[subject].txt is missing ["$setchantemplate"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20150930-001 README1.txt -a sync_0 -z sync_1 -s rvm"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+date
+echo "--------------------------------------------------------------------------------"
+
+# REQUIRED ARGUMENT HANDLING
+pattern=$1 ; shift
+filereadme=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":o:a:z:x:s:t:" flag ; do
+ 	case $flag in
+		o) setoutpath=$OPTARG;;
+		a) setstart=$OPTARG;;
+		z) setstop=$OPTARG;;
+		s) setskip=$OPTARG;;
+		t) setchantemplate=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ "$setstart" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: setstart (-a) cannot be blank" ; echo ; exit; } fi
+if [ "$setstop" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: setstop (-z) cannot be blank" ; echo ; exit; } fi
+
+list=$(ls *$pattern*.dat)
+
+# PRE-CHECK FOR README.txt FILE WITH TRIALMAP SECTION
+if [ ! -e $filereadme ] ; then { echo ; echo "--- Error ["$thisprog"]: README file ('$filereadme') missing" ; echo ; exit ; } fi
+let z=$(xe-strxmlparse1 $filereadme TRIALMAP | xe-cut1 stdin session,trial -s 1 -o 1 | wc -l)
+if [ $z -lt 1 ] ; then  { echo ; echo "--- Error ["$thisprog"]: $filereadme has no populated TRIALMAP section" ; echo ; exit ; } fi
+
+# GET THE EXPERIMENT NAME
+exptname=$(xe-getkey $filereadme "experiment=")
+if [ "$exptname" == "" ] ; then  { echo ; echo "--- Error ["$thisprog"]: experiment name undefined in $filereadme " ; echo ; exit ; } fi
+
+# PRE-CHECK .DAT FILES MATCHING PATTERN ARE PRESENT
+let z=$(echo $list | wc -w)
+if [ $z -lt 1 ] ; then  { echo ; echo "--- Error ["$thisprog"]: no .dat files matching pattern \"$pattern\"" ; echo ; exit ; } fi
+
+# PRE-CHECK FOR CHANNEL-TABLE FILES
+for filedat in $list ; do
+	subject=$(echo $filedat | echo $filedat | cut -f 1 -d . | cut -f 2 -d _)
+	filechan="table_channels_"$subject".txt"
+	if [ ! -e $filechan ] ; then {
+		echo "--- Warning ["$thisprog"]: channel-table ('$filechan') missing - copying template" ;
+		if [ "$setchantemplate" == ""  ] ; then { echo ; echo "--- Error ["$thisprog"]: must define a channel-template file (-t) if the table is not in the acquisition folder" ; echo ; exit ; } fi
+		if [ ! -e $setchantemplate ] ; then { echo ; echo "--- Error ["$thisprog"]: channel-table template missing ($setchantemplate)" ; echo ; exit ; } fi
+		cp $setchantemplate "./table_channels_"$subject".txt"
+	}
+	fi
+	z=$(xe-cut1 $filechan chan,prbchan,depth,good,region -o 1 -s 1 | wc -l)
+	if [ $z -lt 1 ] ; then  { echo ; echo "--- Error ["$thisprog"]: $filechan lacks headered entries" ; echo ; exit ; } fi
+
+done
+
+# PRE-CHECK FOR ETHOVISION FILES
+if [ "$(echo $setskip | grep -v v)" ] ; then
+	z=$(ls 2>/dev/null Track*.txt | wc -l)
+	if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no EthoVision Track files present" ; echo ; exit ; } fi
+	z=$(ls ls 2>/dev/null Hardware*.txt | wc -l)
+	if [ $z -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no EthoVision Hardware files present" ; echo ; exit ; } fi
+fi
+
+########################################################################################
+# FOR EACH .DAT FILE IN THE LIST...
+# - identify the .syn file
+# - get the session parameters
+# - table_trialmapping file to use the
+# - find the matching Ethovision trials
+########################################################################################
+for filedat in $list ; do
+
+	echo "Processing $filedat"
+	echo "--------------------------------------------------------------------------------"
+	# CHECK INPUT FILE, AND DEFINE SYNC LOG FILE
+	ext=${filedat##*.}
+	if [ "$ext" != "dat" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filedat' has no \".dat\" extension" ; echo ; exit ; } fi
+	if [ ! -e "$filedat" ] ; then { echo ; echo "--- Error ["$thisprog"]: .dat file '$filedat' missing" ; echo ; exit; } fi
+	filesyn=$(xs-strsub $filedat .dat .syn)
+	if [ ! -e "$filesyn" ] ; then { echo ; echo "--- Error ["$thisprog"]: no matching .syn file '$filesyn'" ; echo ; exit ; } fi
+
+	# RENAME THE FILES AND CONVERT FROM DOS to LINUX (remove linefeed at end of lines)
+	xs-rename " " "_" "*.txt"
+#???	dos2unix -q *.txt
+	chmod a-x *.txt
+
+	# GET CRACK-IT LOG INFORMATION, INCLUDING START/STOP SYNC PULSE TIMES (SAMPLES)
+	# date and time are derived from the .syn file - date is converted from yyyy-mm-dd to yyyy/mm/dd
+	# assumes each sync entries are in the format <sample#> <entry>
+	# subject and session are automatically converted to non-zero-padded numbers
+	echo "...retrieving sync/log records from $filesyn ..."
+	sr=$(xe-getkey $filesyn sample_rate=)
+	if [ -z "$sr" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify sample_rate" ; echo ; exit ; } fi
+	subj1=$(xe-getkey $filesyn subject=)
+	if [ -z "$subj1" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify subject" ; echo ; exit ; } fi
+	sess1=$(xe-getkey $filesyn session= | awk '{printf("%d\n",$1)}')
+	if [ -z "$sess1" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify session" ; echo ; exit ; } fi
+	nchan=$(xe-getkey $filesyn num_channels=)
+	if [ -z "$nchan" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify num_channels" ; echo ; exit ; } fi
+	time1=$(xe-getkey $filesyn start_time= | grep -e '..:..:..')
+	if [ -z "$time1" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify start_time" ; echo ; exit ; } fi
+	date1=$(xe-getkey $filesyn start_date= | grep -e '....-..-..' | tr '-' '/' )
+	if [ -z "$date1" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify start_date" ; echo ; exit ; } fi
+	datbits=$(xe-getkey $filesyn data_bits=)
+	if [ -z "$datbits" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify data_bits" ; echo ; exit ; } fi
+	datmax=$(xe-getkey $filesyn data_max=)
+	if [ -z "$datmax" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify data_max" ; echo ; exit ; } fi
+	datinvalid=$(xe-getkey $filesyn data_invalid=)
+	if [ -z "$datinvalid" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filesyn' does not specify data_invalid" ; echo ; exit ; } fi
+	# save a path to the .datfile for subsequent processing
+	# avoids copying dat file to subject folder
+	# .dat file will not needed after KlustaKwik, waveform extraction and downsampling
+	datpath=$(pwd)"/"$filedat
+
+	# BUILD THE BASE NAME - PAD THE SESSION AND SUBJECT NUMBERS APPROPRIATELY
+	date2=$(echo $date1 | xe-dateconv1 stdin -i 3 -o 1)  # 8-digit date code
+	sess2=$(echo $sess1 | awk '{printf("%03d\n",$1)}')   # 3-digit session code
+	base=$date2"-"$sess2"_"$subj1
+	baseshort=$date2"_"$subj1
+	filenotes=$base".notes"
+	filecmt=$base".cmt"
+	filessptrials="times_alltrials.ssp"
+	decimate=$(echo "scale=8; $sr/1000" | bc) # decimation factor for converting .dat file to LFP
+
+	# SET OUTPUT PATH FOR THIS .DAT INPUT (DATE_SUBJECT)
+	# if the "move" option is not set, all output goes to the current directory
+	if [ "$(echo $setskip | grep -v m)" ] ; then
+		path="../Data_Library/"$baseshort
+		mkdir -p $path
+	else path="./"
+	fi
+
+	# BUILD A .CMT FILE - NOTE THAT THIS WILL BE OVERWRITTEN IF ETHOVISION PROCESSING IS SET
+	echo "0 zero_"$date1"_"$time1 | xe-delimit stdin > $filecmt
+	awk 'NF==2&&$1!~/[a-z]/{print $1"\t"$2}' $filesyn >> $filecmt
+
+	# BUILD THE DATE-SUBJECT .NOTES FILE IF IT HASN'T BEEN MADE ALREADY
+	echo "start_date= "$date1 > $filenotes
+	echo "start_time= "$time1 >> $filenotes
+	echo "session= "$sess2 >> $filenotes
+	echo "experiment= "$exptname >> $filenotes
+	echo "subject=" $subj1 >> $filenotes
+	echo "n_channels= "$nchan >> $filenotes
+	echo "sample_rate= "$sr >> $filenotes
+	echo "datbits= "$datbits >> $filenotes
+	echo "datmax= "$datmax >> $filenotes
+	echo "datinvalid= "$datinvalid >> $filenotes
+	echo "datpath= "$datpath >> $filenotes
+	echo "xyd_xmax= "$setvidxmax >> $filenotes
+	echo "xyd_ymax= "$setvidymax >> $filenotes
+	echo "bin_decimation= "$decimate >> $filenotes
+	cat $filenotes | awk '{print "\t"$0}'
+
+	# BUILD A LIST OF START-STOP PAIRS - NOTE THESE ARE 1-OFFSET (RANGE= 1 to NSTARTS)
+	# - skip lines starting with "#"
+	# - note that a +1 correction is applied to stops - so it is not the sample at which the stop sync was received, but the one after
+	# - note that we do not use awk to perform long-integer arithmetic!
+	starts=$(awk '$0!~/^#/ && $2~"'$setstart'"{print $1}' $filesyn)
+	stops=$(awk '$0!~/^#/ && $2~"'$setstop'"{print $1}' $filesyn | xe-math_add1 stdin -cy 1 -v 1 -long 1)
+	let nstarts=$(echo $starts | wc -w)
+	let nstops=$(echo $stops | wc -w)
+	if [ $nstarts != $nstops ] ; then { echo ; echo "--- Error ["$thisprog"]: unequal no. of start and stop sync signals in $filesyn " ; echo ; exit ; } fi
+	let count=1 ; for i in $starts ; do { start[$count]=$i ; let count=$count+1 ; } done
+	let count=1 ; for i in $stops ; do { stop[$count]=$i ; let count=$count+1 ; } done
+	# if there are no sync pulses, set flag
+	if [ $nstarts -eq 0 ] ; then
+		let syncsfound=0
+		nstarts=1
+		nstops=1
+		datbytes=$(echo "$datbits/8" | bc)
+		filebytes=$(ls -l $filedat | cut -f 5 -d " ")
+		start[1]=0
+		stop[1]=$(echo "$filebytes/$datbytes/$nchan" | bc)
+		echo "	--- Warning: no sync pulses found"
+	else
+		let syncsfound=1
+	fi
+
+	# CREATE START-STOP PAIRS FOR EACH TRIAL IN THE SESSION (MAY BE ONLY ONE TRIAL PER SESSION)
+	rm -f $filessptrials
+	for i in $(seq 1 $nstarts) ; do
+		echo ${start[$i]} ${stop[$i]} |
+		xe-writebinary1 stdin -dt 7 >> $filessptrials
+	done
+
+	########################################################################################
+	# 1. INTERPOLATE AND CHUNK .DAT FILE - FOR KLUSTAKWIK
+	# save directly to output path
+	########################################################################################
+	if [ "$(echo $setskip | grep -v d)" ] ; then
+		echo "...making interpolated and chunked .dat file for clustering in $path ..."
+		command="xs-ldas5-chunkdat1 $filedat $filessptrials | xe-ldas5-interp2 stdin -nch $nchan -bad 1 -min 10 > $path/$filedat"
+		echo $command
+
+		xs-ldas5-chunkdat1 $filedat $filessptrials | xe-ldas5-interp2 stdin -nch $nchan -bad 1 -min 10 > $path/$filedat
+	fi
+
+	########################################################################################
+	# 2. MAKE INTERPOLATED .bin FILES - FOR EEG-TYPE ANALYSIS
+	# - downsample to exactly 1000Hz
+	# - save downsampling factor to notes file
+	# - save directly to output path
+	########################################################################################
+	if [ "$(echo $setskip | grep -v r)" ] ; then
+		echo "...making interpolated .bin files in $path ..."
+		clockA=$(date +'%s.%3N')
+		maxchan=$(echo "$nchan-1" | bc)
+		opts="-nch $nchan -sf $sr -bad 1 -int 1 -dec $decimate -con 1 -out 1"
+		for setchan in $(seq 0 $maxchan) ; do
+			chan2=$(echo $setchan | awk '{printf("%03d",$1)}')
+			outfile=$base"-"$chan2".bin"
+			echo "	downsampling $chan2"
+			xe-ldas5-readdat2 $filedat $opts -ch $setchan > $path"/"$outfile
+		done
+		clockZ=$(date +'%s.%3N')
+		s=$(echo " $clockZ - $clockA " | bc )
+		m=$(echo "scale=3.0; $s/60" | bc)
+		echo "	* time to finish downsampling: "$s" seconds = "$m" minutes"
+	fi
+
+
+	########################################################################################
+	# 3. DETERMINE THE MATCHING ETHOVISION FILES FOR THIS SESSION & SUBJECT, USING A TRIALMAPPING TABLE FILE
+	# - entries in the trialmap filemust exactly match the entries in the CRACKIT sync file and the EthoVision Hardware record variable "vTRIALNUM"
+	########################################################################################
+	if [ "$(echo $setskip | grep -v v)" ] ; then
+		echo "...EthoVision trialmapping..."
+		# get the list of trials associated with this session
+		listevtrials=$(xe-dbmatch1 $filereadme session $sess1 -o 1 -oc trial -xml TRIALMAP | tr ',' ' ')
+		if [ -z "$listevtrials" ] ; then
+			{ echo ; echo "--- Error ["$thisprog"]: file $filereadme has no TRIALMAP entries for ephys session $sess1" ; echo ; exit ; }
+		elif [ $syncsfound -eq 0 ] ; then
+			{ echo ; echo "--- Error ["$thisprog"]: file $filereadme has TRIALMAP entries, but $filesyn has no syncs" ; echo ; exit ; }
+		fi
+		echo "	trials for session $sess1 : "$listevtrials
+		# make sure total number of ethovision trials corresponds with the start/stop sync pairs in the .syn file
+		nevtrials=$(echo $listevtrials | wc -w)
+		if [ $nstarts != $nevtrials ] ; then { echo ; echo "--- Error ["$thisprog"]: trials for session $sess1 in $filereadme ($nevtrials) does not match start/stop sync signals ($nstarts)" ; echo ; exit ; } fi
+
+		# USE DATA FROM FILEMAP TABLE TO BUILD A LIST OF ETHOVISION TRACKING FILES
+		# - checks the vSUBJECT and  vTRIALNUM values in the ethovision tracking file headers
+		# - gets the vTRIALNAME value as well
+		echo "...matching tracking files..."
+		listtrack=$(ls Track*Trial*Arena_*.txt)
+		let count=0
+		for i in $listevtrials ; do
+			trial=$(echo $i | awk '{printf("%d",$1)}') # convert to simple integer
+			let nn=0
+			z=""
+			for j in $listtrack ; do
+				x=$(xs-ldas-readethovision1 $j -h vTRIALNUM | awk '{printf("%d",$1)}' )
+				y=$(xs-ldas-readethovision1 $j -h vSUBJECT  | awk '{printf("%s",$1)}' | tr -d '_' )
+				if [ "$x" == "$trial" ] && [ "$y" == "$subj1" ] ; then
+					echo "	"$j
+					let nn=$nn+1
+					z=$z" "$j
+				fi
+			done
+			if   [ $nn -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no EV tracking files specify vTRIALNUM $i and vSUBJECT $subj1" ; echo ; exit ; }
+			elif [ $nn -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: multuiple EV tracking files specify vTRIALNUM $i and vSUBJECT $subj1 : " ; echo $z |	tr ' ' '\n'  ; echo ;  exit ; }
+			else
+				# if this is the right tracking file, make sure the corresponding hardware file exists
+				filehw=$(echo $z | awk -F "Arena" '{print $1}' | xe-strsub1 stdin Track Hardware | awk '{print $1"Arena_1.txt"}')
+				if [ ! -e "$filehw" ] ; then { echo ; echo "--- Error ["$thisprog"]: Hardware file '$filehw' missing" ; echo ; exit ; } fi
+				let count=$count+1
+				filetrk[$count]=$z
+			fi
+		done
+		#for i in $(seq 1 $nstarts) ; do echo $i ${start[$i]} ${stop[$i]}  ${filetrk[$i]} ; done
+
+		# CREATE THE XML SECTION IN THE NOTES FOLE FOR THE TRIAL RECORDS
+		echo "" >> $filenotes
+		echo "<TRIALS>" >> $filenotes
+		echo "trial start stop seconds arena name" | xe-delimit stdin  >> $filenotes
+
+		########################################################################################
+		# 4. FOR EACH TRIAL, START MAKING XYD(T) FILES
+		# - read the ev hardware record from arena 1....
+		# - update the notes file with an XML section for TRIALS
+		########################################################################################
+		echo "...making files..."
+		rm -f $base*.xyd $base.xydt $base.cmt
+
+		for trial in $(seq 1 $nstarts) ; do
+
+			# MAKE TEMPORARY VARIABLES FOR START/STOP/TRACKINGFILE (SIMPLIFIES NOTATION)
+			start1=${start[$trial]}
+			stop1=${stop[$trial]}
+			filetrk1=${filetrk[$trial]}
+
+			# get basic EthoVision trial parameters - common for all subjects
+			evtrialname=$(xs-ldas-readethovision1 $filetrk1 -h vTRIALNAME)
+			evtrialnum=$(xs-ldas-readethovision1 $filetrk1 -h vTRIALNUM)
+			evsubject=$(xs-ldas-readethovision1 $filetrk1 -h vSUBJECT | tr -d '_')
+
+			# get the corresponding Hardware-file corresponding to the Track-file
+			# note that only Arena-1 records the StartStopSync pulses
+			filehw=$(echo $filetrk1 | awk -F "Arena" '{print $1}' | xe-strsub1 stdin Track Hardware | awk '{print $1"Arena_1.txt"}')
+			if [ ! -e "$filehw" ] ; then { echo ; echo "--- Error ["$thisprog"]: Hardware file '$filehw' missing" ; echo ; exit ; } fi
+
+			echo "	TRIAL "$evtrialnum" ("$evtrialname") SUBJECT "$evsubject
+			echo "	EV Hardware file: "$filehw
+			echo "	EV Tracking file: "$filetrk1
+
+			# get the arena number (1-4) to apply correction to x/y coordinates
+			# This assumes the following arena configuration in Cartesian space:
+			#	1	2	- Ethovision will maze "zero" the midpoint of the 4 arenas
+			#	3	4	- correction should make bottom-left of each area 0,0
+			arena=$(xs-ldas-readethovision1 $filetrk1 -h "Arena_name" | cut -f 2 -d _)
+			if [ "$arena" == "1" ] ;   then { xmin="-"$setvidxmax ; ymin="0" ; }
+			elif [ "$arena" == "2" ] ; then { xmin="0" ; ymin="0" ; }
+			elif [ "$arena" == "3" ] ; then { xmin="-"$setvidxmax ; ymin="-"$setvidymax ; }
+			elif [ "$arena" == "4" ] ; then { xmin="0" ; ymin="-"$setvidymax ; }
+			else { echo ; echo "--- Error ["$thisprog"]: invalid Arena_name specified in tracking file (\"$arena\") " ; echo ; exit ; }
+			fi
+
+			# get start & stop sync times (seconds, relative to start of recording)
+			ts1=$(grep SyncStartStop $filehw | grep command | grep -am 1 "Output 1 High" | cut -f 1 -d ";")
+			ts2=$(grep SyncStartStop $filehw | grep command | grep -am 1 "Output 2 High" | cut -f 1 -d ";")
+			evdur=$(echo $ts1 $ts2 | awk '{print $2-$1}')
+			echo "		start="$start1
+			echo "		stop="$stop1
+			echo "		duration="$evdur" seconds"
+			echo "		arena="$arena
+
+			# add an entry to the <TRIALS> section notes file
+			# like the .ssp file, stop is adjusted by +1 in the notes file to reflect the first sample not-included
+			echo "$evtrialnum $start1 $stop1 $evdur $arena $evtrialname" | xe-delimit stdin  >> $filenotes
+
+			########################################################################################
+			# MAKE THE XYD(T) FILES WITH TIMESTAMPS CORRESPONDING TO .DAT FILE SAMPLE-NUMBERS
+			# note that xs-ldas-readethovision is NOT used for getting the first and last timestamps (tr1 and tr2)
+			# this is because using tail is much faster than reading the whole file and taking the last line
+			########################################################################################
+			#get the number of header lines from the key in the EthoVision file
+			nheaderlines=$(head -n 20 $filetrk1 | grep "Number of header lines" | cut -f 2 -d ";" | tr -d '"'| awk '{print $1-1}')
+			# determine the column defining "Trial time"
+			incol=$(tail -n +$nheaderlines $filetrk1|head -n 1 | tr ' ' '_' | tr -d '"' | tr ';' '\n' | awk 'BEGIN{n=1}{if($1=="Trial_time") print n ; n++}')
+			# calculate the lag between ts1 and the first tracking sample tr1 (generally this should be zero)
+			# this will be zero if the sync pulses coincide with EthoVision recording start/stop
+			tr1=$(tail -n +$nheaderlines $filetrk1|head -n 3|tail -n 1|cut -f $incol -d ";")
+			lag1=$(echo "$tr1 - $ts1" | bc )
+			# calculate the lag between ts2 and the last tracking sample tr2 (generally this should be zero)
+			tr2=$(tail -n 1 $filetrk1| cut -f $incol -d ";")
+			lag2=$(echo "$tr2 - $ts2" | bc )
+			# calculate how many electrophysiology samples the lags correspond to
+			if [ $(xe-test1 $lag1 -gt 0) ] ; then elag1=$(echo "scale=12; $lag1 * $sr" | bc) ; else elag1=0; fi
+			if [ $(xe-test1 $lag1 -lt 0) ] ; then elag2=$(echo "scale=12; $lag2 * $sr" | bc) ; else elag2=0; fi
+			# calculate the number of ephys samples covering tracking samples between the sync pulses
+			# note that the stop-sync has already been adjusted by +1, so stop-start does equal n
+			nephys=$(echo "scale=0; $stop1 + $elag2 - $start1 - $elag1" | bc)
+			# save the tracks between & including ts1 & ts2 to the .xyd file
+			# apply correction to x/y values so camera bottom-left = 0/0
+			# use of awk is ok here for floating-point arithmetic
+			# save the diagnostic output to a tempfile to get the number of samples
+			echo "...Extracting body-centre coordinates...."
+			xs-ldas-readethovision1 $filetrk1 -c Trial_time,X_center,Y_center,Direction |
+				tail -n +2 |
+				awk '$1>='$ts1' && $1<='$ts2' {print $2-('$xmin'),$3-('$ymin'),$4}' |
+				xe-writebinary1 stdin -dt 8 -v 1 >> $base"-body.xyd" 2> $tempfile
+			echo "...Extracting nose-point coordinates...."
+			xs-ldas-readethovision1 $filetrk1 -c Trial_time,X_nose,Y_nose,Direction |
+				tail -n +2 |
+				awk '$1>='$ts1' && $1<='$ts2' {print $2-('$xmin'),$3-('$ymin'),$4}' |
+				xe-writebinary1 stdin -dt 8 -v 1 >> $base"-nose.xyd" 2> $tempfile
+			# extract the number of records from the tempfile, which records the total number of binary numbers written
+			# this must be divided by 3, because each entry in the .xyd file is the triplet corresponding to a single tracking sample
+			ntracks=$(xe-getkey $tempfile n= | xe-math_div1 stdin -v 3 -long 1)
+			# calculate the tracking interval, in ephys-samples, = nephys-1 / ntracks-1
+			calc="($nephys -1)/($ntracks -1)"
+			trackint=$(echo "scale=12; $calc" | bc)
+			trackrate=$(echo "scale=12;  1/$trackint" | bc )
+			# make the xyd timestamp file
+			xe-timestamp2 $ntracks $trackint -f 1 -o $start1 -p 0 -r 1 |
+				xe-writebinary1 stdin -dt 7 >>  $base.xydt 2> $tempfile
+
+			# add an entry to the comment file
+			if [ $trial == "1" ] ; then echo "0 zero_"$date1"_"$time1 | xe-delimit stdin > $filecmt ; fi
+			echo $start1 "EVstart_"$evtrialnum"_"$evtrialname | xe-delimit stdin >>  $filecmt
+			echo $stop1 "EVstop_"$evtrialnum"_"$evtrialname | xe-delimit stdin >>  $filecmt
+
+			echo "		nephys="$nephys
+			echo "		ntracks="$ntracks
+			echo "		trackint="$trackint
+
+		done # END OF LOOP: FOR TRIAL IN LIST, FOR CURRENT DAT FILE
+
+		########################################################################################
+		# FINISH THE <TRIALS> SECTION IN THE NOTES FOLE FOR THE TRIAL RECORDS
+		########################################################################################
+		echo "</TRIALS>" >> $filenotes
+		echo "" >> $filenotes
+
+	fi # end of condition, if setskip includes v (EthoViision video trial processing)
+
+	########################################################################################
+	# 5. MAKE XML SECTION FOR CHANNEL RECORDS IN THE NOTES FILE
+	########################################################################################
+	filechan="table_channels_"$subject".txt"
+
+	echo "<CHANNELS>" >> $filenotes
+	xe-cut1 $filechan chan,prbchan,depth,good,region -s 1 >> $filenotes
+	echo "</CHANNELS>" >> $filenotes
+	echo "" >> $filenotes
+
+	########################################################################################
+	# 6. MOVE FILES TO THE APROPRIATE FOLDERS - LIST FROM ALL THE .XYD FILES IN CURRENT FOLDER
+	########################################################################################
+	if [ "$(echo $setskip | grep -v m)" ] ; then
+		echo "...moving files to $path ..."
+		echo
+		mv  2>/dev/null $base"-"*".bin" $path/
+		mv  2>/dev/null $filenotes $path/
+		mv  2>/dev/null $filecmt $path/
+		mv  2>/dev/null $filessptrials $path/
+		mv  2>/dev/null times_light.ssp $path/
+		mv  2>/dev/null times_dark.ssp $path/
+		mv  2>/dev/null $base".xydt" $path/
+		mv  2>/dev/null $base"-body.xyd" $path/
+		mv  2>/dev/null $base"-nose.xyd" $path/
+		rm -f $tempfile*
+	fi
+
+done # END OF LOOP: FOR DATFILE IN LIST
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

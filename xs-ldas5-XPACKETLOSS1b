@@ -1,0 +1,123 @@
+#!/bin/bash
+
+thisprog="xs-ldas5-XPACKETLOSS1b"
+tempfile="temp_"$thisprog #"."$$
+progbase1="XPACKETLOSS1"
+
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+settrial="all"
+setbin="1"
+setskip="-"
+
+if [ $# -lt 1 ]; then 
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Batch process for electrophysiology experiments - packet loss"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database file to use"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-t: trial number, name, TOD_LIGHT, TOD_DARK or \"all\" ["$settrial"]"
+	echo "		- TOD (time-of-day) options select lights on or off"
+	echo "		- this is based on the times_light or times_dark .ssp files"
+	echo "	-b: bin-size (sec) for averaging (0= no binning) ["$setbin"]"
+	echo "	-s: skip these steps ["$setskip"]"
+	echo "		x: calculation of values"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20150930-001 ../Data_Library"
+	echo "--------------------------------------------------------------------------------"
+	echo 
+	exit
+fi
+
+echo 
+echo "################################################################################"
+echo $thisprog $@
+echo "################################################################################"
+
+
+# REQUIRED ARGUMENT HANDLING
+filedb=$1 ; shift 
+if [ ! -e $filedb ] ; then { echo ; echo "	--- Error ["$thisprog"]: database file '$filedb' missing" ; echo ; exit ; } fi 
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":t:b:s:" flag ; do
+ 	case $flag in
+ 		t) settrial=$OPTARG;;
+		b) setbin=$OPTARG;;
+		s) setskip=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } 
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+rm -f $tempfile*
+
+
+let count=0;
+filelist=$startdir"/"$tempfile"_plotlist.txt"
+rm -t $filelist
+# FOR EACH DIRECTORY IN THE DATABASE FILE....
+awk 'NF>0&&$0!~/^#/{print $0}' $filedb | while read path group rest ; do 
+
+	if [ ! -d "$path" ]; then { echo ; echo "--- Error ["$thisprog"]: invalid path in $db : $path" ; echo ; exit ; } fi 
+	echo 
+	echo $path 
+	cd $path 
+	
+	filenotes=$(ls *notes) 
+	date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3) 
+	session=$(xe-getkey $filenotes session=) 
+	subject=$(xe-getkey $filenotes subject=) 
+	base=$date"-"$session"_"$subject
+
+	if [ "$(echo $setskip | grep -v x)" ] ; then 
+		xs-ldas5-$progbase1 $base -t $settrial -b $setbin
+	fi 
+
+	infile=$progbase1"_summary.txt"
+	outfile=$startdir"/"$progbase1"_"$settrial"_summary.txt"
+	if [ $count -eq 0 ] ; then rm -f $outfile ; fi 
+	echo "" >> $outfile
+	echo "BASE= "$base >> $outfile
+	cat $infile >> $outfile 
+
+	infile=$progbase1"_trace.txt"
+	outfile=$startdir"/"$progbase1"_"$settrial"_velocity.txt"
+	header="group subject "$(xs-getheader $infile) ; 
+	if [ $count -eq 0 ] ; then echo $header | xe-delimit stdin > $outfile ; fi 
+	tail -n +2 $infile | awk '{print "'$group' '$subject' "$0}' | xe-delimit stdin >> $outfile
+
+
+	infile=$progbase1"_trace.ps"
+	outfile=$startdir"/"$progbase1"_trace_"$base".ps"
+	cp $infile $outfile 
+	echo $outfile >> $filelist
+
+	infile=$progbase1"_hist.ps"
+	outfile=$startdir"/"$progbase1"_hist_"$base".ps"
+	cp $infile $outfile 
+	echo $outfile >> $filelist
+
+	cd $startdir
+  	let count=$count+1
+done 
+
+# MAKE A SUMMARY PLOT
+plotlist=$(cat $filelist) 
+xe-plotmerge1 -xmax 2 -xinc 250 -out $progbase1"_"$settrial"_plots" $plotlist
+rm -f $plotlist 
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+#echo "Time to finish job: "$s" seconds = "$m" minutes"
+
+

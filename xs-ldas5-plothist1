@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# <TAGS>plot</TAGS>
+
+thisprog="xs-ldas5-plothist1"
+tempfile="temp_"$thisprog #"."$$"."
+setoutbase=$tempfile
+
+settype="auto"
+setlistclu="all"
+setclean="1"
+setmaxcols="-1"
+sethistwidth="15"
+settics="0"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot a row of histograms for mulitple clusters"
+	echo "USAGE: "
+	echo "	"$thisprog" [clubt] [club] [options]"
+	echo "		[clubt]: binary cluster timestamp file"
+	echo "		[club]:  binary cluster ID file"
+	echo "VALID OPTIONS:"
+	echo "	--type: auto- or cross-correlograms [$settype] "
+	echo "	--list: CSV list of clusters to process (or \"all\") [$setlistclu] "
+	echo "	--width: half-width (ms) of the histogram [$sethistwidth] "
+	echo "	--maxcols: maximum number of histograms on a row (-1 no limit) [$setmaxcols] "
+	echo "	--outbase: basename for output files [$setoutbase]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--verb:  flag: verbose output"
+	echo "	--tics: add axis tics & labels (0=NO 1=YES) [$settics]"
+	echo "	-P: additional plot options, in quotes [$setplotopts]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" waves.wfm"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+# PARSING PATHS AND FILENAMES
+fileclubt=$1 ; shift
+fileclub=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="t:l:w:vP:"
+vl="type:,list:,width:,maxcols:,clean:,tics:,verb,outbase:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments without required options (flags)
+		-v | --verb ) setverb="yes" ;;
+		# arguments with required options (an additional shift is required)
+		-t | --type ) settype="$2" ; shift ;;
+		-l | --list ) setlistclu="$2" ; shift ;;
+		-w | --width ) sethistwidth="$2" ; shift ;;
+		-P ) setplotopts="$2" ; shift ;;
+		--tics ) settics="$2" ; shift ;;
+		--maxcols ) setmaxcols="$2" ; shift ;;
+		--outbase ) setoutbase="$2" ; shift ;;
+		--clean ) setclean="$2" ; shift ;;
+		# arguments that are unnamed or unknown (end or do nothing, respectively)
+		-- ) shift ; break ;;
+		* )
+	esac
+	shift
+done
+# FILE AND ARGUMENT CHECKS
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit; } ; fi
+if [ "$settype" != "auto" ] && [ "$settype" != "cross" ] ; then { echo ; echo "--- Error ["$thisprog"]: --type ($settype) must be \"auto\" or \"cross\"" ; echo ; exit; } ; fi
+if [ "$settics" != "0" ] && [ "$settics" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: --tics ($settics) must be \"0\" or \"1\"" ; echo ; exit; } ; fi
+
+###############################################################################
+# BUILD CLUSTER LIST
+###############################################################################
+if [ "$setlistclu" == "all" ] ; then
+	listclu=$(xe-ldas5-readclub1 $fileclubt $fileclub -out -2 | xe-cut1 stdin cluster -o 1 | awk '$1>0{print$1}' | paste -s)
+	setlistclu=$(echo $listclu | tr ' ' ',')
+else
+	listclu=$(echo $setlistclu | tr ',' '\t')
+fi
+# CALCULATE NUMBER OF CLUSTERS
+let nclu=$(echo $listclu | wc -w)
+# DETERMINE NUMBER OF HISTOGRAMS PER ROW
+if [ $setmaxcols == "-1" ] ; then maxcols=$nclu ; else maxcols=$setmaxcols ; fi
+# SET SENSIBLE FONT SIZE FOR PLOTS
+if [ $maxcols -gt 15 ] ; then fontsize=6 ; else fontsize=8 ; fi
+
+
+###############################################################################
+# CALCULATE THE HISTOGRAMS
+###############################################################################
+echo "	- generating histograms..."
+command="xe-ldas5-cluhist1 $fileclubt $fileclub $filewfm -width $sethistwidth -skipz 1 -out 0 -list $setlistclu"
+if [ "$settype" == "cross" ] ; then command=$command" -cor 2" ; fi
+if [ "$setverb" == "yes" ] ; then echo "	$command > $tempfile" ; fi
+$command > $tempfile
+
+
+###############################################################################
+# PLOT THE HISTOGRAMS
+###############################################################################
+xscalehist=$(echo $maxcols | awk '{printf("%.4f",(1.0/($1+1.5)))}')
+yscalehist=$xscalehist
+xinchist=$(echo $maxcols | awk '{printf("%.4f",(595.0/($1+1.5)))}')
+yinchist=$xinchist
+maxrows=$(echo $maxcols | awk '{print $1+1}')
+yo=$(echo 820-$yscalehist*500 | bc )
+
+plotopts="-cx 2 -cy 3 -pt histo -xscale $xscalehist -yscale $yscalehist -frame 0 -xpad 0 -ypad 0 -lwd 0.25 -font $fontsize"
+if [ "$settics" == "0" ] ; then plotopts=$plotopts" -xint -1 -yint -1" ; fi
+plotopts=$plotopts" "$setplotopts
+mergeopts="-xo 25 -yo $yo -xmax $maxcols -ymax $maxrows -xinc $xinchist -yinc $yinchist"
+
+if [ "$settype" == "auto" ] ; then
+	echo "	- plotting auto-correlograms..."
+	xe-cut1 $tempfile cluster,time,count -o 1 > $tempfile.1
+	clumax=$(echo $listclu | tr ' ' '\n' |sort -nr| head -n 1)
+	plotlist=""
+	for cluid in $listclu ; do
+		if [ $setverb ] ; then echo "plot cluster $cluid" ; fi
+		plotfile=$tempfile"_"$cluid".ps"
+		plotlist=$plotlist" "$plotfile
+		xe-dbmatch1 $tempfile.1 1 $cluid -cn 1 -m 2 -o 1 |
+			xe-plottable1 stdin $plotopts -xlabel $cluid -out $plotfile
+	done
+elif [ "$settype" == "cross" ] ; then
+	echo "	- plotting cross-correlograms..."
+	xe-cut1 $tempfile c1,c2,time,count -o 1 | awk '{printf("%03d-%03d\t%s\t%s\n",$1,$2,$3,$4)}' > $tempfile.1
+	list=$(cut -f 1 $tempfile.1 | sort -u)
+	clumax=$(echo $list | awk '{printf("%d",$NF)}' | cut -f 1 -d -)
+	plotlist=""
+	for item in $list ; do
+		cluid1=$(echo $item | cut -f 1 -d - | awk '{printf("%d",$1)}')
+		cluid2=$(echo $item | cut -f 2 -d - | awk '{printf("%d",$1)}')
+		plotopts2=""
+		if [ "$cluid1" == "$cluid2" ] ; then plotopts2=$plotopts2" -colour 1" ; fi
+		if [ $setverb ] ; then echo "plot item $item" ; fi
+		plotfile=$tempfile"_"$item".ps"
+		plotlist=$plotlist" "$plotfile
+		xe-dbmatch1 $tempfile.1 1 $item -cn 1 -m 2 -o 1 |
+			xe-plottable1 stdin $plotopts $plotopts2 -xlabel "$cluid1-$cluid2" -out $plotfile
+	done
+fi
+
+# MERGE PLOTS
+rm -f $setoutbase"_summary1."*".ps"
+xe-plotmerge1 $plotlist $mergeopts -out $setoutbase"_summary1"
+
+# REPORT PLOT FILE NAMES
+list=$(ls $setoutbase"_summary1."*".ps")
+echo "	- plots sent to :" ; for i in $list ; do echo "		$i" ; done
+
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile
+	rm -f $tempfile.1
+	rm -f $plotlist
+fi

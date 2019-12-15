@@ -1,0 +1,118 @@
+#!/bin/bash
+# <TAGS>ldas</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setgood="1"
+setoutcol="chan"
+setverb="0"
+setclean="1"
+
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": get the channel-number for a region in an LDAS .notes file"
+	echo "	- this is derived from the CHANNELS table in the .notes file"
+	echo "USAGE: $thisprog [notes] [region] [options]"
+	echo "	[notes]: an LDAS .notes file containing a CHANNELS xml section"
+	echo "	[region]: the brain region to find"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--output column [$setoutcol]"
+	echo "	--good: accept only good channels (0=NO 1=YES) [$setgood]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "OUTPUT: a CSV list of channels meeting criteria, or an error message"
+	echo "EXAMPLE: "
+	echo "	chan=\$("$thisprog" file.notes PFC)"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filenotes=$1 ; shift
+setregion=$1 ; shift
+
+if [ ! -e "$filenotes" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $filenotes\n" ;  exit; } ; fi
+if [ ! -s "$filenotes" ] ; then { echo -e "\n--- Error ["$thisprog"]: $filenotes is empty\n" ;  exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="s:b:v:c:" ; vl="outcol:,good:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--outcol ) setoutcol=$2 ; shift ;;
+		--good ) setgood=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setgood" != "0" ] && [ "$setgood" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --good ($setgood) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+########################################################################################
+# GET THE CHANNEL
+########################################################################################
+
+# GENERATE THE REGION-SPECIFIC CHANNEL TABLE
+if [ "$setregion" != "all" ] ; then
+	xe-dbmatch1 $filenotes region $setregion -xml CHANNELS &> $tempfile".table"
+else
+	xe-strxmlparse1	$filenotes CHANNELS | awk 'NF>0{print $0}' &> $tempfile".table"
+fi
+
+# CHECK FOR ERRORS
+let z=$(grep "Error" $tempfile".table" | wc -l)
+if [ $z -gt 0 ]; then
+	echo -e "$RED \n--- Error ["$thisprog"]:"
+	cat $tempfile".table"
+	echo -en "$NC"
+	exit
+fi
+
+# OUTPUT, APPLYING GOOD FILTER IF REQUIRED
+if [ "$setgood" == "1" ] ; then
+	xe-dbmatch1 $tempfile".table" good 1 -oc $setoutcol -o 1
+else
+	xe-dbmatch1 $tempfile".table" good 1,0 -oc $setoutcol -o 1
+fi
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -1,0 +1,70 @@
+#!/bin/bash
+thisprog="xs-ldas-filtercmtb"
+start_time=$(date +'%s')
+tempfile="temp_"$thisprog
+
+if [ $# -lt 1 ] ; then 
+	echo; 
+	echo "------------------------------------------------------------"
+	echo "Use a database file to batch-filter comment files"
+	echo "- keep only comments matching a pattern"
+	echo "- useful if different probes are from different subjects, but"
+	echo "	CHART software used a ONLY single-column for comment output"
+	echo "- requires a special database file specifying the pattern"
+	echo "Useage: "$thisprog" [database]"
+	echo "	database: "
+	echo "		contains list of directories to look in" 
+	echo "		format: [path] [subject-pattern]" 
+	echo "		database example: " 
+	echo "			../Data_Working/031-991231	Aninmal_01" 
+	echo "			../Data_Working/032-991231	Aninmal_02" 
+	echo "			../Data_Working/033-991231	Aninmal_01" 
+	echo "			../Data_Working/034-991231	Aninmal_02" 
+	echo "			../Data_Working/035-991231	Aninmal_01" 
+	echo "			../Data_Working/036-991231	Aninmal_02" 
+	echo "Example:" 
+	echo "	"$thisprog" database.txt" 
+	echo "Output:" 
+	echo "	- modified comment files with only comments matching pattern"
+	echo "	- a backup of the original comment file"
+	echo
+	exit; 
+fi
+
+startdir=$(pwd)
+database=$1; shift ; 
+
+if [ ! -e $database ] ; then { echo ; echo "--- Error ["$thisprog"]: database file "$database" missing" ; echo ; exit; } ; fi
+
+
+# CHECK INTEGRITY OF DATABASE BEFOR RUNNING THROUGH THE WHOLE THING
+cat $database | while read path pattern ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then 
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$database": "$path ; echo ; exit; } ; fi
+	fi
+done
+
+# NOW GO AHEAD AND DO THE BATCH JOB
+cat $database | while read path pattern rest ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then 
+		cd $path
+		echo $path
+		
+		base=${path##*/} 
+		list=$(ls $base.???.cmt)
+		
+		for i in $list ; do 
+			mv $i $i".backup"
+			grep $pattern $i".backup" > $i 
+		done 
+
+		cd $startdir
+	fi
+done
+
+end_time=$(date +'%s')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+
+echo; echo "	Time to finish job: "$s" seconds = "$m" minutes"
+echo 

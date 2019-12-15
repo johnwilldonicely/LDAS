@@ -1,0 +1,55 @@
+#!/bin/bash
+# <TAGS> O2 </TAGS>
+
+thisprog=`basename "$0"`
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "---------------------------------------------------------"
+	echo $thisprog": Copy comments from channel 001 to all other.cmt files"
+	echo "Usefull if there are only comments in the first channel"
+	echo "USAGE: "$thisprog" [database]"
+	echo "EXAMPLE: "$thisprog" all.db"
+	echo "---------------------------------------------------------"
+	echo
+	exit
+fi
+
+database=$1; shift ;
+commands="$@"
+startdir=$(pwd)
+
+# CHECK INTEGRITY OF DATABASE BEFOR RUNNING THROUGH THE WHOLE THING
+cat $database | while read path rest ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then
+		if [ ! -e "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in "$database": "$path ; echo ; exit; } ; fi
+	fi
+done
+
+# NOW GO AHEAD AND DO THE BATCH JOB
+cat $database | while read path rest ; do
+	if [ ${#path} -gt 0 ] && [ "${path:0:1}" != "#" ] ; then
+		cd $path ; echo $path
+
+		base=$(basename $path)
+		notesfile=$base".notes"
+		if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' missing" ; echo ; exit; } ; fi
+
+		let count=0 # initialize a counter to keep track of the first channel found
+
+		# read a list of channels from the .notes file - pass this to a loop....
+		xe-getkey $notesfile CHANNEL | while read channel ; do
+
+			channel_padded=$(echo $channel | awk '{printf("%03d\n",$1)}') # convert channel number to 3-digits, padded with zeros
+
+			let count=$count+1
+			if [ $count == 1 ] ; then
+				infile=$base"."$channel_padded".cmt" 	#  build the name of the comments file to use as the source
+			else
+				outfile=$base"."$channel_padded".cmt"	# build the name of the target comment file
+				cp $infile $outfile			# copy the source to the target
+			fi
+		done
+		cd $startdir
+	fi
+done

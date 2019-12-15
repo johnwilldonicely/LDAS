@@ -1,0 +1,419 @@
+#!/bin/bash
+# <TAGS>MEA</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+tempfile="temp_"$thisprog #"."$$"."
+logfile="log_"$thisprog".txt"
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setpre=0.2
+setpost=0.2
+setanalysis="all"
+setfiltlow=5
+setfilthigh=25
+setthresh1=3
+setthresh2=2
+setsign="auto"
+setrefract=0
+setchans="all"
+setstart="0"
+setdur=""
+
+setverb="0"
+setclean="1"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": detect events in a multi-channel multi-electrode-array file"
+	echo "REQUIRES: a properly formatted ,notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [map]"
+	echo "		[base]: input file basename - assumes directory contains:"
+	echo "			[base].dat: binary 16-bit input, merged trials"
+	echo "			[base].ssp: binary start-stop samples delineating trials"
+	echo "			[base].notes: text file specifying sample-rate, trials, etc."
+	echo "		[map]: matrix specifying the layout of the channels. Example:"
+	echo "			11 21 31 41 51 61 71 81"
+	echo "			12 22 32 42 52 62 72 82"
+	echo "			13 23 33 43 53 63 73 83"
+	echo "			14 24 34 44 54 64 74 84"
+	echo "			15 25 35 45 55 65 75 85"
+	echo "			16 26 36 46 56 66 76 86"
+	echo "			17 27 37 47 57 67 77 87"
+	echo "			18 28 38 48 58 68 78 88	"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-a: analysis to perform (detect|summary|all) [$setanalysis]"
+	echo "	-l: filter low-cut [$setfiltlow]"
+	echo "	-h: filter high-cut [$setfilthigh]"
+	echo "	-t: peak-detect threshold (std.dev - positive values only) [$setthresh1]"
+	echo "	-e: edge-detect threshold (std.dev)[$setthresh2]"
+	echo "	-s: sign of detection (-1,0,+1, or auto) [$setsign]"
+	echo "	-r: enforced refractory period [$setrefract]"
+	echo "	-c: select channels to analyze (comma-delimited-list or \"all\") [$setchan]"
+	echo "	-S: start-time (seconds) to begin analysis [$setstart]"
+	echo "	-D: duration (seconds) for analysis [unset - whole trial]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20180101_000005 table_map.txt"
+	echo "--------------------------------------F----------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------
+"$thisprog" "$@"
+--------------------------------------------------------------------------------"
+echo "--------------------------------------------------------------------------------
+"$thisprog" "$@"
+--------------------------------------------------------------------------------" > $logfile
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+setbase=$1 ; shift
+inmap=$1 ; shift
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="a:l:h:t:e:s:r:c:S:D:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-a) setanalysis=$2 ; shift ;;
+		-l) setfiltlow=$2 ; shift ;;
+		-h) setfilthigh=$2 ; shift ;;
+		-t) setthresh1=$2 ; shift ;;
+		-e) setthresh2=$2 ; shift ;;
+		-s) setsign=$2 ; shift ;;
+		-r) setrefract=$2 ; shift ;;
+		-c) setchans=$2 ; shift ;;
+		-S) setstart=$2 ; shift ;;
+		-D) setdur=$2 ; shift ;;
+		--verb) setverb=$2 ; shift ;;
+		--clean) setclean=$2 ; shift ;;
+		--) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ $setsign != "auto" ] && [ $setsign != "-1" ] && [ $setsign != "0" ] && [ $setsign != "+1" ] ; then
+		echo ; echo "--- Error ["$thisprog"]: -s (%s) must be -1, 0, +1, or auto" ; echo ; exit;
+fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+########################################################################################
+# MISSING-FILE HANDLING
+########################################################################################
+indat=$setbase".dat"
+inssp=$setbase".ssp"
+innotes=$setbase".notes"
+
+if [ "$setanalysis" != "summary" ] ; then
+	if [ ! -e $indat ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$indat' missing" ; echo ; exit; } ; fi
+	if [ ! -e $inssp ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inssp' missing" ; echo ; exit; } ; fi
+	if [ ! -e $innotes ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$innotes' missing" ; echo ; exit; } ; fi
+	if [ ! -e $inmap ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inmap' missing" ; echo ; exit; } ; fi
+	echo "indat="$indat
+	echo "inssp="$inssp
+	echo "innotes="$innotes
+	echo "map="$inmap
+fi
+
+# GET PARAMETERS FROM THE NOTES FILE
+samprate=$(xe-getkey $innotes sample_rate=)
+adczero=$(xe-getkey $innotes adc_zero=)
+voltsperunit=$(xe-getkey $innotes volts_per_unit=)
+totaldur=$(xe-getkey $innotes duration_samples=)
+let nchans=$(xe-getkey $innotes nchans=)
+listchans1=$(xe-getkey $innotes channel_list= | tr ',' ' ') # replace commas with spaces to allow parsing
+
+# now, record the file position for each channel
+let count=0
+for i in $listchans1 ; do
+	chanposarray[$i]=$count # records the channel file-position corresponding to each channel ID
+	let count=$count+1
+done
+
+# define setdur as total record length if it's not set
+if [ "$setdur" == "" ] ; then setdur=$(echo $totaldur $samprate | awk '{print $1/$2}') ; fi
+# temporarily give a total duration value in minutes
+x=$(echo $totaldur $samprate | awk '{print ($1/$2)/60}')
+
+echo "--------------------------------------------------------------------------------"
+echo "setfiltlow="$setfiltlow
+echo "setfilthigh="$setfilthigh
+echo "setthresh1="$setthresh1"	# detection threshold"
+echo "setthresh2="$setthresh2"	# edge threshold"
+echo "setpre="$setpre
+echo "setpost="$setpost
+echo "nchans="$nchans
+echo "samprate="$samprate
+echo "adczero="$adczero
+echo "voltsperunit="$voltsperunit
+echo "setstart="$setstart
+echo "setdur="$setdur
+echo "totaldur="$x" minutes"
+echo "--------------------------------------------------------------------------------"
+
+# calculate pre- and post-samples for each event
+pre=$(echo $setpre $samprate | awk '{print $1*$2'})
+post=$(echo $setpost $samprate | awk '{print $1*$2'})
+# calculate refractory period in samples
+refract=$(echo $setrefract $samprate | awk '{print $1*$2}')
+
+#???? STILL NEED THIS ???
+# calculate start  in samples
+setstart2=$(echo $setstart $samprate | awk '{print $1*$2}')
+# define or adjust duration parameter (convert (back) to samples)
+setdur2=$(echo $setdur $samprate | awk '{print $1*$2}')
+
+
+# READ THE MAP FILE TO GET HE CHANNELS TO ANALYZE AND THE ORDER
+# check number of channels in map
+let z=$(cat $inmap | xe-transpose1 stdin | cut -f 2 | grep --color=never '[^-0-9]' | wc -l)
+if [ $z -ne 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: map file \"$inmap\" contains non-numeric values" ; echo ; exit; } ; fi
+listchans2=$(cat $inmap)
+if [ "$setchans" == "all" ] ; then
+	setchans=$listchans2
+else
+	setchans=$(echo $setchans | tr ',' ' ')
+fi
+
+
+################################################################################
+################################################################################
+# RUN THE DETECTION: for each channel....channel count mismatch, $inmap ($z) vs. $innotes ($nchans)
+# 	- tempfile.0
+#		generated from binary input file
+#		apply the notch filter & save results for mean waveform calculation
+# 	- tempfile.1:
+# 		generated from tempfile.0
+# 		apply the butterworth filter
+# 		read the first section and calculate mean and stdev
+#		detect events
+#	- tempfile.2:
+#		event times, used for mean waveform calculation
+#	- tempfile.3:
+# 		generated from tempfile.2
+#		channel ID added to event times
+#		allows sorting by time and generation of club(t) records
+################################################################################
+################################################################################
+if [ "$setanalysis" != "summary" ] ; then
+
+	rm -f temp_??.*
+	rm -f $tempfile.*
+	listoutfile=""
+	let totevents=0
+
+	# get the start-stop values for the baseline
+	bla=$(xe-dbmatch1 $innotes name aCSF -m 1 -xml TRIALS | xe-cut1 stdin start -o 1)
+	blz=$(xe-dbmatch1 $innotes name aCSF -m 1 -xml TRIALS | xe-cut1 stdin stop -o 1)
+	bln=$(echo $bla $blz | awk '{print $2-$1}')
+
+	let skipcount=0; # counter for skipped channels - to aid in making empty filenames
+
+	# FOR EVERY ENTRY IN THE CHANNEL MAP TABLE
+	for channel in $listchans2 ; do
+
+		# IS THIS A CHANNEL TO BE SKIPPED? (CHANNEL ID IS NON-NUMERIC)
+		let z=$(echo $channel | grep '[0-9]' | wc -w)
+		if [ $z -eq 0 ] ; then
+			let skipcount=$skipcount+1
+			outfile=$tempfile"_skip"$skipcount".txt"
+			listoutfile=$listoutfile" "$outfile
+			echo "0 0" > $outfile
+			continue
+		fi
+
+		# GENERATE A DEFAULT MEAN-WAVEFORM FILE IN CASE THERE IS NO DATA
+		outfile=$tempfile"_"$channel".txt"
+		let nevents[$channel]=0
+		listoutfile=$listoutfile" "$outfile
+		echo "0 0" > $outfile
+
+		# DO NOT ANALYZE IF THE CHANNEL IS NOT IN THE SET LIST, OR IS NOT PRESENT IN THE DATA FILE
+		if [[ ! $setchans =~ $channel ]] ; then continue ; fi
+		if [[ ! $listchans1 =~ $channel ]] ; then continue ; fi
+
+		echo
+		echo "--------------------------------------------------------------------------------"
+		echo "PROCESSING CHANNEL "$channel" - FILE POSITION "$chanpos
+		echo "--------------------------------------------------------------------------------"
+		chanpos=${chanposarray[$channel]}
+
+		# CALCULATE BASELINE MEAN AND STDDEV
+		# NOTE: stopped using RMS as it obscures results (better suited to oscillatory events, not deflections in one direction or the other)
+		echo ; echo "	CALCULATING BASELINE"
+
+		stats=$(xe-ldas5-readdat1 $indat -nch $nchans -ch $chanpos -h 0 -s $bla -n $bln |
+			xe-filter_notch1 stdin -sf $samprate -n 50 -w 1 |
+			xe-filter_butterworth1 stdin -sf $samprate -low $setfiltlow -high $setfilthigh |
+			xe-statsd1 stdin)
+		mean=$(echo $stats| xe-getkey stdin MEAN | awk '{print 0-$1}')
+		stddev=$(echo $stats| xe-getkey stdin STDDEV)
+		echo "		mean="$mean
+		echo "		stddev="$stddev
+
+		# EXTRACT CHANNEL AND NOTCH FILTER - USE HEADER, START AND DURATION PARAMETERS
+		echo ; echo "	EXTRACTING CHANNEL "$channel
+		xe-ldas5-readdat1 $indat -nch $nchans -ch $chanpos -h 0 -s $setstart2 -n $setdur2 |
+		xe-filter_notch1 stdin -sf $samprate -n 50 -w 1 > $tempfile.0
+
+		# APPLY BUTTERWORTH FILTER FOR DATA TO UNDERGO DETECTION
+		xe-filter_butterworth1 $tempfile.0 -sf $samprate -low $setfiltlow -high $setfilthigh |
+		xe-writebinary1 stdin -dt 8 > $tempfile.1
+
+		# RUN EVENT DETECTION (4 POSSIBLE MODES) - APPLY Z-SCORE DURING DETECTION
+		# calculate proportion of peak threshold that is edge threshold (required for xe-detectevents1)
+		setthresh3=$(echo $setthresh1 $setthresh2 | awk '{print $2/$1}' | xe-math_abs1 stdin )
+		detopts="-dt 8 -e $setthresh3 -ref $refract -pre $pre -post $post -z1 $mean -z2 $stddev -u 10"
+		echo
+		if [ "$setsign" == "auto" ] ; then
+			echo "	DOING AUTO SIGN DETECTION"
+			command="xe-detectevents1 $tempfile.1 $detopts -t -$setthresh1 -s -1"
+			echo "	$command"
+			$command | xe-cut1 stdin peak,pval > $tempfile.1a
+			command="xe-detectevents1 $tempfile.1 $detopts -t $setthresh1 -s 1"
+			echo "	$command"
+			$command | xe-cut1 stdin peak,pval  > $tempfile.1b
+			let nevents_n=$(xe-cut1 $tempfile.1a peak -o 1 | wc -w)
+			let nevents_p=$(xe-cut1 $tempfile.1b peak -o 1 | wc -w)
+
+			# determine which detection to use - negative or positive
+			if [ $nevents_n -ge $nevents_p ] ; then
+				echo "		polarity of events is determined to be negative"
+				mv $tempfile.1a $tempfile.events
+			else
+				echo "		polarity of events is determined to be positive"
+				mv $tempfile.1b $tempfile.events
+			fi
+		elif [ "$setsign" == "-1" ] ; then
+			echo "	FINDING NEGATIVE EVENTS"
+			command="xe-detectevents1 $tempfile.1 $detopts -t -$setthresh1 -s -1"
+			echo "	$command"
+			$command | xe-cut1 stdin peak,pval > $tempfile.events
+		elif [ "$setsign" == "0" ] ; then
+			echo "	FINDING NEGATIVE AND POSITIVE EVENTS"
+			command="xe-detectevents1 $tempfile.1 $detopts -t -$setthresh1 -s 0"
+			echo "	$command"
+			$command | xe-cut1 stdin peak,pval > $tempfile.events
+		elif [ "$setsign" == "+1" ] ; then
+			echo "	FINDING POSITIVE EVENTS"
+			command="xe-detectevents1 $tempfile.1 $detopts -t $setthresh1 -s 1"
+			echo "	$command"
+			$command | xe-cut1 stdin peak,pval > $tempfile.events
+		fi
+
+		# REPORT NUMBER OF EVENTS
+		let nevents[$channel]=$(xe-cut1 $tempfile.events peak -o 1 | wc -w)
+		let totevents=$totevents+nevents[$channel]
+		echo ; 	echo "		n_events: "${nevents[$channel]} ; echo
+
+		# SAVE THE MEAN WAVEFORM
+		if [ ${nevents[$channel]} -gt 0 ] ; then
+			echo "	CALCULATING AVERAGE EVENT (notch-filter only)"
+			xe-cut1 $tempfile.events peak -o 1 > $tempfile.peaks
+			xe-ldas-align2 $tempfile.0 $tempfile.peaks -dt -1 -pre $pre -post $post -norm 2 -pn $pre -pnx $pre |
+				awk '{print 1000*$1/'$samprate',$2*'$voltsperunit'}' > $outfile
+		else
+			echo "0 0" > $outfile
+		fi
+
+		# MAKE PRECURSOR TO CLUB(T) FILE AND AMPLITUDE TIMESERIES
+		if [ ${nevents[$channel]} -gt 0 ] ; then
+			echo "	MAKING CLUB PRECURSOR "
+			awk '{print "'$channel'\t"$0}' $tempfile.peaks >> $tempfile.club # channel="cluster", peak="time"
+			awk '{print "'$channel'\t"$0}' $tempfile.events >> $tempfile.amp # channel,time,amplitude
+		fi
+
+	done # END OF PER_CHANNEL LOOP
+
+	if [ $totevents -gt 0 ] ; then
+		# make .club(t) binary file pair
+		sort -k2,2n $tempfile.club | cut -f 1 | xe-writebinary1 stdin -dt 3 > $setbase".club"
+		sort -k2,2n $tempfile.club | cut -f 2 | xe-writebinary1 stdin -dt 7 > $setbase".clubt"
+
+		# make amplitude timeseries
+		echo "channel sample amp" | xe-delimit stdin > $setbase"_amp.txt"
+		grep -v peak $tempfile.amp >> $setbase"_amp.txt"
+	else
+		rm -f $setbase".club"; touch $setbase".club"
+		rm -f $setbase".clubt"; touch $setbase".clubt"
+		echo "channel sample amp" | xe-delimit stdin > $setbase"_amp.txt"
+	fi
+
+fi  # END OF LOOP: if [ "$setanalysis" != "summary" ] ; then
+
+
+# DETERMINE PLOT MINIMUM AND MAXIMUM
+echo "	PLOTTING RESULTS"
+
+stats=$(cat $listoutfile | cut -f 2 -d " " | xe-statsd1 stdin)
+min=$(echo $stats| xe-getkey stdin MIN | awk '{x=int($1)+0; if(x%2==0) y=x ; else y=x-1 ; print y}')
+max=$(echo $stats| xe-getkey stdin MAX | awk '{x=int($1)+1; if(x%2==0) y=x ; else y=x+1 ; print y}')
+
+
+
+# PLOT THE MEAN CURVES
+listplotfile=""
+plotopts_mean="-line 1 -ps 0 -colour 3 -lwd 2 -vline 0 -xpad 0 -xint 100 -ymin $min -ymax $max -colour 3 -font 12 "
+echo "chan start dur n AUC min max rate" | xe-delimit stdin >  $progbase1"_summary.txt"
+
+for i in $listoutfile ; do
+
+	# get the number of events for the current channel (or zero if it's a skipped-channel)
+	c=$(echo $i | rev | cut -f 1 -d "_" | rev | cut -f 1 -d ".")
+	if [[ $i = *"skip"* ]]; then let n=0 ; else let n=${nevents[$c]} ; fi
+	# plot
+	plotfile=$(echo $i | xe-strsub1 stdin .txt .ps)
+	listplotfile=$listplotfile" "$plotfile
+	xe-plottable1 $i $plotopts_mean -title "Channel $c:  N=$n" -xlabel "Time (ms)" -ylabel "Amplitude (uV)" -out $plotfile
+
+	if [ $n -gt 0 ] ; then
+		y=$(cut -f 2 -d " " $i | xe-curvestats1 stdin | xe-cut1 stdin AUC,Yn,Yp -o 1)
+		rate=$(echo $n $setdur | awk '{print $1/$2}' )
+		echo $c $setstart $setdur $n $y $rate | xe-delimit stdin >> $progbase1"_summary.txt"
+	fi
+
+done
+
+# MAKE A MERGED PLOT OF THE MEAN EVENTS FROM ALL CHANNELS, IN THE CORRECT LAYOUT
+xe-plotmerge1 -xmax 8 -xinc 225 -yinc 225 -ymax 9 -scale .25 $listplotfile -xo 300 -yo 2900 -out $progbase1"_summary"
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

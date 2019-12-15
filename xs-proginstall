@@ -1,0 +1,245 @@
+#!/bin/bash
+# <TAGS>programming ldas</TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog
+tempfolder="temp_"$thisprog
+
+# colours for use with optional error messages
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setfilezip="LDAS-master.zip"
+setdest="/opt/LDAS"
+setverb="1"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": LDAS installation script"
+	echo "USAGE: $thisprog [mode] [options]"
+	echo "	[mode]: operating mode (install or compile)"
+	echo "		update: "
+	echo "			- update from a .zip archive"
+	echo "			- extract a zip archive of LDAS into $setdest"
+	echo "		install: "
+	echo "			- full install & update from a .zip archive"
+	echo "			- check operating system & permissions"
+	echo "			- check and update \$PATH variable in /etc/profile"
+	echo "			- check and update /etc/bashrc"
+	echo "			- check dependencies?"
+	echo "			- extract a zip archive of LDAS into $setdest"
+	echo "			- create $setdest/bin folder"
+	echo "		compile: "
+	echo "			- re-compile code after install or GitHub update"
+	echo "			- check presence of $setdest/source folder and contents"
+	echo "			- check $setdest/bin is present, clear executable content"
+	echo "			- compile all xe-* programs"
+	echo "			- update all manuals"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--zip: zip-file containing LDAS repository [$setfilezip]"
+	echo "	--dest: destination for repository [$setdest]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" install"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+setmode=$1 ; shift
+if [ "$setmode" != "update" ] && [ "$setmode" != "install" ] && [ "$setmode" != "compile" ] ; then
+	echo -e "\n--- Error ["$thisprog"]: invalid mode ($setmode) - must be \"update\" or \"install\" or \"compile\"\n"
+	exit
+fi
+
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="dest:,zip:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--zip ) setfilezip=$2 ; shift ;;
+		--dest ) setdest=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
+fi
+echo
+
+################################################################################
+# DEFINE CHECK FUNCTION: CALL FORMAT: status=$(func_check)
+function func_check () {
+	status="OK"
+
+	# check if dependency is installed - pandoc
+	if [ "$(command -v pandoc)" == "" ] ; then status="WARNING" ; echo -e "\t--- Warning: pandoc is not installed on this machine: cannot convert to HTML\n" > $tempfile".status" ; fi
+
+	# check presence and readability of /opt/LDAS/bin
+	in1=$setdest/bin
+	if [ ! -e $in1 ] ; then status="NOINSTALL" ; echo -e "\t--- Warning: missing $in1 , please run $thisprog install\n" > $tempfile".status" ; fi
+	writeable=$(xs-progpermission $USER $in1 | awk '{print $2}')
+	if [ "$writeable" == "no" ] ; then status="PERMISSION" ; echo -e "\t--- Warning: user $USER is not permitted to write to $in1\n" > $tempfile".status" ; fi
+
+	echo $status # this returns to the calling function
+}
+
+########################################################################################
+# MODE-1: UPDATE
+########################################################################################
+if [ "$setmode" == "update" ] ; then
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
+
+	sudo mkdir -p $setdest
+	sudo chown -R $USER:$USER $setdest
+	unzip -oq $setfilezip -d $tempfolder
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "COPYING PROGRAMS TO $setdest..."
+	# determine the subfolder from the zipfile containing the code
+	source=$(ls -1dt $tempfolder/* | head -n 1)
+	cp -a $source/* $setdest/
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "MAKING SCRIPTS EXECUTABLE..."
+	chmod a+x $setdest/xs-*
+	chmod a+x $setdest/xp-*
+
+	{ echo -e "$GREEN\nNOTE: now run $thisprog compile$NC\n" ;  exit; }
+
+fi
+
+
+########################################################################################
+# MODE-1: INSTALL
+########################################################################################
+if [ "$setmode" == "install" ] ; then
+
+	bar="################################################################################"
+	profile="/etc/profile"
+	distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
+	release=$(lsb_release -a | grep "Release:" | cut -f 2)
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CREATING DESTINATION DIRECTORIES..."
+	sudo mkdir -p $setdest
+	sudo chown -R $USER:$USER $setdest
+	mkdir -p $setdest/bin
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
+	unzip -oq $setfilezip -d $tempfolder
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "COPYING PROGRAMS TO $setdest..."
+	# determine the subfolder from the zipfile containing the code
+	source=$(ls -1dt $tempfolder/* | head -n 1)
+	cp -a $source/* $setdest/
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "MAKING SCRIPTS EXECUTABLE..."
+        chmod a+x $setdest/xs-*
+        chmod a+x $setdest/xp-*
+
+
+	z=$(grep -s '$PATH:'$setdest /etc/profile | head -n 1)
+	if [ "$z" == "" ] ; then
+		echo "--------------------------------------------------------------------------------"
+		echo -e "UPDATING \$PATH VARIABLE FOR ALL USERS ($profile)..."
+		template=$setdest"/docs/templates/ldas_profile.txt"
+		sudo sh -c "cat $template >> /etc/profile"
+	fi
+
+	z=$(grep -s LDAS /etc/nanorc | head -n 1)
+	if [ "$z" == "" ] ; then
+		echo "--------------------------------------------------------------------------------"
+		echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
+		template=$setdest"/docs/templates/ldas_nanorc.txt"
+		sudo sh -c "cat $template >> /etc/nanorc"
+	fi
+
+
+	{ echo -e "$GREEN\nNOTE: now run $thisprog compile$NC\n" ;  exit; }
+fi
+
+########################################################################################
+# MODE-2: COMPILE
+########################################################################################
+if [ "$setmode" == "compile" ] ; then
+
+	status=$(func_check)
+	echo "status-check: "$status
+	if [ "$status" == "NOINSTALL" ] || [ "$status" == "PERMISSION" ] ; then cat $tempfile".status" ; exit ; fi
+
+	echo "--------------------------------------------------------------------------------"
+	echo "COMPILING PROGRAMS..."
+	rm -f $setdest/bin/xe-*
+	cd $setdest/source
+	xs-progcompile "xe-*.c"
+
+	echo "--------------------------------------------------------------------------------"
+	echo "UPDATING TAGS-SUMMARY FILE..."
+	xs-progtag html | awk '{print "\t"$0}'
+
+	echo "--------------------------------------------------------------------------------"
+	echo "UPDATING MANUALS..."
+	if [ "$(command -v pandoc)" != "" ] ; then
+		list=$(xs-manual | xe-cut2 stdin available manuals: -s4 1 | tail -n +2 | xe-delimit stdin)
+		for i in $list ; do xs-manual $i --make html 2>/dev/null | awk '{print "\t"$0}' ; done
+	else
+		echo -e "\n--- Warning ["$thisprog"]: pandoc is not installed on this machine: cannot create HTML versions of manuals\n"
+	fi
+
+fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo -e "\n\tTime to finish job: "$s" seconds = "$m" minutes\n"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile"_"* ; fi
+fi
+exit

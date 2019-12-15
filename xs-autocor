@@ -1,0 +1,80 @@
+#!/bin/bash
+# <TAGS> math signal_processing </TAGS>
+thisprog="xs-autocor"
+
+plotopts="-cx 1 -cy 2 -pt histo -lwd 1 -xlabel Time -ylabel Count -font 8 -xscale .5 -bz 1 -colour 3 -vline 0"
+outfile="temp_"$thisprog".txt"
+plotfile="temp_"$thisprog".ps"
+
+setwinsize=0.1
+setbins=100
+setsf=20000
+setplot="1"
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "-----------------------------------------------------------"
+	echo "Create autocorrellogram or cross-corellogram"
+	echo "Calls xe-wint1, xe-hist1, and xe-plottable1"
+	echo "*** NOTE *** ASSUMES SAMPLE RATE IS 20KHz"
+	echo ""
+	echo "USAGE: "$thisprog" [input] [g1] [g2]"
+	echo "	[input]: .clubt file or ASCII file (col1=time, col2=id)"
+	echo "	[g1]: id of reference event"
+	echo "	[g2]: id of comparator event"
+	echo "		NOTE: If g2=g1, result is an autocorellogram"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-w: window-size ["$setwinsize"]"
+	echo "	-b: number of bins in histogram ["$setbins"]"
+	echo "	-s: sample-frequency (.clubt input only) [$setsf]"
+	echo "	-p: plot output (0=NO 1=YES) [$setplot]"
+	echo "	-P: extra plot options (in quotes) []"
+	echo "Output: "
+	echo "	data file "$outfile
+	echo "	plot file "$plotfile
+	echo "-----------------------------------------------------------"
+	echo
+	exit
+fi
+
+in1=$1 ; shift
+g1=$1 ; shift
+g2=$1 ; shift
+
+# MISSING-FILE HANDLING
+if [ ! -e $in1 ] ; then { echo ; echo "--- Error ["$thisprog"]: file $in1 missing" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":w:b:s:p:P:" flag ; do
+ 	case $flag in
+		w) setwinsize=$OPTARG;;
+		b) setbins=$OPTARG;;
+		s) setsf=$OPTARG;;
+		p) setplot=$OPTARG;;
+		P) plotopts2=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# IF IT'S A .CLUBT FILE, GET THE MATCHING .CLUB
+ext=${in1##*.}
+base=${in1%%.*};
+if [ "$ext" == "clubt" ] ; then
+	in2=$base".club"
+	if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: matching club file $in2 missing" ; echo ; exit; } ; fi
+	xe-ldas5-readclub1 $in1 $in2 -clu $g1,$g2 -out -1 |
+	awk '{printf("%.6f\t%d\n",($1/'$setsf'),$2)}' |
+	xe-wint1 stdin -g1 $g1 -g2 $g2 -w $setwinsize |
+	xe-hist1 stdin -b $setbins -t 1 > $outfile
+else
+	xe-wint1 $in1 -g1 $g1 -g2 $g2 -w $setwinsize |
+	xe-hist1 stdin -b $setbins -t 1 > $outfile
+fi
+
+# PLOT THE RESULTS
+if [ "$setplot" == "1" ] ; then
+	xe-plottable1 $outfile $plotopts -title "Event $g1 vs. $g2" -out $plotfile $plotopts2
+fi

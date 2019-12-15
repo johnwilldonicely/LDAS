@@ -1,0 +1,71 @@
+#!/bin/bash
+thisprog="r_ttest1"
+tempfile="temp_"$thisprog
+scriptfile=$tempfile"_script"
+datafile=$tempfile"_data"
+setverbose=""
+negref=0
+
+if [ $# -lt 2 ] ; then 
+echo "-----------------------------------------------------------"
+echo "Perform a 1-sample t-test using R"
+echo "Assumes files DO NOT have headers identifying variables"
+echo "Strips non-numeric or missing values from dataset"
+echo "Format: "$thisprog" [file][dv] [options]"
+echo "	[file] = input file"
+echo "	[dv] = column-number holding dependent variable"
+echo "Valid options:"
+echo "	-r set reference value for comparison (default=zero)"
+echo "	-v set verbose output"
+echo "Non-verbose output:"
+echo "	mean1 t  df  p "
+echo "Examples:"
+echo "	"$thisprog" file.txt  5 -r 0.5 -v "
+echo "-----------------------------------------------------------"
+exit
+fi
+
+infile=$1; shift
+dvcol=$1; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":r:v" flag ; do
+        case $flag in
+	r) setref=$OPTARG;;
+	v) setverbose="1";;
+        esac
+        let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+if [ ! -e $infile ] ; then { echo "	--- Error ["$thisprog"]: input file "$infile" could not be found" ; exit ; } ; fi
+
+# PULL OUT DATARELEVANT COLUMNS, REMOVE LINES WITH NON_NUMERIC DATA OR MISSING VALUES
+awk '{print $'$dvcol'}'  $infile |  
+	xe-checkisnum2 stdin -t 2 -m xxx > $datafile
+
+# RUN PRELIMINARY TEST FOR UNEQUAL VARIANCES
+echo "datamatrix <- read.table(\""$datafile"\", header = FALSE)" > $scriptfile
+echo "attach(datamatrix)" >> $scriptfile
+echo "data<-(V1)" >> $scriptfile
+
+echo "t.test(data,mu=$setref,alternative=\"greater\")" >> $scriptfile
+
+
+# RUN R TO GENERATE THE STATISTICAL RESULTS
+if [ $setverbose ] ; then 
+	cat $scriptfile | R -q --no-save --slave
+else 
+	cat $scriptfile | R -q --no-save --slave	> $tempfile
+
+	# PULL OUT THE VALUES OF INTEREST
+	means=$(cat $tempfile | awk 'BEGIN{z=0}{if(z==1) { print$1,$2; exit; }  if($1=="mean") z=1}')
+	results=$(cat $tempfile | grep "t =" | xe-delimit stdin | cut -f 3,6,9  | awk '{print $0," '$welch'"}'  ) 
+
+	echo $means $results | xe-delimit stdin 
+fi 
+
+rm -f "temp_"$thisprog*
+exit
+

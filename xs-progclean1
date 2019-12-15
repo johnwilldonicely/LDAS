@@ -1,0 +1,55 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-progclean1"
+tempfile="temp_"$thisprog ; rm -f $tempfile
+start_time=$(date +'%s')
+setforce="0"
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": deletes or archives outdated program source-code"
+	echo "- should be run in the top-level program directory"
+	echo "USAGE: $thisprog [version] [archive | noarchive]"
+	echo "	[version]: version of xs-progfindcopies to use"
+	echo "	[noarchive]: old source code is deleted"
+	echo "	[archive]: move to ./backups/source_archive/"
+	echo "		NOTE: archive is the default"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+startdir=$(pwd)
+version=$1; shift
+arch=$1; shift
+
+cd $startdir ; rm -f jj* temp_*
+
+if [ ! -d "source" ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: no \"source\" directory found. Re-run in the top-level programming directory"
+	echo
+	exit
+fi
+
+cd $startdir"/source/"; chmod a-x *.c ; rm -f jj* temp_*
+cd $startdir"/docs/" ; rm -f jj* temp_*
+
+if [ $arch == "noarchive" ] ; then
+	cd $startdir"/source/"
+	list=$(xs-progfindcopies $version xe-*) ;
+	for i in $list ; do
+		rm -i $i ;
+	done
+else
+	mkdir -p backups/source_archive
+	cd $startdir"/source/"
+	list=$(xs-progfindcopies $version xe-*) ;
+	for i in $list ; do
+		echo "Archiving $i" ;
+		mv $i ../backups/source_archive/ ;
+	done
+
+fi

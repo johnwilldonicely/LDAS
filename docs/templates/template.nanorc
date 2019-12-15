@@ -1,0 +1,12 @@
+
+# To allow nano syntax highlighting for LDAS manuals (manual_*.md) or 
+#     markdown (.md) files in general... 
+# 
+#	cat [thisfile] >> ~/.nanorc
+# 	...or... 
+# 	copy the following lines to an existing .nanorc file
+
+include "/opt/LDAS/docs/templates/nano_md.nanorc"
+include "/opt/LDAS/docs/templates/nano_ldas.nanorc"
+
+

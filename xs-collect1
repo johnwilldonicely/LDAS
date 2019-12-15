@@ -1,0 +1,122 @@
+#!/bin/bash
+# <TAGS> database </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+setverb="0"
+setpad="0"
+sethead="1"
+setxml=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": collect & rename files using a database file "
+	echo "- the copied file-names will be appended with the folder-name"
+	echo "USAGE: "
+	echo "	"$thisprog" [db] [file] [options]"
+	echo "		[db]: database file in format <path> <group>"
+	echo "		[file]: file to collect"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--xml: specify database XML section containing path & group columns [$setxml]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt data.txt --verb 1"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+infile=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing database file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+# - arguments can be longer than one character if preceeded by "--"
+# - will remove all known arguments and options leaving non-argument "positional" options
+# - will throw an error for bad arguments or missing options to arguments
+########################################################################################
+# define acceptable short (-o) and long (-l) options, colon after options requiring values
+vs="v:"
+vl="xml:,verb:"
+# check for errors
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+# otherwise, parse options
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+# now scan the options and set flags or assign values as appropriate
+while [ $# -gt 0 ] ; do
+	case $1 in
+		# arguments with required options (an additional shift is required)
+		--xml ) setxml=$2 ; shift ;;
+		-v | --verb ) setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+# - omit blank lines and lines beginning with "#"
+################################################################################
+if [ "$setxml" == "" ] ; then
+	dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: is xml section $setxml present?" ; echo ; exit; } ; fi
+else
+	dblist=$(xe-strxmlparse1 $filedb $setxml | xe-cut1 stdin path,group -o 1 -s 1 | xe-delimit stdin -d comma)
+	if [ "$dblist" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no paths in $filedb: is xml section $setxml present?" ; echo ; exit; } ; fi
+fi
+
+################################################################################
+# QUICK DATABASE INTEGRITY CHECKS
+################################################################################
+for dbline in $dblist ; do
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ ! -d "$path" ] ; then { echo ; echo "--- Error ["$thisprog"]: bad path listed in $filedb : $path" ; exit ; } fi
+	if [ "$group" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing group in $filedb for path $path" ; exit ; } fi
+done
+
+################################################################################
+# PERFORM A FOR-LOOP USING ALL THE DIRECTORIES
+# - concatenate data using the filcat function
+################################################################################
+let fv_count=0     # initialize counter (global variable) used by function
+for dbline in $dblist ; do
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+	base=${path##*/};
+	newfile=$base"_group"$group"_"$infile
+	cp $path/$infile ./$newfile
+done
+cd $start_dir
+
+
+################################################################################
+# REPORT TIME TO FINISH THE JOB
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+
+exit

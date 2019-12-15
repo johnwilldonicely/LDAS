@@ -1,0 +1,159 @@
+#!/bin/bash
+
+# <TAGS>plot math</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setplotopts=""
+setout="plot_"$thisprog".ps"
+setverb="0"
+setclean="1"
+setname1=""
+setname2=""
+setxlabel="Group"
+setylabel=""
+settitle=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": stacked box-plot of group means for 2 nested group levels"
+	echo "	- group designations must be numeric"
+	echo "	- uses xe-statsgrp2 and xe-plottable1"
+	echo "USAGE: "
+	echo "	"$thisprog" [in] [g1] [g2] [cy]"
+	echo "		[in] input file with headers labelling columns"
+	echo "		[g1] column defining primary group (position on x-axis)"
+	echo "		[g2] column defining secondary group (colour)"
+	echo "		[cy] column defining the data to be averaged"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	-x: x-axis label in quotes [$setxlabel]"
+	echo "	-y: y-axis label in quotes, if unset: \"Mean [cy]\" [$setylabel]"
+	echo "	-t: title, in quotes [$settitle]"
+	echo "	--name1: file defining group g1 names (group name) [$setname1]"
+	echo "	--name2: file defining group g2 names (group name) [$setname2]"
+	echo "	--out: output plot file name [$setout]"
+	echo "	--plot: additional plot options (refer to xe-plottable1) [$setplotopts]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt genotype dose response"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setg1=$1 ; shift
+setg2=$1 ; shift
+setycol=$1 ; shift
+
+# CHECK FILE IS PRESENT
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+
+# CHECK COLUMNS ARE PRESENT
+header=$(xe-cut1 $infile $setg1,$setg2,$setycol | head -n 1)
+let z=$(echo $header | grep $setg1 | wc -l)
+if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no column labelled \"$setg1\" in $infile" ; echo ; exit; } ; fi
+let z=$(echo $header | grep $setg2 | wc -l)
+if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no column labelled \"$setg2\" in $infile" ; echo ; exit; } ; fi
+let z=$(echo $header | grep $setycol | wc -l)
+if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no column labelled \"$setycol\" in $infile" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="x:y:t:" ; vl="name1:,name2:,plot:,out:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-x) setxlabel=$2 ; shift ;;
+		-y) setylabel=$2 ; shift ;;
+		-t) settitle=$2 ; shift ;;
+		--name1 ) setname1=$2 ; shift ;;
+		--name2 ) setname2=$2 ; shift ;;
+		--out ) setout=$2 ; shift ;;
+		--plot ) setplotopts=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ ! -e $setname1 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $setname1" ; echo ; exit; } ; fi
+if [ ! -e $setname2 ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $setname2" ; echo ; exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ $setverb == 1 ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog $allopts
+	echo
+fi
+
+################################################################################
+# UPDATE DEFAULT PLOT OPTIONS
+################################################################################
+if [ "$setxlabel" == "" ] ; then setxlabel="$setg1" ; fi
+if [ "$setylabel" == "" ] ; then setylabel="Mean $setycol" ; fi
+
+
+################################################################################
+# GENERATE STATS
+################################################################################
+ng2=$(xe-cut1 $infile $setg2 -o 1 | sort -nu | wc -l)
+bw=$(echo "scale=6; 1/($ng2+1)" | bc)
+
+plotopts="-cx 1 -cg 2 -cy 4 -ce 6 -pt box -xint 1 -gs 1 -bw $bw -out $setout -legend 1"
+xe-cut1 $infile $setg1,$setg2,$setycol |
+	xe-statsgrp2 stdin |
+	xe-plottable1 stdin $plotopts -xlabel "$setxlabel" -ylabel "$setylabel" -title "$settitle" $setplotopts
+
+if [ "$setname2" != "" ] ; then
+	xs-plotmod1 $setout --legend $setname2 --out 1
+fi
+
+if [ "$setname1" != "" ] ; then
+	list=$(xe-cut1 $setname1 group,name -o 1 -s 1 | paste -s | tr '\t' ',')
+	xs-plotmod1 $setout --xtics $list --out 1
+fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

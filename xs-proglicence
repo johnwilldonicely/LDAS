@@ -1,0 +1,228 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog="xs-proglicence"
+
+tempfile="temp_"$thisprog
+rm -f $tempfile*
+
+set_docpath=~/docs/
+set_year=$(date +%Y)
+set_owner="John R. Huxter <j.r.huxter@gmail.com>"
+set_linewrap=0
+set_preservetime=0
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog
+	echo "--------------------------------------------------------------------------------"
+	echo "Apply licence text to the top of a source code file (or remove it)"
+	echo "Reads a licence file to obtain the text of the licence"
+	echo "Licence text will appear as a comment appropriate for c,cpp or script files"
+	echo "USAGE: "$thisprog" [sourcefile] [licence] [options]"
+	echo ""
+	echo "	[source]: source-code file to add licence to"
+	echo "		- existing licence text is removed"
+	echo "			- starting the text \"LICENCE INFORMATION:\""
+	echo "			- ending at the first blank line after this text"
+	echo "		- any additional leading blank lines are removed"
+	echo "		- files which do not end in .c or .cpp are assumed to be scripts"
+	echo "		- for these files the shell path \"#![PATH]\" is kept on line 1"
+	echo ""
+	echo "	[licence]: licence file to use - contains basic text"
+	echo "		- \"NONE\" will simply remove existing licence text (see above)"
+	echo "		- first line should read \"Copyright (c) <YEAR>, <OWNER>.\""
+	echo "		- blank lines at the top & bottom of the licence text are removed"
+	echo "		- text \"LICENCE INFORMATION:\" is added to the top"
+	echo "		- each line of the licence text will be commented:"
+	echo "			.c files: bracketed by \"/*\" and \"*/\""
+	echo "			.cpp files: \"\\\\ \""
+	echo "			other files: \"# \""
+	echo "		- a single blank line is added to the bottom"
+	echo ""
+	echo "OPTIONS, defaults in []:"
+	echo "	-y : year  to replace <YEAR> label in licence file ["$set_year"]"
+	echo "		- do not use commas, do place multiple years in quotes"
+	echo "		- set to L to preserve current licence setting"
+	echo "		- set to D to use current file date"
+	echo "	-o : owner to replace <OWNER> label in licence file ["$set_owner"]"
+	echo "		- can include contacts, etc."
+	echo "	 	- place in quotes, avoid commas"
+	echo "		- set to L to preserve current licence setting"
+	echo "	-w : [flag] wrap licence texte to 80 columns [unset by default]"
+	echo "	-t : [flag] preserve original timestamp of file [unset by default]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" xe-cor1.c ~/docs/licence_MIT.txt -w -y \"1999 2013\""
+	echo "	"$thisprog" xe-cor1.c NONE -y D -o \"John Smith\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+################################################################################
+# PARSING FILENAMES & OPTIONS
+################################################################################
+set_infile=$1 ; shift
+set_licence=$1; shift
+if [ ! -e $set_infile ] ; then  { echo ; echo "--- Error ["$thisprog"]: source code file "$set_infile" not found" ; echo ; exit; } ; fi
+# OPTIONS HANDLING
+while getopts  ":y:o:wt" flag ; do
+	case $flag in
+		y) set_year=$OPTARG;;
+		o) set_owner=$OPTARG;;
+		w) set_linewrap=1;;
+		t) set_preservetime=1;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+
+################################################################################
+# GET TIMESTAMP OF ORIGINAL INPUT FILE
+################################################################################
+timestamp=$(ls -l --time-style=long-iso $set_infile | cut -d " " -f 6,7 | tr -d ' ' | tr -d '-' | tr -d ':')
+
+
+################################################################################
+# DETERMINE THE PREFIX FOR THE LICENCE LINES DEPENDING ON THE SOURCE FILE-TYPE
+# NOTE: sed command requires a second version of the prefix for forward-slashes
+################################################################################
+ext=${set_infile##*.}
+if [ "$ext" == "c" ]  ; then
+	prefix1=""	# no comment prefix for .c files as /* and */ are added separartely
+	prefix2=""	# no comment prefix for .c files as /* and */ are added separartely
+elif [ "$ext" == "cpp" ] ; then
+	prefix1="// "
+	prefix2="\/\/ "
+else
+	ext="other"
+	prefix1="# "
+	prefix2="# "
+	bashpath=$(awk '$0~/^#!/{print $1}' $set_infile)
+
+fi
+
+
+################################################################################
+# DETERMINE THE PREVIOUS YEAR AND OWNER SETTINGS FOR THE FILE
+################################################################################
+key="Copyright (c) "
+if [ "$set_year" == "L" ] ; then
+	#  read everything between (c) and the first comma
+	set_year=$(grep "$key" $set_infile | head -n 1 | cut -d , -f 1 | cut -d " " -f 3-) ;
+fi
+if [ "$set_year" == "D" ] ; then
+	# read field 6 from the timestamp of the directory listing
+	set_year=$(ls -l --time-style=+%Y $set_infile | cut -d " " -f 6) ;
+fi
+if [ "$set_owner" == "L" ] ; then
+	# field-2 is trimmed to remove unnecessary spaces
+	set_owner=$(grep "$key" $set_infile | head -n 1 | cut -d , -f 2 | tr -s " " | sed 's/^[ ]//g;s/[ ]*$//g') ;
+fi
+
+if [ -z "$set_year" ] ; then set_year="<YEAR>" ; fi
+if [ -z "$set_owner" ] ; then set_owner="<OWNER>" ; fi
+
+
+################################################################################
+# MAKE A TEMPORARY FILE FROM THE LICENCE FILE TO USE
+################################################################################
+if [ $set_licence != "NONE" ] ; then
+
+	# make sure licence file exists
+	if [ ! -e $set_licence ] ; then  { echo ; echo "--- Error ["$thisprog"]: licence file "$licencefile" not found" ; echo ; exit; } ; fi
+
+	# add the licence label
+	if [ "$ext" == "c" ]  ; then
+		echo $prefix1"/* LICENCE INFORMATION: "$suffix1 > $tempfile".1"
+	else
+		echo $prefix1"LICENCE INFORMATION: "$suffix1 > $tempfile".1"
+	fi
+
+	# modify the licence text
+	if [ $set_linewrap == "1" ] ; then
+		fold $set_licence -s | 			# word wrap
+		sed '/./,$!d' | 			# remove leading blank lines
+		sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' | 	# remove trailing blank lines
+		xe-strsub1 stdin "<YEAR>" "$set_year" | 	# replace YEAR label with user value
+		xe-strsub1 stdin "<OWNER>" "$set_owner" |	# replace OWNER label with user value
+		sed "s/^/$prefix2/g" |			# add appropriate comment prefix
+		sed "s/$/$suffix2/g" >> $tempfile".1"	# add appropriate comment suffix
+	else
+		cat $set_licence -s | 			# copy licence file (no word wrap)
+		sed '/./,$!d' | 			# remove leading blank lines
+		sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' | 	# remove trailing blank lines
+		xe-strsub1 stdin "<YEAR>" "$set_year" | 	# replace YEAR label with user value
+		xe-strsub1 stdin "<OWNER>" "$set_owner" |	# replace OWNER label with user value
+		sed "s/^/$prefix2/g" |			# add appropriate comment prefix
+		sed "s/$/$suffix2/g" >> $tempfile".1"	# add appropriate comment suffix
+	fi
+
+	# add a blank line so licence is discreet from code
+	if [ "$ext" == "c" ]  ; then
+		echo "*/" >> $tempfile".1"
+		echo "" >> $tempfile".1"
+	else
+		echo "" >> $tempfile".1"
+	fi
+
+fi
+
+
+################################################################################
+# MAKE A TEMPORARY FILE FROM THE SOURCE FILE (SET_INPUT)
+################################################################################
+cat $set_infile |
+	# remove existing licence code (everything following LICENCE INFORMATION, up to first blank line)
+	# also remove bash header lines if present
+	awk '
+		BEGIN {omit=0}
+		{
+			# OMIT TEXT STARTING AT LICENCE INFORMATION LINE
+			if($0~/LICENCE INFORMATION:/) omit=1;
+			# IF THIS IS NOT A .C FILE AND LINE IS BLANK, END OMITTING FROM NEXT LINE
+			else if(omit==1 && "'$ext'"!="c" && NF==0) omit=0;
+			# OTHERWISE, IF THIS IS A .C FILE AND */ IS FOUND, END OMITTING FROM NEXT LINE
+			else if(omit==1 && "'$ext'"=="c" && $0~/*\//) omit=0;
+			# OTHERWISE, OUTPUT IF OMITTING IS OFF AND 1.THIS IS NOT A SCRIPT OR 2.THIS IS A SCRIPT BUT THIS IS NOT THE SHELL DEFINITION LINE
+			else if(omit==0 && ("'$ext'"!="other" || $0!~/^#!/)) print $0
+		}
+	' |
+	# remove leading blank lines
+	sed '/./,$!d' >> $tempfile".2"
+
+
+################################################################################
+# OUTPUT THE LICENCE AND ORIGINAL CODE OVERWRITING THE ORIGINAL FILE
+################################################################################
+# output BASH header if this is not a .c or .cpp file
+if [ $ext == "other" ] ; then
+	echo $bashpath > $set_infile
+	echo >> $set_infile
+else
+	echo -n > $set_infile
+fi
+
+if [ $set_licence != "NONE" ] ; then
+	cat $tempfile".1" $tempfile".2" >> $set_infile
+else
+	cat $tempfile".2" >>  $set_infile
+fi
+
+
+################################################################################
+# RESTORE ORIGINAL TIMESTAMP IF REQUIRED
+################################################################################
+if [ $set_preservetime == "1" ] ; then
+	touch -t $timestamp $set_infile
+fi
+
+
+################################################################################
+# REMOVE TEMPORARY FILES
+################################################################################
+rm -f $tempfile*

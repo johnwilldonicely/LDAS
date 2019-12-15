@@ -1,0 +1,40 @@
+#!/bin/bash
+# <TAGS>string database</TAGS>
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog"."$$"."
+rm -f $tempfile
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Update a .notes file to add a line at the first blank line"
+	echo "- USAGE: "$thisprog" [notesfile] [line-to-add]"
+	echo "- EXAMPLE: "$thisprog" 006-991231.notes VIDEO_RESOLUTION 4.3"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+notesfile=$1 ; shift ;
+new_line=$@
+if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing notes file "$notesfile ; echo ; exit ; } fi
+
+# FIND THE LINE NUMBER OF THE FIRST BLANK RECORD
+let blankline=$(awk 'BEGIN{n=x=0}{n++;if(NF==0){x=n;exit}} END{if(x==0)x=(n+1); print x}' $notesfile )
+
+
+let n=0;
+if [ $blankline -gt 0 ] ; then
+	cat $notesfile | while read line ; do
+		let n=$n+1;
+		if [ $n -eq $blankline ] ; then
+			echo -e "$new_line" >> $tempfile
+		fi
+		echo -e "$line" >> $tempfile
+	done
+else
+	cat $notesfile > $tempfile
+	echo -e "$new_line" >> $tempfile
+fi
+
+mv $tempfile $notesfile

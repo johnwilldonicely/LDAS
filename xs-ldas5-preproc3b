@@ -1,0 +1,134 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+progbase1="preproc3"
+thisprog="xs-ldas5-"$progbase1"b"
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setaflag=0
+setbflag=0
+setformat="auto"
+setverb=0
+setclean="1"
+setskip="-"
+setoutbase="TEMPLATE"
+setopt1=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": final wrap-up of pre-processing"
+	echo "	- perform cell-classification"
+	echo "	- create links to the Data_Library folders in Data_Working folders"
+	echo "USAGE: "
+	echo "	"$thisprog" [db]"
+	echo "		[db]: database-file linking to the Data_Library folder"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" db_all.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+filedb=$1 ; shift
+if [ ! -e $filedb ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filedb" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="clean:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+################################################################################
+# CHECK DATABASE INTEGRITY
+################################################################################
+xs-dbcheck1 $filedb --verb 0 > $tempfile
+if [ -s $tempfile ] ; then {  cat $tempfile ; rm -f $tempfile ; exit ; } fi
+
+################################################################################
+# CONSTRUCT A DATABASE LIST IN FORMAT <path>,<group>
+################################################################################
+dblist=$(awk '$0!~/^#/&&NF>0{print $0}' $filedb | xe-delimit stdin -d comma)
+
+
+################################################################################
+# PERFORM A LOOP ON A DATABASE FILE WITHOUT USING WHILE READ
+# - concatenate data using the filcat function
+################################################################################
+for dbline in $dblist ; do
+
+	path=$(echo $dbline | cut -f 1 -d ,)
+	group=$(echo $dbline | cut -f 2 -d ,)
+	cd $startdir
+	cd $path ; if [ "$setverb" == "1" ] ; then echo "	"$path ; fi
+
+	# DEFINE VARIABLES ASSOCIATED WITH THIS FOLDER
+	filenotes=$(ls *notes --color=never)
+	date=$(xe-getkey $filenotes start_date= | xe-dateconv1 stdin -i 3)
+	session=$(xe-getkey $filenotes session=)
+	subject=$(xe-getkey $filenotes subject=)
+	base=$date"-"$session"_"$subject
+
+	# RUN PROGRAMS
+	filewfm=$base".wfm"
+	if [ -f $filewfm ] ; then
+		echo $path 
+		xs-ldas5-cellstats1 $base --class 1 > $base.cellstats
+	fi
+
+done
+cd $startdir
+
+################################################################################
+# BUILD LINKS IN Data_Working DIRECTORY
+################################################################################
+if [ "$setverb" == "1" ] ; then echo ; echo "...making working links..." ; echo ; fi
+cd ../
+xs-makelink1 Data_Library Data_Working --patterns "BASE" --verb 1
+cd $startdir
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	rm -f $tempfile*
+fi
+
+
+# REPORT TIME TO FINISH THE JOB
+echo
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"
+
+exit

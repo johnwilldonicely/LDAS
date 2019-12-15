@@ -1,0 +1,30 @@
+syntax "markdown" "manual_.*\.md$"
+
+## Emphasis
+color yellow "\*[^\*]*\*"
+## Strong emphasis
+color brightyellow "\*\*[^\*]*\*\*"
+## Warning
+color brightred "\*\*\*[^\*]*\*\*\*"
+
+## LDAS code blocks 
+color green "\s\$ .*"
+## LDAS program-names
+color brightgreen "xe-[^\* ]* "
+color brightgreen "xs-[^\* ]* "
+
+## XML sections and variable placeholders
+color cyan start="<" end=">"
+color cyan start="\[" end="\]"
+
+## Lists: * or 1. or a. 
+color brightblue "^\s*(\*|[0-9]+\.|[a-z]+\.) "
+
+## Hash headers
+color brightblue "^#.*"
+## Underline headers
+color brightblue "^====(=*)"
+color brightblue "^----(-*)"
+
+
+

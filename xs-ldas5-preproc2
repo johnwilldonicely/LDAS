@@ -1,0 +1,379 @@
+#!/bin/bash
+
+# TO DO:
+# - do burstiness estimate
+# - put together waveform and histogram stats
+# - include firing rate
+# - complete cell categorization
+
+thisprog="xs-ldas5-preproc2"
+tempfile="temp_"$thisprog #"."$$
+rm -f $tempfile*
+outbase=PREPROC2
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+date1=$(date)
+
+setoutpath="./"
+setstart="sync_0"
+setstop="sync_1"
+setskip="-"
+setkz="0";
+setclean="1"
+setfiltlow=500
+setfilthigh=3000
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": spike cluster refinement"
+	echo "	- convert kwik file to club(t)"
+	echo "	- extract waveforms"
+	echo "	- (A) remove noisy clusters"
+	echo "	- (B) combine clusters based on cross-refractoriness & waveform similarity"
+	echo "	- (C) remove very low-spike-cuont clusters"
+	echo "	- (D) sort clusters based on depth of maximum-waveform"
+	echo "REQUIRES: "
+	echo "	- [base].notes file"
+	echo "	- [base].dat file (chunked for clustering using times_alltrials.ssp)"
+	echo "	- times_alltrials.ssp"
+	echo "USAGE: "
+	echo "	"$thisprog" [base]"
+	echo "		[base]:  base name for date-session_subject"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	--low : .wfm low-cut filter for xs-ldas5-clucombine1 [$setfiltlow]"
+	echo "	--high : .wfm high-cut filter for xs-ldas5-clucombine1 [$setfilthigh]"
+	echo "		NOTE: filter settings are used for combining and sorting clusters"
+	echo "		NOTE: filters are not used for cluster removal steps or final plots"
+	echo "	--kz: kill cluster zero (0=NO 1=YES) [$setkz]"
+	echo "	-s | --skip : skip these steps ["$setskip"]"
+	echo "		e: extract kwik file to club(t) files"
+	echo "		w: extract waveforms from .dat file (make [base].wfm)"
+	echo "		k: kill-step 1, based on histogram & wavecor"
+	echo "		c: combine steps"
+	echo "		K: kill-step 2, based on sparse histograms"
+	echo "		s: sort the clusters by peak-waveform depth"
+	echo "		d: expand the final .clubt file to account for .dat-chunking"
+	echo "		p: plot the histograms and waveforms"
+	echo "	--clean: remove temporarty files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160721-000_2904408 --skip ew"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+basecommand="$@"
+
+echo
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $basecommand
+date
+echo "--------------------------------------------------------------------------------"
+
+# REQUIRED ARGUMENT HANDLING
+base=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+eval set -- $(getopt -o s: -l clean:,skip:,kz:,low:,high: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-s | --skip )  setskip="$2" ; shift ;;
+		--low ) setfiltlow="$2" ; shift ;;
+		--high ) setfilthigh="$2" ; shift ;;
+		--kz )         setkz="$2" ; shift ;;
+		--clean )      setclean="$2" ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+
+if [ "$(echo $setskip | grep -v e)" ] && [ $setkz == "1" ] ; then
+	echo
+	echo "--- Error ["$thisprog"]: can't remove cluster-zero (--kz 1) if data is extracted from .kwik file, because .kwik file can't then be updated at the end of processing"
+	echo
+	exit
+fi
+
+################################################################################
+# MISSING-FILE HANDLING
+################################################################################
+filenotes=$base".notes" ; if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filenotes' missing" ; echo ; exit; } fi
+if [ "$(echo $setskip | grep -v e)" ] ; then
+	filekwik=$base".kwik" ; if [ ! -e $filekwik ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filekwik' missing" ; echo ; exit; } ; fi
+fi
+
+# original dat file might be used for validating expansion - using waveform detection
+filedat=$base".dat" ; if [ ! -e $filedat ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filedat' missing" ; echo ; exit; } fi
+filedatorig=$(xe-getkey $filenotes datpath=) ; if [ ! -e $filedatorig ] ; then { echo ; echo "--- Error ["$thisprog"]: original dat file '$filedatorig' missing" ; echo ; exit; } fi
+
+# these don't get checked till later - may be generated
+fileclubt=$base".clubt"
+fileclub=$base".club"
+filewfm=$base".wfm"
+
+# remove output files
+rm -f $outbase.club $outbase.wfm $outbase.report
+
+################################################################################
+# INITIALIZE THE REPORT
+################################################################################
+z=$(date)
+echo "<SUMMARY>
+command: $thisprog $basecommand
+date: $z
+</SUMMARY>" > $outbase.report
+
+
+################################################################################
+# GET PARAMETERS FROM .NOTES FILE
+################################################################################
+sr=$(xe-getkey $filenotes sample_rate=) ; if [ -z "$sr" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filenotes' does not specify sample_rate=" ; echo ; exit; } fi
+listchans=$(xe-strxmlparse1 $filenotes CHANNELS | xe-cut1 stdin chan -s 1 -o 1 | paste -s | tr '\t' ',')
+listgood=$(xe-strxmlparse1 $filenotes CHANNELS | xe-cut1 stdin good -s 1 -o 1 | paste -s | tr '\t' ',')
+nchans=$(xe-getkey $filenotes n_channels=)
+
+################################################################################
+# EXTRACT .KWIK FILE TO .CLUB(T) - NOTE,ONLY PROCESSES "GOOD" CLUSTERS
+# ??? have to set path to python explicitly to find necessary packages
+#	- this could probably be resolved?
+################################################################################
+if [ "$(echo $setskip | grep -v e)" ] ; then
+	echo ; echo "...extracting .kwik file to .club(t)..."
+	command="/usr/bin/python2.7 /opt/LDAS/xp-ldas5-hdf5_convert1.py -g 3 export $filekwik"
+	echo "--------------------------------------------------------------------------------"
+	echo $command
+	echo "--------------------------------------------------------------------------------"
+	$command
+	let z=$(head $fileclub | wc -c)
+	if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: no clusters extracted" ; echo "	- re-run this step manually, using a different group (-g)" ; echo "	- then re-run $thisprog and skip kwik-extraction using option --skip e " ; echo ; exit; } fi
+fi
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $fileclubt" ; echo ; exit; } fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $fileclub" ; echo ; exit; } fi
+
+listclu=$(xe-ldas5-readclub1  $fileclubt $fileclub | cut -f 2 | sort -nu)
+
+
+################################################################################
+# EXTRACT WAVEFORM DATA - do this before expanding club(t) records
+# - creates a .wfm (waveform) file with channels in depth order
+# - the channel-list will be used to correct the wave-plot tics
+################################################################################
+if [ "$(echo $setskip | grep -v w)" ] ; then
+	echo ; echo "...extracting spike waveforms based on chunked .dat file..."
+	# extract the mean waveforms
+	command="xe-ldas5-datwavemean1 $filedat $fileclubt $fileclub -sr $sr -nch $nchans -chl $listchans -chg $listgood -out 1"
+	echo "--------------------------------------------------------------------------------"
+	echo $command" > $filewfm"
+	echo "--------------------------------------------------------------------------------"
+	$command > $filewfm
+fi
+if [ ! -e $filewfm ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filewfm" ; echo ; exit; } fi
+
+
+
+################################################################################
+# At this point we have three files:
+# 	[base].clubt
+# 	[base].club
+# 	[base].wfm
+# From here on, each step of processing will generate [tempfile]_[step] files
+#	steps will be A,B,C etc
+################################################################################
+
+
+
+
+################################################################################
+# REFINEMENT STEP-A: REMOVE NOISE CLUSTERS
+# - based on:
+#	- 2/15ms refract score (sign of non-neuronal or poorly-isolated signals)
+#	- cross-channel waveform correlation  (sign of common noise)
+#	- less than 3 spikes in the cluster
+################################################################################
+outA=$tempfile"_A"
+if [ "$(echo $setskip | grep -v k)" ] ; then
+	echo ; echo "...removing noise clusters..."
+	opts="--minspk 3 -H 0.08 -W 0.95 -h 0.06 -w 0.90 --kz $setkz --outbase $outA"
+	xs-ldas5-clukiller1 $fileclubt $fileclub $filewfm $opts
+
+	# save results to report
+	echo >> $outbase.report
+	echo "<KILLED_CLUSTERS>" >> $outbase.report
+	cat $outA.txt >> $outbase.report
+	echo "</KILLED_CLUSTERS>" >> $outbase.report
+else
+	ln -sf $fileclubt $outA.clubt
+	ln -sf $fileclub $outA.club
+	ln -sf $filewfm $outA.wfm
+fi
+
+
+################################################################################
+# REFINEMENT STEP-B: CLUSTER COMBINING (COMBINE TO LARGER CLUSTER-NUMBER)
+# - iterative cluster-combination based on histograms and waveform corelation
+# - to control the parameters you must adjust the defaults in the script itself
+# - this script can generates a new version of the .kwik/.kwx files
+# - copy output to new filenames
+################################################################################
+outB=$tempfile"_B"
+if [ "$(echo $setskip | grep -v c)" ] ; then
+	echo ; echo "...combining clusters..."
+	opts="--low $setfiltlow --high $setfilthigh --outbase $outB --verb 2 "
+	xs-ldas5-clucombine1 $outA.clubt $outA.club $outA.wfm $opts # --kwik $filekwik
+
+	echo >> $outbase.report
+	cat $outB.report >> $outbase.report
+	ln -sf $outA.clubt $outB.clubt
+
+	# OVERWRITE .WFM FILE WITH NEW VERSION WITHOUT FILTERING
+	command="xe-ldas5-datwavemean1 $filedat $outB.clubt $outB.club -sr $sr -nch $nchans -chl $listchans -chg $listgood -out 1 "
+	echo ; echo $command
+	$command > $outB.wfm
+
+else
+	ln -sf $outA.clubt $outB.clubt
+	ln -sf $outA.club $outB.club
+	ln -sf $outA.wfm $outB.wfm
+fi
+
+
+
+################################################################################
+# REFINEMENT STEP-C: KILL VERY SPARSE CLUSTERS
+# - sparsity here is based on the contents of the autocorrelogram
+# - other criteria are ignored
+################################################################################
+outC=$tempfile"_C"
+if [ "$(echo $setskip | grep -v K)" ] ; then
+	echo ; echo "...removing sparse and noisy clusters..."
+	opts="--minhist 75 -H 1.00 -W 1.00 -h 1.00 -w 1.00 --kz $setkz --outbase $outC"
+	xs-ldas5-clukiller1 $outB.clubt $outB.club $outB.wfm $opts
+
+	echo >> $outbase.report
+	echo "<KILLED_SPARSE_CLUSTERS>" >> $outbase.report
+	cat $outC.txt >> $outbase.report
+	echo "</KILLED_SPARSE_CLUSTERS>" >> $outbase.report
+else
+	ln -sf $outB.clubt $outC.clubt
+	ln -sf $outB.club $outC.club
+	ln -sf $outB.wfm $outC.wfm
+fi
+
+
+################################################################################
+# REFINEMENT STEP-D: SORT THE CLUSTERS BY DEPTH ORDER - RENUMBER FROM 1
+# - no new .clubt file is generated - we've just changed the cluster id's
+# - if this is skipped, just make links to the previous .club and .wfm files
+################################################################################
+outD=$tempfile"_D"
+if [ "$(echo $setskip | grep -v s)" ] ; then
+	echo ; echo "...sorting clusters by depth..."
+
+	echo >> $outbase.report
+	echo "<CLUSTERS_SORTING>" >> $outbase.report
+	# perform the sort
+	command="xe-ldas5-clusort1 $outC.clubt $outC.club $outC.wfm -low $setfiltlow -high $setfilthigh -verb 1"
+	echo "	$command"
+	$command >> $outbase.report
+	echo "</CLUSTERS_SORTING>" >> $outbase.report
+
+	# link (no clubt output) and rename files
+	ln -sf $outC.clubt $outD.clubt
+	mv temp_xe-ldas5-clusort1.club $outD.club
+
+	# re-sort waveform records into depth (id) order (shallow-to-deep)
+	awk '{print $0; if($1=="WAVES_START") exit}' temp_xe-ldas5-clusort1.wfm > $tempfile.1
+	awk 'BEGIN{out=0}{if(out==1) print $0; if($1=="WAVES_START") out=1}' temp_xe-ldas5-clusort1.wfm | sort -n > $tempfile.2
+	cat $tempfile.1 $tempfile.2 > $outD.wfm
+else
+	rm -f $outD*
+	ln -sf $outC.clubt $outD.clubt
+	ln -sf $outC.club $outD.club
+	ln -sf $outC.wfm $outD.wfm
+fi
+
+################################################################################
+# EXPAND AND RENAME THE OUTPUT FILES
+################################################################################
+if [ "$(echo $setskip | grep -v d)" ] ; then
+	echo ; echo "...expanding .club(t) files..."
+	list=$(xs-ldas-gettrials2 $filenotes -o list)
+	xe-ldas5-expandclub1 $outD.clubt $outD.club -scrl $list -out 0
+	mv temp_xe-ldas5-expandclub1.clubt $outbase".clubt"
+	mv temp_xe-ldas5-expandclub1.club $outbase".club"
+	cp $outD.wfm $outbase".wfm"
+else
+	cp $outD.clubt $outbase".clubt"
+	cp $outD.club $outbase".club"
+	cp $outD.wfm $outbase".wfm"
+fi
+
+################################################################################
+# GENERATE FINAL REPORT
+# - direct call to xe-ldas5-clucombine1
+# - make and use a new filtered .wfm file, because the PREPROC2.wfm file is never filtered
+################################################################################
+echo ; echo "...generating final report..."
+command="xe-ldas5-readwave1 $outbase.wfm -low $setfiltlow -high $setfilthigh"
+echo "	"$command" > $tempfile.wfm"
+$command > $tempfile.wfm
+
+opts="-sign -1 -s 100 -a .08 -r .08 -t 1 -p .05 -w 0 -v 0"
+command="xe-ldas5-clucombine1 $outbase.clubt $outbase.club $tempfile.wfm $opts"
+echo "	"$command" > $tempfile"
+$command > $tempfile
+
+echo >> $outbase.report
+echo "<SUSPECT_HISTOGRAMS>" >> $outbase.report
+xe-dbmatch1 $tempfile combine 3 >> $outbase.report
+echo "</SUSPECT_HISTOGRAMS>" >> $outbase.report
+echo >> $outbase.report
+echo "<SUSPECT_WAVEFORMS>" >> $outbase.report
+awk '$12>.9 {print $0}' $tempfile >> $outbase.report
+echo "</SUSPECT_WAVEFORMS>" >> $outbase.report
+echo >> $outbase.report
+echo "<PAIRS>" >> $outbase.report
+cat $tempfile >> $outbase.report
+echo "</PAIRS>" >> $outbase.report
+
+
+################################################################################
+# MAKE NEW .KWIK FILE $BASE.NEW.KWIK
+# - also make an appropriately named link to the .kwx file
+# - to inspect: phy kwik-gui 20160721-000_2904407.new.kwik $base.new.kwik &
+################################################################################
+if [ "$(echo $setskip | grep -v e)" ] ; then
+	echo ; echo "...create new .kwik file $base.new.kwik ..."
+	command="/usr/bin/python2.7 /opt/LDAS/xp-ldas5-hdf5_convert1.py --club $outbase.club -g 3 update $base.kwik"
+	echo "	"$command
+	$command
+	ln -sf $base.kwx $base.new.kwx
+fi
+
+################################################################################
+# PLOT HISTORGAM AND WAVEFORMS
+################################################################################
+if [ "$(echo $setskip | grep -v p)" ] ; then
+	echo ; echo "...plotting histograms and waveforms..."
+	command="xs-ldas5-plothistwave1 $outbase.clubt $outbase.club $outbase.wfm --clean 1 --outbase $outbase"
+	echo "	"$command
+	$command
+fi
+
+################################################################################
+# REMOVE TEMPORARY FILES
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	echo "...removing temporary files..."
+	rm -f $tempfile*
+fi
+
+
+# REPORT TIME TO FINISH THE JOB
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo "Time to finish job: "$s" seconds = "$m" minutes"

@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# <TAGS>plot math</TAGS>
+
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog ; rm -f $tempfile
+
+if [ $# -lt 5 ]; then
+	echo
+	echo "----------------------------------------------------------------"
+	echo $thisprog": plot group means for a an x/y line-plot"
+	echo "- USAGE: "$thisprog" [infile] [grp] [x] [y] [mult] [options]"
+	echo "- 	[infile]: data file"
+	echo "- 	[grp]: column holding group-ids"
+	echo "- 	[x]: column holding a predictor (-1 to omit)"
+	echo "- 	[y]: column holding raw data"
+	echo "- 	[mult]: multiply x by this to convert to integers"
+	echo "- 		- sets decimal precision of x-data"
+	echo "- 		- eg. if mult=100, precision=2 decimal places"
+	echo "- 	[options]: xe-plottable1 options"
+	echo "- EXAMPLE: "$thisprog" data.txt  1 2 3 1000 -colour 3"
+	echo "----------------------------------------------------------------"
+	echo
+	exit
+fi
+
+infile=$1; shift
+gcol=$1 ; shift
+xcol=$1 ; shift
+ycol=$1 ; shift
+set_mult=$1 ; shift
+
+plotopts=$@
+
+if [ $xcol == "-1" ] ; then xcol=$gcol ; fi
+
+# check whether gcol specifies non-numeric characters
+z=$(echo $gcol | grep '[^0-9]')
+if [ "$z" != "" ] ; then
+	let colnumeric=0
+	xl="$xcol"
+	yl="Mean: $ycol"
+else
+	let colnumeric=1
+	xl="Column $xcol"
+	yl="Mean: Column $ycol"
+fi
+
+# build the group list
+grouplist=$(xe-cut1 $infile $gcol -s 1 -o 1 -n $colnumeric | sort -nu)
+if [ -z "$grouplist" ]  ; then { echo ; echo "--- Error ["$thisprog"]: no groups in "$infile" column "$gcol ; echo ; echo ; exit ; } ; fi
+
+# build a list of all the predictors
+xlist=$(xe-cut1 $infile $gcol -s 1 -o 1 -n $colnumeric | xe-checkisnum2 stdin | sort -nu)
+if [ -z "$xlist" ]  ; then { echo ; echo "--- Error ["$thisprog"]: no x-values in "$infile" column "$xcol ; echo ; echo ; exit ; } ; fi
+
+# find the minimum x-value - to temporarily adjust values before calculating group means
+xmin=$(echo $xlist |xe-statsd1 stdin| xe-getkey stdin MIN)
+
+for group in $grouplist ; do
+	xe-dbmatch1 $infile $gcol $group -cn $colnumeric |
+	xe-cut1 stdin $xcol,$ycol |
+	xe-statsgrp0 stdin -cg 1 -cy 2 -mult $set_mult |
+	xe-checkisnum2 stdin -t 2 -f 0 -m "-" |
+	awk '{printf("%d\t%g\t%g\t%g\n",'$group',$1,$3,$5)}' >> $tempfile
+done
+
+xe-plottable1 $tempfile -cg 1 -cx 2 -cy 3 -ce 4 -xlabel "$xl" -ylabel "$yl" $plotopts
+
+exit
+rm -f $tempfile

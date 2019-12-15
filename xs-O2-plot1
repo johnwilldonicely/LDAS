@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# <TAGS> O2 plot</TAGS>
+
+thisprog="xs-O2-plot1"
+tempfile="temp_"$thisprog
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": plot the O2-sensing .dat files"
+	echo "USAGE: "$thisprog" [base] [max] [u] [options]"
+	echo "	[base]: base name (subject-date)"
+	echo "	[max]: maximum number of points to plot"
+	echo "		- if exceeded, every nth point will be output"
+	echo "		- if set to 0, all points will be output"
+	echo "	[u]: units for time (assuming default is seconds)"
+	echo "		- options: hour min sec ms"
+	echo "	[options]: optional arguments for _xe-plottable1"
+	echo "EXAMPLE: "$thisprog" 001-091231.txt 0 sec  -ymax 100"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+#echo
+#echo $thisprog $@
+#echo
+
+# READ THE REQUIRED COMMAND-LINE ARGUMMENTS
+base=$1; shift
+let maxpoints=$1 ; shift
+setunits=$1 ; shift
+plotextras=$@
+
+# CONVERT UNITS TO A TIME-DIVISOR
+if [ $setunits == "hour" ] ; then timedivisor=3600
+elif [ $setunits == "min" ] ; then timedivisor=60
+elif [ $setunits == "sec" ] ; then timedivisor=1
+elif [ $setunits == "ms" ] ; then timedivisor=0.001
+else { echo ; echo "--- Error ["$thisprog"]: invalid units ("$setunits") - must be hour,min,sec or ms" ; echo ; echo ; exit ; } ; fi
+
+
+# IF VLINES HAVE BEEN DEFINED< ADJUST ACCORDING TO THE UNITS SPECIFIED
+x=$(echo $plotextras | xe-getkeycol stdin -vline)
+if [ $x ] ; then
+	vlines2=$(echo $plotextras | xe-getkey stdin -vline  | xe-math_div1 stdin -v $timedivisor -cy -1 | xe-delimit stdin -d "comma")
+	plotextras=$(echo $plotextras | xe-keyupdate1 stdin -vline $vlines2)
+	echo $plotextras
+fi
+
+# BUILD INPUT AND NOTES FILENAMES - CHECK THEY ARE PRESENT
+notesfile=$base".notes" ; if [ ! -e $notesfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$notesfile' missing" ; echo ; echo ; exit ; } ; fi
+timefile=$base".time" ; if [ ! -e $timefile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$timefile' missing" ; echo ; echo ; exit ; } ; fi
+
+# DETERMINE THE NUMBER OF CHANNELS
+N_CH=$(xe-getkey $notesfile N_CH) ; if [ -z $N_CH ] ; then { echo ; echo "--- Error ["$thisprog"]: N_CH not specified in notes file "$notefile ; echo ; exit; } ; fi
+
+# BUILD THE LIST OF .DAT FILES
+for i in $(seq 1 $N_CH) ; do
+	datfile=$(echo $i|awk '{printf("'$base'.%03d.dat\n",$1)}')
+	if [ ! -e $datfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$datfile' missing" ; echo ; echo ; exit ; } ; fi
+	alldatfiles=$alldatfiles" "$datfile
+done
+
+
+# DETERMINE THE FIRST TIMESTAMP (COLUMN 1, NO ALPHABETICAL CHARACTERS)
+# used to output time relative to first timestamp
+tstart=$(cat $timefile | awk 'NF>0 && $1!~/[a-zA-Z]/{print $1; exit}')
+
+# DETERMINE LENGTH OF FILE AND DOWNSAMPLING
+if [ $maxpoints -gt 0 ] ; then let downsample=1+$(wc -l  $timefile|awk '{printf("%d",($1/'$maxpoints'))}')
+else let downsample=1
+fi
+
+# PRODUCE THE PLOT
+# set up options for xe-plottable1
+plotopts=" -cg 2 -cx 1 -cy 3 -line 1 -ps 0 -xscale .5 -yscale .25 -lwa .2 -lwd 0.2 -font 10 -out $tempfile.001.ps"
+
+# paste time and all data files together
+paste $timefile $alldatfiles |
+	# pull out lines with a valid number in the first column (this will skip the header)
+	xe-checkisnum2 stdin -t 1 -f 1 |
+	# PRINT EVERY NTH LINE
+	sed -n 1~$downsample"p" |
+	# expand the columns into time/data pairs for each channel with channel-labels
+	xe-transpose1 stdin -start 2 |
+	# align time to start=0, convert units using timedivisor and subtract "1" from the column numbers to reflect actual channel numbers
+	awk '{printf("%.3f\t%d\t%g\n",(($1-'$tstart')/'$timedivisor'),($2-1),$3)}' |
+	# plot, adding labels
+	xe-plottable1 stdin $plotopts -xlabel "Time ($setunits): $base" -ylabel "Current (nA)"  $plotextras

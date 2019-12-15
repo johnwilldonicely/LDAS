@@ -1,0 +1,204 @@
+#!/bin/bash
+# <TAGS>plot matrix</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setmod=""
+setxrange="-60,59"
+setyrange="1,150"
+setsplity="30"
+setopts1=""
+setshift="60"
+setout="plot_"$thisprog".ps"
+
+setclean="1"
+setverb="0"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": do a split-plot of a matrix"
+	echo " - this is very useful for spectral heat-maps"
+	echo "USAGE: $thisprog [in] [options]"
+	echo "	[in]: input matrix"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--mod: quoted options for pre-processing with xe-matrixmod1 [$setmod]"
+	echo "	--yrange: CSV min,max [$setyrange]"
+	echo "	--xrange: CSV min,max [$setxrange]"
+	echo "	--splity: y-value at which to split plot [$setsplity]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "...options for plots"
+	echo "	--shift: vertical-shift for bottom plot [$setshift]"
+	echo "	--title: quoted title, top plot only [$settitle]"
+	echo "	--xl: quoted x-axis label, bottom-plot only [$setxl]"
+	echo "	--yl: quoted y-axis label [$setyl]"
+	echo "	--opts1: everything else, for both plots (see xe-plotmatrix1) [$setopts1]"
+	echo "	--out: name of output file [$setout]"
+	echo "OUTPUT: "
+	echo "	postscript plot: plot_"$thisprog".ps"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" matrix.txt --xrange -60,60 --opts \"-font 6\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+if [ ! -e "$infile" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
+
+# OPTIONAL ARGUMENT HANDLING
+vs="v:c:" ; vl="mod:,xrange:,yrange:,splity:,title:,xl:,yl:,shift:,opts1:,out:,clean:,verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--xrange ) setxrange=$2 ; shift ;;
+		--yrange ) setyrange=$2 ; shift ;;
+		--splity ) setsplity=$2 ; shift ;;
+		--mod )    setmod=$2 ; shift ;;
+		--title )  settitle=$2 ; shift ;;
+		--xl )     setxl=$2 ; shift ;;
+		--yl )     setyl=$2 ; shift ;;
+		--opts1 )  setopts1=$2 ; shift ;;
+		--shift )  setshift=$2 ; shift ;;
+		--out )    setout=$2 ; shift ;;
+		--clean )  setclean=$2 ; shift ;;
+		--verb )   setverb=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+# FIRST APPLY MODIFICATIONS TO MATRIX
+command="xe-matrixmod1 $infile $setmod"
+if [ "$setverb" == "1" ] ; then echo "	plotmod_command= "$command ; fi
+$command > $tempfile.1
+
+# IDENTIFY INDEX TO ROW IN FINAL VERSION OF MATRIX
+xmin=$(echo $setxrange | cut -f 1 -d ,)
+xmax=$(echo $setxrange | cut -f 2 -d ,)
+ymin=$(echo $setyrange | cut -f 1 -d ,)
+ymax=$(echo $setyrange | cut -f 2 -d ,)
+let ybins=$(awk 'NF>0&&$1!~/^#/{print $0}' $tempfile".1" | wc -l)
+
+
+let z=$(echo "$setsplity < $ymin" | bc)
+if [ $z -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --splity ($setsplity) -  must be >= min ($ymin)" ; echo ; exit; } ; fi
+let z=$(echo "$setsplity > $ymax" | bc)
+if [ $z -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --splity ($setsplity) -  must be <= max ($ymax)" ; echo ; exit; } ; fi
+
+# GET THE Y-INDEX
+command="xe-math_index1 $ymin $ymax $ybins $setsplity"
+if [ "$setverb" == "1" ] ; then echo "	command= "$command ; fi
+splity=$($command)
+
+# REPORT PARAMETERS
+if [ "$setverb" == "1" ] ; then
+	echo "	xmin= "$xmin
+	echo "	xmax= "$xmax
+	echo "	ymin= "$ymin
+	echo "	ymax= "$ymax
+	echo "	ybins= "$ybins
+	echo "	setsplity= "$setsplity
+	echo "	splity= "$splity
+fi
+
+# PLOT THE MATRIX IN TWO HALVES
+title="This is the Title"
+plotopts0="-vline 0 -lwa .25 -yscale .1 -xscale .4 -font 8 -tics -2 -frame 0 -xmin $xmin -xmax $xmax $setopts1"
+plotlist=""
+for count in 1 2 ; do
+	plotfile=$tempfile"."$count".ps"
+	plotlist=$plotlist" "$plotfile
+	if [ "$count" == "1" ] ; then
+		plotopts1="$plotopts0 -ymin $setsplity -ymax $ymax -out $plotfile "
+		let z=$ybins-$splity
+		head -n $z $tempfile".1" |
+			xe-plotmatrix1 stdin $plotopts1 -xlabel "" -ylabel "$setyl" -title "$settitle"
+	fi
+	if [ "$count" == "2" ] ; then
+		plotopts1="$plotopts0 -ymin $ymin -ymax $setsplity -out $plotfile "
+		let z=$splity+1
+		tail -n $z $tempfile".1" |
+			xe-plotmatrix1 stdin $plotopts1 -xlabel "$setxl" -ylabel "$setyl"
+	fi
+done
+
+# REMOVE X-LABEL AND TIC-LABELS FROM TOP PLOT
+xe-cut2 $tempfile".1.ps" "% DRAW_TICS_AND_LABELS" -s2 1 |
+	grep xtic --color=never|
+	cut -f 2 -d ' '|
+	awk '{print $1"\t "}' > $tempfile
+xs-plotmodtics $tempfile".1.ps" $tempfile xtic
+
+# MODIFY /YALOFF DEFINITION IN SECOND PLOT TO MATCH FIRST
+a=$(grep '/yaloff' $tempfile".1.ps" | cut -f 3 -d ' ')
+b=$(grep '/yaloff' $tempfile".2.ps" | cut -f 3 -d ' ')
+xe-strsub1 $tempfile".2.ps" "$b" "$a" -in "/yaloff" > $tempfile
+mv $tempfile $tempfile".2.ps"
+
+# NOW COMBINE THE TWO PLOTS
+# get everything from the top plot up to the show page command
+xe-cut2 $tempfile".1.ps" '%!' -s3 "% PLOT_CODE_END" > $tempfile".final.ps"
+# get the colour-map from the bottom plot
+xe-cut2 $tempfile".2.ps" "% DEFINE_COLOUR_SET" -s1 1 >> $tempfile".final.ps"
+# add the translation
+echo "
+gsave
+% SHIFT_INTERNAL_COORDINATES
+0 -$setshift translate % internal
+" >> $tempfile".final.ps"
+# add the bottom of the bottom-plot
+xe-cut2 $tempfile".2.ps" "% PLOT_CODE_START" -s3 "% SHOW_PAGE" >> $tempfile".final.ps"
+# add restore
+echo "
+grestore
+% SHOW_PAGE
+showpage
+" >> $tempfile".final.ps"
+# rename
+mv $tempfile".final.ps" $setout
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

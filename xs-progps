@@ -1,0 +1,36 @@
+#!/bin/bash
+# <TAGS> programming </TAGS>
+
+thisprog=xs-progps
+if [ $# -lt 1 ]; then
+        echo
+        echo "------------------------------------------------------------------"
+        echo "- find a pattern in current processes running"
+        echo "- equivalent of ps aux | grep, but with filtering"
+        echo "- useage: "$thisprog" [pattern] [fields]"
+        echo 	[pattern]: an element of the command line to match"
+	echo "	- NOTE: place quotes around multi-word patterns"
+        echo 	[fields] (optional): the number of command-line options to print"
+        echo "- example: "$thisprog" \"KlustaKwik jh001-091231\" 4"
+        echo "------------------------------------------------------------------"
+        echo
+        exit
+fi
+
+pattern=$1
+fields=5; if [ $2 ] ; then fields=$2 ; fi
+
+# GET A LIST OF PROCESSES RUNNING
+ps aux |
+	# DEFINE THE HIGHEST FIELD NUMBER TO PRINT AFTER THE NAME OF THE PROCESS ITSELF
+	awk ' BEGIN {n=11+'$fields'}
+		# ONLY MATCH THE PATTERN AND NOT THE CURRENT PROGRAM INVOCATION
+		# ADD A SPACE TO INPUT TO ALLOW DISAMBIGUATION OF LINES ENDING IN 1, 11, ETC
+		$0" "~/'"$pattern"'/ && $0!~/'$thisprog'/ {
+			# PRINT USER, PROCESS_ID, START_TIME, ELAPSED_TIME
+			printf("\t%s %s %s %s ",$1,$2,$9,$10)
+			# PRINT THE PROCESS NAME AND ARGUMENTS, UP TO MAX DEFINED BY $FIELDS
+			for(i=11;i<n&&i<=NF;i++) printf("%s ",$i)
+			printf(" \n")
+		}
+	'

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+if [ ! $3 ] ; then 
+echo 
+echo "Perform ANCOVA using R"
+echo "Determine effect of factor A on Y, controlling for correlation between X and Y"
+echo "Format: r_regress [filename] [y column] [x column] [A column]"
+echo 
+echo "Assumptions: X and Y are continuous variables, while A is integers" 
+echo 
+exit
+fi
+
+infile=$1; ycol=$2; xcol=$3; grpcol=$4;
+datafile="temp_r_ancova.txt"
+awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $infile > $datafile
+
+
+
+echo "----------------------------------------------------------------"
+echo "
+datamatrix <- read.table('"$datafile"', header = FALSE)
+attach(datamatrix)
+X<-(V"$xcol")
+Y<-(V"$ycol")
+group<-factor(V"$grpcol")
+
+lm(Y ~ X)
+summary(aov(Y ~ X + group))
+
+" | R -q --no-save --slave 
+
+echo
+
+
+

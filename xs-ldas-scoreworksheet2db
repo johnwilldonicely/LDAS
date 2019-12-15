@@ -1,0 +1,73 @@
+#!/bin/bash
+
+thisprog="xs-ldas-scoreworksheet2db"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": read a score worksheet and create a database file"
+	echo "USAGE: "
+	echo "	"$thisprog" [file]"
+	echo "		[file]: csv file containing experimental info"
+	echo "			ANIMALID	: 5-digit code"
+	echo "			TREATMENTDATE	: Dosing date (dd/mm/yyyy)"
+	echo "			TREATMENTTIME	: Dosing time (mm:hh:ss)"
+	echo "			COMPARISONGROUP	:"
+	echo "				A: combo-treament, becomes group \"1\""
+	echo "				B: pre-treament, becomes group \"3\""
+	echo "				C: principal treatment, becomes group \"2\""
+	echo "				D: vehicle/vehicle, becomes group \"8\""
+	echo "			EEG,FFT		: QC pass (Y/N)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-f: format (0=simple 1=verbose) ["$setformat"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" StudyAnimalInfo.csv"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# REQUIRED ARGUMENT HANDLING
+infile=$1 ; shift
+
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":nxyb:t:" flag ; do
+ 	case $flag in
+ 		n) norm=1;;
+		x) logx=1;;
+		y) logy=1;;
+		b) bottom=$OPTARG;;
+		t) top=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$infile' missing" ; echo ; exit; } ; fi
+
+xe-cut1 $infile ANIMALID -d "," -o 1 > $tempfile.1
+xe-cut1 $infile TREATMENTDATE -d "," -o 1 | awk -F '/' '{print $3"_"$2"_"$1}' > $tempfile.2
+xe-cut1 $infile TREATMENTDATE -d "," -o 1| xe-dateconv1 stdin -i 1 -o 6 > $tempfile.3
+xe-cut1 $infile TREATMENTTIME -d "," -o 1 > $tempfile.4
+xe-cut1 $infile COMPARISONGROUP,EEG,FFT -d "," -o 1 | tr ',' '\t' > $tempfile.5
+
+echo "#base............ date-time........ grp COMP EEG FFT" | xe-delimit stdin
+paste $tempfile.1 $tempfile.2 $tempfile.3 $tempfile.4 $tempfile.5 |
+	sort |
+	awk '{
+	if($5=="A")x=1;
+	if($5=="B")x=3;
+	if($5=="C")x=2;
+	if($5=="D")x=0;
+	print $1"."$2"\t"$3":"$4"\t"x"\t"$5"\t"$6"\t"$7
+	}'
+
+rm -f $tempfile*

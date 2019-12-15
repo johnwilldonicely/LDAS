@@ -1,0 +1,163 @@
+#!/bin/bash
+thisprog="xs-ldas5-velocity1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+# parameters for immobility detection
+setvelint=0.4
+setvel1="1"
+setdur1="10"
+# parameters for running detection
+setvel2="5"
+setdur2="0.1"
+
+settrial="all"
+setplot="1"
+setplotbin="1"
+setplotdec=""
+setplotopts=""
+sfxyd=25
+
+
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": analyze .xyd file running speed, integrated over $setvelint s"
+	echo "REQUIRES: a properly formatted ,notes file"
+	echo "USAGE: "
+	echo "	"$thisprog" [base] [part] [options]"
+	echo "	[base]= [yyyymmdd]-[ses]_[subject]"
+	echo "	[part]= \"nose\" or \"body\""
+	echo "VALID OPTIONS, defaults in []:"
+	echo "	-t: trial number, name, or \"all\" ["$settrial"]"
+	echo "	-i: set integration period (s) for velocity calculation ["$setvelint"]"
+	echo "	-v: set velocity max (cm/s) for immobility ["$setvel1"]"
+	echo "	-V: set velocity min (cm/s) for running    ["$setvel2"]"
+	echo "	-d: set min duration (s) for immobility ["$setdur1"]"
+	echo "	-D: set min duration (s) for running    ["$setdur2"]"
+	echo "plot options:"
+	echo "	-p: plot the velocity timecourse (0=NO 1=YES) [$setplot]"
+	echo "	-b: plot bin-size (sec) for averaging (0= no binning) ["$setplotbin"]"
+	echo "	-x: plot decimation (sec - will override -b if set) ["$setplotdec"]"
+	echo "	-P: extra plot options for xe-plottable1 (in quotes)) ["$setplotopts"]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" 20160415-000_2881801 body -t all -b .4 -P \"-ymax 10\""
+	echo "OUTPUT: "
+	echo "	SSP file for immobility : times_immobile.ssp"
+	echo "	SSP file for running    : times_running.ssp"
+	echo "	velocity data           : $tempfile"
+	echo "	plot of velocity        : $tempfile.ps"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+base=$1 ; shift
+part=$1 ; shift
+in1=$base".xydt"
+in2=$base"-"$part".xyd"
+filenotes=$base".notes"
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+while getopts  ":t:i:v:V:d:D:b:x:p:P:" flag ; do
+ 	case $flag in
+ 		t) settrial=$OPTARG;;
+  		i) setvelint=$OPTARG;;
+		v) setvel1=$OPTARG;;
+ 		V) setvel2=$OPTARG;;
+ 		d) setdur1=$OPTARG;;
+ 		D) setdur2=$OPTARG;;
+		p) setplot=$OPTARG;;
+		b) setplotbin=$OPTARG;;
+		x) setplotdec=$OPTARG;;
+		P) setplotopts=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# MISSING-FILE HANDLING
+if [ ! -e $in1 ] ; then { echo ; echo "--- Error ["$thisprog"]: .xydt file '$in1' missing" ; echo ; exit; } ; fi
+if [ ! -e $in2 ] ; then { echo ; echo "--- Error ["$thisprog"]: .xyd file '$in2' missing" ; echo ; exit; } ; fi
+if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: notes file '$filenotes' missing" ; echo ; exit; } ; fi
+
+################################################################################
+# GET NOTESFILE DATA - SAMPLE RATE AND TRIAL START-STOP PAIRS
+################################################################################
+date=$(echo $base | cut -f 1 -d . | cut -f 1 -d _ | cut -f 1 -d - )
+subject=$(echo $base | cut -f 1 -d . | cut -f 2 -d _ | cut -f 1 -d - )
+
+sf=$(xe-getkey $filenotes sample_rate=)
+let z=$(echo $settrial | grep -e '[a-Z]' | wc -w) # determine whether trial contains letters
+if [ $settrial == "all" ] ; then
+	screenlist=$(xe-strxmlparse1 $filenotes TRIALS | awk 'NF>0{print$0}' | xe-cut1 stdin start,stop -o 1 | tr '\t' '\n'| paste -s | tr '\t' ',')
+	if [ -z $screenlist ] ; then { echo ; echo "--- Error ["$thisprog"]: could not find trial start/stop info in $filenotes" ; echo ; exit; } ; fi
+elif [ $z -gt 0 ] ; then
+	name=$settrial
+	settrial=$(xe-dbmatch1 $filenotes name $name -xml TRIALS -oc trial -o 1)
+	if [ -z $settrial ] ; then { echo ; echo "--- Error ["$thisprog"]: could not find a trial named $name in $filenotes" ; echo ; exit; } ; fi
+	tstart=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc start -o 1)
+	tstop=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc stop -o 1)
+	screenlist=$tstart","$tstop
+else
+	name=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc name -o 1)
+	if [ -z $name ] ; then { echo ; echo "--- Error ["$thisprog"]: could not find a trial $settrial in $filenotes" ; echo ; exit; } ; fi
+	tstart=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc start -o 1)
+	tstop=$(xe-dbmatch1 $filenotes trial $settrial -xml TRIALS -oc stop -o 1)
+	if [ -z $tstart ] ; then { echo ; echo "--- Error ["$thisprog"]: could not find start-info on trial $name in $filenotes" ; echo ; exit; } ; fi
+	if [ -z $tstop ] ; then { echo ; echo "--- Error ["$thisprog"]: could not find stop-info on trial $name in $filenotes" ; echo ; exit; } ; fi
+	screenlist=$tstart","$tstop
+fi
+################################################################################
+# ANALYZE THE VELOCITY
+################################################################################
+xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp  
+xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+
+velmean=$(xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)
+velmed=$(xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | awk '{printf("%.3f",$1)}')
+duration=$(echo $screenlist|tr ',' ' '|awk '{for(i=2;i<=NF;i+=2) n+=($i-$(i-1))}END{print n/'$sf'}')
+running1=$(xe-ldas5-readssp1 times_running.ssp | awk '{print $2-$1}' | awk '{n+=$1}END{print n/'$sf'}')
+immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | awk '{print $2-$1}' | awk '{n+=$1}END{print n/'$sf'}')
+running2=$(echo $running1 $duration | awk '{print 100*$1/$2}')
+immobile2=$(echo $immobile1 $duration | awk '{print 100*$1/$2}')
+
+echo "date subject trial name dur %run %immob vmean vmedian" | xe-delimit stdin
+echo $date $subject $settrial $name $duration $running2 $immobile2 $velmean $velmed | xe-delimit stdin
+
+
+################################################################################
+# BIN OR DECIMATE THE DATA, SAVE A TEMPFILE AND PLOT THE DATA
+################################################################################
+if [ $setplot == "1" ] ; then
+	if [ "$setplotdec" != "" ] ; then
+		if [ $setplotdec != 0 ] ; then newdec=$(echo $setplotdec $sfxyd | awk '{print $1*$2}') ; else newdec=1 ; fi
+		newrate=$(echo $sfxyd $newdec | awk '{print $1/$2}')
+		xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+		xe-cut1 stdin vel |
+		xe-decimate1 stdin $newdec |
+		xe-timestamp1 stdin -sf $newrate > $tempfile
+	else
+		if [ $setplotbin != 0 ] ; then newbin=$(echo $setplotbin $sfxyd | awk '{print $1*$2}') ; else newbin=1 ; fi
+		newrate=$(echo $sfxyd $newbin | awk '{print $1/$2}')
+		xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+		xe-cut1 stdin vel |
+		xe-bin1 stdin $newbin |
+		xe-timestamp1 stdin -sf $newrate > $tempfile
+	fi
+	# determine the vertical lines for the plot
+	let nlines=$(echo $screenlist | awk -F , '{print (NF/2)-1}')
+	if [ $nlines -gt 0 ] ; then vlines=$(echo $screenlist|tr ',' ' '|awk '{for(i=2;i<=NF;i+=2) {x+=($i-$(i-1))/'$sf' ; print x }}'|head -n $nlines|paste -s|tr '\t' ','|awk '{print "-vline "$1}') ; fi
+	plotopts="-line 1 -lwd 0.25 -ps 0 -xscale 1 -yscale 0.5 -hline 0,$setvel1,$setvel2 -xmin 0 -colour 2 -out plot_$tempfile.ps"
+	xe-plottable1 $tempfile $plotopts $vlines -title "$in2: trial"$settrial" ($name)" -xlabel "Time (s)" -ylabel "Velocity (cm/s)" $setplotopts
+fi

@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# <TAGS>plot programming</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+plotfile1="temp_plotcolours1.ps"
+plotfile2="temp_plotcolours2.ps"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": make a test-plot of colours from xe-plottable1"
+	echo "USAGE: "
+	echo "	"$thisprog" test"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "OUTPUT:"
+	echo "	$plotfile1"
+	echo "	$plotfile2"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+# MAKE A BASIC COLOUR BOX-PLOT
+plotopts="-cg 1 -pt box -xmin 0 -xint 1 -xscale .85 -yscale .1 -bw 1 -bz 0 -ymin 0 -ymax 1 -yint -1 -frame 0 -font 8"
+seq 0 32 | awk '{print $1,1}' | xe-plottable1 stdin $plotopts -xlabel "LDAS colours" -out $plotfile1
+
+
+# MAKE A MATRIX SHOWING PROGRESSION OF COLOURS
+plotopts="-cg 3 -xmin 0 -xint 8 -ps 15 -xscale .1 -frame 0 -font 8 -tics 0 -ylabel BASE -xlabel ADD"
+for i in $(seq 0 3) ;
+	do  for j in $(seq 1 8) ; do
+		echo $i $j | awk '{print $1*8,$2,$1*8+$2}' ;
+	done
+done | xe-plottable1 stdin $plotopts -title "LDAS colours (0=black)" -out $plotfile2
+
+echo
+echo "colour chart sent to $plotfile1"
+echo "colour matrix sent to $plotfile2"
+echo
+
+exit

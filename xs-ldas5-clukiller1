@@ -1,0 +1,201 @@
+#!/bin/bash
+thisprog="xs-ldas5-clukiller1"
+tempfile="temp_"$thisprog #"."$$"."
+start_dir=$(pwd)
+start_time=$(date +'%s.%3N')
+
+setoutbase=$tempfile
+# individual kill criteria - either is sufficient
+setminspk="1"
+setminhist="0"
+sethist1="0.08"
+setwave1="0.95"
+# kill criteria to be used in combination - both required
+sethist2="0.06"
+setwave2="0.90"
+setkz="0";
+setclean="no"
+
+
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "Remove noise clusters from club(t) records"
+	echo "- basically, builds bad-cluster list for xe-ldas5-clukillerlist1 "
+	echo "REQUIRES: "
+	echo "	- .notes, .club, .clubt, and .wfm files"
+	echo "DEPENDENCIES: "
+	echo "	- xe-ldas5-wavestats1"
+	echo "	- xe-ldas5-cluhist1"
+	echo "	- xe-ldas5-clukillerlist1"
+	echo "USAGE: "$thisprog" [clubt] [club] [wfm] [options]"
+	echo "	[clubt]: timestamp records"
+	echo "	[club]:  cluster ids"
+	echo "	[wfm]:   waveform file containing mean waveforms"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--minspk : minimum total spikes in cluster [$setminspk]"
+	echo "	--minhist : minimum spikes in +-50ms autocorrelogram [$setminhist]"
+	echo "	-H : strong criterion (max) for refract score [$sethist1]"
+	echo "	-W : strong criterion (max) for waveform-correlation [$setwave1]"
+	echo "	-h -w: weak criteria required in combination [$sethist2] [$setwave2]"
+	echo "	--kz: kill cluster zero (0=NO 1=YES) [$setkz]"
+	echo "	--base: base-name for output files [$setoutbase]"
+	echo "	--clean: remove intermediate files (no|yes) [$setclean]"
+	echo "OUTPUT:"
+	echo "	- $setoutbase.club"
+	echo "	- $setoutbase.wfm"
+	echo "	- $setoutbase.txt"
+	echo "EXAMPLE:"
+	echo "	"$thisprog" 20160721-000_2904407.club -u"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo "--------------------------------------------------------------------------------"
+echo $thisprog $@
+echo "--------------------------------------------------------------------------------"
+
+################################################################################
+# READ RREQUIRED ARGUMENTS AND OPTIONS
+################################################################################
+# required arguments
+fileclubt=$1 ; shift
+fileclub=$1  ; shift
+filewave=$1  ; shift
+# read additional options
+eval set -- $(getopt -o H:h:W:w: -l minhist:,minspk:,outbase:,clean,kz: -n "--- Error ["$thisprog"]" -- "$@")
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--clean ) setclean="yes" ;;
+		--outbase ) setoutbase="$2" ; shift ;;
+		--kz ) setkz="$2" ; shift ;;
+		--minspk ) setminspk="$2" ; shift ;;
+		--minhist ) setminhist="$2" ; shift ;;
+		-H ) sethist1="$2" ; shift ;;
+		-h ) sethist2="$2" ; shift ;;
+		-W ) setwave1="$2" ; shift ;;
+		-w ) setwave2="$2" ; shift ;;
+		-- ) shift ; break ;;
+		* ) { echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit ; } ;;
+	esac
+	shift
+done
+# check options
+if [ ! -e $fileclubt ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclubt' missing" ; echo ; exit; } ; fi
+if [ ! -e $fileclub ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$fileclub' missing" ; echo ; exit; } ; fi
+if [ ! -e $filewave ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filewave' missing" ; echo ; exit; } ; fi
+if [ $(echo $setoutbase | wc -w) == "0" ] ; then { echo ; echo "--- Error ["$thisprog"]: --outbase is empty" ; echo ; exit; } ; fi
+
+
+################################################################################
+# DEFINE OUTPUT FILE NAMES
+################################################################################
+outclubt=$setoutbase".clubt"
+outclub=$setoutbase".club"
+outwfm=$setoutbase".wfm"
+outlist=$setoutbase".txt"
+
+################################################################################
+# DETERMINE SAMPLERATE FROM THE WAVEFORM FILE
+################################################################################
+sr=$(xe-getkey $filewave SAMPLE_RATE)
+if [ -z "$sr" ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$filewave' does not define SAMPLE_RATE" ; echo ; exit; } ; fi
+
+# REMOVE TEMPORARY FILES
+rm -f $tempfile*
+rm -f $setoutbase*
+
+################################################################################
+# CALCULATE REFRACTORINESS
+################################################################################
+outtemphist=$tempfile"_histstats.txt"
+echo "...send autocorrelation stats to $outtemphist"
+# save histogram stats (default +-50ms, 1ms bins)
+xe-ldas5-cluhist1 $fileclubt $fileclub -sf $sr -width 50 -z1 15 -z2 2 -out 1 -skipz $setkz > $outtemphist
+# confirm if there is a cluster-zero in the output
+let z1=$(head $outtemphist | xe-dbmatch1 stdin cluster 0 | wc -l )
+
+################################################################################
+# EXTRACT THE WAVEFORM INFORMATION: WIDTH(MS), PEAK(UV) AND CROSS-CHANNEL-CORRELATION
+# note that
+################################################################################
+outtempwave=$tempfile"_wavestats.txt"
+echo "...send waveform stats to $outtempwave"
+xe-ldas5-wavestats1 $filewave -sign -1 | grep -v nan > $outtempwave
+# confirm if there is a cluster-zero in the output
+let z2=$(head $outtempwave | xe-dbmatch1 stdin cluster 0 | wc -l )
+
+# if the histogram file specifies cluster zero but there is no zero waveform, strip cluster zero from the histogram file...
+if [ $z1 -gt 1 ]  && [ $z2 -eq 1 ] ; then
+	xe-dbmatch1 $outtemphist cluster 0 -m -2 > $tempfile
+	mv $tempfile $outtemphist
+# if the waveform histogram file specifies cluster zero but not the histogram, strip cluster zero from the waveform file...
+elif [ $z2 -gt 1 ] && [ $z1 -eq 1 ] ; then
+	xe-dbmatch1 $outtempwave cluster 0 -m -2 > $tempfile
+	mv $tempfile $outtemphist
+fi
+
+
+################################################################################
+# BUILD LIST OF BAD CLUSTERS
+# - refractory score >0.08 (8% of spikes in 2ms vs 15ms zone
+#	- no minimum spike requirement for making this assement
+#	- low-count histograms with high refract scores are highly unlikely by chance
+# - cross-channel waveform correlation > 0.98
+# 	- this criterion only applies
+# - or combined refract (>0.06) and fairly high correlation (>0.95)
+################################################################################
+outtemplist=$tempfile"_list"
+echo "...send list of bad clusters to $outtemplist"
+# build the kill-list file for inspection
+echo "cluster,n,50ms,refract,corr,reason" | xe-delimit stdin > $outtemplist
+paste $outtempwave $outtemphist |
+	xe-cut1 stdin cluster,n,50ms,refract,corr -o 1 |
+		awk '{
+			if($2<'$setminspk') print $0"\tn"
+			else if($3<'$setminhist') print $0"\t50ms"
+			else if($4>'$sethist1') print $0"\trefract"
+			else if($5>'$setwave1') print $0"\tcorr"
+			else if ($4>'$sethist2' && $5>'$setwave2') print $0"\trefract+corr"
+			else print $0"\t-"
+		}' >> $outtemplist
+
+################################################################################
+# REMOVE THE BAD CLUSTERS
+################################################################################
+echo "...removing bad clusters, output sent to: "
+echo "	- $outclubt"
+echo "	- $outclub"
+echo "	- $outwfm"
+# convert summary file to comma-separated list, if "reason" column does not contain "-"
+list=$(xe-dbmatch1 $outtemplist reason "-" -m -2 | xe-cut1 stdin cluster -o 1 | paste -s | tr '\t' ',')
+
+if [ "$list" != "" ] ; then
+	# generate a new club file which preserves the record-count but reassigns bad clusters to zero
+	command="xe-ldas5-clukillerlist1 $fileclubt $fileclub $list -w $filewave -kz $setkz"
+	echo "	$command"
+	$command
+	# rename the output files
+	mv temp_xe-ldas5-clukillerlist1.clubt $outclubt
+	mv temp_xe-ldas5-clukillerlist1.club $outclub
+	mv temp_xe-ldas5-clukillerlist1.wfm $outwfm
+else
+	echo "	no clusters to be removed"
+	cp $fileclubt $outclubt
+	cp $fileclub $outclub
+	cp $filewave $outwfm
+fi
+
+echo "# total_count_criterion   "$setminspk > $outlist
+echo "# 50ms_count_criterion    "$setminhist >> $outlist
+echo "# strong_criterion_hist	"$sethist1 >> $outlist
+echo "# strong_criterion_wave	"$setwave1 >> $outlist
+echo "# weak_criterion_hist	"$sethist2 >> $outlist
+echo "# weak_criterion_wave	"$setwave2 >> $outlist
+cat $tempfile"_list" >> $outlist
+
+
+if [ "$setclean" == "yes" ] ; then
+	rm -f $outtemphist $outtempwave $outtemplist
+fi

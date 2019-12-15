@@ -1,0 +1,230 @@
+#!/bin/bash
+
+thisprog="xs-ldas-scorecoh1"
+# define temporary file name, incorporating current process-id
+tempfile="temp_"$thisprog #"."$$"."
+start_time=$(date +'%s')
+outbase="SCORECOH1_"
+
+setprehours=24
+setdur1=""
+setclean=1
+setplot=0
+setsf=400
+setcohopts="-sf $setsf -min 0.5 -max 200 -w $setsf -s 1 -t 1 -a 10 -dt 0 "
+setfilter="RNWT"
+setlow="4"
+sethigh="12"
+
+rm -f $tempfile"."*
+
+if [ $# -lt 5 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": calculate coherence change between two time-points for two input files"
+	echo "	- this version is for reading 7-day SCORE files"
+	echo "USAGE: "
+	echo "	"$thisprog" [inA] [inB] [t1] [t2] [s]"
+	echo "	[inA]: channel-A input (SCORE raw file)"
+	echo "	[inB]: channel-B input (SCORE raw file)"
+	echo "	[start2]: start time (YY:MM:DD:hh:mm:ss) for main block (post-baseline)"
+	echo "ADDITIONAL ARGUMENTS:"
+	echo "	-n: baseline time (hours before start2) ["$setprehours"]"
+	echo "	-a: duration of baseline (hours) [unset: same as -b, below] "
+	echo "	-b: duration of main block (hours) ["$setdur2"]"
+	echo "	-f: filter results using behavioural state SCORES ["$setdur2"]"
+	echo "		R= REM sleep"
+	echo "		N= non-REM sleep"
+	echo "		W= wake"
+	echo "		T= wake, theta"
+	echo "	-C: coherence options (in quotes) ["$setcohopts"]"
+	echo "		NOTE: if set, added to defaults with override"
+	echo "	-l:  low-frequency boundary for bandwidth analysis ["$setlow"]"
+	echo "	-h:  high-frequency boundary for bandwidth analysis ["$setlow"]"
+	echo "	-x:  clean up temporary files (0=NO, 1=YES) ["$setclean"]"
+	echo "	-p: plot results (0=NO 1=YES) ["$setplot"]"
+	echo "EXAMPLE: "
+	echo "	$thisprog 30353.hpc4 30353.pfc4 14:11:11:06:00:00  5 -n 24 -d 5 -f WT"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+echo $thisprog $@
+
+################################################################################
+# PARSING INPUT
+################################################################################
+inA=$1 ; shift
+inB=$1 ; shift
+setstart2=$1; shift
+# OPTIONAL ARGUMENT HANDLING
+while getopts  ":n:a:b:C:x:p:f:l:h:" flag ; do
+ 	case $flag in
+		n) setprehours=$OPTARG;;
+		a) setdur1=$OPTARG;;
+		b) setdur2=$OPTARG;;
+		C) setcohopts=$setcohopts" "$OPTARG;;
+		x) setclean=$OPTARG;;
+		p) setplot=$OPTARG;;
+		f) setfilter=$OPTARG;;
+		l) setlow=$OPTARG;;
+		h) sethigh=$OPTARG;;
+		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+	esac
+	let lastarg=$OPTIND-1
+done
+if [ ! $lastarg ] ; then lastarg=0; fi
+for i in $(seq 1 $lastarg); do shift ; done
+
+# CHECK FILES ARE PRESENT
+if [ ! -e $inA ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inA' missing" ; echo ; echo ; exit ; } ; fi
+if [ ! -e $inB ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inB' missing" ; echo ; echo ; exit ; } ; fi
+
+# IF UNSET, DURATION OF BASELINE IS THE SAME AS THE DURATION OF THE MAIN BLOCK
+if [ "$setdur1" == "" ] ; then setdur1=$setdur2 ; fi
+
+# DETERMINE SETSTART1
+x=$(echo $setstart2 | awk -F : '{print $2"/"$3"/""20"$1,$4":"$5":"$6}') # convert to a format the date command can consume
+y=$(echo $setprehours | awk '{printf("%d\n",($1*60))}') # convert to minutes
+setstart1=$(date -du --date="$x $y minutes ago" +"%y:%m:%d:%H:%M:%S")
+
+# CONVERT DURATON (HOURS) TO RAW FILE BLOCKS (10S)
+nblocks1=$(echo $setdur1 | awk '{print $1*360}')
+nblocks2=$(echo $setdur2 | awk '{print $1*360}')
+
+# DETERMINE IF ALL BEHAVIOURAL DATA IS INCLUDED (0=no, 1=yes)
+filtercommand=""
+if [ "$setfilter" != "" ] ; then
+	filtercommand=$(echo $setfilter | grep R | grep N | grep W | grep T | wc -l)
+	if [ "$filtercommand" == "1" ] ; then
+		filtercommand=""
+	elif [ "$filtercommand" == "0" ] ; then
+		filescores="SCOREs_"${inA%.*}".csv"
+		if [ ! -e $filescores ] ; then { echo ; echo "--- Error ["$thisprog"]: SCOREs file '$filescores' missing" ; echo ; echo ; exit ; } ; fi
+		grep [$setfilter] $filescores | cut -f 4 > $tempfile.filter
+		filtercommand="-lf "$tempfile".filter"
+	fi
+fi
+
+echo "setprehours="$setprehours
+echo "setstart1="$setstart1
+echo "setstart2="$setstart2
+echo "setdur1="$setdur1
+echo "setdur2="$setdur2
+echo "nblocks1="$nblocks1
+echo "nblocks2="$nblocks2
+echo "setcohopts="$setcohopts
+echo "setfilter="$setfilter
+echo "filtercommand="$filtercommand
+
+# DETERMINE FFT MIN AND MAX
+fftmin=$(echo $setcohopts | xe-getkey stdin -min | tail -n 1 | xe-checkisnum2 stdin)
+fftmax=$(echo $setcohopts | xe-getkey stdin -max | tail -n 1 | xe-checkisnum2 stdin)
+echo "fftmin="$fftmin
+echo "fftmax="$fftmax
+
+# CONVERT THE DATA - EXTRACT THE TWO RELEVANT CHUNKS (A/B= file (region), 1/2 = PRE- AND POST-EVENT)
+echo "	Reading data"
+echo "
+	xe-readscore1 $inA -sf $setsf -start $setstart1 -n $nblocks1 $filtercommand -out 2 > $tempfile.a1
+	xe-readscore1 $inB -sf $setsf -start $setstart1 -n $nblocks1 $filtercommand -out 2 > $tempfile.b1
+	xe-readscore1 $inA -sf $setsf -start $setstart2 -n $nblocks2 $filtercommand -out 2 > $tempfile.a2
+	xe-readscore1 $inB -sf $setsf -start $setstart2 -n $nblocks2 $filtercommand -out 2 > $tempfile.b2
+"
+xe-readscore1 $inA -sf $setsf -start $setstart1 -n $nblocks1 $filtercommand -out 2 > $tempfile.a1
+xe-readscore1 $inB -sf $setsf -start $setstart1 -n $nblocks1 $filtercommand -out 2 > $tempfile.b1
+xe-readscore1 $inA -sf $setsf -start $setstart2 -n $nblocks2 $filtercommand -out 2 > $tempfile.a2
+xe-readscore1 $inB -sf $setsf -start $setstart2 -n $nblocks2 $filtercommand -out 2 > $tempfile.b2
+
+
+################################################################################
+# CALCULATE COHERENCE AND CHANGE IN COHERENCE (PRE-VS-POST), FOR WHOLE SPECTRUM
+# - interpolate across values for 50,100,150Hz - known to be noisy
+################################################################################
+echo "	Calculating coherence (pre)"
+xe-fftcoh3 $tempfile.a1 $tempfile.b1 $setcohopts | xe-interpspectrum1 stdin -freq 50,100,150 -width 2 > $tempfile.coh1
+echo "	Calculating coherence (post)"
+xe-fftcoh3 $tempfile.a2 $tempfile.b2 $setcohopts | xe-interpspectrum1 stdin -freq 50,100,150 -width 2 > $tempfile.coh2
+
+
+echo "	Calculating coherence change"
+outfile=$outbase"spectrum.txt"
+echo "freq coh1 coh2 diff" | xe-delimit stdin > $outfile
+paste $tempfile.coh1 $tempfile.coh2 |
+	awk '{printf("%.3f\t%.3f\t%.3f\t%.3f\n",$1,$2,$4,($4-$2))}' >> $outfile
+
+
+
+################################################################################
+# CALCULATE THE AUC FOR THETA (OR OTHER) BANDS
+# - assumes spectrum is produced with 1-Hz frequency resolution beginning with 1
+################################################################################
+infile=$outfile
+outfile=$outbase"AUC.txt"
+z=$(xe-cut1 $infile freq -o 1 | head -n 1)
+x=$(echo $setlow  $z | awk '{print $1-$2}')
+y=$(echo $sethigh $z | awk '{print $1-$2}')
+xe-cut1 $infile diff -o 1 | xe-curvestats1 stdin -index $x,$y > $outfile
+
+
+
+################################################################################
+# CALCULATE THE NORMALIZED THETA-COHERENCE TIMECOURSE ACROSS THE ENTIRE PRE-POST PERIOD
+# - assumes spectrum is produced with 1-second temporal precision
+################################################################################
+echo "	Calculating theta timecourse "
+outfile=$outbase"theta.txt"
+echo "time ztheta" | xe-delimit stdin > $outfile
+# combine pre & post data
+cat $tempfile.a1 $tempfile.a2 > $tempfile.a3
+cat $tempfile.b1 $tempfile.b2 > $tempfile.b3
+# calculate normalization period in seconds
+setdurnorm=$(echo $setdur1| awk '{print $1*3600}')
+# output coherence - one row = spectrum for a given timepoint
+xe-fftcoh3 $tempfile.a3 $tempfile.b3 $setcohopts -o 1 |  
+	# calculate the AUC for the theta band
+	xe-curvestats2 stdin -min $fftmin -max $fftmax -index $setlow,$sethigh -f 2 |
+	# extract the AUC for theta
+	xe-cut1 stdin AUC0 -o 1 |
+	# normalize using samples from beginning to $setdur1
+	# assumes 2 blocks of equal size and 1Hz FFT output
+	xe-norm2 stdin -n 1 -stop $setdurnorm |
+	# interpolate to remove NANs frm beginning of coherence FFT output
+	xe-interp1 stdin |
+	# downsample to minutes
+ 	xe-bin1 stdin 60 |
+	# filter events faster than 10min long - note Butterworth is unstable for this purpose?
+	xe-smoothbox1 stdin -w 30 |
+	# add timestamps
+	xe-timestamp1 stdin -sf 60 -o -$setdur1 >> $outfile
+
+
+################################################################################
+# GENERATE PER-ANIMAL PLOTS
+################################################################################
+if [ $setplot == "1" ] ; then
+	plotopts="-line 1 -ps 0 -cx 1 -cg 2 -cy 3  -xmin 0 -xint 10 -ymin 0 -ymax 0.5 -xscale 1 -xpad 0 -ypad 0 -vline 4,12 -hline .1,.2,.3,.4,.5 -lwa 0.25"
+
+	xe-cut1 $outbase"spectrum.txt" freq,coh1,coh2 -o 1 |
+	xe-transpose1 stdin -start 2 |
+	awk '{print $1,$2-2,$3}' |
+	xe-plottable1 stdin $plotopts -xlabel "Frequency (Hz)" -ylabel "Coherence" -out $tempfile.001.ps
+
+	plotopts="-line 1 -ps 0 -cx 1 -cy 2 -xmin 0 -xint 10 -xscale 1 -xpad 0 -ypad 0 -vline 4,12 -colour 3"
+	xe-cut1 $outbase"spectrum.txt" freq,diff -o 1 |
+	xe-plottable1 stdin $plotopts -xlabel "Frequency (Hz)" -ylabel "Coherence difference" -hline 0 -out $tempfile.002.ps
+
+	plotopts="-cx 1 -cy 2 -line 1 -ps 0 -xscale 1 -xint 1 -colour 3 -vline 0 -hline 1.5,3"
+	xe-plottable1 $outbase"theta.txt" $plotopts -xlabel "Time (Hours)" -ylabel "Theta-coherence (Z)" -out $tempfile.003.ps
+
+
+	outfile=$outbase"summary"
+	xe-plotmerge1 -xmax 1 -xinc 275 $tempfile.001.ps $tempfile.002.ps $tempfile.003.ps  -out $outfile
+
+fi
+
+
+if [ $setclean == "1" ] ; then rm -f $tempfile"."* ; fi
+echo
+exit

@@ -1,0 +1,121 @@
+#!/bin/bash
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progbase1=${thisprog##*-};
+tempfile="temp_"$thisprog #"."$$"."
+
+setverb="0"
+setclean="1"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert a slice-ephys table of results to a machine-readable form"
+	echo " - first column must contain stimulus amplitudes"
+	echo " - actual values must begin on the third row"
+	echo " - columns must be tab-delimited (copy & paste from excel should be ok)"
+	echo " - input must contain rows labelled BATCH and SWARM"
+	echo " - recontructs subject ID from BATCH and SWARM entries (remove B, append SWARM)"
+	echo "Example: "
+	echo "	uA		BATCH	B28755	B28755	B28818	B28818	B28852"
+	echo "			SWARM	02	03	08	05	01"
+	echo "	20			-0.191	-0.25	-0.171	-0.102	-0.392"
+	echo "	40			-0.411	-0.6	-0.305	-0.248	-1.034"
+	echo "	60			-0.739	-0.835	-0.453	-0.376	-1.594"
+	echo "	...etc..."
+	echo ""
+	echo "USAGE: "$thisprog" [in] [group] [options]"
+	echo "	[in]: input file containing table"
+	echo "	[group]: group number to apply (0,1,2 etc)"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" table_io_pop_grp0.txt 0"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+in1=$1 ; shift
+grp=$1 ; shift
+if [ ! -e $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $infile" ; echo ; exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+
+
+########################################################################################
+# GET TO WORK
+########################################################################################
+
+# save stim values
+echo "stim" > $tempfile.1
+cut -f 1 $in1 | xe-checkisnum2 stdin >> $tempfile.1
+# save BATCH ids & get start-column
+grep BATCH $in1 --color=never | tr '\t' '\n' | awk 'BEGIN{x=0}{if($1=="BATCH") x=1; else if(x==1) print $1}' > $tempfile.2
+start=$(grep BATCH $in1 --color=never | awk -F "\t" '{for(i=1;i<=NF;i++) if($i=="BATCH") print i+1}')
+# save matching SWARM id's'
+grep SWARM $in1 --color=never | tr '\t' '\n' | awk 'BEGIN{x=0}{if($1=="SWARM") x=1; else if(x==1) print $1}' > $tempfile.3
+# save new subject id's, combining batch (minus the "B" and swarm entries)'
+paste $tempfile.2 $tempfile.3 | tr -d 'B' | tr -d '\t' | paste -s > $tempfile.4
+# get a list of the subject id's
+listsub=$(cat $tempfile.4)
+# replace missing values with NAN
+cut -f $start- $in1 | tail -n +3 |
+	awk -F "\t" '
+	{
+		for(i=1;i<=NF;i++) {
+			if($i!="") x=$i;
+			else x="NAN";
+			printf("%s ",x);
+		}
+		printf("\n")
+	}
+	' | xe-delimit stdin >> $tempfile.4
+
+# combine stim amplitudes with result values
+paste $tempfile.1 $tempfile.4 > $tempfile.5
+
+# transpose the table so that there is a column for each of subject, group, stim, and result
+echo "subject group stim result" | xe-delimit stdin
+for sub in $listsub ; do
+	xe-cut1 $tempfile.5 stim,$sub  -o 1 |
+		awk '{print "'$sub'","'$grp'",$1,$2}' |
+		xe-delimit stdin
+done
+
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
