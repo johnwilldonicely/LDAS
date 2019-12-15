@@ -22,9 +22,9 @@ Instructions - including this document - can displayed at any time using xs-manu
 3. as a pdf file (requires the evince document viewer)
 
 For example:  
-		$ xs-manual ldas
-		$ xs-manual ldas --make html
-		$ xs-manual ldas --vew terminal
+		$ xs-manual ldas  
+		$ xs-manual ldas --make html  
+		$ xs-manual ldas --vew terminal  
 
 
 ################################################################################
@@ -32,7 +32,7 @@ For example:
 
 The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the xs-progtag script to find or list programs scripts or functions with a particular tag. For example...  
 
-		$ xs-ldas-progtag find "plot"
+		$ xs-ldas-progtag find "plot"  
 
 A full description of all LDAS components can be viewed with Firefox here:  
 
