@@ -1353,21 +1353,7 @@ key variables defined by reading the .notes file in the data directory
 	total number of channels
 	eeg (theta) channel
 - USAGE: xs-crunch2 [basename] [CRUNCH arguments]
-- EXAMPLE: xs-crunch2 jh001-091231_01 -maptype 1
---------------------------------------------------------------
-CRUNCH.exe v 3.10.17: 3.June.2016 [JRH]
-
-- Analyse EEG, position and spike data & generate place maps
-- Drag files to program icon or include as command line arguments
-- Default arguments are read from CRUNCH.rc file in program directory
-- defaults can be overridden on command line or in batch file
-- example...
-	CRUNCH.exe jc39-0207-0105.whl jc39-0207-0105.res.* -vidres 3.5
-
-CRUNCH settings (defaults)...
---------------------------------------------------------------
--datatype 2 -pause 0 -clean 1 -setverb 2 -suffix  -vidres 1.000 -vidxmax 720 -vidymax 576 -cx -1.00 -cy -1.00 -nox 0 -noy 0 -psmooth 0.400 -pshiftt 0.000 -pshiftd 0.000 -pinterp 0.400 -dejump 200.00 -nleds 3 -pled 1 -posfreq 25.0000 -spikefreq 20000.0000 -setburst 0.006 -echannel 1 -echantot 64 -efreq 1250.0000 -estart 0.00 -edur 3.00 -emin 4.00 -emax 12.00 -elowcut 2.00 -ehighcut 8.000 -efit 0.60 -escale 1.00 -edetect 1 -mapbinsize 2.50 -maptype 0 -mapsmooth 7 -mapsmtype 3 -mapfill 0 -mapmindwell 2 -mapratepeak -1.00 -mapthresh 10 -mappeakzone 75 -mapnums 0 -mapcompact 1 -set_filter 1 -f_start 0 -f_end 999999 -f_velmin 5.00 -f_velmax 999999.00 -f_dirchoice 360 -f_dirtol 180 -f_avel 0.00 -outpos 0 -outeeg 0 -outspikes 0 -outmatrix 0 -outmap 0 -outfield 0 -outruns 0 -outisi 0 
-
+- EXAMPLE: xs-crunch2 jh001-091231_01 -maptype 1/opt/LDAS/xs-crunch2: line 26: /opt/LDAS/bin/CRUNCH: No such file or directory
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-dat2bin"><a href="#CODE">&#8679</a> xs-dat2bin</h3></font>
@@ -1383,6 +1369,7 @@ USAGE: xs-dat2bin [infile] [nchans] [srin]
 	[nchans]: number of channels in infile
 	[srin]: sample-rate of infile
 VALID OPTIONS (defaults in []):
+	--base: basename for output (if unset, infile minus extension) []
 	--mean: window size (seconds) for de-meaning data (0=SKIP) [0]
 	--srout: output sample-rate (Hz) [1000]
 	--bad: invalid value (0,-1, or 1=SHRT_MAX) [1]
@@ -1807,21 +1794,7 @@ USAGE:
 	xs-ldas5-crunch2 [basename] [CRUNCH arguments]
 EXAMPLE:
 	xs-ldas5-crunch2 jh001-091231_01 -maptype 1
-
---------------------------------------------------------------
-CRUNCH.exe v 3.10.17: 3.June.2016 [JRH]
-
-- Analyse EEG, position and spike data & generate place maps
-- Drag files to program icon or include as command line arguments
-- Default arguments are read from CRUNCH.rc file in program directory
-- defaults can be overridden on command line or in batch file
-- example...
-	CRUNCH.exe jc39-0207-0105.whl jc39-0207-0105.res.* -vidres 3.5
-
-CRUNCH settings (defaults)...
---------------------------------------------------------------
--datatype 2 -pause 0 -clean 1 -setverb 2 -suffix  -vidres 1.000 -vidxmax 720 -vidymax 576 -cx -1.00 -cy -1.00 -nox 0 -noy 0 -psmooth 0.400 -pshiftt 0.000 -pshiftd 0.000 -pinterp 0.400 -dejump 200.00 -nleds 3 -pled 1 -posfreq 25.0000 -spikefreq 20000.0000 -setburst 0.006 -echannel 1 -echantot 64 -efreq 1250.0000 -estart 0.00 -edur 3.00 -emin 4.00 -emax 12.00 -elowcut 2.00 -ehighcut 8.000 -efit 0.60 -escale 1.00 -edetect 1 -mapbinsize 2.50 -maptype 0 -mapsmooth 7 -mapsmtype 3 -mapfill 0 -mapmindwell 2 -mapratepeak -1.00 -mapthresh 10 -mappeakzone 75 -mapnums 0 -mapcompact 1 -set_filter 1 -f_start 0 -f_end 999999 -f_velmin 5.00 -f_velmax 999999.00 -f_dirchoice 360 -f_dirtol 180 -f_avel 0.00 -outpos 0 -outeeg 0 -outspikes 0 -outmatrix 0 -outmap 0 -outfield 0 -outruns 0 -outisi 0 
-
+/opt/LDAS/xs-ldas5-crunch2: line 28: /opt/LDAS/bin/CRUNCH: No such file or directory
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-getbase1"><a href="#CODE">&#8679</a> xs-ldas5-getbase1</h3></font>
@@ -4118,11 +4091,10 @@ EXAMPLE:
 xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
-		ldas
-		hargreaves
-		mea
 		git
-		taini_legacy
+		hargreaves
+		ldas
+		mea
 		taini
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
@@ -4131,7 +4103,7 @@ VALID OPTIONS (defaults in []):
 		Format choices: pdf,html
 		NOTE: setting --make cancels viewing
 EXAMPLE: 
-	xs-manual ldas --view terminal
+	xs-manual git --view terminal
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4959,7 +4931,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_191201.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_191217.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5043,7 +5015,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2019_12_01
+		log_xs-O2-makex6b_2019_12_17
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5924,20 +5896,26 @@ xs-progheader1: create a header file (.h) for a repository
 xs-proginstall: LDAS installation script
 USAGE: xs-proginstall [mode] [options]
 	[mode]: operating mode (install or compile)
-		install: install or update from a .zip archive
-			- check operating system
-			- check permissions for destination
+		update: 
+			- update from a .zip archive
+			- extract a zip archive of LDAS into /opt/LDAS
+		install: 
+			- full install & update from a .zip archive
+			- check operating system & permissions
 			- check and update $PATH variable in /etc/profile
 			- check and update /etc/bashrc
-			- check dependencies
+			- check dependencies?
 			- extract a zip archive of LDAS into /opt/LDAS
 			- create /opt/LDAS/bin folder
-		compile: re-compile code after install or GitHub update
+		compile: 
+			- re-compile code after install or GitHub update
 			- check presence of /opt/LDAS/source folder and contents
 			- check /opt/LDAS/bin is present, clear executable content
 			- compile all xe-* programs
 			- update all manuals
 VALID OPTIONS (defaults in []):
+	--zip: zip-file containing LDAS repository [LDAS-master.zip]
+	--dest: destination for repository [/opt/LDAS]
 	--verb: verbose output (0=NO 1=YES) [1]
 	--clean: remove temporary files (0=NO 1=YES) [1]
 EXAMPLE: 
@@ -6401,8 +6379,8 @@ xs-TAINI-preproc1: Process a Taini-Live ephys recording session
 - run in [experiment]/Data_Aquired/[date] - folder for one experiment-type
 - renames TAINI_*.dat and *.sync files to the LDAS standard
 - creates [yyyymmdd]-[session]_[subject] folders
-	- copies .sync files
 	- copies or links .dat files
+	- copies .sync files
 	- downsamples each .dat channel to a separate 1KHz .bin file
 	- creates lost-packet lost.ssp files
 	- builds (overwrites) the .notes file
@@ -6413,15 +6391,12 @@ xs-TAINI-preproc1: Process a Taini-Live ephys recording session
 			- ../../table_channels_template.txt
 			- /opt/LDAS/docs/templates/table_channels_taini_2.txt
 
-USAGE: xs-TAINI-preproc1 [plan] [options]
-		[plan]: a file defining how the eperiment was run
-			- defines date= and experiment= 
-			- &#60MAPPING&#62 section: session, subject and trial
-			- &#60TRIALS&#62 section: individual trials
-			- &#60NOTES&#62 section: freeform comments
+USAGE: xs-TAINI-preproc1 [dat] [options]
+		[dat]: quoted list of .dat files (wildcards allowed)
 VALID OPTIONS:
 	--batch: batch-run on this CSV list of directories []
 		NOTE: use "*.plan" as the plan name - the quotes matter!
+	--expt: name of experiment, for .notes file  [0]
 	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [0]
 	--chans: template to use if table_channels_[subject].txt is missing
 	 	[/opt/LDAS/docs/templates/table_channels_taini_2.txt]
@@ -6430,8 +6405,8 @@ VALID OPTIONS:
 		d: dat file copying (make link instead)
 		b: make downsampled (1KHz) .bin files
 EXAMPLE: 
-	xs-TAINI-preproc1 *.plan -s d 2&#62&1| tee log_xs-TAINI-preproc1.txt
-	xs-TAINI-preproc1 "*.plan" --skip pd --batch dir1,dir2,dir3
+	xs-TAINI-preproc1 "*.dat" -s d 2&#62&1| tee log_xs-TAINI-preproc1.txt
+	xs-TAINI-preproc1 "*.dat" --skip pd --batch dir1,dir2,dir3
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -6449,7 +6424,7 @@ GENERAL OPTIONS...
 	--clean: remove temporary files (0=NO 1=YES) [1]
 
 EXAMPLE: 
-	xs-TAINI-sheet2plan 20181231_001.csv
+	xs-TAINI-sheet2plan "20181231_000.xlsx 20181231_001.xslx"
 
 OUTPUT...
 
@@ -6488,7 +6463,7 @@ VALID MODES (followed by options starting with --):
 		--count: use timestamps to count trials in blocks (0=NO 1=YES) [0]
 			- uses mean interval + 5 s.d. as threshold
 	trials
-		List TRIALS matched to MAPPING subject & session
+		List .plan TRIALS matched to MAPPING subject & session
 		--batch: .plan MAPPING batch to check (#, or "all") [all]
 		--append: CSV list MAPPING columns to append to trials []
 		--file: add sync-file records to trials - see "sync" above
@@ -6498,10 +6473,15 @@ VALID MODES (followed by options starting with --):
 		--batch: [see above]
 	config
 		Output configuration settings (from .yaml)
+		--file: you MUST specify a .dat or .yaml file
+		--expt: override-name of experiment from .yaml []
 	rename
 		Rename files from TaiNi default to LDAS format
 		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat
 		LDAS standard: [yyyymmdd]-[session]_[alias].dat
+	unrename
+		As above, but restore original TAINI filenames
+		.yaml files required
 	plot
 		Generate a 1-second trace-plot for all .dat files
 		Looks for table_channels_[subject].txt
@@ -7748,7 +7728,7 @@ Produces one column of filtered output
 USAGE:	xe-fftfilt1 [input] [options] 
 	[input]: provide a filename or "stdin" to receive piped data
 VALID OPTIONS (defaults in [])
-	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [1.5316e-322]
+	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [6.93781e-310]
 	-sf: sampling frequency (Hz) of the input [1]
 	-min: lowest frequency to output [default= 2/nsamples]
 	-max: highest frequency to output [default= sr/2]
