@@ -20,19 +20,17 @@ Run any LDAS executable without arguments to print the instructions to screen.
 
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
-The installation script provided with LDAS checks for dependencies and allows the user to decide whether to install by using git to clone the repo (default), or to intall using a previously-downloaded zipped archive of LDAS. Allowing the script to use git is more efficient but reuires that git is installed. 
+The installation script provided with LDAS checks for dependencies and allows the user to decide whether to install by using git to clone the repo (default), or to intall using a previously-downloaded zipped archive of LDAS. If git is not already on your system, you have two options before attempting to install LDAS: 
 
-If git is not already on your system, you have two options before attempting to install LDAS. 
+option 1: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS
 
-option 1: install git  
+option 2: install git 
 
 	for Ubuntu
 	$ sudo yum install git 
 
 	for other flavours of Linux: 
 	$ sudo apt-get install git 
-
-option 2: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS
 
 
 Once you have either installed git or you have your LDAS-master.zip file, you can proceed. 
