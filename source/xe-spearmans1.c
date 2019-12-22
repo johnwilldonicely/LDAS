@@ -23,6 +23,7 @@ long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 double xf_spearmans1_f(float *data1, float *data2, long ndata, char *message);
 double xf_prob_T1(double t, long df, int tails);
 float xf_prob_F(float F,int df1,int df2);
+void xf_qsortindex1_f(float *data, long *index,long nn);
 /* external functions end */
 
 
