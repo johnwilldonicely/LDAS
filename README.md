@@ -1,7 +1,9 @@
 # LDAS: Linux Based Data Analysis Suite
-Author: John R. Huxter [4 May 2019]
+Author: John R. Huxter [22 January 2019]
 
-LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). Briefly, LDAS is comprised of...
+LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). These tools are designed for high-speed and batch analysis of data, and includes plotting tools for generating graphs and summaries.  
+
+Briefly, LDAS is comprised of...
 
 * xs- executable Bash shell scripts
 * xe- executable C-programs
@@ -35,14 +37,13 @@ Run any LDAS executable without arguments to print the instructions to screen.
 		$ ./xs-progsetup install --scope global 
 
 
-### If git is not already installed
+## If git is not already installed on your system
 
-
-If git is not installed, before running the above commands, visit GitHub and downlad the zip file for the latest version of LDAS. 
+If git is not installed, the install script will not be able to clone the repository. Instead, before running *step3* above, visit GitHub and downlad the zip file for the latest version of LDAS:  
 
 	https://github.com/johnwilldonicely/LDAS
 
-Then run the install script as before, but using the --zip option to specify the zip archive to use:  
+Then, run the install script as before, but use the --zip option to specify the zip archive to use. Note that as before, you can also use the --scope option to determine if the installation is for the current user or all users. 
 
 	$ ./xs-progsetup install --zip LDAS-master.zip
 
