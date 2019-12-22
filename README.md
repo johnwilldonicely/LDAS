@@ -16,20 +16,22 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ################################################################################
 # INSTALLATION 
 
-### 1. Download the installation script:  
+#### 1. Download the installation script:  
 
  		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup  
 
-### 2. Make the script executable:  
+#### 2. Make the script executable:  
 
 		$ chmod a+x xs-progsetup 
 
-### 3. Run the setup script in install mode.
+#### 3. Run the setup script in install mode.
 
 - to install for only the current user (in /home/[user]/bin):  
+
 		$ ./xs-progsetup install --scope local 
 
 - to install for all users (in /opt/LDAS/):  
+
 		$ ./xs-progsetup install --scope global 
 
 
