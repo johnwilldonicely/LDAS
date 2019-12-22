@@ -18,34 +18,62 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ################################################################################
 # INSTALLATION 
 
-#### 1. Download the installation script:  
+LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
- 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup  
+The installation script provided with LDAS checks for dependencies and allows the user to decide whether to install by using git to clone the repo (default), or to intall using a previously-downloaded zipped archive of LDAS. Allowing the script to use git is more efficient but reuires that git is installed. 
+
+If git is not already on your system, you have two options before attempting to install LDAS. 
+
+option 1: install git  
+
+	for Ubuntu
+	$ sudo yum install git 
+
+	for other flavours of Linux: 
+	$ sudo apt-get install git 
+
+option 2: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS
+
+
+Once you have either installed git or you have your LDAS-master.zip file, you can proceed. 
+
+
+#### 1. Download the setup script (renamed to INSTALLER):  
+
+ 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup -o INSTALLER 
 
 #### 2. Make the script executable:  
 
-		$ chmod a+x xs-progsetup 
+		$ chmod a+x INSTALLER
 
-#### 3. Run the setup script in install mode.
+#### 3. Run the script in install mode.
 
 - to install for only the current user (in /home/[user]/bin):  
 
-		$ ./xs-progsetup install --scope local 
+		$ ./INSTALLER install --scope local 
+
+	...or using a zipped archive...
+
+		$ ./INSTALLER install --scope local --zip LDAS-master.zip
+
 
 - to install for all users (in /opt/LDAS/):  
 
-		$ ./xs-progsetup install --scope global 
+		$ ./INSTALLER install --scope global 
+
+	...or using a zipped archive...
+
+		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
 
 ## If git is not already installed on your system
 
 If git is not installed, the install script will not be able to clone the repository. Instead, before running *step3* above, visit GitHub and downlad the zip file for the latest version of LDAS:  
 
-	https://github.com/johnwilldonicely/LDAS
 
 Then, run the install script as before, but use the --zip option to specify the zip archive to use. Note that as before, you can also use the --scope option to determine if the installation is for the current user or all users. 
 
-	$ ./xs-progsetup install --zip LDAS-master.zip
+	$ ./INSTALLER install --zip LDAS-master.zip
 
 
 Alternatively, you can use git manually download the repo. However in this case you would also have  
