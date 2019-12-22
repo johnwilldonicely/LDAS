@@ -26,10 +26,10 @@ Run any LDAS executable without arguments to print the instructions to screen.
 
 2. Run the setup script in install mode.
 
-- to install for only the current user (in /home/[user]/bin):
+- to install for only the current user (in /home/[user]/bin):  
 	$ ./xs-progsetup install --scope local 
 
-- to install for all users (in /opt/LDAS/):
+- to install for all users (in /opt/LDAS/):  
 	$ ./xs-progsetup install --scope global 
 
 
