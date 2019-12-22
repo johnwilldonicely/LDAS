@@ -354,31 +354,44 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 
 ### Option A: installation using git 
 
+1. download LDAS
+
+		$ git clone http://github.com/johnwilldonicely/LDAS.git
+
+
+
+
+Navigate to the folder where you want the 
+		$ cd ~/bin
+
+	...or for all users...
+		$ cd /opt/
+
+
+
 - this requires setting up a local git repository
 - refer to * /opt/LDAS/docs/manual_git.md *  
 
 ### Option B: installation using a downloaded, zipped archive 
  
-1. Download the LDAS repository from https://github.com/[company]/[repo]/
-	- it is recommended to install the repository in /opt/LDAS/
-	- only the software administrator should have access to this folder
+1. Download the LDAS repository from https://github.com/johnwilldonicely/LDAS
 
 2. Extract the compile script 
-	- unzip -j [repo].zip [repo]/xs-proginstall
+	- unzip -j [repo].zip [repo]/xs-progsetup
 	- example: 
-		$ unzip -j LDAS-master.zip LDAS-master/xs-proginstall 
-		$ chmod a+x ./xs-proginstall
+		$ unzip -j LDAS-master.zip LDAS-master/xs-progsetup 
+		$ chmod a+x ./xs-progsetup
 
 3. Run the install script
 	** NOTE: ** some steps will require you to enter the sudo password
 		- updating /etc/profile with the PATH definitions for LDAS 
 		- updating /etc/nanorc (syntax highlighting for .md files)
 
-		$ ./xs-proginstall install 
+		$ ./xs-progsetup install --dest /opt/LDAS
 
 
 4. Compile the code
-		$ ./xs-proginstall compile 
+		$ ./xs-progsetup compile 
 
 		...or...
 

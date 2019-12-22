@@ -9,7 +9,11 @@ cd LDAS
 
 ################################################################################
 # INSTALLING GIT 
-sudo apt-get install git
+...on Fedora/RedHat  
+	$ yum install git -y 
+
+...on Ubuntu...  
+	$ sudo apt-get install git
 
 ## Setting up a remote SSH key
 - does key already exist?
@@ -39,14 +43,24 @@ sudo apt-get install git
 		Hi username! You've successfully authenticated, but GitHub does not
 		provide shell access
 
+
+################################################################################
+# CLONING AN EXISTING REPO - requires SSH setup as above
+
+	$ cd [directory_where_all_projects_are_kept]]
+        $ git clone http://github.com/johnwilldonicely/LDAS.git
+	$ cd LDAS
+
+
+
 ################################################################################
 # INITIAL CONFIGURATION 
 
+	$ cd [project_deirectory]
 	$ git init
-	$ git config --global user.email "[your email@email.com]"
+	$ git config --global user.email "[your_email@provider.com]"
 	$ git config --global user.name "[username]"
-	** NOTE ** sometimes username is not reflected in push - try setting local username too
-	$ git config --local user.name "[your name]"
+	$ git config --local user.name "[username@machine]"
 	$ git config --global credential.helper 'cache --timeout=3600' 
 		- remember username and password for 1 hour
 
