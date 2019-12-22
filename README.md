@@ -63,35 +63,27 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 
 		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
-
-## If git is not already installed on your system
-
-If git is not installed, the install script will not be able to clone the repository. Instead, before running *step3* above, visit GitHub and downlad the zip file for the latest version of LDAS:  
+#### 4. [optional] - delete the INSTALLER 
+You might wnat to keep the installer if the installation was nit successful. But once it is, the program xs-setup will perform the same functions and others.
 
 
-Then, run the install script as before, but use the --zip option to specify the zip archive to use. Note that as before, you can also use the --scope option to determine if the installation is for the current user or all users. 
+## Alternative ways of obtaining LDAS 
 
-	$ ./INSTALLER install --zip LDAS-master.zip
-
-
-Alternatively, you can use git manually download the repo. However in this case you would also have  
-### option 2: clone the LDAS repository from GitHub
-
-	$ git clone http://github.com/johnwilldonicely/LDAS.git
+### Option A. Clone the LDAS repository from GitHub  
+	cd ~/bin
+	git clone "https://github.com/johnwilldonicely/LDAS/"	
 
 
-### option 3: clone the LDAS repository from GitHub
-...or, download a zip archive using your browser, then unzip and rename
+### Option B. Download a zip archive using your browser, then unzip and rename  
 
 	DOWNLOAD: https://github.com/johnwilldonicely/LDAS/
 	$ unzip LDAS-master.zip 
-	$ mv LDAS-master LDAS
+	$ mv LDAS-master ~/bin/LDAS
 
 
 
 
 
-### 4.  Compile the code 
 
 
 ### Option A: installation using git 
