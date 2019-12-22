@@ -2,12 +2,13 @@
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog
-tempfolder="temp_"$thisprog
+tempfolder="/home/$USER/temp_LDAS_install"
 
 # colours for use with optional error messages
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+bar="################################################################################"
 
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
@@ -23,10 +24,69 @@ startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date0=$(date)
 
-setfilezip="LDAS-master.zip"
-setdest="/opt/LDAS"
+setsource="https://github.com/johnwilldonicely/LDAS/"
+setscope="local"
+setdest="/home/$USER/bin/"
+setrc="/home/$USER/.bashrc"
+filezip="LDAS-master.zip"
+setfilezip=""
 setverb="1"
 setclean="1"
+
+################################################################################
+# DEFINE CHECK FUNCTION: CALL FORMAT: status=$(func_check)
+################################################################################
+function func_check () {
+	status="OK"
+
+	# check if dependency is installed - pandoc
+	if [ "$(command -v pandoc)" == "" ] ; then status="WARNING" ; echo -e "\t--- Warning: pandoc is not installed on this machine: cannot convert to HTML\n" > $tempfile".status" ; fi
+
+	# check presence and readability of /opt/LDAS/bin
+	in1=$setdest/bin
+	if [ ! -e $in1 ] ; then status="NOINSTALL" ; echo -e "\t--- Warning: missing $in1 , please run $thisprog install\n" > $tempfile".status" ; fi
+	writeable=$(xs-progpermission $USER $in1 | awk '{print $2}')
+	if [ "$writeable" == "no" ] ; then status="PERMISSION" ; echo -e "\t--- Warning: user $USER is not permitted to write to $in1\n" > $tempfile".status" ; fi
+
+	echo $status # this returns to the calling function
+}
+
+################################################################################
+# DEFINE PERMISSION FUNCTION: CALL FORMAT: status=$(func_permission $path yes|no)
+################################################################################
+function func_permission () {
+	# READ THE ARGUMENTS
+	zpath=$1 # the path to check
+	zerror=$2 # "yes" if fail triggers error message + exit
+	# DETERMINE BASIC INFO
+	zaccess="no"
+	zinfo=( $(stat -L -c "0%a %G %U" $zpath) ) # Use -L to get information about the target of a symlink, not the link itself
+	zperm=${zinfo[0]}
+	zgroup=${zinfo[1]}
+	zowner=${zinfo[2]}
+	# DETERMINE WRITE-ACCESS LEVEL
+	if (( ($zperm & 0002) != 0 )); then 	# everyone has access
+		zaccess="yes everyone"
+	elif (( ($zperm & 0020) != 0 )); then 	# some group has write access. Is setuser in that group?
+		gs=( $(groups $USER) )
+		for g in "${gs[@]}"; do
+			if [[ $zgroup == $g ]]; then zaccess="yes group" ; break ; fi
+		done
+	elif (( ($zperm & 0200) != 0 )); then # The owner has write access. Does the setuser own the file?
+		[[ $USER == $zowner ]] && zaccess="yes owner"
+	fi
+	# HANDLE ERROR MESSAGES IF REQUIRED
+	if [ "$zaccess" == "no" ] && [ "$zerror" == "yes" ] ; then
+		echo -e "$RED--- Error ["$thisprog"]: $USER has no write-permission for $zpath"
+		echo -e "\tConsider using \"--scope local\" to install to the user's bin folder"
+		echo -e "\t... or, install as superuser"
+		echo -e "\t... or, use sudo to temporarily give write access"
+		echo -e "$NC"
+		exit
+	else
+		echo "permission= "$zaccess
+	fi
+}
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -37,25 +97,25 @@ if [ $# -lt 1 ]; then
 	echo $thisprog": LDAS installation script"
 	echo "USAGE: $thisprog [mode] [options]"
 	echo "	[mode]: operating mode (install or compile)"
+	echo "		install: "
+	echo "			- full install from GitHub (default) or a .zip archive"
+	echo "			- check operating system & permissions"
+	echo "			- update \$PATH variable"
+	echo "			- check dependencies"
+	echo "			- create bin folder"
 	echo "		update: "
 	echo "			- update from a .zip archive"
 	echo "			- extract a zip archive of LDAS into $setdest"
-	echo "		install: "
-	echo "			- full install & update from a .zip archive"
-	echo "			- check operating system & permissions"
-	echo "			- check and update \$PATH variable in /etc/profile"
-	echo "			- check and update /etc/bashrc"
-	echo "			- check dependencies?"
-	echo "			- extract a zip archive of LDAS into $setdest"
-	echo "			- create $setdest/bin folder"
 	echo "		compile: "
 	echo "			- re-compile code after install or GitHub update"
-	echo "			- check presence of $setdest/source folder and contents"
-	echo "			- check $setdest/bin is present, clear executable content"
+	echo "			- check presence of source folder and contents"
+	echo "			- check bin folder is present, clear executable content"
 	echo "			- compile all xe-* programs"
 	echo "			- update all manuals"
 	echo "VALID OPTIONS (defaults in []):"
-	echo "	--zip: zip-file containing LDAS repository [$setfilezip]"
+	echo "	--zip: install LDAS from this zip-file [$setfilezip]"
+	echo "		- if unset, use \"git clone\" to get the latest repo from GitHub"
+	echo "	--scope: local (current user) or gloabl (all users) [$setscope]"
 	echo "	--dest: destination for repository [$setdest]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
@@ -79,12 +139,13 @@ fi
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:c:" ; vl="dest:,zip:,verb:,clean:"
+vs="v:c:" ; vl="scope:,dest:,zip:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--scope ) setscope=$2 ; shift ;;
 		--zip ) setfilezip=$2 ; shift ;;
 		--dest ) setdest=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
@@ -100,51 +161,27 @@ if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Erro
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
 fi
-echo
 
-################################################################################
-# DEFINE CHECK FUNCTION: CALL FORMAT: status=$(func_check)
-function func_check () {
-	status="OK"
+# DETERMINE LINUX VERSION AND REPORT
+distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
+release=$(lsb_release -a | grep "Release:" | cut -f 2)
+echo -e "\n"$bar"\nLinux distro: $distro $release\n"
 
-	# check if dependency is installed - pandoc
-	if [ "$(command -v pandoc)" == "" ] ; then status="WARNING" ; echo -e "\t--- Warning: pandoc is not installed on this machine: cannot convert to HTML\n" > $tempfile".status" ; fi
-
-	# check presence and readability of /opt/LDAS/bin
-	in1=$setdest/bin
-	if [ ! -e $in1 ] ; then status="NOINSTALL" ; echo -e "\t--- Warning: missing $in1 , please run $thisprog install\n" > $tempfile".status" ; fi
-	writeable=$(xs-progpermission $USER $in1 | awk '{print $2}')
-	if [ "$writeable" == "no" ] ; then status="PERMISSION" ; echo -e "\t--- Warning: user $USER is not permitted to write to $in1\n" > $tempfile".status" ; fi
-
-	echo $status # this returns to the calling function
-}
-
-########################################################################################
-# MODE-1: UPDATE
-########################################################################################
-if [ "$setmode" == "update" ] ; then
-
-	echo "--------------------------------------------------------------------------------"
-	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
-
-	sudo mkdir -p $setdest
-	sudo chown -R $USER:$USER $setdest
-	unzip -oq $setfilezip -d $tempfolder
-
-	echo "--------------------------------------------------------------------------------"
-	echo -e "COPYING PROGRAMS TO $setdest..."
-	# determine the subfolder from the zipfile containing the code
-	source=$(ls -1dt $tempfolder/* | head -n 1)
-	cp -a $source/* $setdest/
-
-	echo "--------------------------------------------------------------------------------"
-	echo -e "MAKING SCRIPTS EXECUTABLE..."
-	chmod a+x $setdest/xs-*
-	chmod a+x $setdest/xp-*
-
-	{ echo -e "$GREEN\nNOTE: now run $thisprog compile$NC\n" ;  exit; }
-
+# DETERMINE DESTINATION DEPENDING ON SELECTED SCOPE
+# local= current user only, global= all users
+if [ "$setscope" == "local" ] ; then
+	setdest="/home/$USER/bin/"
+	setrc="/home/$USER/.bashrc"
+elif [ "$setscope" == "global" ] ; then
+	setdest="/opt/"
+	setrc="/etc/profile"
+	# check permissions
+	func_permission $setdest "yes"
+	func_permission $setrc "yes"
+else
+	echo -e "\n--- Error ["$thisprog"]: invalid --scope ($setscope) -  must be \"local\" or \"global\"\n" ;  exit;
 fi
+
 
 
 ########################################################################################
@@ -152,21 +189,87 @@ fi
 ########################################################################################
 if [ "$setmode" == "install" ] ; then
 
-	bar="################################################################################"
-	profile="/etc/profile"
-	distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
-	release=$(lsb_release -a | grep "Release:" | cut -f 2)
+	# CHECK IF DEPENDENCIES ARE INSTALLED
+	dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="gs" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- graphics handling might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	de="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="nano" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- manuals might not be viewable"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="pandoc" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning: $GREEN$dep$NC not installed- some manuals might not be rendered"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+
+
+# NOTE THAT R IS NOT ACTUALLY REQUIRED BUT RECOMMENDED - REMOVE FROM SOURCE FOLDER
+# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATED MD-to-PDF CONVERSION
+# CHECK THAT CURRENT FOLDER IS NOT $DEST AND IS WRITEABLE
+# CHECK THAT $DEST IS WRITEABLE
+# ??? CHECK THAT GIT IS INSTALLED IF --SETZIP == ""
+# ??? CHECK THAT LOCAL LDAS FOLDER DOESN'T ALREADY EXIST
+
+	# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
+	mkdir -p $tempfolder
+	if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
 
 	echo "--------------------------------------------------------------------------------"
-	echo -e "CREATING DESTINATION DIRECTORIES..."
+	if [ "$setfilezip" != "" ] ; then
+		echo -e "Extracting LDAS from $setfilezip ..."
+		unzip -oq $setfilezip -d $tempfolder
+		# find the most recent LDAS folder created
+		z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
+		# rename to LDAS
+		mv $tempfolder/$z $tempfolder/LDAS
+	else
+		rm -f $tempfile".error"
+		git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
+		z=$(grep fatal: $tempfile".error")
+		if [ "$z" ] ; then { echo -e "$RED--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
+	fi
+ls -l --color=yes $tempfolder ; exit
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CREATING DESTINATION DIRECTORIES IN $setdest ..."
+ls -l
+exit
 	sudo mkdir -p $setdest
 	sudo chown -R $USER:$USER $setdest
 	mkdir -p $setdest/bin
 
+
+	if [ -d "$setdest" ] ; then
+		cd $setdest ; setdest=$(pwd) ; cd $startdir
+	else
+
+
+		{ echo -e "\n--- Error ["$thisprog"]: invalid destination (--des $setdest) - does   must be 0 or 1\n" ;  exit; } ; fi
+	fi
+	exit
+
+	echo
+
+
+
 	echo "--------------------------------------------------------------------------------"
 	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
 	unzip -oq $setfilezip -d $tempfolder
-
+exit
 	echo "--------------------------------------------------------------------------------"
 	echo -e "COPYING PROGRAMS TO $setdest..."
 	# determine the subfolder from the zipfile containing the code
@@ -200,7 +303,35 @@ if [ "$setmode" == "install" ] ; then
 fi
 
 ########################################################################################
-# MODE-2: COMPILE
+# MODE-2: UPDATE
+########################################################################################
+if [ "$setmode" == "update" ] ; then
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
+
+	sudo mkdir -p $setdest
+	sudo chown -R $USER:$USER $setdest
+	unzip -oq $setfilezip -d $tempfolder
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "COPYING PROGRAMS TO $setdest..."
+	# determine the subfolder from the zipfile containing the code
+	source=$(ls -1dt $tempfolder/* | head -n 1)
+	cp -a $source/* $setdest/
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "MAKING SCRIPTS EXECUTABLE..."
+	chmod a+x $setdest/xs-*
+	chmod a+x $setdest/xp-*
+
+	{ echo -e "$GREEN\nNOTE: now run $thisprog compile$NC\n" ;  exit; }
+
+fi
+
+
+########################################################################################
+# MODE-3: COMPILE
 ########################################################################################
 if [ "$setmode" == "compile" ] ; then
 

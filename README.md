@@ -12,6 +12,84 @@ Intensive processing is performed by the C-programs, which are optimized for spe
 Run any LDAS executable without arguments to print the instructions to screen.
 
 
+
+################################################################################
+# INSTALLATION 
+
+
+1. Download the installation script, make it executable, and run 
+
+ 	$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup  
+	$ chmod a+x xs-progsetup 
+
+2. Run the setup script in install mode
+
+	$ ./xs-progsetup install --scope global 
+
+
+### If git is not already installed
+
+
+If git is not installed, before running the above commands, visit GitHub and downlad the zip file for the latest version of LDAS. 
+
+	https://github.com/johnwilldonicely/LDAS
+
+Then run the install script as before, but using the --zip option to specify the zip archive to use:  
+
+	$ ./xs-progsetup install --zip LDAS-master.zip
+
+
+Alternatively, you can use git manually download the repo. However in this case you would also have  
+### option 2: clone the LDAS repository from GitHub
+
+	$ git clone http://github.com/johnwilldonicely/LDAS.git
+
+
+### option 3: clone the LDAS repository from GitHub
+...or, download a zip archive using your browser, then unzip and rename
+
+	DOWNLOAD: https://github.com/johnwilldonicely/LDAS/
+	$ unzip LDAS-master.zip 
+	$ mv LDAS-master LDAS
+
+
+
+
+
+### 4.  Compile the code 
+
+
+### Option A: installation using git 
+
+
+### Option B: installation using a downloaded, zipped archive 
+ 
+1. Download the LDAS repository from https://github.com/johnwilldonicely/LDAS
+
+2. Extract the compile script 
+	- unzip -j [repo].zip [repo]/xs-proginstall
+	- example: 
+		$ unzip -j LDAS-master.zip LDAS-master/xs-proginstall 
+		$ chmod a+x ./xs-proginstall
+
+3. Run the install script
+	** NOTE: ** some steps will require you to enter the sudo password
+		- updating /etc/profile with the PATH definitions for LDAS 
+		- updating /etc/nanorc (syntax highlighting for .md files)
+
+		$ ./xs-proginstall install --dest /opt/LDAS
+
+
+4. Compile the code
+		$ ./xs-proginstall compile 
+
+...or...
+
+		$ cd /opt/LDAS/source
+		$ xs-progcompile "xe-*.c"
+
+
+
 ################################################################################
 # MANUALS
 
@@ -348,55 +426,6 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 [END]
 
 
-
-################################################################################
-## APPENDIX-2: INSTALLATION
-
-### Option A: installation using git 
-
-1. download LDAS
-
-		$ git clone http://github.com/johnwilldonicely/LDAS.git
-
-
-
-
-Navigate to the folder where you want the 
-		$ cd ~/bin
-
-	...or for all users...
-		$ cd /opt/
-
-
-
-- this requires setting up a local git repository
-- refer to * /opt/LDAS/docs/manual_git.md *  
-
-### Option B: installation using a downloaded, zipped archive 
- 
-1. Download the LDAS repository from https://github.com/johnwilldonicely/LDAS
-
-2. Extract the compile script 
-	- unzip -j [repo].zip [repo]/xs-progsetup
-	- example: 
-		$ unzip -j LDAS-master.zip LDAS-master/xs-progsetup 
-		$ chmod a+x ./xs-progsetup
-
-3. Run the install script
-	** NOTE: ** some steps will require you to enter the sudo password
-		- updating /etc/profile with the PATH definitions for LDAS 
-		- updating /etc/nanorc (syntax highlighting for .md files)
-
-		$ ./xs-progsetup install --dest /opt/LDAS
-
-
-4. Compile the code
-		$ ./xs-progsetup compile 
-
-		...or...
-
-		$ cd /opt/LDAS/source
-		$ xs-progcompile "xe-*.c"
 
 
 

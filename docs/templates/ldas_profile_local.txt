@@ -1,0 +1,6 @@
+
+################################################################################
+# LDAS path updates: to append to /home/$USER/.bashrc
+################################################################################
+PATH=$PATH:/home/$USER/bin/LDAS
+PATH=$PATH:/home/$USER/bin/LDAS/bin
