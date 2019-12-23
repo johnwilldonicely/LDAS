@@ -10,6 +10,7 @@ LDAS is a suite of command-line tools for data analysis, written in a combinatio
 * filters (IIR, FIR, notch)
 
 ...and more. 
+
 LDAS is comprised of...
 
 * xs- executable Bash shell scripts
