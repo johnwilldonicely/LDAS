@@ -1,3 +1,5 @@
+![alt text](https://raw.githubusercontent.com/johnwilldonicely/LDAS/Master/docs/figures/LDAS_logo.png)
+
 # LDAS: Linux-based Data Analysis Suite
 Author: John R. Huxter [22 December 2019]
 
