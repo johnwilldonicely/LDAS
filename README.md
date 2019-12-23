@@ -1,5 +1,4 @@
-# LDAS: Linux 
--based Data Analysis Suite
+# LDAS: Linux-based Data Analysis Suite
 Author: John R. Huxter [22 Deceber 2019]
 
 LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). These tools are designed for high-speed and batch analysis of data. LDAS contains tools for:
