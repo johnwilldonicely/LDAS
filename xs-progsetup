@@ -236,16 +236,18 @@ if [ "$setmode" == "install" ] ; then
 		z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
 		# rename to LDAS
 		mv $tempfolder/$z $tempfolder/LDAS
+		mkdir $tempfolder/LDAS/bin
 	else
 		rm -f $tempfile".error"
 		git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
 		z=$(grep fatal: $tempfile".error")
 		if [ "$z" ] ; then { echo -e "$RED--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
+		mkdir $tempfolder/LDAS/bin
 	fi
-ls -l --color=yes $tempfolder ; exit
 
 	echo "--------------------------------------------------------------------------------"
 	echo -e "CREATING DESTINATION DIRECTORIES IN $setdest ..."
+
 ls -l
 exit
 	sudo mkdir -p $setdest

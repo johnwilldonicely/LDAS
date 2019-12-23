@@ -27,10 +27,10 @@ option A: download a zipped archive of LDAS from https://github.com/johnwilldoni
 option B: install git 
 
 	for Ubuntu
-	$ sudo yum install git 
+	$ sudo apt-get install git 
 
 	for other flavours of Linux: 
-	$ sudo apt-get install git 
+	$ sudo yum install git 
 
 
 Once you have either installed git or you have your LDAS-master.zip file, you can proceed. 
@@ -38,7 +38,7 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 
 #### 1. Download the setup script (renamed to INSTALLER):  
 
- 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup -o INSTALLER 
+ 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup -O INSTALLER 
 
 #### 2. Make the script executable:  
 
