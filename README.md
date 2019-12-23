@@ -22,8 +22,8 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 
 The installation script provided with LDAS checks for dependencies and allows the user to decide whether to install by using git to clone the repo (default), or to intall using a previously-downloaded zipped archive of LDAS. If git is not already on your system, you have two options before attempting to install LDAS: 
 
-option A: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS
-...or...
+option A: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS  
+...or...  
 option B: install git 
 
 	for Ubuntu
