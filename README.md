@@ -111,7 +111,8 @@ The code for LDAS programs and scripts usually has an XML "tag" section defining
 
 A full description of all LDAS components can be viewed with Firefox here:  
 
-* [/opt/LDAS/docs/PROGTAG.html](/opt/LDAS/docs/PROGTAG.html)
+* [/opt/LDAS/docs/PROGTAG.html](docs/PROGTAG.html)
+
 
 ### Preprocessing scripts for particular acquisition systems
 
