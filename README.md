@@ -427,17 +427,22 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 Most LDAS dependencies will come with your Linux distribution
 However, some distros may not include some of the following:
 
+#### Essential
+	- gcc - essential compiler used for C-source code
 	- dos2unix - required for correcting DOS-style line-breaks
-	- git - not required but useful for install-management of LDAS
 	- gs - ghostscript - essential for dealing with LDAS graphics
 	- nano - simple text editor - used for showing manuals
+
+#### Optional (most functionality does not require these)
 
 	- pandoc - document converter, used for creating manuals
 		$ source=/home/[user]/pandoc-2.7.2-linux.tar.gz
 		$ dest=/opt/pandoc/
 		$ sudo tar xvzf $source --strip-components 1 -C $dest
 
-	- python3 + hdf5 support
+	- git - not required but useful for install-management of LDAS
+
+	- python3 + hdf5 support (for some of the MEA scripts)
 		- export HTTP_PROXY=http://user:pass@[proxy]:[port]
 		- export HTTPS_PROXY=$HTTP_PROXY
 		- yum install -y libffi-devel
@@ -454,20 +459,8 @@ However, some distros may not include some of the following:
 		- python3 -m pip install mne
 		- python3 -m pip install matplotlib
 
-	- hdf5 support - 1
-		- download from here: https://www.hdfgroup.org/
-		$ tar -xvf hdf5-1.10.5.tar.gz
-		$ ./configure --prefix=/usr/local/hdf5 <more configure_flags>
-		$ make
-		$ make check	# run test suite.
-		$ make install
-		$ make check-install # verify installation.
-
-		... or if "z" option is available for tar simply ...
-
-		$ tar zxf hdf5-X.Y.Z.tar.gz
-
-	- R ... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+	- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
+		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 		- sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
 		- sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
 		- sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
@@ -481,8 +474,24 @@ However, some distros may not include some of the following:
 		- sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
 		- sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
 
+
+#### The following are not required, but can be useful
+
 	- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
 		- sudo yum install -y atom.x86_64.rpm
+
+	- hdf5 support - 1
+		- download from here: https://www.hdfgroup.org/
+		$ tar -xvf hdf5-1.10.5.tar.gz
+		$ ./configure --prefix=/usr/local/hdf5 <more configure_flags>
+		$ make
+		$ make check	# run test suite.
+		$ make install
+		$ make check-install # verify installation.
+
+		... or if "z" option is available for tar simply ...
+
+		$ tar zxf hdf5-X.Y.Z.tar.gz
 
 	- spyking circus : https://spyking-circus.readthedocs.io/en/latest/introduction/index.html
 		$ sudo yum install mpich
