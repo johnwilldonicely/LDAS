@@ -1,4 +1,13 @@
 #!/bin/bash
+
+# NOTE THAT R IS NOT ACTUALLY REQUIRED BUT RECOMMENDED - REMOVE FROM SOURCE FOLDER
+# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATED MD-to-PDF CONVERSION
+# CHECK THAT CURRENT FOLDER IS NOT $DEST AND IS WRITEABLE
+# CHECK THAT $DEST IS WRITEABLE
+# ??? CHECK THAT GIT IS INSTALLED IF --SETZIP == ""
+# ??? CHECK THAT LOCAL LDAS FOLDER DOESN'T ALREADY EXIST
+
+
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog
@@ -33,23 +42,6 @@ setfilezip=""
 setverb="1"
 setclean="1"
 
-################################################################################
-# DEFINE CHECK FUNCTION: CALL FORMAT: status=$(func_check)
-################################################################################
-function func_check () {
-	status="OK"
-
-	# check if dependency is installed - pandoc
-	if [ "$(command -v pandoc)" == "" ] ; then status="WARNING" ; echo -e "\t--- Warning: pandoc is not installed on this machine: cannot convert to HTML\n" > $tempfile".status" ; fi
-
-	# check presence and readability of /opt/LDAS/bin
-	in1=$setdest/bin
-	if [ ! -e $in1 ] ; then status="NOINSTALL" ; echo -e "\t--- Warning: missing $in1 , please run $thisprog install\n" > $tempfile".status" ; fi
-	writeable=$(xs-progpermission $USER $in1 | awk '{print $2}')
-	if [ "$writeable" == "no" ] ; then status="PERMISSION" ; echo -e "\t--- Warning: user $USER is not permitted to write to $in1\n" > $tempfile".status" ; fi
-
-	echo $status # this returns to the calling function
-}
 
 ################################################################################
 # DEFINE PERMISSION FUNCTION: CALL FORMAT: status=$(func_permission $path yes|no)
@@ -77,9 +69,9 @@ function func_permission () {
 	fi
 	# HANDLE ERROR MESSAGES IF REQUIRED
 	if [ "$zaccess" == "no" ] && [ "$zerror" == "yes" ] ; then
-		echo -e "$RED--- Error ["$thisprog"]: $USER has no write-permission for $zpath"
+		echo -e "$RED--- Warning ["$thisprog"]: $USER has no write-permission for $zpath"
 		echo -e "\tConsider using \"--scope local\" to install to the user's bin folder"
-		echo -e "\t... or, install as superuser"
+		echo -e "\t... or, run this script as superuser"
 		echo -e "\t... or, use sudo to temporarily give write access"
 		echo -e "$NC"
 		exit
@@ -158,31 +150,31 @@ done
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
 
-if [ "$setclean" == "1" ] ; then
-	if [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
-fi
-
 # DETERMINE LINUX VERSION AND REPORT
 distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
 release=$(lsb_release -a | grep "Release:" | cut -f 2)
 echo -e "\n"$bar"\nLinux distro: $distro $release\n"
 
-# DETERMINE DESTINATION DEPENDING ON SELECTED SCOPE
+# DETERMINE DESTINATION AND PATH-UPDATE OPTIONS, DEPENDING ON SELECTED SCOPE
 # local= current user only, global= all users
 if [ "$setscope" == "local" ] ; then
-	setdest="/home/$USER/bin/"
+	setdest="/home/$USER/bin"
 	setrc="/home/$USER/.bashrc"
+	mkdir -p $setdest # ??? check for errors?
 elif [ "$setscope" == "global" ] ; then
-	setdest="/opt/"
+	setdest="/opt"
 	setrc="/etc/profile"
 	# check permissions
-	func_permission $setdest "yes"
-	func_permission $setrc "yes"
+#	func_permission $setdest "yes"
+#	func_permission $setrc "yes"
 else
-	echo -e "\n--- Error ["$thisprog"]: invalid --scope ($setscope) -  must be \"local\" or \"global\"\n" ;  exit;
+	echo -e "$RED\n--- Error ["$thisprog"]: invalid --scope ($setscope) -  must be \"local\" or \"global\"\n$NC" ;  exit;
 fi
 
-
+# BUILD THE TEMPLATE PATH-UPDATE FILE
+echo -e "\n$bar\n# LDAS path updates\n$bar" > $tempfile".path"
+echo -e "PATH=\$PATH:$setdest/LDAS" >> $tempfile".path"
+echo -e "PATH=\$PATH:$setdest/LDAS/bin\n" >> $tempfile".path"
 
 ########################################################################################
 # MODE-1: INSTALL
@@ -190,6 +182,8 @@ fi
 if [ "$setmode" == "install" ] ; then
 
 	# CHECK IF DEPENDENCIES ARE INSTALLED
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CHECKING DEPENDENCIES..."
 	dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
 		echo -e "\t\t - attempting to install $dep as sudo..."
@@ -216,87 +210,60 @@ if [ "$setmode" == "install" ] ; then
 		sudo yum install $dep -y
 	fi
 
-
-# NOTE THAT R IS NOT ACTUALLY REQUIRED BUT RECOMMENDED - REMOVE FROM SOURCE FOLDER
-# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATED MD-to-PDF CONVERSION
-# CHECK THAT CURRENT FOLDER IS NOT $DEST AND IS WRITEABLE
-# CHECK THAT $DEST IS WRITEABLE
-# ??? CHECK THAT GIT IS INSTALLED IF --SETZIP == ""
-# ??? CHECK THAT LOCAL LDAS FOLDER DOESN'T ALREADY EXIST
-
 	# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
+	if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
 	mkdir -p $tempfolder
-	if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
 
 	echo "--------------------------------------------------------------------------------"
 	if [ "$setfilezip" != "" ] ; then
-		echo -e "Extracting LDAS from $setfilezip ..."
+		echo -e "EXTRACTING LDAS FROM $setfilezip ..."
 		unzip -oq $setfilezip -d $tempfolder
 		# find the most recent LDAS folder created
 		z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
 		# rename to LDAS
 		mv $tempfolder/$z $tempfolder/LDAS
-		mkdir $tempfolder/LDAS/bin
 	else
+		echo -e "GIT-CLONING LDAS FROM $setsource ..."
 		rm -f $tempfile".error"
 		git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
 		z=$(grep fatal: $tempfile".error")
 		if [ "$z" ] ; then { echo -e "$RED--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
-		mkdir $tempfolder/LDAS/bin
 	fi
+	# make the directory for the compiled output
+	mkdir -p $tempfolder/LDAS/bin
+
 
 	echo "--------------------------------------------------------------------------------"
-	echo -e "CREATING DESTINATION DIRECTORIES IN $setdest ..."
-
-ls -l
-exit
-	sudo mkdir -p $setdest
-	sudo chown -R $USER:$USER $setdest
-	mkdir -p $setdest/bin
-
-
-	if [ -d "$setdest" ] ; then
-		cd $setdest ; setdest=$(pwd) ; cd $startdir
+	echo -e "MOVING LDAS TO DESTINATION FOLDER $setdest ..."
+	if [ $setscope == "local" ] ; then
+		if [ -d $setdest/LDAS ] ; then rm -rf $setdest/LDAS ; fi
+		mv $tempfolder/LDAS $setdest/
 	else
-
-
-		{ echo -e "\n--- Error ["$thisprog"]: invalid destination (--des $setdest) - does   must be 0 or 1\n" ;  exit; } ; fi
+		if [ -d $setdest/LDAS ] ; then sudo rm -rf $setdest/LDAS ; fi
+		sudo mv $tempfolder/LDAS $setdest/
 	fi
-	exit
-
-	echo
-
-
-
-	echo "--------------------------------------------------------------------------------"
-	echo -e "UNZIPPING $setfilezip TO $tempfolder..."
-	unzip -oq $setfilezip -d $tempfolder
-exit
-	echo "--------------------------------------------------------------------------------"
-	echo -e "COPYING PROGRAMS TO $setdest..."
-	# determine the subfolder from the zipfile containing the code
-	source=$(ls -1dt $tempfolder/* | head -n 1)
-	cp -a $source/* $setdest/
 
 	echo "--------------------------------------------------------------------------------"
 	echo -e "MAKING SCRIPTS EXECUTABLE..."
-        chmod a+x $setdest/xs-*
-        chmod a+x $setdest/xp-*
+        chmod a+x $setdest/LDAS/xs-*
+        chmod a+x $setdest/LDAS/xp-*
 
-
-	z=$(grep -s '$PATH:'$setdest /etc/profile | head -n 1)
+	echo "--------------------------------------------------------------------------------"
+	echo -e "UPDATING \$PATH VARIABLE ($setrc)..."
+	z=$(grep -s '$PATH:'$setdest/LDAS $setrc | head -n 1)
 	if [ "$z" == "" ] ; then
-		echo "--------------------------------------------------------------------------------"
-		echo -e "UPDATING \$PATH VARIABLE FOR ALL USERS ($profile)..."
-		template=$setdest"/docs/templates/ldas_profile.txt"
-		sudo sh -c "cat $template >> /etc/profile"
+		if [ $setscope == "local" ] ; then
+			cat $tempfile.path >> $setrc
+		else
+			sudo sh -c "cat $tempfile.path >> $setrc"
+		fi
 	fi
 
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
 	z=$(grep -s LDAS /etc/nanorc | head -n 1)
 	if [ "$z" == "" ] ; then
-		echo "--------------------------------------------------------------------------------"
-		echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
-		template=$setdest"/docs/templates/ldas_nanorc.txt"
+		template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
 		sudo sh -c "cat $template >> /etc/nanorc"
 	fi
 
