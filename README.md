@@ -397,6 +397,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 	- group-values can be modified to allow (eg) sub-groups by date
 - found in the [Analysis] folder
 - example
+~~~
 	# experiment= HARGREAVES
 	# group_0= SHAM
 	# group_1= LESION
@@ -409,6 +410,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 	../Data_Working/20181214-000_31233	0
 	../Data_Working/20181214-000_31234	1
 	</PATHS>
+~~~
 ...
 [END]
 
