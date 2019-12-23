@@ -50,7 +50,7 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 
 		$ ./INSTALLER install --scope local 
 
-	...or using a zipped archive...
+		...or using a zipped archive...
 
 		$ ./INSTALLER install --scope local --zip LDAS-master.zip
 
@@ -59,7 +59,7 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 
 		$ ./INSTALLER install --scope global 
 
-	...or using a zipped archive...
+		...or using a zipped archive...
 
 		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
@@ -67,53 +67,13 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 You might wnat to keep the installer if the installation was nit successful. But once it is, the program xs-setup will perform the same functions and others.
 
 
+
+
 ## Alternative ways of obtaining LDAS 
 
-### Option A. Clone the LDAS repository from GitHub  
+#### Option A. Clone the LDAS repository from GitHub  
 	cd ~/bin
 	git clone "https://github.com/johnwilldonicely/LDAS/"	
-
-
-### Option B. Download a zip archive using your browser, then unzip and rename  
-
-	DOWNLOAD: https://github.com/johnwilldonicely/LDAS/
-	$ unzip LDAS-master.zip 
-	$ mv LDAS-master ~/bin/LDAS
-
-
-
-
-
-
-
-### Option A: installation using git 
-
-
-### Option B: installation using a downloaded, zipped archive 
- 
-1. Download the LDAS repository from https://github.com/johnwilldonicely/LDAS
-
-2. Extract the compile script 
-	- unzip -j [repo].zip [repo]/xs-proginstall
-	- example: 
-		$ unzip -j LDAS-master.zip LDAS-master/xs-proginstall 
-		$ chmod a+x ./xs-proginstall
-
-3. Run the install script
-	** NOTE: ** some steps will require you to enter the sudo password
-		- updating /etc/profile with the PATH definitions for LDAS 
-		- updating /etc/nanorc (syntax highlighting for .md files)
-
-		$ ./xs-proginstall install --dest /opt/LDAS
-
-
-4. Compile the code
-		$ ./xs-proginstall compile 
-
-...or...
-
-		$ cd /opt/LDAS/source
-		$ xs-progcompile "xe-*.c"
 
 
 
