@@ -655,12 +655,12 @@ of scripts, programs, and functions.
 <a href="#code-xs-progfindcopies">xs-progfindcopies</a><br>
 <a href="#code-xs-proggit1">xs-proggit1</a><br>
 <a href="#code-xs-progheader1">xs-progheader1</a><br>
-<a href="#code-xs-progsetup">xs-progsetup</a><br>
 <a href="#code-xs-proglicence">xs-proglicence</a><br>
 <a href="#code-xs-proglist">xs-proglist</a><br>
 <a href="#code-xs-progpath1">xs-progpath1</a><br>
 <a href="#code-xs-progpermission">xs-progpermission</a><br>
 <a href="#code-xs-progps">xs-progps</a><br>
+<a href="#code-xs-progsetup">xs-progsetup</a><br>
 <a href="#code-xs-progsync1">xs-progsync1</a><br>
 <a href="#code-xs-progtag">xs-progtag</a><br>
 <a href="#code-xs-template">xs-template</a><br>
@@ -4091,10 +4091,10 @@ EXAMPLE:
 xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
-		git
-		hargreaves
 		ldas
+		hargreaves
 		mea
+		git
 		taini
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
@@ -4103,7 +4103,7 @@ VALID OPTIONS (defaults in []):
 		Format choices: pdf,html
 		NOTE: setting --make cancels viewing
 EXAMPLE: 
-	xs-manual git --view terminal
+	xs-manual ldas --view terminal
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4931,7 +4931,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_191217.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_191223.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5015,7 +5015,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2019_12_17
+		log_xs-O2-makex6b_2019_12_23
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5889,41 +5889,6 @@ xs-progheader1: create a header file (.h) for a repository
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xs-progsetup"><a href="#CODE">&#8679</a> xs-progsetup</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-progsetup: LDAS installation script
-USAGE: xs-progsetup [mode] [options]
-	[mode]: operating mode (install or compile)
-		update: 
-			- update from a .zip archive
-			- extract a zip archive of LDAS into /opt/LDAS
-		install: 
-			- full install & update from a .zip archive
-			- check operating system & permissions
-			- check and update $PATH variable in /etc/profile
-			- check and update /etc/bashrc
-			- check dependencies?
-			- extract a zip archive of LDAS into /opt/LDAS
-			- create /opt/LDAS/bin folder
-		compile: 
-			- re-compile code after install or GitHub update
-			- check presence of /opt/LDAS/source folder and contents
-			- check /opt/LDAS/bin is present, clear executable content
-			- compile all xe-* programs
-			- update all manuals
-VALID OPTIONS (defaults in []):
-	--zip: zip-file containing LDAS repository [LDAS-master.zip]
-	--dest: destination for repository [/opt/LDAS]
-	--verb: verbose output (0=NO 1=YES) [1]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-progsetup install
---------------------------------------------------------------------------------
-
-</blockquote></pre>
-
 <font color="Black"><h3 id="code-xs-proglicence"><a href="#CODE">&#8679</a> xs-proglicence</h3></font>
 [<a href="#tag-programming">programming</a>]<br>
 <blockquote><pre>
@@ -6031,6 +5996,41 @@ USAGE: xs-progpermission [user] [path]
         echo 	[fields] (optional): the number of command-line options to print
 - example: xs-progps "KlustaKwik jh001-091231" 4
 ------------------------------------------------------------------
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-progsetup"><a href="#CODE">&#8679</a> xs-progsetup</h3></font>
+[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-progsetup: LDAS installation script
+USAGE: xs-progsetup [mode] [options]
+	[mode]: operating mode (install or compile)
+		install: 
+			- full install from GitHub (default) or a .zip archive
+			- check operating system & permissions
+			- update $PATH variable
+			- check dependencies
+			- create bin folder
+		update: 
+			- update from a .zip archive
+			- extract a zip archive of LDAS into /home/huxprog/bin/
+		compile: 
+			- re-compile code after install or GitHub update
+			- check presence of source folder and contents
+			- check bin folder is present, clear executable content
+			- compile all xe-* programs
+			- update all manuals
+VALID OPTIONS (defaults in []):
+	--zip: install LDAS from this zip-file []
+		- if unset, use "git clone" to get the latest repo from GitHub
+	--scope: local (current user) or gloabl (all users) [local]
+	--dest: destination for repository [/home/huxprog/bin/]
+	--verb: verbose output (0=NO 1=YES) [1]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-progsetup install
+--------------------------------------------------------------------------------
 
 </blockquote></pre>
 
@@ -7728,7 +7728,7 @@ Produces one column of filtered output
 USAGE:	xe-fftfilt1 [input] [options] 
 	[input]: provide a filename or "stdin" to receive piped data
 VALID OPTIONS (defaults in [])
-	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [6.93781e-310]
+	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [1.5316e-322]
 	-sf: sampling frequency (Hz) of the input [1]
 	-min: lowest frequency to output [default= 2/nsamples]
 	-max: highest frequency to output [default= sr/2]
@@ -11647,7 +11647,33 @@ USAGE:
 
 <font color="Black"><h3 id="code-xe-spearmans1"><a href="#CODE">&#8679</a> xe-spearmans1</h3></font>
 [<a href="#tag-stats">stats</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 408: xe-spearmans1: command not found
+<blockquote><pre>
+----------------------------------------------------------------------
+xe-spearmans1 v 1: 17.July.2018 [JRH]
+----------------------------------------------------------------------
+Calculate the Spearman's rank-order correlation (rho)
+- non-parametric relatoinship between the rankings of two variables
+- relationship need not be linear, merely monotonic
+- similar to Pearson's r for eliptical distributions
+- less sensitive to the influence of outliers
+- non-numeric values ignored
+USAGE:
+	xe-spearmans1 [input] [options]
+	[input]: file name or "stdin" with x and y values in columns
+VALID OPTIONS: defaults in []
+	-cx: column holding x-value (first col = 1) [1]
+	-cy: column holding y-value (first col = 1) [2]
+	-verb: verbose output (0=NO 1=YES, 999=DEBUG) [0]
+EXAMPLES:
+	xe-spearmans1 data.txt -cx 2 -cy 3
+	cat temp.txt | xe-spearmans1 stdin
+OUTPUT:
+	rho= [Spearmans rank coefficient]
+	n= [number of valid data-pairs]]
+	F= [F-statistic] 
+	prob= [probability]
+----------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-spectdenoise1"><a href="#CODE">&#8679</a> xe-spectdenoise1</h3></font>

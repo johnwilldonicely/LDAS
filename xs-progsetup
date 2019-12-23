@@ -165,8 +165,8 @@ elif [ "$setscope" == "global" ] ; then
 	setdest="/opt"
 	setrc="/etc/profile"
 	# check permissions
-#	func_permission $setdest "yes"
-#	func_permission $setrc "yes"
+#???	func_permission $setdest "yes"
+#???	func_permission $setrc "yes"
 else
 	echo -e "$RED\n--- Error ["$thisprog"]: invalid --scope ($setscope) -  must be \"local\" or \"global\"\n$NC" ;  exit;
 fi
@@ -217,6 +217,8 @@ if [ "$setmode" == "install" ] ; then
 	echo "--------------------------------------------------------------------------------"
 	if [ "$setfilezip" != "" ] ; then
 		echo -e "EXTRACTING LDAS FROM $setfilezip ..."
+		if [ ! -e "$setzipfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n" ;  exit; } ; fi
+
 		unzip -oq $setfilezip -d $tempfolder
 		# find the most recent LDAS folder created
 		z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
@@ -303,15 +305,19 @@ fi
 # MODE-3: COMPILE
 ########################################################################################
 if [ "$setmode" == "compile" ] ; then
-
-	status=$(func_check)
-	echo "status-check: "$status
-	if [ "$status" == "NOINSTALL" ] || [ "$status" == "PERMISSION" ] ; then cat $tempfile".status" ; exit ; fi
+	z=$(which $thisprog)
+	inpath=${z%/*}"/source";
+	outpath=${z%/*}"/bin";
 
 	echo "--------------------------------------------------------------------------------"
-	echo "COMPILING PROGRAMS..."
-	rm -f $setdest/bin/xe-*
-	cd $setdest/source
+	echo "COMPILING PROGRAMS (source: $inpath)..."
+	if [ ! -d "$inpath" ] ; then { echo -e "$RED\n--- Error ["$thisprog"]: missing directory $inpath\n\t- consider re-installing LDAS$NC\n" ;  exit; } ; fi
+	if [ ! -d "$outpath" ] ; then sudo mkdir -p $outpath ; fi
+
+	func_permission $inpath
+
+	rm -f $outpath/xe-*
+	cd $inpath
 	xs-progcompile "xe-*.c"
 
 	echo "--------------------------------------------------------------------------------"
