@@ -415,10 +415,9 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 
 
 
-
-5. Install dependencies
-	- most LDAS dependencies will come with your Linux distribution
-	- however, some distros may not include some of the following:
+## APPENDIX-2: LDAS DEPENDENCIES
+Most LDAS dependencies will come with your Linux distribution
+However, some distros may not include some of the following:
 
 	- dos2unix - required for correcting DOS-style line-breaks
 	- git - not required but useful for install-management of LDAS
