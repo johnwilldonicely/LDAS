@@ -1,9 +1,15 @@
 # LDAS: Linux Based Data Analysis Suite
 Author: John R. Huxter [22 Deceber 2019]
 
-LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). These tools are designed for high-speed and batch analysis of data, and includes plotting tools for generating graphs and summaries.  
+LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). These tools are designed for high-speed and batch analysis of data. LDAS contains tools for:
 
-Briefly, LDAS is comprised of...
+* data visualization (smart-postscript)
+* spectral power analysis (FFT)
+* coherence and correlation
+* phase-amplitude coupling
+* filters (IIR, FIR, notch)
+
+...and more. Briefly, LDAS is comprised of...
 
 * xs- executable Bash shell scripts
 * xe- executable C-programs
