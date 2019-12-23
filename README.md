@@ -9,7 +9,8 @@ LDAS is a suite of command-line tools for data analysis, written in a combinatio
 * phase-amplitude coupling
 * filters (IIR, FIR, notch)
 
-...and more. Briefly, LDAS is comprised of...
+...and more. 
+LDAS is comprised of...
 
 * xs- executable Bash shell scripts
 * xe- executable C-programs
