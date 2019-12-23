@@ -25,6 +25,7 @@ The installation script provided with LDAS checks for dependencies and allows th
 option A: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS  
 ...or...  
 option B: install git 
+
 	for Ubuntu
 	$ sudo yum install git 
 
