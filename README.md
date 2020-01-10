@@ -74,7 +74,7 @@ Once you have either installed git or you have your LDAS-master.zip file, you ca
 		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
 #### 4. [optional] - delete the INSTALLER 
-You might wnat to keep the installer if the installation was nit successful. But once it is, the program xs-setup will perform the same functions and others.
+You might wnat to keep the installer if the installation was not successful. But once it is, the program xs-setup will perform the same functions and others.
 
 
 
