@@ -5,10 +5,10 @@
 - [INSTALLATION](#installation)
 - [MANUALS](#manuals)
 - [EXPERIMENTAL DESIGN](#experimental-design)
-- [PROGRAM TYPES. TAGS](#program-types.-tags)
-- [APPENDIX. LDAS DEPENDENCIES](#appendix.-ldas-dependencies)
-- [APPENDIX. FILE TYPES](##appendix.-file-types)
-- [APPENDIX. LDAS DEPENDENCIES] (##appendix.-ldas-dependencies)
+- [PROGRAM TYPE TAGS](#program-type-tags)
+- [APPENDIX LDAS DEPENDENCIES](#appendix-ldas-dependencies)
+- [APPENDIX FILE TYPES](##appendix-file-types)
+- [APPENDIX LDAS DEPENDENCIES] (##appendix-ldas-dependencies)
 
 # Introduction
 Author: John R. Huxter [22 December 2019]
@@ -117,7 +117,7 @@ For example:
 
 
 ################################################################################
-# PROGRAM TYPES. TAGS
+# PROGRAM TYPE TAGS
 
 The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the xs-progtag script to find or list programs scripts or functions with a particular tag. For example...  
 
@@ -321,7 +321,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 ################################################################################
 # APPENDICES
 
-## APPENDIX. FILE TYPES
+## APPENDIX FILE TYPES
 
 ### [base].dat
 - binary, 16-bit (2-byte) signed integer
@@ -436,7 +436,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 
 
 
-## APPENDIX. LDAS DEPENDENCIES
+## APPENDIX LDAS DEPENDENCIES
 Most LDAS dependencies will come with your Linux distribution
 However, some distros may not include some of the following:
 
