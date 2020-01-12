@@ -160,14 +160,16 @@ echo -e "- Linux distro: $distro $release"
 
 # CHECK IF LDAS IS ALREADY INSTALLED
 echo "- requested install path: $setdest/LDAS"
-prevpath=$(which xs-template | rev | cut -f 2- -d / |rev)
+prevpath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 if [ "$prevpath" != "" ] ; then
+
 	echo "- previous install path: $prevpath"
 	# determine previous-install scope - make sure path is valid
 	if [[ $prevpath =~ "/opt/LDAS" ]] ; then prevscope="global" ; prevrc="/etc/profile"
-	elif [[ $prevpath =~ "/home/bin/LDAS" ]] ; then prevscope="local" ; prevrc="/home/$USER/.bashrc"
+	elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then prevscope="local" ; prevrc="/home/$USER/.bashrc"
 	else echo -e "\n--- Error ["$thisprog"]: LDAS previously installed in invalid location ($prevpath) - remove and retry\n" ; exit
 	fi
+
 	echo -e "$GREEN"
 	read -p  "--- WARNING: this will first remove previous installation - proceed? [y/n] " answer
 	echo -en "$NC"
@@ -178,21 +180,26 @@ if [ "$prevpath" != "" ] ; then
 	echo -en "$NC"
 	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
 
-	echo -e "\t...cleaning $prevrc"
+	grep -v "LDAS" $prevrc > $tempfile.rc
+	grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nano
+
 	if [ "$prevscope" == "local" ]; then
-		grep -v "LDAS" $prevrc > $tempfile
-		mv $tempfile $prevrc
+		echo -e "\t...cleaning $prevrc"
+		mv $tempfile.rc $prevrc
+		echo -e "\t...cleaning $prevrc"
+		mv $tempfile.rc $prevrc
+		echo -e "\t...removing $prevpath"
+		rm -rf $prevpath
 	else
-		grep -v "LDAS" $prevrc > $tempfile
-		sudo mv $tempfile $prevrc
+		echo -e "\t...cleaning $prevrc"
+		sudo mv $tempfile.rc $prevrc
+		echo -e "\t...cleaning /etc/nanorc"
+		sudo mv $tempfile.nanorc /etc/nanorc
+		echo -e "\t...removing $prevpath"
+		sudo rm -rf $prevpath
 	fi
 
-	echo -e "\t...removing $prevpath"
-	if [ "$prevscope" == "local" ]; then rm -rf $prevpath ; else sudo rm -rf $prevpath ; fi
-
-
 fi
-exit
 
 # BUILD THE TEMPLATE PATH-UPDATE FILE
 echo -e "# LDAS path updates $bar" > $tempfile".path"
