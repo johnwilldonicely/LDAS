@@ -4,11 +4,10 @@
 - [INTRODUCTION](#introduction)
 - [INSTALLATION](#installation)
 - [MANUALS](#manuals)
-- [EXPERIMENTAL DESIGN](#experimental-design)
 - [PROGRAM TYPE TAGS](#program-type-tags)
+- [EXPERIMENTAL DESIGN](#experimental-design)
+- [APPENDIX FILE TYPES](#appendix-file-types)
 - [APPENDIX LDAS DEPENDENCIES](#appendix-ldas-dependencies)
-- [APPENDIX FILE TYPES](##appendix-file-types)
-- [APPENDIX LDAS DEPENDENCIES] (##appendix-ldas-dependencies)
 
 # Introduction
 Author: John R. Huxter [22 December 2019]
