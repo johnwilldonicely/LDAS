@@ -31,7 +31,7 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ## Preamble 
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
-##### Installation scope: local or global
+#### Installation scope: local or global
 
 * Local installation is for the current user only:
 	* any user should be able to install
@@ -47,10 +47,10 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 
 By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
-	for Ubuntu
+* for Ubuntu
 	$ sudo apt-get install git 
 
-	for other flavours of Linux: 
+* for other flavours of Linux: 
 	$ sudo yum install git 
 
 Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This dooes not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
@@ -59,17 +59,17 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 
 ## Steps to install LDAS
 
-##### 1. Download the install script:  
-- this should be performed in your home or download directory  
+#### 1. Download the install script:  
+This should be performed in your home or download directory  
 
  		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh  
 		
-##### 2. Make the script executable:  
+#### 2. Make the script executable:  
 
 		$ chmod a+x LDAS_INSTALL.sh
 
-##### 3. Run the script, specifying the scope of the installation.
-...Examples...
+#### 3. Run the script, specifying the scope of the installation.
+Examples:  
 
 	$ ./LDAS_INSTALL.sh local 
 	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip 
@@ -77,7 +77,7 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip 
 
 
-##### 4. [optional] - delete the INSTALLER 
+#### 4. [optional] - delete the INSTALLER 
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system. 
 
 
@@ -482,35 +482,4 @@ However, some distros may not include some of the following:
 
 	- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
 		- sudo yum install -y atom.x86_64.rpm
-
-	- hdf5 support - 1
-		- download from here: https://www.hdfgroup.org/
-		$ tar -xvf hdf5-1.10.5.tar.gz
-		$ ./configure --prefix=/usr/local/hdf5 <more configure_flags>
-		$ make
-		$ make check	# run test suite.
-		$ make install
-		$ make check-install # verify installation.
-
-		... or if "z" option is available for tar simply ...
-
-		$ tar zxf hdf5-X.Y.Z.tar.gz
-
-	- spyking circus : https://spyking-circus.readthedocs.io/en/latest/introduction/index.html
-		$ sudo yum install mpich
-		$ sudo yum install PyQt4
-
-		$ cd /opt  
-		$ sudo mkdir spyking-circus  
-		$ sudo chown [user]:[user] spyking-circus  
-		$ git clone https://github.com/spyking-circus/spyking-circus.git spyking-circus  
-		$ cd spyking-circus/
-		$ conda install -c conda-forge -c spyking-circus spyking-circus
-
-		# PHY data visualization
-		$ pip install colorcet pyopengl joblib
-		$ pip install --upgrade http://github.com/cortex-lab/phy/archive/dev.zip
-		$ pip install --upgrade http://github.com/cortex-lab/phylib/archive/master.zip
-		$ pip install mpi4py numpy cython scipy matplotlib h5py colorama blosc scikit-learn statsmodels
-
 
