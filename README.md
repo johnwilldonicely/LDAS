@@ -1,32 +1,25 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-- [INTRODUCTION](#introduction)                                  
-- [INSTALLATION](#installation)
-- [MANUALS](#manuals)
-- [PROGRAM TYPE TAGS](#program-type-tags)
-- [EXPERIMENTAL DESIGN](#experimental-design)
-- [APPENDIX FILE TYPES](#appendix-file-types)
-- [APPENDIX LDAS DEPENDENCIES](#appendix-ldas-dependencies)
+* [INTRODUCTION](#introduction) * [INSTALLATION](#installation) * [MANUALS](#manuals) * [PROGRAM TYPE TAGS](#program-type-tags) * [EXPERIMENTAL DESIGN](#experimental-design) * [FILE TYPES](#file-types) * [DEPENDENCIES](#dependencies)
 
 # Introduction
-Author: John R. Huxter [22 December 2019]
+* LDAS is a modular suite of data-analysis tools, designed for high-speed and batch processing run on Linux systems.
+* LDAS programs are executed on the command-line, either directly, or remotely via a terminal connection.
+* Capabilities include: 
+	* data visualization (smart-postscript)
+	* spectral power analysis (FFT)
+	* coherence and correlation
+	* phase-amplitude coupling
+	* filters (IIR, FIR, notch)  
 
-LDAS is a suite of command-line tools for data analysis, written in a combination of C and shell (Bash). These tools are designed for high-speed and batch analysis of data. LDAS contains tools for:
+	...and more. 
 
-* data visualization (smart-postscript)
-* spectral power analysis (FFT)
-* coherence and correlation
-* phase-amplitude coupling
-* filters (IIR, FIR, notch)
+* There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-): 
 
-...and more. 
-
-LDAS is comprised of...
-
-* xs- executable Bash shell scripts
-* xe- executable C-programs
-* xf_ C-functions which form components of xe- programs
+	* xe- : executable C-programs  
+	* xs- : executable Bash shell-scripts  
+	* xf_ : C-functions which form components of xe- programs  
 
 Intensive processing is performed by the C-programs, which are optimized for speed and low memory-usage.  The shell-scripts are used to link the C-programs together to perform more complicated jobs, and also to perform some of the file-management operations.
 
@@ -54,7 +47,7 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 
 #### Installation mode: git or zip
 
-By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
+By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
 * for Ubuntu
 ~~~
@@ -66,7 +59,7 @@ By default, the installation script provided with LDAS installs by using git to 
 		$ sudo yum install git 
 ~~~
 
-Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This dooes not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
+Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This does not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
 
 	https://github.com/johnwilldonicely/LDAS  
 
@@ -330,9 +323,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 	- each event can be of a diffeerent type  
 
 ################################################################################
-# APPENDICES
-
-## APPENDIX FILE TYPES
+# FILE TYPES
 
 ### [base].dat
 - binary, 16-bit (2-byte) signed integer
@@ -453,8 +444,8 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 
 
 
-
-## APPENDIX LDAS DEPENDENCIES
+################################################################################
+# DEPENDENCIES
 Most LDAS dependencies will come with your Linux distribution.  
 However, some distros may not include some of the following:
 
