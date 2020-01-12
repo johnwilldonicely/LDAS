@@ -180,14 +180,14 @@ if [ "$prevpath" != "" ] ; then
 	echo -en "$NC"
 	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
 
-	grep -v "LDAS" $prevrc > $tempfile.rc
-	grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nano
+	grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
+	grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nanorc
 
 	if [ "$prevscope" == "local" ]; then
 		echo -e "\t...cleaning $prevrc"
 		mv $tempfile.rc $prevrc
-		echo -e "\t...cleaning $prevrc"
-		mv $tempfile.rc $prevrc
+		echo -e "\t...cleaning /etc/nanorc"
+		mv $tempfile.nanorc /etc/nanorc
 		echo -e "\t...removing $prevpath"
 		rm -rf $prevpath
 	else
