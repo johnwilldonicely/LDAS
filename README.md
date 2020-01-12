@@ -31,7 +31,7 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ## Preamble 
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
-#### Installation scope: local or global
+##### Installation scope: local or global
 
 * Local installation is for the current user only:
 	* any user should be able to install
@@ -43,7 +43,7 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
 
-### Installation mode: git or zip
+#### Installation mode: git or zip
 
 By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
@@ -59,16 +59,16 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 
 ## Steps to install LDAS
 
-#### 1. Download the install script:  
+##### 1. Download the install script:  
 - this should be performed in your home or download directory  
 
  		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh  
 		
-#### 2. Make the script executable:  
+##### 2. Make the script executable:  
 
 		$ chmod a+x LDAS_INSTALL.sh
 
-#### 3. Run the script, specifying the scope of the installation.
+##### 3. Run the script, specifying the scope of the installation.
 ...Examples...
 
 	$ ./LDAS_INSTALL.sh local 
@@ -77,7 +77,7 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip 
 
 
-#### 4. [optional] - delete the INSTALLER 
+##### 4. [optional] - delete the INSTALLER 
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system. 
 
 
