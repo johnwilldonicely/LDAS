@@ -67,12 +67,7 @@ fi
 # INTERACTIVE TEST TO OVERWRITE DATA
 ################################################################################
 read -p  "--- Warning: data will be overwritten. Continue? [y/n] " answer
-while true ; do
-	case $answer in
-		[yY]* ) break ;;
-		*) exit ;;
-	esac
-done
+while true ; do case $answer in [yY]* ) break ;; *) exit ;; esac ; done
 echo "continuing..."
 exit
 
