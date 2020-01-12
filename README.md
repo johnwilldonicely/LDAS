@@ -57,10 +57,14 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
 * for Ubuntu
-	$ sudo apt-get install git 
+~~~
+		$ sudo apt-get install git 
+~~~
 
 * for other flavours of Linux: 
-	$ sudo yum install git 
+~~~
+		$ sudo yum install git 
+~~~
 
 Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This dooes not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
 
