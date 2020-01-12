@@ -124,6 +124,7 @@ The code for LDAS programs and scripts usually has an XML "tag" section defining
 A full description of all LDAS components can be viewed with Firefox here:  
 
 * [/docs/PROGTAG.html](https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
+* [/docs/PROGTAG.html](docs/PROGTAG.html)
 
 ### Preprocessing scripts for particular acquisition systems
 
