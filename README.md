@@ -244,6 +244,7 @@ The folders are nested as follows:
 	- Data_Working
 
 3. Add tables to *Analysis* directory  
+
 		~~~
 		$ cd [study]/[experiment]  
 		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
@@ -253,6 +254,7 @@ The folders are nested as follows:
 4. Build links to files in *Data_Library* in *Data_Working*: 
 	- the working-data directories are where analyses are perfomed
 	- this protects the original files in the Data_Library  
+	
 		~~~
 		$ cd [study]/[experiment]
 		$ xs-makelink1 Data_Library Data_Working --patterns BASE
@@ -265,13 +267,15 @@ The folders are nested as follows:
 	- subject-groups can be defined in *table_groups.txt*, if available  
 	- group-names may be defined in *table_groupnames.txt* if available  
 	- these names may be incorporated into the db-file header  
-~~~
+	
+		~~~
 		$ cd [study]/[experiment]/Analysis  
 		$ t1=table_groups.txt  
 		$ t2=table_groupnames.txt  
 		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
 		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
-~~~
+		~~~
+		
 	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
 
 
