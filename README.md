@@ -31,7 +31,7 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ## Preamble 
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
-### Installation scope: local or global
+#### Installation scope: local or global
 
 * Local installation is for the current user only:
 	* any user should be able to install
@@ -43,7 +43,7 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
 
-## Installation mode: git or zip
+### Installation mode: git or zip
 
 By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
@@ -68,26 +68,17 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 
 		$ chmod a+x LDAS_INSTALL.sh
 
-#### 3. Run the script, specifying the scope of the installation (local or global):
+#### 3. Run the script, specifying the scope of the installation.
+...Examples...
 
-- local: for only the current user (in /home/[user]/bin):  
+	$ ./LDAS_INSTALL.sh local 
+	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip 
+	$ ./LDAS_INSTALL.sh global 
+	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip 
 
-		$ ./LDAS_INSTALL.sh local 
-
-- global - for all users (in /opt/LDAS/):  
-
-		$ ./LDAS_INSTALL.sh global 
-
-
-Note that for global installation you will require sudo priviledges
-
-
-- for either local or global install, to use a 		...or using a zipped archive...
-
-		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
 #### 4. [optional] - delete the INSTALLER 
-You might wnat to keep the installer if the installation was not successful. But once it is, the program xs-setup will perform the same functions and others.
+You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system. 
 
 
 
