@@ -70,15 +70,18 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 
 #### 1. Download the install script:  
 This should be performed in your home or download directory  
-
+~~~
  		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh  
-		
-#### 2. Make the script executable:  
+~~~
 
+#### 2. Make the script executable:  
+~~~
 		$ chmod a+x LDAS_INSTALL.sh
+~~~
 
 #### 3. Run the script, specifying the scope of the installation.
 Examples:  
+
 ~~~
 		$ ./LDAS_INSTALL.sh local 
 		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip 
@@ -353,8 +356,11 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 	- format: <timestamp> <description>
 	- <description> should be a single word with underscores separating fields
 	- e.g.: 
+~~~
 		1000	STIM_ON_LEFT
 		2000	STIM_OFF_LEFT
+~~~
+		
 	- timestamps are usually in seeconds for O2 experiments
 
 ### [base].notes
@@ -389,6 +395,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 - used in the generation of database files
 - found in the [Analysis] folder
 - example:
+~~~
 	subject	group  
 	31229	0  		
 	31230	1  
@@ -396,6 +403,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 	31232	0  
 	31233	1  
 	31234	2  
+~~~
 
 ### table_groupnames.txt
 - plain text file with a header-line specifying "group" and "name"
@@ -405,9 +413,11 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 - used in the generation of database files, applying plot legends
 - found in the [Analysis] folder
 - example:
+~~~
 	group	name
 	0	SHAM
 	1	LESION
+~~~
 
 ### db_[name].txt
 - plain text file with a header-line specifying "path" and "group"
@@ -443,10 +453,10 @@ Most LDAS dependencies will come with your Linux distribution.
 However, some distros may not include some of the following:
 
 #### Essential
-	- gcc - essential compiler used for C-source code
-	- dos2unix - required for correcting DOS-style line-breaks
-	- gs - ghostscript - essential for dealing with LDAS graphics
-	- nano - simple text editor - used for showing manuals
+- gcc - essential compiler used for C-source code
+- dos2unix - required for correcting DOS-style line-breaks
+- gs - ghostscript - essential for dealing with LDAS graphics
+- nano - simple text editor - used for showing manuals
 
 #### Optional (most functionality does not require these)
 
