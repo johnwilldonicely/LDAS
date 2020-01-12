@@ -100,11 +100,11 @@ Instructions - including this document - can displayed at any time using xs-manu
 3. as a pdf file (requires the evince document viewer)
 
 For example:  
-
+		~~~
 		$ xs-manual ldas  
 		$ xs-manual ldas --make html  
-		$ xs-manual ldas --vew terminal  
-
+		$ xs-manual ldas --veiw terminal  
+		~~~
 
 ################################################################################
 # PROGRAM TYPE TAGS
@@ -244,18 +244,20 @@ The folders are nested as follows:
 	- Data_Working
 
 3. Add tables to *Analysis* directory  
-
+		~~~
 		$ cd [study]/[experiment]  
 		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
 		$ echo -e "group\\tname" > Analysis/table_groupnames.txt  
-
+		~~~
+		
 4. Build links to files in *Data_Library* in *Data_Working*: 
 	- the working-data directories are where analyses are perfomed
 	- this protects the original files in the Data_Library  
-
+		~~~
 		$ cd [study]/[experiment]
 		$ xs-makelink1 Data_Library Data_Working --patterns BASE
-
+		~~~
+		
 5. Make a database file:  
 	- defines the [date]_[subject] paths to *Data_Working* folders  
 	- also defines the group-id for each path  
@@ -276,10 +278,10 @@ The folders are nested as follows:
 ### Batch analysis
 
 LDAS has specialized scripts to perform complex analyses. These scripts often have a batch-script compliment, typically of the same name, but ending in "b". Example:
-
-	xs-ldas5-XHAR1 [base] [options] : Hargreaves analysis for one folder
-	xs-ldas5-XHAR1b [db] [options]  : batch analyse entire experiment
-
+		~~~
+		$ xs-ldas5-XHAR1 [base] [options] : Hargreaves analysis for one folder
+		$ xs-ldas5-XHAR1b [db] [options]  : batch analyse entire experiment
+		~~~
 These batch scripts require a database [db] file to specify which *Data_Working* directories to use for the analyses. As described above, this db-file includes group-ids originally defined in a separate *table_groups.txt* file, and may also incorporate roup-names from the *table_groupnames.txt* file. 
 However, any db-file can be modified in order to...
 
