@@ -439,46 +439,51 @@ However, some distros may not include some of the following:
 
 #### Optional (most functionality does not require these)
 
-	- pandoc - document converter, used for creating manuals
+	- pandoc - document converter, used for creating manuals 
+		~~~
 		$ source=/home/[user]/pandoc-2.7.2-linux.tar.gz
 		$ dest=/opt/pandoc/
 		$ sudo tar xvzf $source --strip-components 1 -C $dest
+		~~~
 
 	- git - not required but useful for install-management of LDAS
 
 	- python3 + hdf5 support (for some of the MEA scripts)
-		- yum install -y libffi-devel
-		- yum install -y openssl-devel
- 		- v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
-		- if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi 
-		- wget https://www.python.org/ftp/python/$p/Python-$p.tgz
-		- tar -xvf Python-$p.tgz
-		- cd Python-$p/
-		- ./configure
-		- make
-		- make install - this doesn't work without sudo trace?
-		- python3 -m pip install h5py numpy pandas requests
-		- python3 -m pip install mne
-		- python3 -m pip install matplotlib
-
+		~~~
+		$ yum install -y libffi-devel
+		$ yum install -y openssl-devel
+ 		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
+		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi 
+		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
+		$ tar -xvf Python-$p.tgz
+		$ cd Python-$p/
+		$ ./configure
+		$ make
+		$ make install - this doesn't work without sudo trace?
+		$ python3 -m pip install h5py numpy pandas requests
+		$ python3 -m pip install mne
+		$ python3 -m pip install matplotlib
+		~~~
 	- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
 		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
-		- sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
-		- sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
-		- sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		- sudo yum install -y tre-devel-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		- sudo yum install -y libRmath-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y libRmath-devel-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y openblas-Rblas-0.3.3-2.el7.x86_64.rpm
-		- sudo yum install -y R-core-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y R-core-devel-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
-		- sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
-
+		~~~
+		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
+		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
+		$ sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
+		$ sudo yum install -y tre-devel-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
+		$ sudo yum install -y libRmath-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y libRmath-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y openblas-Rblas-0.3.3-2.el7.x86_64.rpm
+		$ sudo yum install -y R-core-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-core-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
+		~~~
 
 #### The following are not required, but can be useful
 
 	- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
-		- sudo yum install -y atom.x86_64.rpm
-
+		~~~
+		$ sudo yum install -y atom.x86_64.rpm
+		~~~
