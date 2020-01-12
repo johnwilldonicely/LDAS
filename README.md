@@ -121,12 +121,10 @@ The code for LDAS programs and scripts usually has an XML "tag" section defining
 		$ xs-ldas-progtag find "plot"  
 ~~~
 
-A full description of all LDAS components can be viewed with Firefox here:  
+A full description of all LDAS components can be found in docs/PROGTAG.html
 
-* [/docs/PROGTAG.html](https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
-* [/docs/PROGTAG.html](docs/PROGTAG.html)
-* [/docs/PROGTAG.html](https://htmlpreview.github.io/?https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
-
+* [click to preview](https://htmlpreview.github.io/?https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
+* [right-click to download](https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
 
 
 ### Preprocessing scripts for particular acquisition systems
