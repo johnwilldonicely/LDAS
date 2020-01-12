@@ -28,13 +28,24 @@ Run any LDAS executable without arguments to print the instructions to screen.
 ################################################################################
 # INSTALLATION 
 
+## Preamble 
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
 
-The installation script provided with LDAS checks for dependencies and allows the user to decide whether to install by using git to clone the repo (default), or to intall using a previously-downloaded zipped archive of LDAS. If git is not already on your system, you have two options before attempting to install LDAS: 
+### Installation scope: local or global
 
-option A: download a zipped archive of LDAS from https://github.com/johnwilldonicely/LDAS  
-...or...  
-option B: install git 
+* Local installation is for the current user only:
+	* any user should be able to install
+	* LDAS installed in /home/$USER/bin/LDAS
+	* $PATH variable updated in /home/$USER/.bashrc
+
+* Global installation makes LDAS usable for all users:
+	* sudo or super-user priviledges required during installation
+	* LDAS installed in /opt/LDAS/
+	* $PATH variable updated in /etc/profile
+
+## Installation mode: git or zip
+
+By default, the installation script provided with LDAS installs by using git to clone the repo. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
 
 	for Ubuntu
 	$ sudo apt-get install git 
@@ -42,40 +53,41 @@ option B: install git
 	for other flavours of Linux: 
 	$ sudo yum install git 
 
+Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This dooes not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
 
-Once you have either installed git or you have your LDAS-master.zip file, you can proceed. 
+	https://github.com/johnwilldonicely/LDAS  
 
+## Steps to install LDAS
 
-#### 1. Download the setup script (renamed to INSTALLER):  
+#### 1. Download the install script:  
+- this should be performed in your home or download directory  
 
- 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/xs-progsetup -O INSTALLER 
-
+ 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh  
+		
 #### 2. Make the script executable:  
 
-		$ chmod a+x INSTALLER
+		$ chmod a+x LDAS_INSTALL.sh
 
-#### 3. Run the script in install mode.
+#### 3. Run the script, specifying the scope of the installation (local or global):
 
-- to install for only the current user (in /home/[user]/bin):  
+- local: for only the current user (in /home/[user]/bin):  
 
-		$ ./INSTALLER install --scope local 
+		$ ./LDAS_INSTALL.sh local 
 
-		...or using a zipped archive...
+- global - for all users (in /opt/LDAS/):  
 
-		$ ./INSTALLER install --scope local --zip LDAS-master.zip
+		$ ./LDAS_INSTALL.sh global 
 
 
-- to install for all users (in /opt/LDAS/):  
+Note that for global installation you will require sudo priviledges
 
-		$ ./INSTALLER install --scope global 
 
-		...or using a zipped archive...
+- for either local or global install, to use a 		...or using a zipped archive...
 
 		$ ./INSTALLER install --scope global --zip LDAS-master.zip 
 
 #### 4. [optional] - delete the INSTALLER 
 You might wnat to keep the installer if the installation was not successful. But once it is, the program xs-setup will perform the same functions and others.
-
 
 
 
