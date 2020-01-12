@@ -244,7 +244,7 @@ The folders are nested as follows:
 	- Data_Working
 
 3. Add tables to *Analysis* directory  
-
+		
 		~~~
 		$ cd [study]/[experiment]  
 		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
@@ -256,8 +256,8 @@ The folders are nested as follows:
 	- this protects the original files in the Data_Library  
 	
 		~~~
-		$ cd [study]/[experiment]
-		$ xs-makelink1 Data_Library Data_Working --patterns BASE
+		$ cd [study]/[experiment]  
+		$ xs-makelink1 Data_Library Data_Working --patterns BASE  
 		~~~
 		
 5. Make a database file:  
