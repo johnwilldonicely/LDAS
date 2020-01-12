@@ -125,6 +125,9 @@ A full description of all LDAS components can be viewed with Firefox here:
 
 * [/docs/PROGTAG.html](https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
 * [/docs/PROGTAG.html](docs/PROGTAG.html)
+* [/docs/PROGTAG.html](https://htmlpreview.github.io/?https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
+
+
 
 ### Preprocessing scripts for particular acquisition systems
 
