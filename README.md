@@ -75,7 +75,6 @@ This should be performed in your home or download directory
 
 #### 3. Run the script, specifying the scope of the installation.
 Examples:  
-
 ~~~
 		$ ./LDAS_INSTALL.sh local 
 		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip 
