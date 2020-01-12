@@ -100,18 +100,19 @@ Instructions - including this document - can displayed at any time using xs-manu
 3. as a pdf file (requires the evince document viewer)
 
 For example:  
-		~~~  
+~~~  
 		$ xs-manual ldas  
 		$ xs-manual ldas --make html  
 		$ xs-manual ldas --veiw terminal  
-		~~~  
+~~~  
 
 ################################################################################
 # PROGRAM TYPE TAGS
 
 The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the xs-progtag script to find or list programs scripts or functions with a particular tag. For example...  
-
+~~~
 		$ xs-ldas-progtag find "plot"  
+~~~
 
 A full description of all LDAS components can be viewed with Firefox here:  
 
@@ -192,7 +193,7 @@ Based on this assumption, the base-name [base] (see above) is the foundation of 
 	- these folders also hold the local output of analysis
 
 The folders are nested as follows:
-
+~~~
 * [date]-[study]/[experiment]/
 	- file:  README.txt
 	- files: table_channels_[subject].txt
@@ -217,8 +218,10 @@ The folders are nested as follows:
  		* [base]/
  			- links: Data_Library/[base]*
 			- files: local output from analyses
+~~~
 
-	Sample listing:  
+Sample listing:  
+
 ~~~
 	$ ls Data_Working/20181214-000_31229/  
 	20181214-000_31229-000.bin  20181214-000_31229-010.bin  
@@ -245,20 +248,20 @@ The folders are nested as follows:
 
 3. Add tables to *Analysis* directory  
 		
-		~~~
+~~~
 		$ cd [study]/[experiment]  
 		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
 		$ echo -e "group\\tname" > Analysis/table_groupnames.txt  
-		~~~
+~~~
 		
 4. Build links to files in *Data_Library* in *Data_Working*: 
 	- the working-data directories are where analyses are perfomed
 	- this protects the original files in the Data_Library  
 	
-		~~~
+~~~
 		$ cd [study]/[experiment]  
 		$ xs-makelink1 Data_Library Data_Working --patterns BASE  
-		~~~
+~~~
 		
 5. Make a database file:  
 	- defines the [date]_[subject] paths to *Data_Working* folders  
@@ -268,24 +271,26 @@ The folders are nested as follows:
 	- group-names may be defined in *table_groupnames.txt* if available  
 	- these names may be incorporated into the db-file header  
 	
-		~~~
+~~~
 		$ cd [study]/[experiment]/Analysis  
 		$ t1=table_groups.txt  
 		$ t2=table_groupnames.txt  
 		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
 		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
-		~~~
+~~~
 		
 	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
 
 
 ### Batch analysis
 
-LDAS has specialized scripts to perform complex analyses. These scripts often have a batch-script compliment, typically of the same name, but ending in "b". Example:
-		~~~
+LDAS has specialized scripts to perform complex analyses. These scripts often have a batch-script compliment, typically of the same name, but ending in "b". Example:  
+
+~~~  
 		$ xs-ldas5-XHAR1 [base] [options] : Hargreaves analysis for one folder
 		$ xs-ldas5-XHAR1b [db] [options]  : batch analyse entire experiment
-		~~~
+~~~  
+		
 These batch scripts require a database [db] file to specify which *Data_Working* directories to use for the analyses. As described above, this db-file includes group-ids originally defined in a separate *table_groups.txt* file, and may also incorporate roup-names from the *table_groupnames.txt* file. 
 However, any db-file can be modified in order to...
 
@@ -445,17 +450,17 @@ However, some distros may not include some of the following:
 
 #### Optional (most functionality does not require these)
 
-	- pandoc - document converter, used for creating manuals 
-		~~~
+- pandoc - document converter, used for creating manuals 
+~~~
 		$ source=/home/[user]/pandoc-2.7.2-linux.tar.gz
 		$ dest=/opt/pandoc/
 		$ sudo tar xvzf $source --strip-components 1 -C $dest
-		~~~
+~~~
 
-	- git - not required but useful for install-management of LDAS
+- git - not required but useful for install-management of LDAS
 
-	- python3 + hdf5 support (for some of the MEA scripts)
-		~~~
+- python3 + hdf5 support (for some of the MEA scripts)
+~~~
 		$ yum install -y libffi-devel
 		$ yum install -y openssl-devel
  		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
@@ -469,10 +474,11 @@ However, some distros may not include some of the following:
 		$ python3 -m pip install h5py numpy pandas requests
 		$ python3 -m pip install mne
 		$ python3 -m pip install matplotlib
-		~~~
-	- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
+~~~
+
+- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
 		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
-		~~~
+~~~
 		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
 		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
 		$ sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
@@ -485,11 +491,11 @@ However, some distros may not include some of the following:
 		$ sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
 		$ sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
 		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
-		~~~
+~~~
 
 #### The following are not required, but can be useful
 
-	- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
-		~~~
+- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
+~~~
 		$ sudo yum install -y atom.x86_64.rpm
-		~~~
+~~~
