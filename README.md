@@ -263,13 +263,13 @@ The folders are nested as follows:
 	- subject-groups can be defined in *table_groups.txt*, if available  
 	- group-names may be defined in *table_groupnames.txt* if available  
 	- these names may be incorporated into the db-file header  
-
+~~~
 		$ cd [study]/[experiment]/Analysis  
 		$ t1=table_groups.txt  
 		$ t2=table_groupnames.txt  
 		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
 		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
-
+~~~
 	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
 
 
