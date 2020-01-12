@@ -243,33 +243,34 @@ The folders are nested as follows:
 	- Data_Library
 	- Data_Working
 
-3. Add tables to *Analysis* directory
-		$ cd [study]/[experiment]
-		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt 
-		$ echo -e "group\\tname" > Analysis/table_groupnames.txt 
+3. Add tables to *Analysis* directory  
 
-4. Build links to files in *Data_Library* in *Data_Working*
+		$ cd [study]/[experiment]  
+		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
+		$ echo -e "group\\tname" > Analysis/table_groupnames.txt  
+
+4. Build links to files in *Data_Library* in *Data_Working*: 
 	- the working-data directories are where analyses are perfomed
-	- this protects the original files in the Data_Library
+	- this protects the original files in the Data_Library  
 
 		$ cd [study]/[experiment]
 		$ xs-makelink1 Data_Library Data_Working --patterns BASE
 
-5. Make a database file
-	- defines the [date]_[subject] paths to *Data_Working* folders
-	- also defines the group-id for each path
-	- **NOTE**: LDAS groups must be integers (0,1,2,3 etc).
-	- subject-groups can be defined in *table_groups.txt*, if available
-	- group-names may be defined in *table_groupnames.txt* if available
-	- these names may be incorporated into the db-file header
+5. Make a database file:  
+	- defines the [date]_[subject] paths to *Data_Working* folders  
+	- also defines the group-id for each path  
+	- **NOTE**: LDAS groups must be integers (0,1,2,3 etc).  
+	- subject-groups can be defined in *table_groups.txt*, if available  
+	- group-names may be defined in *table_groupnames.txt* if available  
+	- these names may be incorporated into the db-file header  
 
-		$ cd [study]/[experiment]/Analysis
-		$ t1=table_groups.txt
-		$ t2=table_groupnames.txt
-		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"
-		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt
+		$ cd [study]/[experiment]/Analysis  
+		$ t1=table_groups.txt  
+		$ t2=table_groupnames.txt  
+		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
+		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
 
-	- see *APPENDIX: FILE TYPES / db_[name].txt* for an example db-file
+	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
 
 
 ### Batch analysis
