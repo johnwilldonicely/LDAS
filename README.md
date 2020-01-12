@@ -100,11 +100,11 @@ Instructions - including this document - can displayed at any time using xs-manu
 3. as a pdf file (requires the evince document viewer)
 
 For example:  
-		~~~
+		~~~  
 		$ xs-manual ldas  
 		$ xs-manual ldas --make html  
 		$ xs-manual ldas --veiw terminal  
-		~~~
+		~~~  
 
 ################################################################################
 # PROGRAM TYPE TAGS
