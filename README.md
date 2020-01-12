@@ -427,7 +427,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 
 
 ## APPENDIX LDAS DEPENDENCIES
-Most LDAS dependencies will come with your Linux distribution
+Most LDAS dependencies will come with your Linux distribution.  
 However, some distros may not include some of the following:
 
 #### Essential
@@ -446,8 +446,6 @@ However, some distros may not include some of the following:
 	- git - not required but useful for install-management of LDAS
 
 	- python3 + hdf5 support (for some of the MEA scripts)
-		- export HTTP_PROXY=http://user:pass@[proxy]:[port]
-		- export HTTPS_PROXY=$HTTP_PROXY
 		- yum install -y libffi-devel
 		- yum install -y openssl-devel
  		- v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
