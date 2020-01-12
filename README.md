@@ -1,7 +1,7 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-- [INTRODUCTION](#introduction)
+- [INTRODUCTION](#introduction)                                  
 - [INSTALLATION](#installation)
 - [MANUALS](#manuals)
 - [PROGRAM TYPE TAGS](#program-type-tags)
@@ -88,15 +88,6 @@ Examples:
 
 #### 4. [optional] - delete the INSTALLER 
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system. 
-
-
-
-## Alternative ways of obtaining LDAS 
-
-#### Option A. Clone the LDAS repository from GitHub  
-	cd ~/bin
-	git clone "https://github.com/johnwilldonicely/LDAS/"	
-
 
 
 ################################################################################
