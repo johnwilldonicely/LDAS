@@ -65,7 +65,7 @@ Alternatively, you can install using a previously downloaded zipped-archive of t
 #### 1. Download the install script:  
 This should be performed in your home or download directory  
 ~~~
- 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh  
+ 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ~~~
 
 #### 2. Make the script executable:  
