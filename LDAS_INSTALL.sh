@@ -274,6 +274,7 @@ echo "--------------------------------------------------------------------------
 echo -e "MAKING SCRIPTS EXECUTABLE..."
 chmod a+x $setdest/LDAS/xs-*
 chmod a+x $setdest/LDAS/xp-*
+chmod a+x $setdest/LDAS/xr-*
 
 echo "--------------------------------------------------------------------------------"
 echo -e "UPDATING \$PATH VARIABLE ($setrc)..."

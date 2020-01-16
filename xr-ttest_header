@@ -1,5 +1,5 @@
 #!/bin/bash
-thisprog="r_ttest2"
+thisprog="xr_ttest_header"
 tempfile="temp_"$thisprog
 scriptfile=$tempfile"_script"
 datafile=$tempfile"_data"
@@ -7,27 +7,27 @@ setverbose=""
 
 if [ $# -lt 2 ] ; then 
 echo "-----------------------------------------------------------"
-echo "Perform a 2-sample Student's t-test using R"
+echo "Perform a t-test using R"
 echo "Uses Welch's correction if variances are unequal"
-echo "Assumes files DO NOT have headers identifying variables"
+echo "Assumes files have headers identifying variables"
 echo "Strips non-numeric or missing values from dataset"
 echo "Format: "$thisprog" [file][dv][iv] [options]"
 echo "	[file] = input file"
-echo "	[dv] = column-number holding dependent variable"
-echo "	[iv] = column-number holding independent variable (2-levels)"
+echo "	[dv] = name of the dependent variable"
+echo "	[iv] = name of the independent variable (2-levels)"
 echo "Valid options:"
 echo "	-v set verbose output"
 echo "Non-verbose output:"
 echo "	mean1  mean2  t  df  p  (w) if Welch's correction"
 echo "Examples:"
-echo "	"$thisprog" file.txt  5 1 "
+echo "	"$thisprog" file.txt  weight group "
 echo "-----------------------------------------------------------"
 exit
 fi
 
 infile=$1; shift
-dvcol=$1; shift
-ivcol=$1; shift
+dv=$1; shift
+iv=$1; shift
 
 # OPTIONAL ARGUMENT HANDLING
 while getopts  "v" flag ; do
@@ -41,28 +41,27 @@ for i in $(seq 1 $lastarg); do shift ; done
 
 if [ ! -e $infile ] ; then { echo "	--- Error ["$thisprog"]: input file "$infile" could not be found" ; exit ; } ; fi
 
+ivcol=$(xe-getkeycol $infile $iv) ; if [ -z $ivcol ] ; then { echo "	--- Error ["$thisprog"]: input file "$infile" does not specify variable "$iv" in header" ; exit ; } ; fi 
+dvcol=$(xe-getkeycol $infile $dv) ; if [ -z $dvcol ] ; then { echo "	--- Error ["$thisprog"]: input file "$infile" does not specify variable "$dv" in header" ; exit ; } ; fi 
+
 # PULL OUT RELEVANT COLUMNS, REMOVE LINES WITH NON_NUMERIC DATA OR MISSING VALUES
-awk '{print $'$ivcol'"\t"$'$dvcol'}'  $infile |  xe-checkisnum2 stdin -t 2 -m xxx > $datafile
+awk '{print $'$ivcol'"\t"$'$dvcol'}'  $infile |  xe-checkisnum2 stdin -t 2 -m xxx > $tempfile
+xs-getheader $infile | awk '{print $'$ivcol'"\t"$'$dvcol'}' > $datafile
+cat $tempfile >> $datafile
 
 # RUN PRELIMINARY TEST FOR UNEQUAL VARIANCES
-echo "datamatrix <- read.table(\""$datafile"\", header = FALSE)" > $scriptfile
+echo "datamatrix <- read.table(\""$datafile"\", header = TRUE)" > $scriptfile
 echo "attach(datamatrix)" >> $scriptfile
-echo "group<-factor(V1)" >> $scriptfile
-echo "data<-(V2)" >> $scriptfile
-
-echo "var.test (data~group)" >> $scriptfile
-echo "data" >> $scriptfile
-echo "group" >> $scriptfile
-
+echo "var.test ("$dv"~"$iv")" >> $scriptfile
 vareq=$(cat $scriptfile | R -q --no-save --slave | grep p-value | awk '{print $NF}' )
 if [ -z $vareq ] ; then { echo "	--- Error ["$thisprog"]: problem with data in "$infile" - could not be analyzed" ; exit ; } ; fi
 
 # ADD THE T-TEST TO THE SCRIPT FILE APPROPRIATE TO THE RESULTS
 if [ $(echo $vareq | awk '$1<0.05{print "yes"}')  ]  ; then 
-	echo "t.test(data~group, var.equal=F)" >> $scriptfile
+	echo "t.test("$dv"~"$iv", var.equal=F)" >> $scriptfile
 	welch="w"
 else 
-	echo "t.test(data~group, var.equal=T)" >> $scriptfile
+	echo "t.test("$dv"~"$iv", var.equal=T)" >> $scriptfile
 	welch=""
 fi
 

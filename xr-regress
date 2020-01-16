@@ -10,14 +10,14 @@ echo
 echo "Perform multiple regression using R"
 echo "Specify filename and list of columns containing data and predictors"
 echo "Format: "
-echo "	r_regress [filename] [y column] [x1 column] [x2 column]... etc"
+echo "	xr_regress [filename] [y column] [x1 column] [x2 column]... etc"
 echo
 exit
 fi
 
 infile=$1; dvcol=$2; shift; shift
-scriptfile="temp_r_anova.R"
-datafile="temp_r_regress.txt"
+scriptfile="temp_xr_anova.R"
+datafile="temp_xr_regress.txt"
 awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $infile > $datafile
 
 echo "

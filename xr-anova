@@ -16,7 +16,7 @@ if [ ! $3 ] ; then
 	echo "- Perform ANOVA using R"
 	echo "- Will perform Tukey's HSD post-hoc tests"
 	echo "USAGE: "
-	echo "	r_anova [filename] [data] [predictors]"
+	echo "	xr_anova [filename] [data] [predictors]"
 	echo "		filename:  input file with headered columns"
 	echo "		data: name of the column containing the dependent variable"
 	echo "		predictors: CSV list of column-names for independent variables"
@@ -85,8 +85,8 @@ cat $scriptfile | R -q --no-save --slave > $tempfile
 ########################################################################################
 cat $tempfile
 
-stats1=$(xe-getkeyline1 temp_r_anova group | head -n 1)
-stats2=$(xe-getkeyline1 temp_r_anova Residuals | head -n 1)
+stats1=$(xe-getkeyline1 temp_xr_anova group | head -n 1)
+stats2=$(xe-getkeyline1 temp_xr_anova Residuals | head -n 1)
 
 F=$(echo $stats1 | cut -d ' ' -f 5)
 p=$(echo $stats1 | cut -d ' ' -f 6)

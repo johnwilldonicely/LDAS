@@ -1,7 +1,7 @@
 #!/bin/bash
 #  make a batch file for ANOVA using R
 
-thisprog="r_anova_rc"
+thisprog="xr_anova_rc"
 tempfile="temp_"$thisprog
 scriptfile=$tempfile"_script"
 datafile=$tempfile"_data"

@@ -1,38 +1,38 @@
 #!/bin/bash
-thisprog="r_ttest"
+thisprog="xr_ttest1"
 tempfile="temp_"$thisprog
 scriptfile=$tempfile"_script"
 datafile=$tempfile"_data"
 setverbose=""
+negref=0
 
 if [ $# -lt 2 ] ; then 
 echo "-----------------------------------------------------------"
-echo "Perform a t-test using R"
-echo "Uses Welch's correction if variances are unequal"
+echo "Perform a 1-sample t-test using R"
 echo "Assumes files DO NOT have headers identifying variables"
 echo "Strips non-numeric or missing values from dataset"
-echo "Format: "$thisprog" [file][dv][iv] [options]"
+echo "Format: "$thisprog" [file][dv] [options]"
 echo "	[file] = input file"
 echo "	[dv] = column-number holding dependent variable"
-echo "	[iv] = column-number holding independent variable (2-levels)"
 echo "Valid options:"
+echo "	-r set reference value for comparison (default=zero)"
 echo "	-v set verbose output"
 echo "Non-verbose output:"
-echo "	mean1  mean2  t  df  p  (w) if Welch's correction"
+echo "	mean1 t  df  p "
 echo "Examples:"
-echo "	"$thisprog" file.txt  5 1 "
+echo "	"$thisprog" file.txt  5 -r 0.5 -v "
 echo "-----------------------------------------------------------"
 exit
 fi
 
 infile=$1; shift
 dvcol=$1; shift
-ivcol=$1; shift
 
 # OPTIONAL ARGUMENT HANDLING
-while getopts  "v" flag ; do
+while getopts  ":r:v" flag ; do
         case $flag in
-                v) setverbose=1;;
+	r) setref=$OPTARG;;
+	v) setverbose="1";;
         esac
         let lastarg=$OPTIND-1
 done
@@ -41,30 +41,17 @@ for i in $(seq 1 $lastarg); do shift ; done
 
 if [ ! -e $infile ] ; then { echo "	--- Error ["$thisprog"]: input file "$infile" could not be found" ; exit ; } ; fi
 
-# PULL OUT RELEVANT COLUMNS, REMOVE LINES WITH NON_NUMERIC DATA OR MISSING VALUES
-awk '{print $'$ivcol'"\t"$'$dvcol'}'  $infile |  xe-checkisnum2 stdin -t 2 -m xxx > $datafile
+# PULL OUT DATARELEVANT COLUMNS, REMOVE LINES WITH NON_NUMERIC DATA OR MISSING VALUES
+awk '{print $'$dvcol'}'  $infile |  
+	xe-checkisnum2 stdin -t 2 -m xxx > $datafile
 
 # RUN PRELIMINARY TEST FOR UNEQUAL VARIANCES
 echo "datamatrix <- read.table(\""$datafile"\", header = FALSE)" > $scriptfile
 echo "attach(datamatrix)" >> $scriptfile
-echo "group<-factor(V1)" >> $scriptfile
-echo "data<-(V2)" >> $scriptfile
+echo "data<-(V1)" >> $scriptfile
 
-echo "var.test (data~group)" >> $scriptfile
-echo "data" >> $scriptfile
-echo "group" >> $scriptfile
+echo "t.test(data,mu=$setref,alternative=\"greater\")" >> $scriptfile
 
-vareq=$(cat $scriptfile | R -q --no-save --slave | grep p-value | awk '{print $NF}' )
-if [ -z $vareq ] ; then { echo "	--- Error ["$thisprog"]: problem with data in "$infile" - could not be analyzed" ; exit ; } ; fi
-
-# ADD THE T-TEST TO THE SCRIPT FILE APPROPRIATE TO THE RESULTS
-if [ $(echo $vareq | awk '$1<0.05{print "yes"}')  ]  ; then 
-	echo "t.test(data~group, var.equal=F)" >> $scriptfile
-	welch="w"
-else 
-	echo "t.test(data~group, var.equal=T)" >> $scriptfile
-	welch=""
-fi
 
 # RUN R TO GENERATE THE STATISTICAL RESULTS
 if [ $setverbose ] ; then 

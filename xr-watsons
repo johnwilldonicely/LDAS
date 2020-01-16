@@ -3,13 +3,13 @@
 if [ ! $4 ] ; then 
 echo "	--------------------------------------------------------"
 echo "	Perform Watsons 2-sample test sing R"
-echo "	Format: r_watsons [filename] [column1] [column2] [alpha]"
+echo "	Format: xr_watsons [filename] [column1] [column2] [alpha]"
 echo "	--------------------------------------------------------"
 exit
 fi
 
 
-datafile="temp_r_watsons"
+datafile="temp_xr_watsons"
 awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $1 > $datafile
 
 echo "

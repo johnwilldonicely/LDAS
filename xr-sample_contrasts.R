@@ -2,7 +2,7 @@ library(nlme)
 library(multcomp)
 
 # READ THE RELEVANT DATA COLUMNS INTO VARIABLES
-datamatrix <- read.table('r_sample_data.txt', header = FALSE)
+datamatrix <- read.table('xr_sample_data.txt', header = FALSE)
 attach(datamatrix)
 data<-(V5)
 subjects<-factor(V1)
