@@ -388,7 +388,6 @@ of scripts, programs, and functions.
 <a href="#code-xs-ldas-XLASER1b">xs-ldas-XLASER1b</a><br>
 <a href="#code-xs-ldas-zipexpt">xs-ldas-zipexpt</a><br>
 <a href="#code-xs-manual">xs-manual</a><br>
-<a href="#code-xs-progsetup">xs-progsetup</a><br>
 <a href="#code-xs-template">xs-template</a><br>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
@@ -660,7 +659,6 @@ of scripts, programs, and functions.
 <a href="#code-xs-progpath1">xs-progpath1</a><br>
 <a href="#code-xs-progpermission">xs-progpermission</a><br>
 <a href="#code-xs-progps">xs-progps</a><br>
-<a href="#code-xs-progsetup">xs-progsetup</a><br>
 <a href="#code-xs-progsync1">xs-progsync1</a><br>
 <a href="#code-xs-progtag">xs-progtag</a><br>
 <a href="#code-xs-template">xs-template</a><br>
@@ -4931,7 +4929,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_191223.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200116.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5015,7 +5013,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2019_12_23
+		log_xs-O2-makex6b_2020_01_16
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5920,7 +5918,7 @@ USAGE: xs-proglicence [sourcefile] [licence] [options]
 		- a single blank line is added to the bottom
 
 OPTIONS, defaults in []:
-	-y : year  to replace &#60YEAR&#62 label in licence file [2019]
+	-y : year  to replace &#60YEAR&#62 label in licence file [2020]
 		- do not use commas, do place multiple years in quotes
 		- set to L to preserve current licence setting
 		- set to D to use current file date
@@ -5996,41 +5994,6 @@ USAGE: xs-progpermission [user] [path]
         echo 	[fields] (optional): the number of command-line options to print
 - example: xs-progps "KlustaKwik jh001-091231" 4
 ------------------------------------------------------------------
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xs-progsetup"><a href="#CODE">&#8679</a> xs-progsetup</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-progsetup: LDAS installation script
-USAGE: xs-progsetup [mode] [options]
-	[mode]: operating mode (install or compile)
-		install: 
-			- full install from GitHub (default) or a .zip archive
-			- check operating system & permissions
-			- update $PATH variable
-			- check dependencies
-			- create bin folder
-		update: 
-			- update from a .zip archive
-			- extract a zip archive of LDAS into /home/huxprog/bin/
-		compile: 
-			- re-compile code after install or GitHub update
-			- check presence of source folder and contents
-			- check bin folder is present, clear executable content
-			- compile all xe-* programs
-			- update all manuals
-VALID OPTIONS (defaults in []):
-	--zip: install LDAS from this zip-file []
-		- if unset, use "git clone" to get the latest repo from GitHub
-	--scope: local (current user) or gloabl (all users) [local]
-	--dest: destination for repository [/home/huxprog/bin/]
-	--verb: verbose output (0=NO 1=YES) [1]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-progsetup install
---------------------------------------------------------------------------------
 
 </blockquote></pre>
 
