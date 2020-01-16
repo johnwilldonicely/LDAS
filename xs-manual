@@ -64,12 +64,13 @@ setman=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:" ; vl="view:,make:,"
+vs="v:" ; vl="verb:,view:,make:,"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--verb ) setverb=$2 ; shift ;;
 		--view ) setview=$2 ; shift ;;
 		--make ) setmake=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -115,13 +116,13 @@ if [ "$setmake" != "" ] ; then
 		if [ "$(command -v pandoc)" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: pandoc is not installed on this machine: cannot convert to HTML" ; echo ; exit; } ; fi
 		make1=$outpath"/manual_"$alias".html"
 		command="pandoc -s --from markdown+hard_line_breaks --to html --toc $manual -o $make1 --metadata pagetitle=$manual"
-		echo "COMMAND: "$command
+		if [ "$setverb" == "1" ] ; then echo "COMMAND: "$command ; fi
 		$command
 	elif [ $setmake == "pdf" ] ; then
 		if [ "$(command -v pandoc)" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: pandoc is not installed on this machine: cannot convert to pdf" ; echo ; exit; } ; fi
 		make1=$outpath"/manual_"$alias".pdf"
 		command="pandoc -s --from markdown+hard_line_breaks --to latex --toc $manual -o $make1"
-		echo "COMMAND: "$command
+		if [ "$setverb" == "1" ] ; then echo "COMMAND: "$command ; fi
 		$command
 	fi
 	exit
@@ -132,15 +133,23 @@ fi
 # VIEW THE MANUAL
 ################################################################################
 if [ $setview == "terminal" ] ; then
+	{
 	command="nano $manual $optnano"
-	echo "COMMAND: "$command
+	if [ "$setverb" == "1" ] ; then echo "COMMAND: "$command ; fi
 	$command
+	}
 elif [ $setview == "html" ] ; then
-	view1="manual_"$alias".html"
- 	firefox $outpath"/"$view1 &
+	{
+	manual=$outpath"/manual_"$alias".html"
+	if [ ! -e $manual ] ; then $thisprog $setman --make html --verb $setverb ; fi
+ 	firefox $manual &
+	}
 elif [ $setview == "pdf" ] ; then
-	view1="manual_"$alias".pdf"
- 	evince $outpath"/"$view1 &
+	{
+	manual=$outpath"/manual_"$alias".pdf"
+	if [ ! -e $manual ] ; then $thisprog $setman --make pdf --verb $setverb ; fi
+ 	evince $manual &
+	}
 fi
 
 

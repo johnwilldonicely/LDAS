@@ -19,11 +19,11 @@ set_compiler="gcc"
 
 # REDUCE WARN LEVEL IF OS IS RED HAT VERSION 6 OR EARLIER
 x=$(lsb_release -a | grep "Red Hat")
-if [ "$x" != "" ] ; then 
+if [ "$x" != "" ] ; then
 	y=$(lsb_release -a | grep Release: | awk '{print $2}')
 	let z=$(echo "$y<7.0" | bc)
-	if [ $z -eq 1 ] ; then set_warn="1" ; fi 
-fi 
+	if [ $z -eq 1 ] ; then set_warn="1" ; fi
+fi
 
 if [ $# -lt 1 ]; then
 	echo
@@ -51,7 +51,7 @@ if [ $# -lt 1 ]; then
 	echo
 	echo "EXAMPLES:"
 	echo "- make executable \"xe-anova\" in current dir: "
-	echo "	"$thisprog" anova.cpp --pre \"xe-\" --dest ./"
+	echo "	"$thisprog" anova.c --prefix \"xe-\" --dest ./"
 	echo "- compile files matching \"xe-*.c\", show all warnings:"
 	echo "	"$thisprog" \"xe-*.c\" --warn 2"
 	echo "------------------------------------------------------------"
@@ -172,6 +172,7 @@ for infile in $listinfiles ; do
 	{ echo ; echo $infile ; echo $job ; $job ; } &>> $logfile
 done
 echo >> $logfile
+
 
 ################################################################################
 # REPORT

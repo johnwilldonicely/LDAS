@@ -1,7 +1,6 @@
 bin/
 backups/
 source/temp_xs-progcompile.log
-docs/manual_*.html
-docs/manual_*.pdf
+docs/*.html
+docs/*.pdf
 temp_xs-progcompile.log 
-temp_xs-progsetup.status

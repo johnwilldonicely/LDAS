@@ -314,7 +314,7 @@ echo "UPDATING TAGS-SUMMARY FILE..."
 xs-progtag html | awk '{print "\t"$0}'
 
 echo "--------------------------------------------------------------------------------"
-echo "UPDATING MANUALS..."
+echo "BUILDING HTML VERSIONS OF MANUALS..."
 if [ "$(command -v pandoc)" != "" ] ; then
 	list=$(xs-manual | xe-cut2 stdin available manuals: -s4 1 | tail -n +2 | xe-delimit stdin)
 	for i in $list ; do xs-manual $i --make html 2>/dev/null | awk '{print "\t"$0}' ; done
