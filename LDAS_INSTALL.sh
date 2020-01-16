@@ -1,12 +1,6 @@
 #!/bin/bash
 
-# NOTE THAT R IS NOT ACTUALLY REQUIRED BUT RECOMMENDED - REMOVE FROM SOURCE FOLDER
 # PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATED MD-to-PDF CONVERSION
-# CHECK THAT CURRENT FOLDER IS NOT $DEST AND IS WRITEABLE
-# CHECK THAT $DEST IS WRITEABLE
-# ??? CHECK THAT GIT IS INSTALLED IF --SETZIP == ""
-# ??? CHECK THAT LOCAL LDAS FOLDER DOESN'T ALREADY EXIST
-
 
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
@@ -88,18 +82,21 @@ if [ $# -lt 1 ]; then
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": LDAS installation script"
 	echo "	- full install from GitHub (default) or a .zip archive"
-	echo "	- check operating system & permissions"
-	echo "	- update \$PATH variable"
-	echo "	- check dependencies"
-	echo "	- create bin folder"
+	echo "	- checks operating system & permissions"
+	echo "	- checks dependencies"
+	echo "	- compiles the C source-code"
+	echo "	- updates the \$PATH variable"
+	echo "	- updates manuals and PROGTAG.html"
+	echo ""
 	echo "USAGE: $thisprog [scope] [options]"
 	echo "	[scope]: local (current user) or global (all users)"
+	echo ""
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--zip: install LDAS from this zip-file [$setfilezip]"
 	echo "		- if unset, use \"git clone\" to get the latest repo from GitHub"
-	echo "	--dest: destination for repository [$setdest]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
 	echo "EXAMPLE: "
 	echo "	"$thisprog" global --zip LDAS_master.zip"
 	echo "--------------------------------------------------------------------------------"
@@ -119,14 +116,13 @@ if [ "$setscope" != "local" ] && [ "$setscope" != "global" ] ; then
 fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:" ; vl="dest:,zip:,verb:,clean:"
+vs="v:c:" ; vl="zip:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
 		--zip ) setfilezip=$2 ; shift ;;
-		--dest ) setdest=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -299,8 +295,31 @@ if [ "$z" == "" ] ; then
 fi
 
 
-{ echo -e "$GREEN\nNOTE: now run $thisprog compile$NC\n" ;  exit; }
+echo "--------------------------------------------------------------------------------"
+echo -e "COMPILING C-CODE..."
+inpath=$setdest"/LDAS/source"
+outpath=$setdest"/LDAS//bin"
+if [ ! -d "$inpath" ] ; then { echo -e "$RED\n--- Error ["$thisprog"]: missing directory $inpath\n\t- consider re-installing LDAS$NC\n" ;  exit; } ; fi
+if [ ! -d "$outpath" ] ; then sudo mkdir -p $outpath ; fi
+func_permission $inpath
 
+rm -f $outpath/xe-*
+cd $inpath
+xs-progcompile "xe-*.c"
+
+
+echo "--------------------------------------------------------------------------------"
+echo "UPDATING TAGS-SUMMARY FILE..."
+xs-progtag html | awk '{print "\t"$0}'
+
+echo "--------------------------------------------------------------------------------"
+echo "UPDATING MANUALS..."
+if [ "$(command -v pandoc)" != "" ] ; then
+	list=$(xs-manual | xe-cut2 stdin available manuals: -s4 1 | tail -n +2 | xe-delimit stdin)
+	for i in $list ; do xs-manual $i --make html 2>/dev/null | awk '{print "\t"$0}' ; done
+else
+	echo -e "\n--- Warning ["$thisprog"]: pandoc is not installed on this machine: cannot create HTML versions of manuals\n"
+fi
 
 ################################################################################
 # REPORT, CLEANUP AND EXIT
