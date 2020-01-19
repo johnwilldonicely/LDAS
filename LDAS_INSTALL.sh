@@ -167,9 +167,16 @@ if [ "$prevpath" == "" ] ; then {
 	fi
 }
 # determine previous-install scope - make sure path is valid
-elif [[ $prevpath =~ "/opt/LDAS" ]] ; then prevscope="global" ; prevrc="/etc/profile"
-elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then prevscope="local" ; prevrc="/home/$USER/.bashrc"
-else echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevpath\n\t- manually remove and retry\n$NC" ; exit
+elif [[ $prevpath =~ "/opt/LDAS" ]] ; then
+	prevscope="global"
+	prevrc="/etc/profile"
+	prevnano="/etc/nanorc"
+elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then
+	prevscope="local" ;
+	prevrc="/home/$USER/.bashrc"
+	prevnano="/home/$USER/.nanorc"
+else
+	echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevpath\n\t- manually remove and retry\n$NC" ; exit
 fi
 
 # FOR UPDATE, MAKE SURE SCOPE MATCHES
@@ -208,93 +215,19 @@ if [ "$prevpath" != "" ] ; then
 
 	# OFFER TO BACKUP
 	backup="/home/$USER/LDAS_backup_"$(date +'%Y%m%d')".zip"
-	echo -en "$GREEN\n"
+	echo -en "$GREEN"
 	read -p  "--- BACKUP $prevpath to $backup? [y/n] " answer
 	echo -en "$NC"
 	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
 
 fi
 
-
-
-################################################################################
-# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
-# ??? - if required, overwrite .git/ and .gitignore with existing install versions
-################################################################################
-if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
-mkdir -p $tempfolder
-echo "--------------------------------------------------------------------------------"
-if [ "$setfilezip" != "" ] ; then
-	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
-	if [ ! -e "$setzipfile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n"$NC ;  exit; } ; fi
-
-	unzip -oq $setfilezip -d $tempfolder
-	# find the most recent LDAS folder created
-	z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
-	# rename to LDAS
-	mv $tempfolder/$z $tempfolder/LDAS
-else
-	echo -e "GIT-CLONING LDAS FROM $setsource ..."
-	rm -f $tempfile".error"
-	git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
-	z=$(grep fatal: $tempfile".error")
-	if [ "$z" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
-fi
-# make the directory for the compiled output
-mkdir -p $tempfolder/LDAS/bin
-
-# ???
-## for updates, preserve existing .gt/ and .gitignore
-#if [ "$setupdate" == "1" ] ; then
-#	cp -f $prevpath/.gitignore $tempfolder/LDAS/
-#	cp -f -a $prevpath/.git $tempfolder/LDAS/
-#fi
-
-exit
-
-
-
-
-# CONFIRM OVERWRITE - REMOVE PREVIOUS INSTALL
-if [ "$prevpath" != "" ] ; then
-
-	# for full install, warn and remove .rc
-	if [ "$setupdate" == "0" ] ; then
-		echo -e "$GREEN"
-		read -p  "--- WARNING: this completely removes previous install - proceed? [y/n] " answer
-		echo -en "$NC"
-		while true ; do case $answer in [yY]* ) break ;; *) echo ; exit ;; esac ; done
-
-		grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
-		grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nanorc
-
-		if [ "$prevscope" == "local" ]; then
-			echo -e "\t...cleaning $prevrc"
-			mv $tempfile.rc $prevrc
-			echo -e "\t...cleaning /etc/nanorc"
-			mv $tempfile.nanorc /etc/nanorc
-			echo -e "\t...removing $prevpath"
-			rm -rf $prevpath
-		else
-			echo -e "\t...cleaning $prevrc"
-			sudo mv $tempfile.rc $prevrc
-			echo -e "\t...cleaning /etc/nanorc"
-			sudo mv $tempfile.nanorc /etc/nanorc
-			echo -e "\t...removing $prevpath"
-			sudo rm -rf $prevpath
-		fi
-
-	else
-	fi
-fi
-
-
 ########################################################################################
-# INSTALL
+# CHECK DEPENDENCIES - FULL INSTALL ONLY
 ########################################################################################
 if [ "$setupdate" == "0" ] ; then
 	# CHECK IF DEPENDENCIES ARE INSTALLED
-	echo "--------------------------------------------------------------------------------"
+	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "CHECKING DEPENDENCIES..."
 	dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
@@ -324,9 +257,86 @@ if [ "$setupdate" == "0" ] ; then
 fi
 
 
+################################################################################
+# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
+################################################################################
+if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
+mkdir -p $tempfolder
+echo -e "\n--------------------------------------------------------------------------------"
+if [ "$setfilezip" != "" ] ; then
+	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
+	if [ ! -e "$setzipfile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n"$NC ;  exit; } ; fi
+
+	unzip -oq $setfilezip -d $tempfolder
+	# find the most recent LDAS folder created
+	z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
+	# rename to LDAS
+	mv $tempfolder/$z $tempfolder/LDAS
+else
+	echo -e "GIT-CLONING LDAS FROM $setsource ..."
+	rm -f $tempfile".error"
+	git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
+	z=$(grep fatal: $tempfile".error")
+	if [ "$z" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
+fi
+# make the directory for the compiled output
+mkdir -p $tempfolder/LDAS/bin
+
+echo -e "\n--------------------------------------------------------------------------------"
+echo -e "MAKING SCRIPTS EXECUTABLE..."
+chmod a+x $tempfolder/LDAS/xs-*
+chmod a+x $tempfolder/LDAS/xp-*
+chmod a+x $tempfolder/LDAS/xr-*
+
+# ???
+exit
 
 
-echo "--------------------------------------------------------------------------------"
+################################################################################
+# REMOVE PREVIOUS INSTALL
+################################################################################
+if [ "$prevpath" != "" ] ; then
+
+	echo -e "\n--------------------------------------------------------------------------------"
+	echo -e "REMOVING PREVIOUS INSTALL..."
+
+	# for full install, warn and remove .rc
+	if [ "$setupdate" == "0" ] ; then
+		grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
+		grep -v "LDAS" $prevnano 2>/dev/null > $tempfile.nano
+		if [ "$prevscope" == "local" ]; then
+			echo -e "\t...cleaning $prevrc"
+			mv $tempfile.rc $prevrc
+			echo -e "\t...cleaning $prevnano"
+			mv $tempfile.nano $prevnano
+			echo -e "\t...removing $prevpath"
+			rm -rf $prevpath
+		else
+			echo -e "\t...cleaning $prevrc"
+			sudo mv $tempfile.rc $prevrc
+			echo -e "\t...cleaning $prevnano"
+			sudo mv $tempfile.nano $prevnano
+			echo -e "\t...removing $prevpath"
+			sudo rm -rf $prevpath
+		fi
+
+	elif [ "$setupdate" == "1" ] ; then
+		if [ "$prevscope" == "local" ]; then
+			echo -e "\t...removing $prevpath"
+			rm -rf $prevpath
+		else
+			echo -e "\t...removing $prevpath"
+			sudo rm -rf $prevpath
+		fi
+	fi
+fi
+
+
+
+
+
+
+echo -e "\n--------------------------------------------------------------------------------"
 echo -e "MOVING LDAS TO DESTINATION FOLDER $setdest ..."
 if [ $setscope == "local" ] ; then
 	if [ -d $setdest/LDAS ] ; then rm -rf $setdest/LDAS ; fi
@@ -335,12 +345,6 @@ else
 	if [ -d $setdest/LDAS ] ; then sudo rm -rf $setdest/LDAS ; fi
 	sudo mv $tempfolder/LDAS $setdest/
 fi
-
-echo "--------------------------------------------------------------------------------"
-echo -e "MAKING SCRIPTS EXECUTABLE..."
-chmod a+x $setdest/LDAS/xs-*
-chmod a+x $setdest/LDAS/xp-*
-chmod a+x $setdest/LDAS/xr-*
 
 
 if [ "$setupdate" == "0" ] ; then
