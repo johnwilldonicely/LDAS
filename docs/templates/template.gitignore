@@ -1,0 +1,6 @@
+temp_*
+bin/
+backups/
+docs/*.html
+docs/*.pdf
+source/temp_*
