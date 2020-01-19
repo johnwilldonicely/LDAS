@@ -288,9 +288,6 @@ chmod a+x $tempfolder/LDAS/xs-*
 chmod a+x $tempfolder/LDAS/xp-*
 chmod a+x $tempfolder/LDAS/xr-*
 
-# ???
-exit
-
 
 ################################################################################
 # REMOVE PREVIOUS INSTALL
@@ -300,7 +297,7 @@ if [ "$prevpath" != "" ] ; then
 	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "REMOVING PREVIOUS INSTALL..."
 
-	# for full install, warn and remove .rc
+	# for full install, remove both the repo and the $PATH and nano configurations
 	if [ "$setupdate" == "0" ] ; then
 		grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
 		grep -v "LDAS" $prevnano 2>/dev/null > $tempfile.nano
@@ -319,7 +316,7 @@ if [ "$prevpath" != "" ] ; then
 			echo -e "\t...removing $prevpath"
 			sudo rm -rf $prevpath
 		fi
-
+	# for local install, just remove the repo
 	elif [ "$setupdate" == "1" ] ; then
 		if [ "$prevscope" == "local" ]; then
 			echo -e "\t...removing $prevpath"
@@ -330,10 +327,6 @@ if [ "$prevpath" != "" ] ; then
 		fi
 	fi
 fi
-
-
-
-
 
 
 echo -e "\n--------------------------------------------------------------------------------"
@@ -362,24 +355,34 @@ if [ "$setupdate" == "0" ] ; then
 		else
 			sudo sh -c "cat $tempfile.path >> $setrc"
 		fi
+	# ??? should add test here for whether LDAS path is defined somewhere else!
 	fi
+
 
 	echo "--------------------------------------------------------------------------------"
 	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
 	z=$(grep -s LDAS /etc/nanorc | head -n 1)
 	if [ "$z" == "" ] ; then
 		template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
-		sudo sh -c "cat $template >> /etc/nanorc"
+		if [ $setscope == "local" ] ; then
+			cat $template >> /home/$USER/.nanorc
+		else
+			sudo sh -c "cat $template >> /etc/nanorc"
+		fi
+	# ??? should add test here for whether LDAS is defined in the other (LOCAL or GLOBAL) location!
 	fi
 fi
 
-echo "--------------------------------------------------------------------------------"
-echo -e "COMPILING C-CODE..."
+
 inpath=$setdest"/LDAS/source"
 outpath=$setdest"/LDAS//bin"
+echo "--------------------------------------------------------------------------------"
+echo -e "COMPILING C SOURCE-CODE ($inpath)..."
 if [ ! -d "$inpath" ] ; then { echo -e "$RED\n--- Error ["$thisprog"]: missing directory $inpath\n\t- consider re-installing LDAS$NC\n" ;  exit; } ; fi
 if [ ! -d "$outpath" ] ; then sudo mkdir -p $outpath ; fi
 func_permission $inpath
+
+exit
 
 rm -f $outpath/xe-*
 cd $inpath
