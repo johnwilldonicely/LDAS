@@ -1,0 +1,3 @@
+# LDAS path updates ############################################################
+PATH=$PATH:/opt/LDAS
+PATH=$PATH:/opt/LDAS/bin

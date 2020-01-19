@@ -34,6 +34,7 @@ setdest="/home/$USER/bin/"
 setrc="/home/$USER/.bashrc"
 filezip="LDAS-master.zip"
 setfilezip=""
+setupdate="0"
 setverb="1"
 setclean="1"
 
@@ -92,7 +93,8 @@ if [ $# -lt 1 ]; then
 	echo "	[scope]: local (current user) or global (all users)"
 	echo ""
 	echo "VALID OPTIONS (defaults in []):"
-	echo "	--zip: install LDAS from this zip-file [$setfilezip]"
+	echo "	--update: update existing LDAS rather than full install (0=NO 1=YES) [$setupdate]"
+	echo "	--zip: install/update  LDAS from this zip-file [$setfilezip]"
 	echo "		- if unset, use \"git clone\" to get the latest repo from GitHub"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
@@ -116,12 +118,13 @@ if [ "$setscope" != "local" ] && [ "$setscope" != "global" ] ; then
 fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:" ; vl="zip:,verb:,clean:"
+vs="v:c:" ; vl="update:,zip:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--update ) setupdate=$2 ; shift ;;
 		--zip ) setfilezip=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
@@ -130,6 +133,7 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
+if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
 
@@ -153,92 +157,104 @@ distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
 release=$(lsb_release -a | grep "Release:" | cut -f 2)
 echo -e "- Linux distro: $distro $release"
 
-
-# CHECK IF LDAS IS ALREADY INSTALLED
+# CHECK IF LDAS IS ALREADY INSTALLED - CHECK PATH
 echo "- requested install path: $setdest/LDAS"
 prevpath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
+if [ "$prevpath" == "" ] ; then {
+	# if not installed, update cannot be performed
+	if [ "$setupdate" == "1" ] ; then
+		echo -e "$RED\n--- Error ["$thisprog"]: LDAS not installed, can't use \"--update 1\" option\n\tPerform full install instead\n$NC" ; exit
+	fi
+}
+# determine previous-install scope - make sure path is valid
+elif [[ $prevpath =~ "/opt/LDAS" ]] ; then prevscope="global" ; prevrc="/etc/profile"
+elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then prevscope="local" ; prevrc="/home/$USER/.bashrc"
+else echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevpath\n\t- manually remove and retry\n$NC" ; exit
+fi
+
+# FOR UPDATE, MAKE SURE SCOPE MATCHES
+if [ "$setupdate" == "1" ] ; then
+	if [ "$prevscope" != "$setscope" ] ; then
+		echo -e "$RED\n--- Error ["$thisprog"]: update scope ($setscope) mismatches current ($prevscope)\n\t- to change the scope, do a full install\n$NC" ; exit
+	fi
+fi
+
+
+# CONFIRM OVERWRITE
 if [ "$prevpath" != "" ] ; then
 
 	echo "- previous install path: $prevpath"
-	# determine previous-install scope - make sure path is valid
-	if [[ $prevpath =~ "/opt/LDAS" ]] ; then prevscope="global" ; prevrc="/etc/profile"
-	elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then prevscope="local" ; prevrc="/home/$USER/.bashrc"
-	else echo -e "\n--- Error ["$thisprog"]: LDAS previously installed in invalid location ($prevpath) - remove and retry\n" ; exit
-	fi
-
-	echo -e "$GREEN"
-	read -p  "--- WARNING: this will first remove previous installation - proceed? [y/n] " answer
-	echo -en "$NC"
-	while true ; do case $answer in [yY]* ) break ;; *) echo ; exit ;; esac ; done
-	echo -en "$GREEN"
+	echo -en "$GREEN\n"
 	backup="/home/$USER/LDAS_backup_"$(date +'%Y%m%d')".zip"
 	read -p  "--- BACKUP $prevpath to $backup? [y/n] " answer
 	echo -en "$NC"
 	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
 
-	grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
-	grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nanorc
+	if [ "$setupdate" == "0" ] ; then
+		echo -e "$GREEN"
+		read -p  "--- WARNING: this completely removes previous install - proceed? [y/n] " answer
+		echo -en "$NC"
+		while true ; do case $answer in [yY]* ) break ;; *) echo ; exit ;; esac ; done
 
-	if [ "$prevscope" == "local" ]; then
-		echo -e "\t...cleaning $prevrc"
-		mv $tempfile.rc $prevrc
-		echo -e "\t...cleaning /etc/nanorc"
-		mv $tempfile.nanorc /etc/nanorc
-		echo -e "\t...removing $prevpath"
-		rm -rf $prevpath
-	else
-		echo -e "\t...cleaning $prevrc"
-		sudo mv $tempfile.rc $prevrc
-		echo -e "\t...cleaning /etc/nanorc"
-		sudo mv $tempfile.nanorc /etc/nanorc
-		echo -e "\t...removing $prevpath"
-		sudo rm -rf $prevpath
+		grep -v "LDAS" $prevrc 2>/dev/null > $tempfile.rc
+		grep -v "LDAS" /etc/nanorc 2>/dev/null > $tempfile.nanorc
+
+		if [ "$prevscope" == "local" ]; then
+			echo -e "\t...cleaning $prevrc"
+			mv $tempfile.rc $prevrc
+			echo -e "\t...cleaning /etc/nanorc"
+			mv $tempfile.nanorc /etc/nanorc
+			echo -e "\t...removing $prevpath"
+			rm -rf $prevpath
+		else
+			echo -e "\t...cleaning $prevrc"
+			sudo mv $tempfile.rc $prevrc
+			echo -e "\t...cleaning /etc/nanorc"
+			sudo mv $tempfile.nanorc /etc/nanorc
+			echo -e "\t...removing $prevpath"
+			sudo rm -rf $prevpath
+		fi
 	fi
-
 fi
-
-# BUILD THE TEMPLATE PATH-UPDATE FILE
-echo -e "# LDAS path updates $bar" > $tempfile".path"
-echo -e "PATH=\$PATH:$setdest/LDAS" >> $tempfile".path"
-echo -e "PATH=\$PATH:$setdest/LDAS/bin" >> $tempfile".path"
 
 
 ########################################################################################
 # INSTALL
 ########################################################################################
-# CHECK IF DEPENDENCIES ARE INSTALLED
-echo "--------------------------------------------------------------------------------"
-echo -e "CHECKING DEPENDENCIES..."
-dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
-	echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
-	echo -e "\t\t - attempting to install $dep as sudo..."
-	sudo yum install $dep -y
-fi
-dep="gs" ; if [ "$(command -v $dep)" == "" ] ; then
-	echo -e "\t--- Warning:$GREEN$dep$NC not installed- graphics handling might fail"
-	echo -e "\t\t - attempting to install $dep as sudo..."
-	sudo yum install $dep -y
-fi
-de="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
-	echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
-	echo -e "\t\t - attempting to install $dep as sudo..."
-	sudo yum install $dep -y
-fi
-dep="nano" ; if [ "$(command -v $dep)" == "" ] ; then
-	echo -e "\t--- Warning:$GREEN$dep$NC not installed- manuals might not be viewable"
-	echo -e "\t\t - attempting to install $dep as sudo..."
-	sudo yum install $dep -y
-fi
-dep="pandoc" ; if [ "$(command -v $dep)" == "" ] ; then
-	echo -e "\t--- Warning: $GREEN$dep$NC not installed- some manuals might not be rendered"
-	echo -e "\t\t - attempting to install $dep as sudo..."
-	sudo yum install $dep -y
+if [ "$setupdate" == "0" ] ; then
+	# CHECK IF DEPENDENCIES ARE INSTALLED
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CHECKING DEPENDENCIES..."
+	dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="gs" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- graphics handling might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	de="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="nano" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- manuals might not be viewable"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
+	dep="pandoc" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning: $GREEN$dep$NC not installed- some manuals might not be rendered"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo yum install $dep -y
+	fi
 fi
 
 # RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
 if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
 mkdir -p $tempfolder
-
 echo "--------------------------------------------------------------------------------"
 if [ "$setfilezip" != "" ] ; then
 	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
@@ -276,25 +292,32 @@ chmod a+x $setdest/LDAS/xs-*
 chmod a+x $setdest/LDAS/xp-*
 chmod a+x $setdest/LDAS/xr-*
 
-echo "--------------------------------------------------------------------------------"
-echo -e "UPDATING \$PATH VARIABLE ($setrc)..."
-z=$(grep -s '$PATH:'$setdest/LDAS $setrc | head -n 1)
-if [ "$z" == "" ] ; then
-	if [ $setscope == "local" ] ; then
-		cat $tempfile.path >> $setrc
-	else
-		sudo sh -c "cat $tempfile.path >> $setrc"
+
+if [ "$setupdate" == "0" ] ; then
+	echo "--------------------------------------------------------------------------------"
+	echo -e "UPDATING \$PATH VARIABLE ($setrc)..."
+	# build the template path-update file
+	echo -e "# LDAS path updates $bar" > $tempfile".path"
+	echo -e "PATH=\$PATH:$setdest/LDAS" >> $tempfile".path"
+	echo -e "PATH=\$PATH:$setdest/LDAS/bin" >> $tempfile".path"
+	# update the appropriate file with the path
+	z=$(grep -s '$PATH:'$setdest/LDAS $setrc | head -n 1)
+	if [ "$z" == "" ] ; then
+		if [ $setscope == "local" ] ; then
+			cat $tempfile.path >> $setrc
+		else
+			sudo sh -c "cat $tempfile.path >> $setrc"
+		fi
+	fi
+
+	echo "--------------------------------------------------------------------------------"
+	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
+	z=$(grep -s LDAS /etc/nanorc | head -n 1)
+	if [ "$z" == "" ] ; then
+		template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
+		sudo sh -c "cat $template >> /etc/nanorc"
 	fi
 fi
-
-echo "--------------------------------------------------------------------------------"
-echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
-z=$(grep -s LDAS /etc/nanorc | head -n 1)
-if [ "$z" == "" ] ; then
-	template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
-	sudo sh -c "cat $template >> /etc/nanorc"
-fi
-
 
 echo "--------------------------------------------------------------------------------"
 echo -e "COMPILING C-CODE..."
