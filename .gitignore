@@ -1,6 +1,6 @@
+temp_*
 bin/
 backups/
-source/temp_xs-progcompile.log
 docs/*.html
 docs/*.pdf
-temp_xs-progcompile.log 
+source/temp_*

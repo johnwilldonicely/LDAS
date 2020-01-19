@@ -137,6 +137,13 @@ if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Er
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
 
+################################################################################
+# PRELIMINARY SETUP AND ERROR CHECKS
+################################################################################
+# DETERMINE LINUX VERSION AND REPORT
+distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
+release=$(lsb_release -a | grep "Release:" | cut -f 2)
+
 # DETERMINE DESTINATION AND PATH-UPDATE OPTIONS, DEPENDING ON SELECTED SCOPE
 # local= current user only, global= all users
 if [ "$setscope" == "local" ] ; then
@@ -151,14 +158,7 @@ elif [ "$setscope" == "global" ] ; then
 #???	func_permission $setrc "yes"
 fi
 
-
-# DETERMINE LINUX VERSION AND REPORT
-distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
-release=$(lsb_release -a | grep "Release:" | cut -f 2)
-echo -e "- Linux distro: $distro $release"
-
 # CHECK IF LDAS IS ALREADY INSTALLED - CHECK PATH
-echo "- requested install path: $setdest/LDAS"
 prevpath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 if [ "$prevpath" == "" ] ; then {
 	# if not installed, update cannot be performed
@@ -180,16 +180,85 @@ if [ "$setupdate" == "1" ] ; then
 fi
 
 
-# CONFIRM OVERWRITE
+################################################################################
+# REPORT ON SYSTEM AND CURRENT INSTALL
+################################################################################
+echo -e "- Linux distro: $distro $release"
+echo -e "- proposed install path: $setdest/LDAS"
+echo -e "- previous install path: $prevpath"
+
+
+################################################################################
+# CHECK TO PROCEED AND BACKUP EXISTING INSTALL
+################################################################################
 if [ "$prevpath" != "" ] ; then
 
-	echo "- previous install path: $prevpath"
-	echo -en "$GREEN\n"
+	# CHECK FOR PROCEEDING
+	if [ "$setupdate" == "0" ] ; then
+		echo -e "\n--- SYSTEM WILL BE CONFIGURED FOR $setscope INSTALLATION"$GREEN
+		read -p  "--- WARNING: this will overwrite the previous install - proceed? [y/n] " answer
+		echo -en "$NC"
+		while true ; do case $answer in [yY]* ) break ;; *) echo ; exit ;; esac ; done
+	elif [ "$setupdate" == "1" ] ; then
+		echo -e "$GREEN"
+		read -p  "--- WARNING: this will overwrite the previous install - proceed? [y/n] " answer
+		echo -en "$NC"
+		while true ; do case $answer in [yY]* ) break ;; *) echo ; exit ;; esac ; done
+	fi
+
+	# OFFER TO BACKUP
 	backup="/home/$USER/LDAS_backup_"$(date +'%Y%m%d')".zip"
+	echo -en "$GREEN\n"
 	read -p  "--- BACKUP $prevpath to $backup? [y/n] " answer
 	echo -en "$NC"
 	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
 
+fi
+
+
+
+################################################################################
+# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
+# ??? - if required, overwrite .git/ and .gitignore with existing install versions
+################################################################################
+if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
+mkdir -p $tempfolder
+echo "--------------------------------------------------------------------------------"
+if [ "$setfilezip" != "" ] ; then
+	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
+	if [ ! -e "$setzipfile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n"$NC ;  exit; } ; fi
+
+	unzip -oq $setfilezip -d $tempfolder
+	# find the most recent LDAS folder created
+	z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
+	# rename to LDAS
+	mv $tempfolder/$z $tempfolder/LDAS
+else
+	echo -e "GIT-CLONING LDAS FROM $setsource ..."
+	rm -f $tempfile".error"
+	git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
+	z=$(grep fatal: $tempfile".error")
+	if [ "$z" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
+fi
+# make the directory for the compiled output
+mkdir -p $tempfolder/LDAS/bin
+
+# ???
+## for updates, preserve existing .gt/ and .gitignore
+#if [ "$setupdate" == "1" ] ; then
+#	cp -f $prevpath/.gitignore $tempfolder/LDAS/
+#	cp -f -a $prevpath/.git $tempfolder/LDAS/
+#fi
+
+exit
+
+
+
+
+# CONFIRM OVERWRITE - REMOVE PREVIOUS INSTALL
+if [ "$prevpath" != "" ] ; then
+
+	# for full install, warn and remove .rc
 	if [ "$setupdate" == "0" ] ; then
 		echo -e "$GREEN"
 		read -p  "--- WARNING: this completely removes previous install - proceed? [y/n] " answer
@@ -214,6 +283,8 @@ if [ "$prevpath" != "" ] ; then
 			echo -e "\t...removing $prevpath"
 			sudo rm -rf $prevpath
 		fi
+
+	else
 	fi
 fi
 
@@ -252,28 +323,7 @@ if [ "$setupdate" == "0" ] ; then
 	fi
 fi
 
-# RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
-if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder ; fi
-mkdir -p $tempfolder
-echo "--------------------------------------------------------------------------------"
-if [ "$setfilezip" != "" ] ; then
-	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
-	if [ ! -e "$setzipfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n" ;  exit; } ; fi
 
-	unzip -oq $setfilezip -d $tempfolder
-	# find the most recent LDAS folder created
-	z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
-	# rename to LDAS
-	mv $tempfolder/$z $tempfolder/LDAS
-else
-	echo -e "GIT-CLONING LDAS FROM $setsource ..."
-	rm -f $tempfile".error"
-	git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
-	z=$(grep fatal: $tempfile".error")
-	if [ "$z" ] ; then { echo -e "$RED--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
-fi
-# make the directory for the compiled output
-mkdir -p $tempfolder/LDAS/bin
 
 
 echo "--------------------------------------------------------------------------------"
