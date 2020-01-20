@@ -34,7 +34,6 @@ setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
 setscope="local"
 setdest="/home/$USER/bin/"
 setrc="/home/$USER/.bashrc"
-filezip="LDAS-master.zip"
 setfilezip=""
 setupdate="0"
 setverb="1"
@@ -160,7 +159,7 @@ if [ "$setscope" == "local" ] ; then
 	setdest="/home/$USER/bin"
 	setrc="/home/$USER/.bashrc"
 	setnano="/home/$USER/.nanorc"
-	mkdir -p $setdest # ??? check for errors?
+	mkdir -p $setdest
 elif [ "$setscope" == "global" ] ; then
 	setdest="/opt"
 	setrc="/etc/profile"
@@ -299,32 +298,44 @@ fi
 ########################################################################################
 if [ "$setupdate" == "0" ] ; then
 	# CHECK IF DEPENDENCIES ARE INSTALLED
+
+	if [ "$distro" == "Ubuntu" ] ; then
+		command="apt-get -y install"
+	else
+		command="yum -y install"
+	fi
+
 	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "CHECKING DEPENDENCIES..."
-	dep="git" ; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- install or updates might fail"
+	dep="gcc" ; if [ "$(command -v $dep)" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- code compilation will fail"
 		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo yum install $dep -y
+		sudo $command $dep
+	fi
+	dep="git" ; if [ "$(command -v $dep)" == "" ] && [ "$setfilezip" == "" ] ; then
+		echo -e "\t--- Warning:$GREEN$dep$NC not installed- cannot install using git clone"
+		echo -e "\t\t - attempting to install $dep as sudo..."
+		sudo $command $dep
 	fi
 	dep="gs" ; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- graphics handling might fail"
 		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo yum install $dep -y
+		sudo $command $dep
 	fi
 	dep="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
 		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo yum install $dep -y
+		sudo $command $dep
 	fi
 	dep="nano" ; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- manuals might not be viewable"
 		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo yum install $dep -y
+		sudo $command $dep
 	fi
 	dep="pandoc" ; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning: $GREEN$dep$NC not installed- some manuals might not be rendered"
 		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo yum install $dep -y
+		sudo $command $dep
 	fi
 fi
 
