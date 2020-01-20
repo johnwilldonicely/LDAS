@@ -447,26 +447,35 @@ Most LDAS dependencies will come with your Linux distribution.
 However, some distros may not include some of the following:
 
 #### Essential
-- gcc - essential compiler used for C-source code
-- dos2unix - required for correcting DOS-style line-breaks
-- gs - ghostscript - essential for dealing with LDAS graphics
-- nano - simple text editor - used for showing manuals
+- wget - for downloading the installer  
+- zip & unzip  - for zipping/unzipping the repository  
+- gcc - essential compiler used for C-source code  
+- dos2unix - required for correcting DOS-style line-breaks  
+- gs - ghostscript - essential for dealing with LDAS graphics  
+- nano - simple text editor - used for showing manuals  
 
 #### Optional (most functionality does not require these)
 
 - pandoc - document converter, used for creating manuals 
 ~~~
-		$ source=/home/[user]/pandoc-2.7.2-linux.tar.gz
+		$ version=2.9.1.1
+		$ tarname="pandoc-"$version"-linux-amd64.tar.gz" 
+		$ source=/home/$USER/$tarname
 		$ dest=/opt/pandoc/
+		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
+		$ sudo tar xvzf $TGZ --strip-components 1 -C $dest
 		$ sudo tar xvzf $source --strip-components 1 -C $dest
 ~~~
 
 - git - not required but useful for install-management of LDAS
+~~~
+		$ sudo yum install -y git 
+~~~
 
 - python3 + hdf5 support (for some of the MEA scripts)
 ~~~
-		$ yum install -y libffi-devel
-		$ yum install -y openssl-devel
+		$ sudo yum install -y libffi-devel
+		$ sudo yum install -y openssl-devel
  		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
 		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi 
 		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
@@ -480,8 +489,8 @@ However, some distros may not include some of the following:
 		$ python3 -m pip install matplotlib
 ~~~
 
-- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
-		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+- R - for some of the xr-* statistics scripts (ANOVA, Multiple regression, etc)
+		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/  
 ~~~
 		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
 		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
