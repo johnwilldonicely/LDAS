@@ -1,6 +1,6 @@
 temp_*
 bin/
 backups/
-docs/*.html
-docs/*.pdf
+docs/manual*.html
+docs/manual*.pdf
 source/temp_*
