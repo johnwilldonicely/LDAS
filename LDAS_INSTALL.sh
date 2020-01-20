@@ -103,6 +103,9 @@ if [ $# -lt 1 ]; then
 	echo ""
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--update: update existing LDAS rather than full install (0=NO 1=YES) [$setupdate]"
+	echo "		: can be run using installed version of $thisprog"
+	echo "		: no dependency checks or dependency installation"
+	echo "		: no configuration of \$PATH variable or nanorc"
 	echo "	--zip: install/update  LDAS from this zip-file [$setfilezip]"
 	echo "		- if unset, use \"git clone\" to get the latest repo from GitHub"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
@@ -244,10 +247,10 @@ if [ -e $tempfile".1" ] ; then
 	echo -e "\t... or, run this script as superuser\n"$NC
 fi
 
-# CHECK FOR DEPENDENCIES - FULL INSTALL ONLY
+# CHECK FOR MISSING DEPENDENCIES - FULL INSTALL ONLY
 if [ "$setupdate" == "0" ] ; then
 	rm -f $tempfile".2"
-	for x in  gcc git gs dos2unix nano pandoczzzz ; do
+	for x in  zip unzip wget gcc git gs dos2unix nano pandoc ; do
 		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
 	done
 	if [ -e $tempfile".2" ] ; then
