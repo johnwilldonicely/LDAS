@@ -5,7 +5,7 @@
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog
-tempfolder="/home/$USER/temp_LDAS_install"
+tempdir="/home/$USER/temp_LDAS_install"
 
 # colours for use with optional error messages
 GREEN='\033[0;32m'
@@ -29,6 +29,8 @@ date0=$(date)
 let previnstall=0
 
 setsource="https://github.com/johnwilldonicely/LDAS/"
+setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
+
 setscope="local"
 setdest="/home/$USER/bin/"
 setrc="/home/$USER/.bashrc"
@@ -47,29 +49,37 @@ function func_permission () {
 	zerror=$2 # "yes" if fail triggers error message + exit
 	# DETERMINE BASIC INFO
 	zaccess="no"
-	zinfo=( $(stat -L -c "0%a %G %U" $zpath) ) # Use -L to get information about the target of a symlink, not the link itself
-	zperm=${zinfo[0]}
-	zgroup=${zinfo[1]}
-	zowner=${zinfo[2]}
-	# DETERMINE WRITE-ACCESS LEVEL
-	if (( ($zperm & 0002) != 0 )); then 	# everyone has access
-		zaccess="yes everyone"
-	elif (( ($zperm & 0020) != 0 )); then 	# some group has write access. Is setuser in that group?
-		gs=( $(groups $USER) )
-		for g in "${gs[@]}"; do
-			if [[ $zgroup == $g ]]; then zaccess="yes group" ; break ; fi
-		done
-	elif (( ($zperm & 0200) != 0 )); then # The owner has write access. Does the setuser own the file?
-		[[ $USER == $zowner ]] && zaccess="yes owner"
+	if [ ! -e $zpath ] ; then
+		zaccess="missing"
+	else
+		zinfo=( $(stat -L -c "0%a %G %U" $zpath) ) # Use -L to get information about the target of a symlink, not the link itself
+		zperm=${zinfo[0]}
+		zgroup=${zinfo[1]}
+		zowner=${zinfo[2]}
+		# DETERMINE WRITE-ACCESS LEVEL
+		if (( ($zperm & 0002) != 0 )); then 	# everyone has access
+			zaccess="yes everyone"
+		elif (( ($zperm & 0020) != 0 )); then 	# some group has write access. Is setuser in that group?
+			gs=( $(groups $USER) )
+			for g in "${gs[@]}"; do
+				if [[ $zgroup == $g ]]; then zaccess="yes group" ; break ; fi
+			done
+		elif (( ($zperm & 0200) != 0 )); then # The owner has write access. Does the setuser own the file?
+			[[ $USER == $zowner ]] && zaccess="yes owner"
+		fi
 	fi
 	# HANDLE ERROR MESSAGES IF REQUIRED
-	if [ "$zaccess" == "no" ] && [ "$zerror" == "yes" ] ; then
-		echo -e "$RED--- Warning ["$thisprog"]: $USER has no write-permission for $zpath"
-		echo -e "\tConsider using \"--scope local\" to install to the user's bin folder"
-		echo -e "\t... or, run this script as superuser"
-		echo -e "\t... or, use sudo to temporarily give write access"
-		echo -e "$NC"
-		exit
+	if [ "$zerror" == "yes" ] ; then
+		if [ "$zaccess" == "missing" ] ; then
+			echo -e "--- Warning ["$thisprog"]: $zpath does not exist"
+			exit
+		elif [ "$zaccess" == "no" ] ; then
+			echo -e "--- Warning ["$thisprog"]: $USER has no write-permission for $zpath"
+			echo -e "\tsudo access will be required during \"global\" installation"
+			echo -e "\t... or, run using \"local\" scope"
+			echo -e "\t... or, run this script as superuser"
+			exit
+		fi
 	else
 		echo "permission= "$zaccess
 	fi
@@ -144,39 +154,38 @@ if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Erro
 distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
 release=$(lsb_release -a | grep "Release:" | cut -f 2)
 
-# DETERMINE DESTINATION AND PATH-UPDATE OPTIONS, DEPENDING ON SELECTED SCOPE
+# DETERMINE DESTINATION, PATH-DEFINITION, & NANORC OPTIONS, DEPENDING ON SELECTED SCOPE
 # local= current user only, global= all users
 if [ "$setscope" == "local" ] ; then
 	setdest="/home/$USER/bin"
 	setrc="/home/$USER/.bashrc"
+	setnano="/home/$USER/.nanorc"
 	mkdir -p $setdest # ??? check for errors?
 elif [ "$setscope" == "global" ] ; then
 	setdest="/opt"
 	setrc="/etc/profile"
-	# check permissions
-#???	func_permission $setdest "yes"
-#???	func_permission $setrc "yes"
+	setnano="/etc/nanorc"
 fi
 
 # CHECK IF LDAS IS ALREADY INSTALLED - CHECK PATH
-prevpath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
-if [ "$prevpath" == "" ] ; then {
+prevdest=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
+if [ "$prevdest" == "" ] ; then {
 	# if not installed, update cannot be performed
 	if [ "$setupdate" == "1" ] ; then
 		echo -e "$RED\n--- Error ["$thisprog"]: LDAS not installed, can't use \"--update 1\" option\n\tPerform full install instead\n$NC" ; exit
 	fi
 }
 # determine previous-install scope - make sure path is valid
-elif [[ $prevpath =~ "/opt/LDAS" ]] ; then
+elif [[ $prevdest =~ "/opt/LDAS" ]] ; then
 	prevscope="global"
 	prevrc="/etc/profile"
 	prevnano="/etc/nanorc"
-elif [[ $prevpath =~ "/home/$USER/bin/LDAS" ]] ; then
+elif [[ $prevdest =~ "/home/$USER/bin/LDAS" ]] ; then
 	prevscope="local" ;
 	prevrc="/home/$USER/.bashrc"
 	prevnano="/home/$USER/.nanorc"
 else
-	echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevpath\n\t- manually remove and retry\n$NC" ; exit
+	echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevdest\n\t- manually remove and retry\n$NC" ; exit
 fi
 
 # FOR UPDATE, MAKE SURE SCOPE MATCHES
@@ -186,19 +195,82 @@ if [ "$setupdate" == "1" ] ; then
 	fi
 fi
 
+# CHECK WHETHER PROGRAM IS BEING RUN IN DEST OR TEMP DIRECTORY
+x=$(pwd)
+y=$setdest"/LDAS"
+case $x in *$y*) echo -e $RED"\n--- Error ["$thisprog"]: do not run installer in the destination directory\n\t - $y will be overwritten\n"$NC ; exit ;; esac
+y=$tempdir
+case $x in *$y*) echo -e $RED"\n--- Error ["$thisprog"]: do not run installer in the temp directory\n\t - $y will be overwritten\n"$NC ; exit ;; esac
+
+# FOR FULL-INSTALL, CHECK WHETHER INSTALLER BEING USED IS FROM THE PREVPATH
+# because really a fresh install should use the latest installer
+if [ "$setupdate" == "0" ] ; then
+	x=$(which $0)
+	y=$prevdest
+	case $x in *$y*)
+		echo -e "\n"$RED
+		echo -e "--- Error ["$thisprog"]: using an \"installed\" version of the installer"
+		echo -e "\t- this should only be used for updating (--update 1)"
+		echo -e "\t- for full installs, get the latest installer & run it locally (./)\n"
+		echo -e "\t- use the following commands:\n"
+		echo -e "cd ~/"
+		echo -e "url=\"$setwget\""
+		echo -e "wget \$url/$thisprog -O $thisprog"
+		echo -e "chmod a+x ./$thisprog"
+		echo -e "./$thisprog $setscope"
+		echo -e $NC"\n"
+		exit
+	;;
+	esac
+fi
+
+# CHECK CRITICAL WRITE-PERMISSIONS
+if [ $(func_permission ./ "no" | cut -f 2 -d ' ') == "no" ] ; then
+	echo -e $RED"\n--- Error ["$thisprog"]: cannot write to the current directory\n"$NC ; exit
+fi
+if [ $(func_permission $tempdir | cut -f 2 -d ' ') == "no" ] ; then
+	echo -e $RED"\n--- Error ["$thisprog"]: cannot write to temp directory ($tempdir)\n"$NC ; exit
+fi
+
+# CHECK SUDO-REQUIRED WRITE-PERMISSIONS
+rm -f $tempfile".1"
+for x in  $prevdest $setdest $prevrc $setrc $prevnano $setnano  ; do
+	if [ $(func_permission $x "no" | cut -f 2 -d ' ') == "no" ] ; then echo $x >> $tempfile".1" ; fi
+done
+if [ -e $tempfile".1" ] ; then
+	echo -e $GREEN"--- Warning ["$thisprog"]: $USER has no write-permission for:"$NC
+	cat $tempfile".1" | awk '{print "\t\t"$0}'
+	echo -e $GREEN"\tsudo access will be required during \"global\" installation"
+	echo -e "\t... or, run using \"local\" scope"
+	echo -e "\t... or, run this script as superuser\n"$NC
+fi
+
+# CHECK FOR DEPENDENCIES - FULL INSTALL ONLY
+if [ "$setupdate" == "0" ] ; then
+	rm -f $tempfile".2"
+	for x in  gcc git gs dos2unix nano pandoczzzz ; do
+		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
+	done
+	if [ -e $tempfile".2" ] ; then
+		echo -e $GREEN"--- Warning ["$thisprog"]: missing dependencies:"$NC
+		cat $tempfile".2" | awk '{print "\t\t"$0}'
+		echo -e $GREEN"\tWill attempt to install these as sudo"
+		echo -e "\t... or, ask your superuser to install the dependencies"
+		echo -e "\t... or, run this script as superuser\n"$NC
+	fi
+fi
 
 ################################################################################
 # REPORT ON SYSTEM AND CURRENT INSTALL
 ################################################################################
 echo -e "- Linux distro: $distro $release"
 echo -e "- proposed install path: $setdest/LDAS"
-echo -e "- previous install path: $prevpath"
-
+echo -e "- previous install path: $prevdest"
 
 ################################################################################
 # CHECK TO PROCEED AND BACKUP EXISTING INSTALL
 ################################################################################
-if [ "$prevpath" != "" ] ; then
+if [ "$prevdest" != "" ] ; then
 
 	# CHECK FOR PROCEEDING
 	if [ "$setupdate" == "0" ] ; then
@@ -216,9 +288,9 @@ if [ "$prevpath" != "" ] ; then
 	# OFFER TO BACKUP
 	backup="/home/$USER/LDAS_backup_"$(date +'%Y%m%d')".zip"
 	echo -en "$GREEN"
-	read -p  "--- BACKUP $prevpath to $backup? [y/n] " answer
+	read -p  "--- BACKUP $prevdest to $backup? [y/n] " answer
 	echo -en "$NC"
-	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevpath ; break ;; *) break ;; esac ; done
+	while true ; do case $answer in [yY]* ) echo -e "$NC\t...backing up..." ; zip -qr $backup $prevdest ; break ;; *) break ;; esac ; done
 
 fi
 
@@ -239,7 +311,7 @@ if [ "$setupdate" == "0" ] ; then
 		echo -e "\t\t - attempting to install $dep as sudo..."
 		sudo yum install $dep -y
 	fi
-	de="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
+	dep="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
 		echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
 		echo -e "\t\t - attempting to install $dep as sudo..."
 		sudo yum install $dep -y
@@ -260,39 +332,39 @@ fi
 ################################################################################
 # RETRIEVE OR EXTRACT LDAS TO TEMP FOLDER
 ################################################################################
-if [ "$setclean" == "1" ] && [ "$tempfolder" != "" ] ; then rm -rf $tempfolder/* ; fi
-mkdir -p $tempfolder
+if [ "$setclean" == "1" ] && [ "$tempdir" != "" ] ; then rm -rf $tempdir/* ; fi
+mkdir -p $tempdir
 echo -e "\n--------------------------------------------------------------------------------"
 if [ "$setfilezip" != "" ] ; then
 	echo -e "EXTRACTING LDAS FROM $setfilezip ..."
 	if [ ! -e "$setzipfile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing zip-file $setzipfile\n"$NC ;  exit; } ; fi
 
-	unzip -oq $setfilezip -d $tempfolder
+	unzip -oq $setfilezip -d $tempdir
 	# find the most recent LDAS folder created
-	z=$(ls -dt1 $tempfolder/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
+	z=$(ls -dt1 $tempdir/*LDAS*/ | head -n 1 | awk -F / '{print $(NF-1)}' )
 	# rename to LDAS
-	mv $tempfolder/$z $tempfolder/LDAS
+	mv $tempdir/$z $tempdir/LDAS
 else
 	echo -e "GIT-CLONING LDAS FROM $setsource ..."
 	rm -f $tempfile".error"
-	git clone $setsource $tempfolder/LDAS 2>&1 | tee $tempfile".error"
+	git clone $setsource $tempdir/LDAS 2>&1 | tee $tempfile".error"
 	z=$(grep fatal: $tempfile".error")
 	if [ "$z" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
 fi
 # make the directory for the compiled output
-mkdir -p $tempfolder/LDAS/bin
+mkdir -p $tempdir/LDAS/bin
 
 echo -e "\n--------------------------------------------------------------------------------"
 echo -e "MAKING SCRIPTS EXECUTABLE..."
-chmod a+x $tempfolder/LDAS/xs-*
-chmod a+x $tempfolder/LDAS/xp-*
-chmod a+x $tempfolder/LDAS/xr-*
+chmod a+x $tempdir/LDAS/xs-*
+chmod a+x $tempdir/LDAS/xp-*
+chmod a+x $tempdir/LDAS/xr-*
 
 
 ################################################################################
 # REMOVE PREVIOUS INSTALL
 ################################################################################
-if [ "$prevpath" != "" ] ; then
+if [ "$prevdest" != "" ] ; then
 
 	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "REMOVING PREVIOUS INSTALL..."
@@ -306,24 +378,24 @@ if [ "$prevpath" != "" ] ; then
 			mv $tempfile.rc $prevrc
 			echo -e "\t...cleaning $prevnano"
 			mv $tempfile.nano $prevnano
-			echo -e "\t...removing $prevpath"
-			rm -rf $prevpath
+			echo -e "\t...removing $prevdest"
+			rm -rf $prevdest
 		else
 			echo -e "\t...cleaning $prevrc"
 			sudo mv $tempfile.rc $prevrc
 			echo -e "\t...cleaning $prevnano"
 			sudo mv $tempfile.nano $prevnano
-			echo -e "\t...removing $prevpath"
-			sudo rm -rf $prevpath
+			echo -e "\t...removing $prevdest"
+			sudo rm -rf $prevdest
 		fi
 	# for local install, just remove the repo
 	elif [ "$setupdate" == "1" ] ; then
 		if [ "$prevscope" == "local" ]; then
-			echo -e "\t...removing $prevpath"
-			rm -rf $prevpath
+			echo -e "\t...removing $prevdest"
+			rm -rf $prevdest
 		else
-			echo -e "\t...removing $prevpath"
-			sudo rm -rf $prevpath
+			echo -e "\t...removing $prevdest"
+			sudo rm -rf $prevdest
 		fi
 	fi
 fi
@@ -333,10 +405,10 @@ echo -e "\n---------------------------------------------------------------------
 echo -e "MOVING LDAS TO DESTINATION FOLDER $setdest ..."
 if [ $setscope == "local" ] ; then
 	if [ -d $setdest/LDAS ] ; then rm -rf $setdest/LDAS ; fi
-	mv $tempfolder/LDAS $setdest/
+	mv $tempdir/LDAS $setdest/
 else
 	if [ -d $setdest/LDAS ] ; then sudo rm -rf $setdest/LDAS ; fi
-	sudo mv $tempfolder/LDAS $setdest/
+	sudo mv $tempdir/LDAS $setdest/
 fi
 
 
@@ -360,41 +432,37 @@ if [ "$setupdate" == "0" ] ; then
 
 
 	echo "--------------------------------------------------------------------------------"
-	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES..."
+	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES ($setnano)..."
 	z=$(grep -s LDAS /etc/nanorc | head -n 1)
 	if [ "$z" == "" ] ; then
 		template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
 		if [ $setscope == "local" ] ; then
-			cat $template >> /home/$USER/.nanorc
+			cat $template >> $setnano
 		else
-			sudo sh -c "cat $template >> /etc/nanorc"
+			sudo sh -c "cat $template >> $setnano"
 		fi
 	# ??? should add test here for whether LDAS is defined in the other (LOCAL or GLOBAL) location!
 	fi
 fi
 
 
+echo -e "\n--------------------------------------------------------------------------------"
 inpath=$setdest"/LDAS/source"
 outpath=$setdest"/LDAS//bin"
-echo "--------------------------------------------------------------------------------"
 echo -e "COMPILING C SOURCE-CODE ($inpath)..."
 if [ ! -d "$inpath" ] ; then { echo -e "$RED\n--- Error ["$thisprog"]: missing directory $inpath\n\t- consider re-installing LDAS$NC\n" ;  exit; } ; fi
 if [ ! -d "$outpath" ] ; then sudo mkdir -p $outpath ; fi
-func_permission $inpath
-
-exit
-
 rm -f $outpath/xe-*
 cd $inpath
-xs-progcompile "xe-*.c"
+xs-progcompile "xe-*.c" --warn 0
 
 
-echo "--------------------------------------------------------------------------------"
-echo "UPDATING TAGS-SUMMARY FILE..."
+echo -e "\n--------------------------------------------------------------------------------"
+echo -e "UPDATING TAGS-SUMMARY FILE..."
 xs-progtag html | awk '{print "\t"$0}'
 
-echo "--------------------------------------------------------------------------------"
-echo "BUILDING HTML VERSIONS OF MANUALS..."
+echo -e "\n--------------------------------------------------------------------------------"
+echo -e "BUILDING HTML VERSIONS OF MANUALS..."
 if [ "$(command -v pandoc)" != "" ] ; then
 	list=$(xs-manual | xe-cut2 stdin available manuals: -s4 1 | tail -n +2 | xe-delimit stdin)
 	for i in $list ; do xs-manual $i --make html 2>/dev/null | awk '{print "\t"$0}' ; done
