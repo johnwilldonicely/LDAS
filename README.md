@@ -489,7 +489,7 @@ However, some distros may not include some of the following:
 		$ python3 -m pip install matplotlib
 ~~~
 
-- R - for some of the r_* statistics scripts (ANOVA, Multiple regression, etc)
+- R - for some of the xr-* statistics scripts (ANOVA, Multiple regression, etc)
 		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/  
 ~~~
 		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
