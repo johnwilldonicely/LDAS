@@ -3,10 +3,13 @@
 
 This manual is for laser-stimulation trials run with the TAINI transmitter  
 
-- Assumes 4 subjects are run at a time, one in each box  
-- Assumes activation of the laser generates a sync-pulse for all 4 subjects  
+- Assumes 4 subjects are run at a time, one in each box
+- Assumes activation of the laser generates a sync-pulse for all 4 subjects
 - Hence a worksheet is required to track the box receiving each stimulus  
-	- template: /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
+	- template: 
+```
+	/opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
+```  
 
 One worksheet is filled per recording session, initally on paper
 **NOTE: for each successful stiumulation, fill in a box in the worksheet **  
@@ -42,7 +45,7 @@ Note that a sync pulse may also be generated when no stimulus is delivered
 
 
 ################################################################################  
-## RUNNING EXPERIMENTS
+# RUNNING EXPERIMENTS
 
 ### Initial setup for TAINI
 
@@ -77,7 +80,7 @@ Note that a sync pulse may also be generated when no stimulus is delivered
 
 
 ################################################################################
-## PRE-PROCESSING DATA
+# PRE-PROCESSING DATA
 
 1. **REFER TO**  manual_taini.txt: PRE-PROCESSING DATA
 
@@ -86,7 +89,7 @@ Note that a sync pulse may also be generated when no stimulus is delivered
 
 
 ################################################################################
-## ANALYSING THE DATA
+# ANALYSING THE DATA
 
 1. **REFER TO** manual_ldas.txt: DATABASE CREATION
 
