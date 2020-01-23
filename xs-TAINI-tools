@@ -15,8 +15,10 @@ start_time=$(date +'%s.%3N')
 mydate=$(date +'%Y%m%d')
 template_plan="$progpath/docs/templates/template.plan"
 template_channels="$progpath/docs/templates/table_channels_taini_2.txt"
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
 
 sample_rate="19531.25" # samples per second
 n_channels="16" # number of interlaced channels
@@ -32,6 +34,8 @@ setinput="ab"
 setbatch="all"
 setpre="SYNC_"
 setseq0="1,0,2,0"
+setkey=""
+listkeys="id alias year month day date1 date2 inc"
 setblank0="0"
 setcount="0"
 setappend=""
@@ -42,7 +46,7 @@ setclean="1"
 nboxes=4
 fileplan=$(ls *.plan 2>/dev/null)
 filenotes=$(ls *.notes 2>/dev/null | head -n 1)
-fileconfig=$(ls *.yaml 2>/dev/null)
+fileconfig=$(ls *configuration.yaml 2>/dev/null)
 fileplot="plot_traces_"$thisprog".ps"
 
 ################################################################################
@@ -90,6 +94,10 @@ if [ $# -lt 1 ]; then
 	echo "		Output configuration settings (from .yaml)"
 	echo "		--file: you MUST specify a .dat or .yaml file"
 	echo "		--expt: override-name of experiment from .yaml [$setexpt]"
+	echo "	parse"
+	echo "		Parse a TAINI filename to extract a keyword"
+	echo "		--file: the file whose name you want to parse"
+	echo "		--key: the value of interest: $listkeys"
 	echo "	rename"
 	echo "		Rename files from TaiNi default to LDAS format"
 	echo "		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat"
@@ -121,7 +129,7 @@ setmode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,plan:,verb:,clean:"
+vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,plan:,key:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -137,12 +145,15 @@ while [ $# -gt 0 ] ; do
 		--seq ) setseq0=$2 ; shift ;;
 		--blank ) setblank0=$2 ; shift ;;
 		--plan ) setplan=$2 ; shift ;;
+		--key ) setkey=$2 ; shift ;;
 		--append ) setappend=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
 	shift
 done
+
+# PERFORM CHECKS ON OPTIONS
 if [ "$setcount" != "0" ] && [ "$setcount" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --count ($setcount) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setinput" != "ab" ] && [ "$setinput" != "cd" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --input ($setinput) -  must be ab or cd" ; echo ; exit; } ; fi
@@ -151,6 +162,15 @@ if [ "$setplan" != "" ] ; then
 	fileplan=$setplan
 	if [ ! -e "$fileplan" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --plan $setplan$NC\n"; exit; } fi
 fi
+
+if [ "$setkey" != "" ] ; then
+	let z=0
+	for k in $listkeys ; do
+		if [ "$setkey" == "$k" ] ; then let z=1 ; fi
+	done
+	if [ $z -eq 0 ] ; then { echo -e "$RED--- Error ["$thisprog"]: invalid --key ($setkey)\n\t- use one of $listkeys$NC\n";  exit; } fi
+fi
+
 
 # INITIAL CLEANUP
 if [ "$setclean" == "1" ] ; then
@@ -167,10 +187,10 @@ let nseq=$(echo $setseq0 | tr ',' ' ' | wc -w)
 
 # DEFINE DEFAULT COLUMNS FOR TAINI NAME TEMPLATES
 coldev="2" ; colalias="3" ; colyear="4" ; colmonth="5" ; colday="6" ; colinc="7"
-# if a yaml file is present, set the fields containing the subject (ALIAS) and session (INC)
-fileyaml=$(ls *yaml 2>/dev/null | head -n 1)
+# if a config yaml file is present, set the fields containing the subject (ALIAS) and session (INC)
+fileyaml=$(ls *configuration.yaml 2>/dev/null | head -n 1)
 if [ "$fileyaml" != "" ] ; then
-nametemplate=$(grep filename_template: --color=never $fileyaml | awk '{print $2}')
+	nametemplate=$(grep filename_template: --color=never $fileyaml | awk '{print $2}')
 	if [ "$nametemplate" == "" ] ; then { echo -e $RED"\n--- Error: filename_template not defined in $fileyaml $NC\n"; exit ; }  fi
 	coldev=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ID' -n --color=never | cut -f 1 -d ':')
 	colalias=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ALIAS' -n --color=never | cut -f 1 -d ':')
@@ -184,7 +204,7 @@ nametemplate=$(grep filename_template: --color=never $fileyaml | awk '{print $2}
 	if [ "$colmonth" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (m) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colday" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (d) undefined in $fileyaml $NC\n"; exit ; }  fi
 else
-	echo -e "$RED--- Warning [$thisprog]: missing .yaml file to define filename fields - using defaults instead$NC" >&2
+	echo -e "$PURPLE--- Warning [$thisprog]: missing configuration.yaml file to define filename fields\n\t - using defaults instead$NC" >&2
 fi
 
 # DETERMINE THE DATE, SESSION AND SUBJECT BASED ON FILENAME
@@ -217,17 +237,35 @@ if [ "$setfile" != "" ] ; then
 	if [ "$subject" == "" ] ; then subject="xxx" ; fi
 	if [ "$session" == "" ] ; then session="xxx" ; fi
 
-	filebatch=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin subject,session,batch -s 1 | awk '$1=='$subject'&&$2=='$session'{print $3}')
-	if [ "$filebatch" == "" ] && [ "$setmode" == "trials" ] ; then { echo -e $RED"\n--- Error: no matching batch record for $setfile in $fileplan - this is required for running in \"trials\" mode$NC\n"; exit ; }  fi
-
 fi
 
+if [ "$fileplan" != "" ] ; then
+	filebatch=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin subject,session,batch -s 1 | awk '$1=='$subject'&&$2=='$session'{print $3}')
+	if [ "$filebatch" == "" ] && [ "$setmode" == "trials" ] ; then { echo -e $RED"\n--- Error: no matching batch record for $setfile in $fileplan - this is required for running in \"trials\" mode$NC\n"; exit ; }  fi
+fi
 
 ########################################################################################
 # OPERATING MODES
 ########################################################################################
 #-------------------------------------------------------------------------------
-if [ "$setmode" == "setup" ] ; then
+if [ "$setmode" == "parse" ] ; then
+	if [ "$setfile" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: use --file to define a filename to parse $NC\n";  exit; } fi
+	if [ "$setkey" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: use --key to set the keyword to extract\n\t- options: $listkeys$NC\n";  exit; } fi
+	# remove extension
+	base=${setfile%%.*};
+	case $setkey in
+		id ) echo $device ;;
+		alias ) echo $subject ;;
+		year ) echo $base | xe-cut1 stdin $colyear -n 1 -d "-_" ;;
+		month ) echo $base | xe-cut1 stdin $colmonth -n 1 -d "-_" ;;
+		day ) echo $base | xe-cut1 stdin $colday -n 1 -d "-_" ;;
+		date1 ) echo $date1 ;;
+		date2 ) echo $date2 ;;
+		inc ) echo $session ;;
+	esac
+
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "setup" ] ; then
 	in1=$template_channels
 	if [ ! -e "$in1" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: missing file $in1$NC" ; echo ; exit; } ; fi
 	if [ "$setexpt" == "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: must define experiment (--expt) to make setup folder$NC"; echo; exit; } fi
@@ -236,7 +274,7 @@ if [ "$setmode" == "setup" ] ; then
 	echo "CREATING FOLDER $dest"
 	if [ -d "$dest" ]; then
 		tput bel
-		echo -en "$RED--- Warning: folder $dest exists$NC: " >&2
+		echo -en "$GREEN--- Warning: folder $dest exists$NC: " >&2
 		read -p  "- overwrite contents? [y/n] " answer
 		while true ; do case $answer in
 			[yY]* ) break ;;
@@ -316,10 +354,10 @@ elif [ "$setmode" == "rename" ] ; then
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "unrename" ] ; then
 
-	listyaml=$(ls *.yaml 2> /dev/null)
+	listyaml=$(ls *configuration.yaml 2> /dev/null)
 	if [ "$listyaml" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml files - cannot restore filenames$NC\n" ; exit ; fi
 
-	# REPAIR THE YAML FILES IF TEY HAVE BEEN MODIFIED
+	# REPAIR THE YAML FILES IF THEY HAVE BEEN MODIFIED
 	for in1 in $listyaml ; do
 
 		# fix the filename template - note - assumes the correct format is TAINI_$ID_$ALIAS-%Y_%m_%d-$INC.dat
@@ -387,7 +425,7 @@ elif [ "$setmode" == "unrename" ] ; then
 		day1=$(echo $date1 | cut -c 7-8)
 		date2=$year1"_"$month1"_"$day1
 		# output filename is the .yaml entry matching on date, session and subject
-		out1=$(grep "output_destination:" *.yaml | awk -F / '{print $NF}' | tr -d ' ' | grep -- "_"$subject1 | grep -- "-"$date2 | grep -- "-"$session1)
+		out1=$(grep "output_destination:" *configuration.yaml | awk -F / '{print $NF}' | tr -d ' ' | grep -- "_"$subject1 | grep -- "-"$date2 | grep -- "-"$session1)
 		let z=$(echo $out1 | wc -w)
 		if [ $z -eq 0 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml entries matching $in1 $NC\n" ; exit ; fi
 		if [ $z -gt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: more than one .yaml entry matching $in1 $NC\n" ; exit ; fi
@@ -439,7 +477,7 @@ elif [ "$setmode" == "sync" ] ; then
 		if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
 		exit
 	elif [ $x -ne $z ] ; then
-		echo -e "$RED--- Warning: additional, different sequences in $setfile" >&2
+		echo -e "$GREEN--- Warning: additional, different sequences in $setfile" >&2
 		echo -e "	- is that ok?" >&2
 		echo -e "	- is --seq ($setseq) correctly defined?" >&2
 		echo -e "	- is --blank ($setblank0) correctly defined?\n$NC" >&2
@@ -592,8 +630,6 @@ elif [ "$setmode" == "check" ] ; then
 		echo
 	done
 
-
-
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "config" ] ; then
 	# THIS OPTION WILL ONLY PARTLY WORK IF FILES WERE RENAMED
@@ -672,7 +708,7 @@ elif [ "$setmode" == "config" ] ; then
 		fi
 
 	else
-		echo -e "$RED--- Warning ["$thisprog"]: no matching .yaml file \n\t- using file-characteristics & defaults for some parameters$NC" >&2
+		echo -e "$PURPLE--- Warning ["$thisprog"]: no matching .yaml file \n\t- using file-characteristics & defaults for some parameters$NC" >&2
 	fi
 
 	# calculate max dat value based on bit-depth and assuming signed integers
@@ -701,6 +737,7 @@ elif [ "$setmode" == "config" ] ; then
 	echo "filt_low= "$setfiltlow
 	echo "filt_high= "$setfilthigh
 	echo ""
+	echo "filename_field_id= "$coldev
 	echo "filename_field_alias= "$colalias
 	echo "filename_field_year= "$colyear
 	echo "filename_field_month= "$colmonth

@@ -26,9 +26,11 @@ setclean="1"
 setskip="-"
 setbatch=""
 
-# colours for use with optional error messages
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
 
 
 ################################################################################
