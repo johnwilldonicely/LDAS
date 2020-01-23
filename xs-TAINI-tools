@@ -33,7 +33,7 @@ setfile=""
 setinput="ab"
 setbatch="all"
 setpre="SYNC_"
-setseq0="1,0,2,0"
+setseq0="2,0"
 setkey=""
 listkeys="id alias year month day date1 date2 inc"
 setblank0="0"
@@ -178,41 +178,58 @@ if [ "$setclean" == "1" ] ; then
 	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
 fi
 
-
 # UPDATE SETBLANK WITH PREFIX AND COUNT ELEMENTS
 setblank=$setpre""$setblank0
 # update setseq and setblank with proper sync-names
 setseq=$(echo $setseq0 | sed 's/[^,]* */'$setpre'&/g')
 let nseq=$(echo $setseq0 | tr ',' ' ' | wc -w)
 
+
+################################################################################
+# FILENAME PARSING SETUP - TO EXTRACT ID,ALIAS,DATE,INC
+################################################################################
 # DEFINE DEFAULT COLUMNS FOR TAINI NAME TEMPLATES
 coldev="2" ; colalias="3" ; colyear="4" ; colmonth="5" ; colday="6" ; colinc="7"
-# if a config yaml file is present, set the fields containing the subject (ALIAS) and session (INC)
-fileyaml=$(ls *configuration.yaml 2>/dev/null | head -n 1)
+
+# DETERMINE THE CONFIGURATION.YAML FOR FILE-CHECKS
+if [ "$setfile" != "" ] ; then # ...ideally the yaml is based on the --file specified
+	filext=$(echo $setfile | rev | cut -f 1 -d . | rev)
+	if [ "$filext" == "dat" ] ; then
+		fileyaml=$(grep $setfile *configuration.yaml -l --color=never 2>/dev/null)
+	elif [ "$filext" == "sync" ] ; then
+		z=${setfile%%.*}".dat"
+		fileyaml=$(grep $z *configuration.yaml -l --color=never 2>/dev/null)
+	elif [ "$filext" == "yaml" ] ; then
+		fileyaml=$setfile
+	fi
+	if [ "$fileyaml" == "" ] ; then
+		echo -e "$PURPLE--- Warning [$thisprog]: no matching config .yaml file - will look for an alternative$NC"
+	fi
+fi
+if [ "$fileyaml" == "" ] ; then fileyaml=$(ls *configuration.yaml 2>/dev/null | head -n 1) ; fi
+
+# DETERMINE THE COLUMNS IN THE FILENAME THAT CORRESPOND TO ID(DEV),ALIAS(SUBJECT),YEAR,MONTH,DAT,INC
 if [ "$fileyaml" != "" ] ; then
 	nametemplate=$(grep filename_template: --color=never $fileyaml | awk '{print $2}')
 	if [ "$nametemplate" == "" ] ; then { echo -e $RED"\n--- Error: filename_template not defined in $fileyaml $NC\n"; exit ; }  fi
 	coldev=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ID' -n --color=never | cut -f 1 -d ':')
 	colalias=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$ALIAS' -n --color=never | cut -f 1 -d ':')
-	colinc=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$INC' -n --color=never | head -n 1 | cut -f 1 -d :)
 	colyear=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%Y' -n --color=never | head -n 1 | cut -f 1 -d :)
 	colmonth=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%m' -n --color=never | head -n 1 | cut -f 1 -d :)
 	colday=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '%d' -n --color=never | head -n 1 | cut -f 1 -d :)
+	colinc=$(echo $nametemplate | tr '_' '\n' | tr '-' '\n' | tr '.' '\n' | grep '$INC' -n --color=never | head -n 1 | cut -f 1 -d :)
 	if [ "$colalias" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (ALIAS) undefined in $fileyaml $NC\n"; exit ; }  fi
-	if [ "$colinc" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (INC) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colyear" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (Y) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colmonth" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (m) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colday" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (d) undefined in $fileyaml $NC\n"; exit ; }  fi
+	if [ "$colinc" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (INC) undefined in $fileyaml $NC\n"; exit ; }  fi
 else
 	echo -e "$PURPLE--- Warning [$thisprog]: missing configuration.yaml file to define filename fields\n\t - using defaults instead$NC" >&2
 fi
 
 # DETERMINE THE DATE, SESSION AND SUBJECT BASED ON FILENAME
-# FOR TAINI FILENAMES, IF POSSIBLE, USE THE YAML FILE TO DETERMINE THE FILENAME TEMPLATE
 if [ "$setfile" != "" ] ; then
-	date1=""
-	session=""
-	subject=""
+	date1="xxx" ; session="xxx" ; subject="xxx"
 	# make a temporary "filefields" variable with - _ and . replaced by spaces to facilitate extraction of fields
 	filefields=$(echo $setfile | tr '_' ' ' | tr '-' ' ' | tr '.' ' ')
 	z=$(echo $filefields | cut -f 1 -d ' ')
@@ -233,10 +250,6 @@ if [ "$setfile" != "" ] ; then
 		session=$(echo $filefields | cut -f 2 -d ' ')
 		device="-"
 	fi
-
-	if [ "$subject" == "" ] ; then subject="xxx" ; fi
-	if [ "$session" == "" ] ; then session="xxx" ; fi
-
 fi
 
 if [ "$fileplan" != "" ] ; then
@@ -248,6 +261,7 @@ fi
 # OPERATING MODES
 ########################################################################################
 #-------------------------------------------------------------------------------
+# PULL OUT SOME BASIC INFO FROM THE FILENAME
 if [ "$setmode" == "parse" ] ; then
 	if [ "$setfile" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: use --file to define a filename to parse $NC\n";  exit; } fi
 	if [ "$setkey" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: use --key to set the keyword to extract\n\t- options: $listkeys$NC\n";  exit; } fi
@@ -346,7 +360,7 @@ elif [ "$setmode" == "rename" ] ; then
 		dev1=$(echo $filefields | cut -f $coldev -d ' ')
 		session=$(echo $filefields | cut -f $colinc -d ' ')
 		subject=$(echo $filefields | cut -f $colalias -d ' ')
-		out1=$date1"-"$session"_"$subject"."$ext1
+		out1=$date1"-"$session"_"$subject"."$filext1
 
 		mv $in1 $out1 -iv
 	done
@@ -448,8 +462,7 @@ elif [ "$setmode" == "sync" ] ; then
 	# is --file set?
 	if [ "$setfile" == "" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: please set a sync input file (--file) $NC\n"; exit; } fi
 	# is it a sync file?
-	ext=$(echo $setfile | rev | cut -f 1 -d . | rev)
-	if [ "$ext" != "sync" ] ; then { echo -e $RED"\n--- Error: for mode \"trials\", --file ($setfile) must refer to a .sync file  $NC\n" ; exit ; }  fi
+	if [ "$filext" != "sync" ] ; then { echo -e $RED"\n--- Error: for mode \"trials\", --file ($setfile) must refer to a .sync file  $NC\n" ; exit ; }  fi
 
 	seq2=$(echo $setseq | tr ',' ' ')
 	let nseq2=$(echo $seq2 | tr ',' ' ' | wc -w)
@@ -468,11 +481,11 @@ elif [ "$setmode" == "sync" ] ; then
 	xe-getsequence1 $tempfile.2 2 exact $seq2 | awk 'NF>0&&$0!~/^#/{print $0}' | grep -v $setblank | cut -f 1 | awk 'ORS=NR%'$nseq3'?"\t":"\n" {print $0}' >> $tempfile.3
 
 	# CHECK IF THERE ARE NO SEQUENCES OR BAD SEQUENCES
-	let w=$(wc -l $tempfile.3 | cut -f 1 -d ' ')	#
-	let x=$(cat $tempfile.2 | wc -l) 		# all 2-column lines in sync file containing $setpre, minus a permissable starting-blank
-	let y=$(tail -n +2 $tempfile.3 | wc -l)		# total sequence-sets (trials)
-	let z=$(echo $y*$nseq2 | bc)			# sequence-sets times the number of items in the sync-sequence
-	if [ $w -lt 2 ] ; then
+	let w=$(tail -n +1 $tempfile.3 | wc -l)   # sequences in the file, header line omitted
+	let x=$(cat $tempfile.2 | wc -l)          # all 2-column lines in sync file containing $setpre, minus a permissable starting-blank
+	let y=$(tail -n +2 $tempfile.3 | wc -l)	  # total sequence-sets (trials)
+	let z=$(echo $y*$nseq2 | bc)              # sequence-sets times the number of items in the sync-sequence
+	if [ $w -lt 1 ] ; then
 		echo -e $RED"\n--- Error: no valid sequences ($setseq) in $setfile $NC\n"
 		if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
 		exit
@@ -633,16 +646,15 @@ elif [ "$setmode" == "check" ] ; then
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "config" ] ; then
 	# THIS OPTION WILL ONLY PARTLY WORK IF FILES WERE RENAMED
-	# NOTE THAT SUBJECT AND SESSION SHOULD ALREADY BE DEFINED UP TOP
+	# NOTE THAT YAML FILE, ID,ALIAS,DATE AND SESSION ARE ALREADY BE DEFINED UP TOP
 
 	if [ "$setfile" == "" ] ; then { echo -e "$RED--- Error ["$thisprog"]: please set a .dat or .yaml input file (--file)$NC\n";  exit; } fi
-	ext=$(echo $setfile | rev | cut -f 1 -d . | rev)
-
-	filesource="$setfile"; fileyaml=""
+	filesource="$setfile";
 	start_date=""; start_time=""; stop_date=""; stop_time=""; stop_secs="";
 	nbytes=""; datasize=""; datsamps=""; dursecs=""; duration="";
-	if [ "$ext" == "dat" ] ; then
+	if [ "$filext" == "dat" ] ; then
 		# SET DEFAULT START/STOP DATE AND TIME
+		# NOTE THAT IF THE .dat FILE WAS COPIED, IT'S POSSIBLE THE START/STOP/DURATION VALUES ARE INCORRECT
 		# get the estimated start-date & time
 		z=$(date -du --date="$stop_date $stop_time $dursecs seconds ago" +"%Y/%m/%d %H:%M:%S.%3N")
 		start_date=$(echo $z | cut -f 1 -d ' ' )
@@ -663,20 +675,15 @@ elif [ "$setmode" == "config" ] ; then
 		# avoid invalid result from "date" command by ensuring duration is at least 1-second
 		let x=$(echo "$dursecs<1" | bc)
 		if [ $x -eq 1 ] ; then dursecs="1"; duration="" ; fi
-		# identify the matching .yaml file - note that subject session etc are defined at the top if --file was set
-		fileyaml=$(grep $setfile *yaml -l --color=never 2>/dev/null)
-	elif [ "$ext" == "yaml" ] ; then
-		fileyaml=$setfile
-		subject=$(grep "alias:" $fileyaml --color=never | awk '{print $2}' | paste -s | tr '\t' ',')
-	else
+	elif [ "$filext" != "yaml" ] ; then
 		{ echo -e $RED"\n--- Error: for mode \"config\", --file ($setfile) must be a .dat or .yaml file $NC\n" ; exit ; }
 	fi
 
-	# ADD EXTRA DATA AND UPDATE SOME VALUES BASED ON YAML CONTENTS IF POSSIBLE
-	# NOTE THAT IF THE .dat FILE WAS COPIED, IT'S POSSIBLE THE START/STOP/DURATION VALUES ARE INCORRECT
+	# ADD EXTRA DATA AND UPDATE SOME VALUES BASED ON YAML CONTENTS IF POSSIBLE (SUBJECT,DEVICE,BAND - the latter is not in the file name)
+	# NOTE THAT START/STOP ARE LESS LIKELY TO BE INCORRECT IF DERIVED FROM THE .YAML FILE
 	if [ "$fileyaml" != "" ] ; then
 
-		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $fileyaml | awk '{print $2}') ; fi
+		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $fileyaml | tr -d '"' | tr '=' ' ' | xe-getkey stdin experiment) ; fi
 		start_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
 		start_time=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 3 | tr '-' '/')
 		stop_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep finish_datetime --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
@@ -695,18 +702,21 @@ elif [ "$setmode" == "config" ] ; then
 		setfiltlow=$a
 		setfilthigh=$b
 		# get extra values per recording
+		subject=$(grep "alias:" $fileyaml --color=never | awk '{print $2}' | paste -s | tr '\t' ',')
 		grep --color=never -E -- ' id:' $fileyaml | tr -d ' '| cut -f 2 -d : > $tempfile".1"
 		grep --color=never -E -- ' band_id:' $fileyaml | tr -d ' '| cut -f 2 -d : > $tempfile".2"
-		grep --color=never -E -- ' output_destination:' $fileyaml | tr -d ' '| cut -f 2 -d : | awk -F / '{print $NF}' > $tempfile".3"
-		paste $tempfile".1" $tempfile".2" $tempfile".3" > $tempfile".4"
-		if [ "$ext" == "dat" ] ; then
-			device=$(grep $setfile $tempfile".4" | cut -f 1)
-			band=$(grep $setfile $tempfile".4" | cut -f 2)
+		grep --color=never -E -- ' alias:' $fileyaml | tr -d ' '| cut -f 2 -d : > $tempfile".3"
+		grep --color=never -E -- ' output_destination:' $fileyaml | tr -d ' '| cut -f 2 -d : | awk -F / '{print $NF}' > $tempfile".4"
+		paste $tempfile".1" $tempfile".2" $tempfile".3" $tempfile".4" > $tempfile".5"
+		if [ "$filext" == "dat" ] ; then
+			device=$(grep $setfile $tempfile".5" | cut -f 1)
+			band=$(grep $setfile $tempfile".5" | cut -f 2)
+			subject=$(grep $setfile $tempfile".5" | cut -f 3)
 		else
-			device=$(cut -f 1 $tempfile".4" | paste -s | tr '\t' ',')
-			band=$(cut -f 2 $tempfile".4" | paste -s | tr '\t' ',')
+			device=$(cut -f 1 $tempfile".5" | paste -s | tr '\t' ',')
+			band=$(cut -f 2 $tempfile".5" | paste -s | tr '\t' ',')
+			subject=$(cut -f 3 $tempfile".5" | paste -s | tr '\t' ',')
 		fi
-
 	else
 		echo -e "$PURPLE--- Warning ["$thisprog"]: no matching .yaml file \n\t- using file-characteristics & defaults for some parameters$NC" >&2
 	fi
@@ -743,6 +753,7 @@ elif [ "$setmode" == "config" ] ; then
 	echo "filename_field_month= "$colmonth
 	echo "filename_field_day= "$colday
 	echo "filename_field_inc= "$colinc
+	if [ "$filext" != "yaml" ] ; then  echo "ldas_basename= "$date1"-"$session"_"$subject ; fi
 
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "plot" ] ; then

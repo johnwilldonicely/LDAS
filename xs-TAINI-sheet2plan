@@ -177,7 +177,7 @@ for infile in $listinfiles ; do
 	################################################################################
 	# GENERATE MAPPING SECTION
 	 # get the subject ids for each box, and invalidate the box if the id is "0"
-	listids=$(grep "DOSSIER_IDS" $tempfile".1" | cut -f $listcols2)
+	listids=$(grep "SUBJECT_IDS" $tempfile".1" | cut -f $listcols2)
 	let nids=0
 	let count=0
 	listcols3=""
