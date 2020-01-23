@@ -46,6 +46,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS...\n");
 		fprintf(stderr,"	-c: case sensitive? (0=no, 1=yes, default=%d)\n",setcase);
 		fprintf(stderr,"	-d: characters to use as column-delimiters [ ,\\t\\n])\n");
+		fprintf(stderr,"		- include \"\"\\n to find keys at the end of the line");
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s data.txt rate -c 0 -d \'\\t -\'\n",thisprog);
 		fprintf(stderr,"	cat temp.txt | %s stdin PHONE\n",thisprog);
@@ -86,7 +87,7 @@ int main (int argc, char *argv[]) {
 			pline=line;
 			for(col=1;(pcol=strtok(pline,delimiters))!=NULL;col++) {
 				pline=NULL;
-				if(strcmp(pcol,keyword)==0) {printf("%d\n",col); exit(0);}
+				if(strcmp(pcol,keyword)==0) {printf("%ld\n",col); exit(0);}
 	}}}
 
 	else {
@@ -94,7 +95,7 @@ int main (int argc, char *argv[]) {
 			pline=line;
 			for(col=1;(pcol=strtok(pline,delimiters))!=NULL;col++) {
 				pline=NULL;
-				if(strcasecmp(pcol,keyword)==0) {printf("%d\n",col); exit(0);}
+				if(strcasecmp(pcol,keyword)==0) {printf("%ld\n",col); exit(0);}
 	}}}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 
