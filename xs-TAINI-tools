@@ -683,7 +683,7 @@ elif [ "$setmode" == "config" ] ; then
 	# NOTE THAT START/STOP ARE LESS LIKELY TO BE INCORRECT IF DERIVED FROM THE .YAML FILE
 	if [ "$fileyaml" != "" ] ; then
 
-		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $fileyaml | tr -d '"' | tr '=' ' ' | xe-getkey stdin experiment) ; fi
+		if [ "$setexpt" == "" ] ; then setexpt=$( xe-cut2 $fileyaml notes: -s4 1 | tr -d '"' | xe-getkey stdin experiment=) ; fi
 		start_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
 		start_time=$(xe-cut2 $fileyaml recording: -s4 1 | grep start_datetime: --color=never | xe-delimit stdin | cut -f 3 | tr '-' '/')
 		stop_date=$(xe-cut2 $fileyaml recording: -s4 1 | grep finish_datetime --color=never | xe-delimit stdin | cut -f 2 | tr '-' '/')
@@ -725,7 +725,7 @@ elif [ "$setmode" == "config" ] ; then
 	datmax=$(echo "2^($bit_depth-1)-1" | bc)
 
 	echo "file_source= "$filesource
-	echo "file_yaml= "$fileyaml
+	echo "file_config= "$fileyaml
 	echo "experiment= "$setexpt
 	echo ""
 	echo "subject= "$subject
@@ -734,8 +734,8 @@ elif [ "$setmode" == "config" ] ; then
 	echo "band= "$band
 	echo ""
 	echo "start_date= "$start_date
-	echo "stop_date= "$stop_date
 	echo "start_time= "$start_time
+	echo "stop_date= "$stop_date
 	echo "stop_time= "$stop_time
 	echo "duration= "$duration
 	echo ""

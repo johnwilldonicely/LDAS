@@ -18,7 +18,6 @@ setconv="0"
 setverb="0"
 setclean="1"
 setbatch=""
-setfileplan=""
 setexpt=""
 
 if [ $# -lt 1 ]; then
@@ -44,8 +43,8 @@ if [ $# -lt 1 ]; then
 	echo "		[dat]: quoted list of .dat files (wildcards allowed)"
 	echo "VALID OPTIONS:"
 	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
-	echo "		NOTE: use \"*.plan\" as the plan name - the quotes matter!"
 	echo "	--expt: name of experiment, for .notes file  [$setconv]"
+	echo "		- overrides \"experiment= \" in TAINI .yaml config file notes"
 	echo "	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [$setconv]"
 	echo "	--chans: template to use if table_channels_[subject].txt is missing"
 	echo "	 	["$setchantemplate"]"
@@ -129,32 +128,16 @@ listdat0=$(ls --color=never *.dat)
 let ndat0=$(echo $listdat0 | wc -w)
 if [ $ndat0 -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: no .dat files in this folder\n" ; exit; } ; fi
 let nametaini=$(echo $listdat0 | tr ' ' '\n' | grep --color=never TAINI | wc -l)
-# if [ $nametaini -ne 0 ] ; then xs-TAINI-tools rename ; fi
-
-################################################################################
-# SAVE THE GENERAL CONFIGURATION
-# - where possible, data should come from the .yaml config files
-# - in the absence of a .yaml file, xs-TAINI-tools will used defaults and .dat file statistics
-# - values should be identical for all subjects
-################################################################################
-in1=$(echo $listdat0 | cut -f 1 -d ' ')
-xs-TAINI-tools config --file $in1 > $tempfile".config0"
-let z=$(grep Error $tempfile".config0" | wc -l)
-if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config0" ; exit; } fi
-# extract key recording parameters
-setsf=$(xe-getkey $tempfile".config0" sample_rate=)
-setnchans=$(xe-getkey $tempfile".config0" n_channels=)
-setdatbits=$(xe-getkey $tempfile".config0" datbits=)
-bindec=$(echo "scale=12; $setsf/$setbinsf" | bc | awk '{printf("%f",$1)}')
-colalias=$(grep --color=never "filename_field_alias=" $tempfile".config0" | awk '{print $2}' )
-colyear=$(grep --color=never "filename_field_year=" $tempfile".config0" | awk '{print $2}' )
-colmonth=$(grep --color=never "filename_field_month=" $tempfile".config0" | awk '{print $2}' )
-colday=$(grep --color=never "filename_field_day=" $tempfile".config0" | awk '{print $2}' )
 
 ################################################################################
 # MAKE LIST OF SUBJECTS - FOR CHANNELS TABLE-SEARCH
 ################################################################################
 if [ $nametaini -gt 0 ] ; then
+	in1=$(echo $listdat0 | cut -f 1 -d ' ')
+	xs-TAINI-tools config --file $in1 > $tempfile".config0"
+	let z=$(grep Error $tempfile".config0" | wc -l)
+	if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config0" ; exit; } fi
+	colalias=$(grep --color=never "filename_field_alias=" $tempfile".config0" | awk '{print $2}' )
 	listsubjects=$(echo $listdat0 | tr ' ' '\n' | tr '_' ' ' | tr '-' ' ' | tr '.' ' ' | cut -f $colalias -d ' ')
 else
 	listsubjects=$(echo $listdat0 | tr ' ' '\n' | tr '_' ' ' | tr '-' ' ' | tr '.' ' ' | cut -f 3 -d ' ')
@@ -220,49 +203,42 @@ for filedat in $listdat0 ; do
 
 	echo -e "--------------------------------------------------------------------------------"
 	echo -e "PROCESSING $filedat"
-
 	if [ ! -s $filedat ] ; then { echo -e "\n--- Error ["$thisprog"]: empty .dat file $filedat\n" ; exit; } ; fi
 
-	# DETERMINE THE DATE, SESSION AND SUBJECT
+	# GET CONFIG SETTINGS USING xs-TAINI-tools
+	# - in the absence of a .yaml file, uses defaults and .dat file statistics
 	xs-TAINI-tools config --file $filedat > $tempfile".config1"
-	let z=$(grep Error $tempfile".config1" | wc -l)
+	let z=$(grep Error $tempfile".config0" | wc -l)
 	if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config1" ; exit; } fi
-
-	date1=$(grep --color=never "start_date= " $tempfile".config1" | awk '{print $2}')
-	date2=$(echo $date1 | tr -d '/')
+	filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
+	fileconfig=$(xe-getkey $tempfile".config1" file_config=)
+	if [ "$setexpt" == "" ] && [ "$fileconfig" != "" ] ; then
+		setexpt=$(grep --color=never experiment= $tempfile".config1" | awk '{print $2}')
+	fi
+	setsf=$(xe-getkey $tempfile".config1" sample_rate=)
+	setnchans=$(xe-getkey $tempfile".config1" n_channels=)
+	setdatbits=$(xe-getkey $tempfile".config1" datbits=)
+	bindec=$(echo "scale=12; $setsf/$setbinsf" | bc | awk '{printf("%f",$1)}')
 	session=$(grep --color=never "session= " $tempfile".config1" | awk '{print $2}')
 	subject=$(grep --color=never "subject= " $tempfile".config1" | awk '{print $2}')
-	base=$date2"-"$session"_"$subject
+	base=$(grep --color=never "ldas_basename= " $tempfile".config1" | awk '{print $2}')
+
+	# BUILD THE DESTINATION
 	dest=$setdestbase"/"$base
 	mkdir -p $dest
-	filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
-	filenotes=$dest"/"$base".notes"
-
-	# DETERMINE THE EXPERIMENT NAME - --expt option is the ultimate override
-	if [ "$setexpt" == "" ] ; then
-		# first check for settings in a .plan file if specified
-		if [ "$setfileplan" != "" ] ; then setexpt=$(grep "experiment=" $setfileplan --color=never | awk '{print $2}') ; fi
-		# if experiment is STILL not defined, check the YAML
-		if [ "$setexpt" == "" ] ; then setexpt=$(grep --color=never experiment= $tempfile".config1" | awk '{print $2}') ; fi
-	fi
-
-
 
 	# BUILD THE NOTES FILE -------------------------------------------------
+	filenotes=$dest"/"$base".notes"
 	# add keywords, NOTES, and CHANNELS channels sections
 	echo "...BUILDING NOTES FILE"
-	echo "experiment= "$setexpt >  $filenotes
 	# insert the config output from xs-TAINI-tools
 	awk 'NF>1{print $0}' $tempfile".config1" |
-		grep -v filename_field_ |
-		grep -v file_yaml >> $filenotes
+		grep -v filename_field_ > $filenotes
 	echo "bin_decimation= "$bindec >> $filenotes
 	echo "bin_sample_rate= "$setbinsf >> $filenotes
 
-	if [ "$setfileplan" != "" ] ; then
-		xe-strxmlparse1 $fileplan NOTES -ok 1 >> $filenotes
-	fi
 	echo "" >> $filenotes
+
 	cat $tempfile".notes.channels."$subject >> $filenotes
 	echo "" >> $filenotes
 

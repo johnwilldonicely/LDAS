@@ -1,16 +1,16 @@
-These instructions pertain to all TaiNi experiments for wireless electrophysiology
+These instructions are for experiments using the TAINI wireless recording system
 
-- **REFER TO** manual_ldas.md for information on:
-	* terminology
-	* folder structrures
-	* file-types
+```
 
-################################################################################
-# RUNNING AN EXPERIMENT (ON THE ACQUISITION WORKSTATION)
+
+```
+################################################################################  
+# RUNNING AN EXPERIMENT (ACQUISITION WORKSTATION)  
 
 
 --------------------------------------------------------------------------------
-## 1. Set up the TAINI system
+
+## 1. Initialise the TAINI transmitters
 
 #### a) For new batteries, remove stickers and allow to "warm up" for ~5 minutes
 
@@ -20,6 +20,7 @@ These instructions pertain to all TaiNi experiments for wireless electrophysiolo
 
 
 --------------------------------------------------------------------------------
+
 ## 2. Prepare the folder for data acquisition
 
 #### a) Power up the receiver
@@ -55,6 +56,7 @@ These instructions pertain to all TaiNi experiments for wireless electrophysiolo
 
 
 --------------------------------------------------------------------------------
+
 ## 3. Setup recording and check signals
 
 #### a) Run FFT script to test transmitter signal:
@@ -107,6 +109,7 @@ These instructions pertain to all TaiNi experiments for wireless electrophysiolo
 
 
 --------------------------------------------------------------------------------
+
 ## 4. Run the experiment
 
 **REFER TO** to manual for the required type of experiment
@@ -157,7 +160,7 @@ These instructions pertain to all TaiNi experiments for wireless electrophysiolo
 		- smb://[name].[region].[company]/[folder]/
 
 ################################################################################
-# PRE-PROCESSING DATA (ON THE ANALYSIS WORKSTATION)
+# PRE-PROCESSING DATA (ANALYSIS WORKSTATION)
 
 1.  Transfer the files
 
