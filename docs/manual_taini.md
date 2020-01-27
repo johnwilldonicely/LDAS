@@ -146,19 +146,10 @@ These instructions are for experiments using the TAINI wireless recording system
 - Amend table_channels_[subject].txt files in case channels are dead
 - Merge paper record with TRIALS section of the .plan file
 
+#### h) Copy today's Data_Acquired folder to an external hard-drive or server 
+- this is critical, for data-security and to free space on your acquisition workstation
 
-################################################################################
-# TRANSFERRING DATA
 
-1. Copy the [date]_[experiment] directory to the external hard-drive
-
-2. Right-click and safely-remove the hard-drive
-
-3. Attach to networked PC with access to the data-storage server
-
-4. Upload [date]_[experiment directory to the server temporary transfer directory
-	- example server locations:
-		- smb://[name].[region].[company]/[folder]/
 
 ################################################################################
 # PRE-PROCESSING DATA (ANALYSIS WORKSTATION)
@@ -167,41 +158,28 @@ These instructions are for experiments using the TAINI wireless recording system
 
 2. Start building the data library, notes file (+channels), copying the .dat files & extracting the .bin files
 
-		$ xs-TAINI-preproc1 *.plan 2>&1| tee "log_xs-TAINI-preproc1"
-
-		NOTE: this includes a call to xs-TAINI-tools to rename files starting with "TAINI_"
+		$ xs-TAINI-preproc1 "*.dat" 2>&1| tee "log_xs-TAINI-preproc1"
 
 	...or, if we just need links to the .dat file, skip copying....
 
-		$ xs-TAINI-preproc1 *.plan --skip d 2>&1| tee "log_xs-TAINI-preproc1"
+		$ xs-TAINI-preproc1 "*.dat" --skip d 2>&1| tee "log_xs-TAINI-preproc1"
 
 	...or to just update the .notes file...
 
-		$ xs-TAINI-preproc1 *.plan --skip pdb
+		$ xs-TAINI-preproc1 "*.dat" --skip pdb
 
 	...or to do a batch...
 
 		$ cd Data_Acquired
-		$ xs-TAINI-preproc1 "*.plan" --skip db --batch "dir1 dir2 etc"
+		$ xs-TAINI-preproc1 "*.dat" --skip db --batch "dir1 dir2 etc"
 
-	...or, if these are old v0 files in which .dat =  unsigned integers...
+	...or, if these are old TainiLive V.0 files in which .dat =  unsigned integers...
 
-		$ xs-TAINI-preproc1 *.plan --conv 1 2>&1| tee "log_xs-TAINI-preproc1"
+		$ xs-TAINI-preproc1 "*.dat" --conv 1 2>&1| tee "log_xs-TAINI-preproc1"
 
+3. Once experimental pre-processing is completed, if .dat files are not needed they can be deleted
+	- you may wish to create links to the original .dat files
 
+4. Process the trials for this type of experiment
+- **REFER TO** experiment-specific manuals, pre-processing section
 
-3.  **REFER TO** experiment-specific manual, pre-processing section
-
-4. Once experimental pre-processing is completed, if .dat files are not needed they can be deleted
-	- you can create links to original .dat files
-		$ p=/run/user/1000/gvfs/smb-share:server=[serverlink],share=[path]
-		$ q=$p""20190103_Hargreaves_base1
-		$ list=$(ls --color=never $q/*dat)
-		$ for i in $list ; do ln -s $i ; done
-
-5. Copy data back to server
-	- renamed files
-	- cleaned version of sync-files if necessary
-	- log files
-
-6. **REFER TO** manual for LDAS: EXPERIMENTAL DESIGN
