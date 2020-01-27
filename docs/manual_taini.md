@@ -99,7 +99,7 @@ These instructions are for experiments using the TAINI wireless recording system
 * Recording menu:
 	- set output directory
 	- set the recording duration, if required (d:h:m:s)
-	- ** IMPORTANT **:  do NOT adjust the file-name format
+	- **IMPORTANT**:  do NOT adjust the file-name format
 
 #### c) Put the transmitters on the animals:
 - ***CAUTION!*** Use electrostatic-discharge protection!
@@ -122,7 +122,7 @@ These instructions are for experiments using the TAINI wireless recording system
 	- add a MAPPING batch section if you stop and start recording
 	- keep a paper record of trials for additional information
 	- add trials as they are completed
-	- **IMPORTANT** resave the .plan file [CTRL-s] often
+- **IMPORTANT** update/save the trial-tracker often!
 
 #### c) Conduct periodic checks
 - are .dat files (for all subjects) being produced?
