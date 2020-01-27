@@ -52,6 +52,7 @@ These instructions are for experiments using the TAINI wireless recording system
 - Purpose: to document the trials associated with sync-pulses
 - What these pulses mean depends on the setup and the experiment
 - Instructions for trial-tracking are found in the LDAS script designed for processing that type of TAINI session. Example:
+
 		$ xs-TAINI-laser0
 
 
