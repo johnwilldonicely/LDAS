@@ -49,7 +49,7 @@ int xf_demean1_s(short *input, long nn, long nwin1, char *message) {
 	if(nwin1>nn) { sprintf(message,"%s [ERROR]: window size %ld exceeds input length %ld",thisfunc,nwin1,nn); return(-1); }
 	/* ALLOCATE TEMPORARY ARRAY */
 	output= malloc(nn*sizeof(*input));
-	if(output==NULL) { sprintf(message,"%s [ERROR]: insufficient memory",thisfunc,nn); return(-1); }
+	if(output==NULL) { sprintf(message,"%s [ERROR]: insufficient memory",thisfunc); return(-1); }
  	/* CHECK IF ORIGINAL NWIN1 IS ODD */
 	if(nwin1%2==0) oddnwin1=0; else oddnwin1=1;
 	/* DETERMINE WORKING WINDOW SIZE AND HALF-WINDOW SIZE */
@@ -105,8 +105,8 @@ int xf_demean1_s(short *input, long nn, long nwin1, char *message) {
 	for(ii=0;ii<nn;ii++) input[ii]= output[ii];
 
 	/* WRAP UP */
-	if(oddnwin1==0) sprintf(message,"%s (calculated boxcar average for %ld input points, adjusted window size %d)",thisfunc,nn,nwin1);
-	if(oddnwin1==1) sprintf(message,"%s (calculated boxcar average for %ld input points, window size %d)",thisfunc,nn,nwin1);
+	if(oddnwin1==0) sprintf(message,"%s (calculated boxcar average for %ld input points, adjusted window size %ld)",thisfunc,nn,nwin1);
+	if(oddnwin1==1) sprintf(message,"%s (calculated boxcar average for %ld input points, window size %ld)",thisfunc,nn,nwin1);
 	if(output!=NULL) free(output);
 	return(0);
 }

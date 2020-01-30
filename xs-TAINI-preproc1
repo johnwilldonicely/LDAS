@@ -14,6 +14,7 @@ setchantemplate="/opt/LDAS/docs/templates/table_channels_taini_2.txt"
 setdestbase="../../Data_Library/"
 setbinsf="1000"
 setdemean="100"
+setgood="0"
 setconv="0"
 setverb="0"
 setclean="1"
@@ -45,6 +46,9 @@ if [ $# -lt 1 ]; then
 	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
 	echo "	--expt: name of experiment, for .notes file  [$setconv]"
 	echo "		- overrides \"experiment= \" in TAINI .yaml config file notes"
+	echo "	--good: analyse good channels only (0=NO 1=YES) [$setgood]"
+	echo "		- as defined in a table_channels file"
+	echo "		- if this file is missing, all channels are treated as good"
 	echo "	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [$setconv]"
 	echo "	--chans: template to use if table_channels_[subject].txt is missing"
 	echo "	 	["$setchantemplate"]"
@@ -60,27 +64,22 @@ if [ $# -lt 1 ]; then
 	exit
 fi
 
-echo "################################################################################"
-echo $thisprog "$allopts"
-date
-echo "################################################################################"
-
 ################################################################################
 # ARGUMENT HANDLING
 ################################################################################
-listinfiles=$(ls $1 2>/dev/null) ; shift
+setarg1="$1"
+listinfiles=$(ls $1 2>/dev/null)
 let ninfiles=$(echo $listinfiles | wc -w)
-if [ $ninfiles -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no files found matching \"$1\"\n" ;  exit; } ; fi
-let nametaini=$(echo $listdatinfiles | tr ' ' '\n' | grep --color=never TAINI | wc -l)
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:" ; vl="batch:,expt:,conv:,skip:,chans:,verb:,clean:"
+vs="v:" ; vl="batch:,good:,expt:,conv:,skip:,chans:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
 		--batch ) setbatch=$2 ; shift ;;
+		--good ) setgood=$2 ; shift ;;
 		--expt ) setexpt=$2 ; shift ;;
 		--conv ) setconv=$2 ; shift ;;
 		--skip ) setskip=$2 ; shift ;;
@@ -92,10 +91,10 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
+if [ "$setgood" != "0" ] && [ "$setgood" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --good ($setgood) -  must be 0 or 1\n" ; exit; } ; fi
 if [ "$setconv" != "0" ] && [ "$setconv" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --conv ($setconv) -  must be 0 or 1\n" ; exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit; } ; fi
-
 
 ################################################################################
 # IS THIS ACTUALLY A BATCH JOB?
@@ -117,6 +116,12 @@ if [ "$setbatch" != "" ] ; then
 		fi
 	done
 	exit # DO NOT DO ANYTHING ELSE!
+else
+	echo "################################################################################"
+	echo $thisprog "$allopts"
+	date
+	echo "################################################################################"
+	if [ $ninfiles -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no files found matching \"$setarg1\"\n" ;  exit; } ; fi
 fi
 
 
@@ -251,8 +256,15 @@ for filedat in $listdat0 ; do
 
 	# DOWNSAMPLE THE .DAT FILE -------------------------------------------------
 	if [ "$(echo $setskip | grep -v b)" ] ; then
-		echo "...COMMAND: xs-dat2bin $filedat $setnchans $setsf --srout 1000 --bad 1 --verb 1"
-		xs-dat2bin $filedat $setnchans $setsf --verb 1 --base $base --bad 1 --srout $setbinsf --mean $setdemean
+
+		if [ $setgood == "1" ] ; then
+			chans="--chans $(xe-dbmatch1 $in1 good 1 -o 1 -oc chan | paste -s | tr '\t' ',' )"
+		else
+			chans=""
+		fi
+
+		echo "...COMMAND: xs-dat2bin $filedat $setnchans $setsf $chans --srout 1000 --base $base --bad 1 --srout $setbinsf --mean $setdemean --verb 1"
+		xs-dat2bin $filedat $setnchans $setsf $chans --verb 1 --base $base --bad 1 --srout $setbinsf --mean $setdemean
 		mv -f $base"-"???".bin" $dest/
 	fi
 

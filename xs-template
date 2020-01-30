@@ -338,6 +338,9 @@ needle="cat"
 case $haystack in *$needle*) echo "found" ;;  esac
 # ... alternatively...
 if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
+# for exact matches...
+[[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
+
 
 # PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
 setkeys="one man,two women,three children"

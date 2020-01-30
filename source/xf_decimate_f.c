@@ -40,7 +40,7 @@ long xf_decimate_f(float *data, long ndata, double winsize,  char *message) {
 	long ii,jj;
 	double limit=0.0;
 
-	if(winsize>ndata) { sprintf(message,"%s [ERROR]: winsize (%ld) exceeds data-length (%ld)",thisfunc,winsize,ndata); return(-1); }
+	if(winsize>ndata) { sprintf(message,"%s [ERROR]: winsize (%f) exceeds data-length (%ld)",thisfunc,winsize,ndata); return(-1); }
 
 	for(ii=jj=0;ii<ndata;ii++) {
 		if((double)ii>=limit){

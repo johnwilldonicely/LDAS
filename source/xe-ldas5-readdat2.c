@@ -1,7 +1,6 @@
 #define thisprog "xe-ldas5-readdat2"
 #define TITLE_STRING thisprog" v 0: 31.January.2019 [JRH]"
 #define MAXLINELEN 1000
-#define CHANNELMAX 256
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,7 +58,7 @@ long xf_decimate_f(float *data, long ndata, double winsize,  char *message);
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char infile[256],outfile[256],line[MAXLINELEN],message[256],*pline,*pcol;
+	char line[MAXLINELEN],message[256],*pline,*pcol;
 	long int ii,jj,kk,nn,mm;
 	int v,w,x,y,z,col,colmatch,sizeofshort=sizeof(short),sizeoffloat=sizeof(float);
 	float a,b,c,d;
@@ -83,11 +82,11 @@ int main (int argc, char *argv[]) {
 	double *coefs=NULL,fomega,fbandwidth,fbeta=3,nyquist;
 
 	/* arguments */
-	char buffpointtype[256];
-	int setout=0,setch=0,setchtot=1,setverb=0,setflip=0,setbad=1,setinterp=0,setfloat=0;
+	char buffpointtype[256],*infile=NULL;
+	int setout=0,setverb=0,setflip=0,setbad=1,setinterp=0,setfloat=0;
 	double setdecimate=0,setsfreq=-1;
 	off_t setstart=0,setntoread=0;
-	long setmingood=0,setmean=0;
+	long setmingood=0,setmean=0,setch=0,setchtot=1;
 
 	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
 	if(argc<2) {
@@ -107,7 +106,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		- channel and sample indices are zero-offset\n");
 		fprintf(stderr,"		- eg. samp2/ch5 of a 16ch input is indexed 2*16+5\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
-		fprintf(stderr,"	-nch: total number of channels [%d]\n",setchtot);
+		fprintf(stderr,"	-nch: total number of channels [%ld]\n",setchtot);
 		fprintf(stderr,"	-ch: channel to extract: 0-(nch-1) [%ld]\n",setch);
 		fprintf(stderr,"	-s: start reading at this sample (zero-offset) [%ld]\n",setstart);
 		fprintf(stderr,"	-n: number of samples to read (0=all) [%ld]\n",setntoread);
@@ -115,7 +114,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-bad: invalid value (0,-1, or 1=SHRT_MAX) [%d]\n",setbad);
 		fprintf(stderr,"	-mg: minimum good values in a row to keep data [%ld]\n",setmingood);
 		fprintf(stderr,"		- sequences of less than this will be set to invalid\n");
-		fprintf(stderr,"	-f: flip good data values (0=NO 1=YES) [%ld]\n",setflip);
+		fprintf(stderr,"	-f: flip good data values (0=NO 1=YES) [%d]\n",setflip);
 		fprintf(stderr,"	-int: interpolate across invalid values (0=NO 1=YES) [%d]\n",setinterp);
 		fprintf(stderr,"	-mean: size of sliding-window used to demean input (0=SKIP) [%ld]\n",setmean);
 		fprintf(stderr,"	-dec: decimate to every nth sample (0=NO)[%g]\n",setdecimate);
@@ -125,7 +124,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		     	- will require setting -sf (below)\n");
 		fprintf(stderr,"		     	- will reduce amplitude for high decimation\n");
 		fprintf(stderr,"	-sf: sampling frequency (Hz), required for decimation [%g]\n",setsfreq);
-		fprintf(stderr,"	-con: convert data to float for processing (0=NO 1=YES) [%ld]\n",setfloat);
+		fprintf(stderr,"	-con: convert data to float for processing (0=NO 1=YES) [%d]\n",setfloat);
 		fprintf(stderr,"	-out: output format (0=ASCII, 1=binary) [%d]:\n",setout);
 		fprintf(stderr,"		NOTE: binary out is short (-con 0) or float (-con 1)\n");
 		fprintf(stderr,"	-verb: verbose output (0=low,1=high,2=highest) [%d]\n",setverb);
@@ -140,7 +139,7 @@ int main (int argc, char *argv[]) {
 	/************************************************************/
 	/* READ THE FILENAME AND OPTIONAL ARGUMENTS */
 	/************************************************************/
-	sprintf(infile,"%s\0",argv[1]);
+	infile= argv[1];
 	if(strcmp(infile,"stdin")!=0 && stat(infile,&sts)==-1 && errno == ENOENT) {
 		fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);
 		exit(1);
@@ -164,8 +163,8 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-verb")==0)  setverb=atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
-	if(setchtot<1||setchtot>CHANNELMAX) {fprintf(stderr,"\n--- Error[%s]: invalid -nch (%d) : must be >0 and <%d\n\n",thisprog,setchtot,CHANNELMAX);exit(1);}
-	if(setch<0||setch>=setchtot) {fprintf(stderr,"\n--- Error[%s]: invalid -ch (%d) : must be >0 and <nch (%d)\n\n",thisprog,setch,setchtot);exit(1);}
+	if(setchtot<1) {fprintf(stderr,"\n--- Error[%s]: invalid -nch (%ld) : must be >0\n\n",thisprog,setchtot);exit(1);}
+	if(setch<0||setch>=setchtot) {fprintf(stderr,"\n--- Error[%s]: invalid -ch (%ld) : must be >0 and <nch (%ld)\n\n",thisprog,setch,setchtot);exit(1);}
 	if(setbad<-1||setbad>1) {fprintf(stderr,"\n--- Error[%s]: invalid -bad (%d) : must be -1, 0, or 1 \n\n",thisprog,setbad);exit(1);}
 	if(setmingood<0) {fprintf(stderr,"\n--- Error[%s]: invalid -mg (%ld) : must be >= 0\n\n",thisprog,setmingood);exit(1);}
 	if(setinterp!=0 && setinterp!=1) {fprintf(stderr,"\n--- Error[%s]: invalid -rep (%d) : must be 0-1\n\n",thisprog,setinterp);exit(1);}
@@ -258,7 +257,7 @@ int main (int argc, char *argv[]) {
 		block++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	if(setverb==1) fprintf(stderr,"\n\tread %ld samples\n",nn);
+	if(setverb==1) fprintf(stderr,"\tread %ld samples\n",nn);
 
 	// if(setfloat==0) for(ii=0;ii<nn;ii++) printf("%d\n",data1[ii]);
 	// else            for(ii=0;ii<nn;ii++) printf("%g\n",data2[ii]);

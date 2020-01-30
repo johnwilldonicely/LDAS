@@ -20,7 +20,7 @@ setmean="0"
 setbad="1"
 setverb="1"
 setclean="1"
-
+setchans=""
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -37,6 +37,7 @@ if [ $# -lt 3 ]; then
 	echo "	[nchans]: number of channels in infile"
 	echo "	[srin]: sample-rate of infile"
 	echo "VALID OPTIONS (defaults in []):"
+	echo "	--chans: CSV list of channels (from 0) to process [$setchans]"
 	echo "	--base: basename for output (if unset, infile minus extension) [$setbase]"
 	echo "	--mean: window size (seconds) for de-meaning data (0=SKIP) [$setmean]"
 	echo "	--srout: output sample-rate (Hz) [$setsrout]"
@@ -64,12 +65,13 @@ if [ ! -s $infile ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is em
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:" ; vl="base:,mean:,srout:,bad:,verb:,clean:"
+vs="v:" ; vl="chans:,base:,mean:,srout:,bad:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--chans ) setchans=$2 ; shift ;;
 		--base ) setbase=$2 ; shift ;;
 		--mean ) setmean=$2 ; shift ;;
 		--srout ) setsrout=$2 ; shift ;;
@@ -107,6 +109,13 @@ fi
 # assign bad-value
 bval=$setbad ; if [ "$bval" == "1" ] ; then bval="32767" ; fi
 
+# build chans array - make sure all entries are interpreted as numbers with no zero-padding
+if [ "$setchans" != "" ] ; then
+	chans=$(echo $setchans | awk -F , '{printf("%d",$1); for(i=2;i<=NF;i++) printf(" %d",$i)}')
+else
+	chans=""
+fi
+
 echo "infile= "$infile
 echo "n_channels= "$setnchans
 echo "demean_window= "$setmean" seconds"
@@ -114,12 +123,14 @@ echo "sr_in= "$setsrin" Hz"
 echo "sr_out= "$setsrout" Hz"
 echo "decimate= "$decimate
 echo "invalid_value= "$bval
+echo "included channels= "$chans
 
 #echo "base="$base
 #echo "ext="$ext
 
 ########################################################################################
 # 2. MAKE INTERPOLATED .bin FILES - FOR EEG-TYPE ANALYSIS
+# - determine if channel is in include-list
 # - downsample to exactly 1000Hz
 # - save downsampling factor to notes file
 # - save directly to output path
@@ -129,6 +140,11 @@ echo "...making interpolated .bin files..."
 if [ "$setmean" != "0" ] ; then demean=$(echo "$setmean*$setsrin" | bc | xe-math_round2 stdin ) ; else demean="0" ; fi
 
 for setchan in $(seq 0 $maxchan) ; do
+
+	if [ "$setchans" != "" ] ; then
+		z=$(xs-strmatch "$chans" exact $setchan)
+		if [ $z == "no" ] ; then continue ; fi
+	fi
 	chan2=$(echo $setchan | awk '{printf("%03d",$1)}')
 	outfile=$base"-"$chan2".bin"
 	echo "	downsampling $chan2 to $outfile"

@@ -1,0 +1,43 @@
+#!/bin/bash
+# <TAGS>string</TAGS>
+
+# INTIAL VARIABLE DEFINITIONS
+thisprog=`basename "$0"`
+setexact="0"
+
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+if [ $# -lt 3 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": is one character string (needle) is found in another (haystack) ?"
+	echo
+	echo "USAGE: $thisprog  [haystack] [mode] [needle]"
+	echo
+	echo "	[haystack]: string in which to search for [needle]"
+	echo "	[mode]: type or match, must be \"exact\" or \"contains\""
+	echo "	[needle]: text to find"
+	echo
+	echo "NOTE: will not detect white-space (space, tab, newline)"
+	echo "OUTPUT: \"yes\" or \"no\""
+	echo "EXAMPLE: "
+	echo "	$thisprog \"10 15 20\" contains \"5\""
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+# REQUIRED ARGUMENT HANDLING
+haystack="$1"
+mode=$2
+needle="$3"
+
+if [ "$mode" != "exact" ] && [ "$mode" != "contains" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid mode ($mode) - must be \"exact\" or \"contains\"\n" ;  exit; } ; fi
+
+# PERFORM MATCHING
+if [ $mode == "exact" ] ; then
+	[[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
+else
+	if [[ $haystack = *"$needle"* ]]; then  echo 'yes' ; else echo 'no' ; fi
+fi
+
+exit
