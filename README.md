@@ -97,7 +97,7 @@ When typing the following commands, omit the "$", as this represents the command
 $ xs-makesignal1 5 1000
 $ xe-plottable1 "temp_xs-makesignal1" -xscale 1 -line 1 -ps 0
 ```
-....use evince to view the postdcript plot...
+....use evince to view the postscript plot...
 ```
 $ evince temp_xe-plottable1.ps &
 ```
