@@ -1,0 +1,316 @@
+#!/bin/bash
+# <TAGS>laser</TAGS>
+
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progpath=$(dirname $(readlink -f "$0"))
+
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+outfile2=$progbase1".missing"
+
+startdir=$(pwd)
+progtime_start=$(date +'%s.%3N')
+setverb="0"
+setclean="1"
+
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+# HERE's a sample CSV file which culd represent the input for this program
+# note in this example on nly one block is presented, and column 4 is blank
+
+# SYNC_FILE=,20191031-001_10345.sync,,,,,,,,,
+# PIL= ,11223344,,,,,,,,,
+# DATE= ,2019/10/31,,,,,,,,,
+# SPOT_SIZE=, 4 mm ,,,,,,,,,
+# PULSE_DUR=, 4 ms,,,,,,,,,
+# ,,,,,,,,,,
+# NBOXES=,3,1,,1,,1,,0,,
+# BOX_NUMS,,1,,2,,3,,4,,
+# DOSSIER_IDS,,10345,,10346,,10347,,,,
+# ,,,,,,,,,,
+# BLOCK#1,STIM=,1.50,,,,,,,,
+# sub_stim,stim,code,stim,code,stim,code,stim,code,,
+# 1,1,L1,2,L2,3,L3,4,,,
+# 2,4,R1,5,R2,6,R3,7,,,
+# 3,7,L1,8,L2,9,L3,10,,,
+# 4,10,R1,11,X R2,12,R3,13,,,
+# 5,13,L1,14,L2,15,L3,16,,,
+# 6,16,R1,17,R2,18,R3,19,,,
+# 7,19,L1,20,L2,21,L3,22,,,
+# 8,22,R1,23,R2,24,R3,25,,,
+# 9,25,L1,26,L2,27,L3,28,,,
+# 10,28,R1,29,R2,30,R3,31,,,
+# 11,31,L1,32,L2,33,L3,34,,,
+# 12,34,R1,35,R2,36,R3,37,,,
+# ,,,,,,,,,,
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "$thisprog: "
+	echo "- creates .notes <TRIALS> sections for a laser-ERP expt."
+	echo "- uses the config (.yaml) file for extracting parameters"
+	echo ""
+	echo "USAGE: $thisprog [worksheet] [options]"
+	echo "	[worksheet]: laser-ERP experimental worksheet (.xlsx or .csv)"
+	echo "	- see $progpath/docs/templates/template_taini_worksheet_laser.xlsx"
+	echo "	- this can be multiple files, or wildcards - if in quotes"
+	echo ""
+	echo "VALID OPTIONS..."
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "EXAMPLES: "
+	echo "	$thisprog 20181231_000.xlsx"
+	echo "	$thisprog \"*.xlsx\""
+	echo "	$thisprog \"A.xlsx  B.xslx\""
+	echo ""
+	echo "OUTPUT..."
+	echo "	- update to individual .notes files in ../../Data_Acquired/[base]/"
+	echo "	- missed-stimuli (x's) summary: $outfile2"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# ARGUMENT HANDLING
+########################################################################################
+# get list of worksheet file names
+listinfiles=$(ls $1 2>/dev/null) ; shift
+if [ "$listinfiles" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no worksheet files found matching \"$1\"\n" ;  exit; } ; fi
+
+# optional arguments
+vs="v:c:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	# do band detection
+	for band in $(seq 1 $nbands) ; do if [ "$1" == "--"${fname[$band]} ] ; then { setband[$band]=$2 ; shift ; } fi ; done
+	# do the rest
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] && [ "$setverb" != "2" ]; then {  echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0-2\n" ; exit ;  } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit ;  } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# FILE LOOP - FOR EACH WORKSHEET
+################################################################################
+let batch=0
+echo -e "batch\tblock\ttotal\tmissing" > $outfile2
+for infile in $listinfiles ; do
+	let batch=$batch+1
+	echo -e "box\tsubject\tblock\tb_trial\tsyncnum\tstim\ttarget\tresponse" > $tempfile"_trials_all"
+	echo -e "\n- PROCESSING $infile..."
+
+	################################################################################
+	# STORE A VERSION OF THE FILE WITH COMMAS CONVERTED TO TABS
+	base=${infile%%.*}
+	ext=${infile##*.}
+	if [ "$ext" == "xlsx" ] ; then
+		echo -e "\t- converting from xlsx file format"
+		if [ "$(command -v libreoffice)" == "" ] ; then
+			echo -e "\n--- Error ["$thisprog"]: libreoffice is not installed on this machine: cannot convert to HTML\n"
+			exit
+		fi
+		libreoffice --headless --convert-to csv $infile > $tempfile"_convert.log" &> /dev/null
+	elif [ "$ext" != "csv" ] ; then
+		echo -e "\n--- Error ["$thisprog"]: file-type ($infile) - must be a xlsx or csv file\n"
+		exit
+	fi
+	echo -e "\t- replacing commas with tabs"
+	cat $base".csv" | tr ',' '\t' | awk '{if(NF<2) print "" ; else print $0}' > $tempfile".1"
+
+	################################################################################
+	# PROCESS THE CONFIG FILE - DATA FOR ALL SUBJECT-SESSION RECORDINGS
+	fileconfig=$(xe-getkey2 $tempfile".1" CONFIG_FILE=)
+	if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ;  exit; fi
+	if [  ! -e $fileconfig ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing CONFIG_FILE $fileconfig\n"$NC ;  exit; fi
+	# get the TAINI configuration summary for all recordings in this config file
+ 	xs-TAINI-tools config --file $fileconfig > $tempfile".config"
+	listsubjects1=$(xe-getkey $tempfile".config" subject=)
+	let nsubjects1=$(echo $listsubjects1 | tr ',' ' ' | wc -w)
+	date1=$(xe-getkey $tempfile.config start_date= | xe-dateconv1 stdin -i 3)
+	listdat1=$(grep output_destination: *.yaml | awk -F / '{print $NF}')
+	expt1=$(xe-getkey $tempfile".config" experiment=)
+
+	################################################################################
+	# PROCESS THE CONVERTED WORKSHEET ($tempfile.1)
+	# get the pulse duration
+	pulse_dur_ms=$(xe-getkey2 $tempfile".1" PULSE_DUR=)
+	if [  "$pulse_dur_ms" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: PULSE_DUR= undefined in $infile\n"$NC ;  exit; fi
+	# define date2 - check against config file
+	d=$(xe-getkey2 $tempfile".1" DATE=)
+	date2="" ; for z in 1 2 3 4 ; do date2=$(echo $d | xe-dateconv1 stdin -i $z); if [ "$date2" != "NAN" ]; then  break; fi; done
+	if [ "$date2" == "NAN" ] || [ "$date2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: invalid DATE= ($z) in $fileconfig \n"$NC ; exit; fi
+	if [ "$date2" != "$date1" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: date from worksheet ($date2) does not match start_date in config file ($date1) \n"$NC ; exit; fi
+	# determine the number of boxes - should be 4, depending on whether a subject_id is entered for the boxes in the worksheet
+	let nboxes=$(xe-getkey2 $tempfile".1" NBOXES=)
+	# make sure it matches the number of subjects from the config file
+	if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of subject-ids in worksheet ($nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
+	# store CSV list of subject-ID's >0
+	listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print $i}' | paste -s | tr '\t' ',')
+	# store list of box-columns for subject-ID > 0
+	listcols2=$(grep NBOXES= $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print i}' | paste -s | tr '\t' ',')
+	# determine number of blocks of trials
+	pattern="BLOCK#"
+	listblocks=$(grep $pattern $tempfile".1" --color=never | awk '{print $1}' | tr '\n' ' ')
+	let nblocks=$(grep -c $pattern $tempfile".1")
+
+	################################################################################
+	# BUILD THE TRIALS SECTION
+	################################################################################
+	echo -e "\t- analyzing blocks..."
+	# INITIALISE $trialtot
+	let trialtot=0
+	for code in $listblocks ; do
+		# DEFINE BLOCK AND STIM-STRENGTH
+		block=${code##*#}
+		stim=$(xe-cut2 $tempfile".1" $code -s1 1 | head -n 1 | xe-delimit stdin | tr '\t' ' ' | tr -s " " | xe-getkey stdin STIM=)
+		if [ "$stim" == "" ] ; then echo -e "\t\t- skipping block $block: no stim strength specified" ; continue ; fi
+		# BUILD A TEMP-FILE FOR THIS BLOCK ONLY
+		echo $listsubjects2 | tr ',' '\t' > $tempfile".2"
+		xe-cut2 $tempfile".1" $code -s3 tot: | tail -n +3 | cut -f $listcols2 | awk 'NF>0{print $0}' >> $tempfile".2"
+		rm -f $tempfile".3"
+		# NOW DO THE TRIAL ANALYSIS FOR THIS BLOCK - ONE LINE OUT PER STIM
+		cat $tempfile".2" |
+		awk -F '\t' '
+		BEGIN { n=0; trials=0; out1="'$tempfile'.3"; out2="'$outfile2'"	}
+		{
+			if(++n==1) { missing=0 ; for(i=1;i<=NF;i++) id[i]=$i }
+			else {
+				for(i=1;i<=NF;i++) {
+					output="" ; target="-" ; response="-" ; empty="0"
+					split($i, chars, "")
+					if(length($i)<1) continue
+					for (j=1;j<=length($i);j++) {
+						char=chars[j]
+						if(char=="") continue
+						else if(char=="x"||char=="X") {
+							trials++
+							missing++
+							z= '$trialtot'+trials
+							output=i"\t"id[i]"\t'$block'\t"trials"\t"z"\t'$stim'\t"target"\t"response
+							print output >> out1
+							if(j==length($i)) empty="1"
+							continue
+						}
+					else if(char=="L") { target="BL" }
+					else if(char=="R") { target="BR" }
+						else if(char~/[0-9]/) { response=char }
+					}
+					if(empty=="0") {
+						trials++
+						z= '$trialtot'+trials
+						output=i"\t"id[i]"\t'$block'\t"trials"\t"z"\t'$stim'\t"target"\t"response
+						print output >> out1
+		}}}}
+		END { print "'$batch'\t'$block'\t"trials"\t"missing >> out2 }
+		'
+		# UPDATE trialtot
+		let z=$(cat $tempfile".3" | wc -l)
+		let trialtot=$trialtot+$z
+		# APPEND THIS BLOCK TO THE TRIALS SECTION
+		cat $tempfile".3" >> $tempfile"_trials_all"
+
+	done # END OF LIST-BLOCKS LOOP - STILL ONSIDE OF WORKSHEET-LIST LOOP
+
+	################################################################################
+	# MAKE THE <TRIALS> SECTION FOR EACH SUBJECT-SESSION FOR THIS WORkSHEET
+	let count=0
+	for filedat in $listdat1 ; do
+		let count=$count+1
+		# stats are calculated for each subject
+		# we cannot assume for example that sample-rate is the same for all devices
+		config=$(xs-TAINI-tools config --file $filedat)
+		subject=$(echo $config | xe-getkey stdin subject=)
+		session=$(echo $config | xe-getkey stdin session=)
+		base=$(echo $config | xe-getkey stdin ldas_basename=)
+		sample_rate=$(echo $config | xe-getkey stdin sample_rate=)
+		trial_dur=$(echo "scale=12; ($pulse_dur_ms / 1000) * $sample_rate" | bc | xe-math_round1 stdin)
+
+		# pull out all the sync records of type1 (auditory) or type2 (laser) - bear in mind some of these are for other subjects
+		filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
+		xe-getsequence1 $filesync 2 exact SYNC_1 SYNC_0 | grep SYNC_1 --color=never > $tempfile"_sync1"
+		xe-getsequence1 $filesync 2 exact SYNC_2 SYNC_0 | grep SYNC_2 --color=never > $tempfile"_sync2"
+		echo -e "start\tstop\tsync" > $tempfile"_sync_all"
+		cat $tempfile"_sync1" $tempfile"_sync2" |
+			tr ' ' '\t' |
+			sort -n -k1,1n |
+			xe-cut1 stdin 1,1,2 -n 1 |
+			xe-math_add1 stdin -cy 2 -v $trial_dur -long 1 >> $tempfile"_sync_all"
+
+		# check here to make sure total trial count matches
+		let synctot=$(tail -n +2 $tempfile"_sync_all" | wc -l)
+		if [ "$synctot" != "$trialtot" ] ; then
+			echo -e $RED"\n--- Error ["$thisprog"]: synctot ($synctot) does not equal trialtot ($trialtot)"
+			echo -e "\t- mismatch between $infile and \n\t  $filesync\n"$NC
+			exit
+		fi
+
+
+		# build the temp trials file for this subject - including a new name field incorporating multiple datatypes
+		# - for audio trials, convert subject to "ALL" for matching (all subjects receive audio stimulus)
+		echo "<TRIALS>" > $tempfile"_trials_"$subject
+		xe-strsub2 $tempfile"_trials_all" ALL -cols 2 -in audio |
+			paste $tempfile"_sync_all" - |
+			xe-dbmatch1 stdin subject ALL,$subject |
+			xe-cut1 stdin start,stop,sync,syncnum,block,stim,target,response |
+			awk 'BEGIN{n=-1}{if(++n==0) print $0"\ttrial\tname" ; else {print $0"\t"n"\t"n"_"$6"_"$7"_"$8"_"$3}}' |
+			xe-cut1 stdin start,stop,trial,syncnum,block,stim,target,response,name >> $tempfile"_trials_"$subject
+		echo "</TRIALS>" >> $tempfile"_trials_"$subject
+
+		# update the appropriate .notes file
+		dest="../../Data_Library/$base"
+		filenotes=$dest"/"$base".notes"
+		if [ -e "$filenotes" ] ; then
+			xs-ldas-updatenotes2 $filenotes TRIALS $tempfile"_trials_"$subject > $tempfile
+			mv $tempfile $filenotes
+			echo "- results sent to: "$filenotes
+		else
+			echo -e "$RED\n--- Error ["$thisprog"]: no notes file in $dest/$base"
+			echo -e "\t- plan file $fileplan might not been have been pre-processed"
+			echo -e "\t- run xs-TAINI-preproc1 before running $thisprog $NC\n"
+			exit
+		fi
+
+	done
+
+done # END OF INFILE LOOP
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+echo 
+if [ "$setverb" == "1" ] ; then
+	progtime_end=$(date +'%s.%3N')
+	s=$(echo $progtime_end $progtime_start | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
