@@ -15,14 +15,17 @@
 
 	...and more.
 
+<<<<<<< HEAD
 * There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-):
+=======
+* There are three principal types of code in LDAS, identifiable by their prefixes: 
+>>>>>>> 4fd42aab170d3a90bdfb1007478e5de24df16292
 
 	* xe- : executable C-programs  
 	* xs- : executable Bash shell-scripts  
 	* xf_ : C-functions which form components of xe- programs  
 
 Intensive processing is performed by the C-programs, which are optimized for speed and low memory-usage.  The shell-scripts are used to link the C-programs together to perform more complicated jobs, and also to perform some of the file-management operations.
-
 
 ################################################################################
 # INSTALLATION
