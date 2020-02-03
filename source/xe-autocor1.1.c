@@ -9,6 +9,11 @@
 
 /*
 <TAGS>signal_processing stats</TAGS>
+
+v 1: 14.August.2012 [JRH]
+	- original version
+v 1: 03.February.2020 [JRH]"
+	- bugfix argument-reading
 */
 
 /* external functions start */
@@ -58,8 +63,8 @@ int main (int argc, char *argv[]) {
 	for(ii=2;ii<argc;ii++) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
-			else if(strcmp(argv[ii],"-sf")==0)  setsfreq=atof(argv[ii++]);
-			else if(strcmp(argv[ii],"-max")==0) setmax=atof(argv[ii++]);
+			else if(strcmp(argv[ii],"-sf")==0)  setsfreq=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-max")==0) setmax=atof(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
