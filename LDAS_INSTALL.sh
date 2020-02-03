@@ -372,8 +372,6 @@ echo -e "\n---------------------------------------------------------------------
 echo -e "MAKING SCRIPTS EXECUTABLE..."
 chmod a+x $tempdir/LDAS/xs-*
 chmod a+x $tempdir/LDAS/xp-*
-chmod a+x $tempdir/LDAS/xr-*
-
 
 ################################################################################
 # REMOVE PREVIOUS INSTALL

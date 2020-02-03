@@ -26,7 +26,7 @@ if [ $# -lt 2 ]; then
 	echo "OPTIONS (in quotes) to be passed to xe-makedata1: "
 	echo "	-D: delta options [$deltaopts]"
 	echo "	-T: theta options [$thetaopts]"
-	echo "	-G: delta options [$gammaopts]"
+	echo "	-G: gamma options [$gammaopts]"
 	echo "	-N: noise options [$noiseopts]"
 	echo "		two noise signals will be added:"
 	echo "		1) the noise specified by the user"

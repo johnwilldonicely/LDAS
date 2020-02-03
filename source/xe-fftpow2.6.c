@@ -230,10 +230,10 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"	%s data.txt -t bin -sf 1500 \n",thisprog);
 		fprintf(stderr,"	cat data.bin | %s stdin -t asc \n",thisprog);
 		fprintf(stderr,"OUTPUT: \n");
-		fprintf(stderr,"	if -out 0:  <frequency> <power>\n");
-		fprintf(stderr,"	if -out 1:  spectral matrix, row=window (time), column=frequency\n");
-		fprintf(stderr,"	if -out 2:  <time> <spectrum>\n");
-		fprintf(stderr,"	if -out 3:  <time> <deltapower> <thetapower> <betapower> <gammapower>\n");
+		fprintf(stderr,"	if -o 0:  <frequency> <power>\n");
+		fprintf(stderr,"	if -o 1:  spectral matrix, row=window (time), column=frequency\n");
+		fprintf(stderr,"	if -o 2:  <time> <spectrum>\n");
+		fprintf(stderr,"	if -o 3:  <time> <deltapower> <thetapower> <betapower> <gammapower>\n");
 		fprintf(stderr,"\n");
 		exit(0);
 	}

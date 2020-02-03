@@ -1,21 +1,21 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-* [INTRODUCTION](#introduction) * [INSTALLATION](#installation) * [MANUALS](#manuals) * [PROGRAM TYPE TAGS](#program-type-tags) * [EXPERIMENTAL DESIGN](#experimental-design) * [FILE TYPES](#file-types) * [DEPENDENCIES](#dependencies)
+[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals) [* PROGRAM TYPE TAGS](#program-type-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* DEPENDENCIES](#dependencies)  
 
 # Introduction
 * LDAS is a modular suite of data-analysis tools, designed for high-speed and batch processing run on Linux systems.
 * LDAS programs are executed on the command-line, either directly, or remotely via a terminal connection.
-* Capabilities include: 
+* Capabilities include:
 	* data visualization (smart-postscript)
 	* spectral power analysis (FFT)
 	* coherence and correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)  
 
-	...and more. 
+	...and more.
 
-* There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-): 
+* There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-):
 
 	* xe- : executable C-programs  
 	* xs- : executable Bash shell-scripts  
@@ -25,10 +25,10 @@ Intensive processing is performed by the C-programs, which are optimized for spe
 
 
 ################################################################################
-# INSTALLATION 
+# INSTALLATION
 
-## Preamble 
-LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested. 
+## Preamble
+LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested.
 
 #### Installation scope: local or global
 
@@ -44,21 +44,22 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 
 #### Installation mode: git or zip
 
-By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this: 
+By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this:
 
 * for Ubuntu
 ```
-		$ sudo apt-get install git 
+		$ sudo apt-get install git
 ```
 
-* for other flavours of Linux: 
+* for other flavours of Linux:
 ```
-		$ sudo yum install git 
+		$ sudo yum install git
 ```
 
-Alternatively, you can install using a previously downloaded zipped-archive of the LDAS repo. This does not require git, and is one way of keeping backup copies of LDAS should you want to roll-back the installation. Download the latest zip-archive here:
+Alternatively, you can install LDAS using a previously downloaded zip-archive. This does not require git, and is also a way of keeping backup copies of LDAS, should you want to roll-back the installation. Download the latest zip-archive here:
 
-	https://github.com/johnwilldonicely/LDAS  
+https://github.com/johnwilldonicely/LDAS/archive/master.zip
+
 
 ## Steps to install LDAS
 
@@ -76,15 +77,56 @@ This should be performed in your home or download directory
 ### 3. Run the script, specifying the scope of the installation.
 Examples:  
 ```
-		$ ./LDAS_INSTALL.sh local 
-		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip 
-		$ ./LDAS_INSTALL.sh global 
-		$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip 
+	$ ./LDAS_INSTALL.sh local
+		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
+		$ ./LDAS_INSTALL.sh global
+		$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 ```
 
-### 4. [optional] - delete the INSTALLER 
-You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system. 
+### 4. [optional] - delete the INSTALLER
+You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
+################################################################################
+# QUICKSTART TEST
+
+To get a feel for how LDAS works, let's make some sample data and analyse it.  
+When typing the following commands, omit the "$", as this represents the command-prompt
+
+## make some data and plot it
+```
+$ xs-makesignal1 5 1000
+$ xe-plottable1 "temp_xs-makesignal1" -xscale 1 -line 1 -ps 0
+```
+....use evince to view the postdcript plot...
+```
+$ evince temp_xe-plottable1.ps &
+```
+## try a power spectal analysis
+...here we pipe (|) the output from one program to the next...
+```
+$ cut -f 2 temp_xs-makesignal1 |
+	xe-fftpow2 stdin |
+	xe-plottable1 stdin -line 1 -ps 0 -xscale 1
+```
+## make a longer dataset gamma-events
+
+* 60-second dataset with massively increased gamma power every 10 seconds
+
+```
+$ xs-makesignal1 60 1000 -B g -E "-ei 10 -ed 5 -et 1 -ea 300"
+```
+## make a time-course heat-map for spectral power  
+```
+$ cut -f 2 temp_xs-makesignal1 |
+	xe-fftpow2 stdin -w 1000 -min 2 -max 150 -o 1 |
+	xe-matrixmod1 stdin -r -90 -sx 10 -sy 2 -w 100 -h 100 |
+	xe-plotmatrix1 stdin -xmax 60 -ymax 150  -xlabel "Time(s)" -ylabel "Frequency (Hz)"
+
+```
+...now view the postscript plot...
+```
+		evince temp_xe-plotmatrix1 &
+```
 
 ################################################################################
 # MANUALS
@@ -119,7 +161,7 @@ A full description of all LDAS components can be found in docs/PROGTAG.html
 
 ### Preprocessing scripts for particular acquisition systems
 
-Most LDAS scripts and programs are designed as general tools, but some were designed to work with specific acquisition systems, or assume your data is organized according to the LDAS file/folder experiment conventions (see EXPERIMENTAL DESIGN, below). Here are some examples of patform-specific modules: 
+Most LDAS scripts and programs are designed as general tools, but some were designed to work with specific acquisition systems, or assume your data is organized according to the LDAS file/folder experiment conventions (see EXPERIMENTAL DESIGN, below). Here are some examples of patform-specific modules:
 
 * xs-TAINI- : data generated by TAINI wireless electrophysiology systems  
 * xs-O2-    : oxygen amperometry data from CHART  
@@ -246,22 +288,22 @@ Sample listing:
 	- Data_Working
 
 3. Add tables to *Analysis* directory  
-		
+
 ```
 		$ cd [study]/[experiment]  
 		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
 		$ echo -e "group\\tname" > Analysis/table_groupnames.txt  
 ```
-		
-4. Build links to files in *Data_Library* in *Data_Working*: 
+
+4. Build links to files in *Data_Library* in *Data_Working*:
 	- the working-data directories are where analyses are perfomed
 	- this protects the original files in the Data_Library  
-	
+
 ```
 		$ cd [study]/[experiment]  
 		$ xs-makelink1 Data_Library Data_Working --patterns BASE  
 ```
-		
+
 5. Make a database file:  
 	- defines the [date]_[subject] paths to *Data_Working* folders  
 	- also defines the group-id for each path  
@@ -269,7 +311,7 @@ Sample listing:
 	- subject-groups can be defined in *table_groups.txt*, if available  
 	- group-names may be defined in *table_groupnames.txt* if available  
 	- these names may be incorporated into the db-file header  
-	
+
 ```
 		$ cd [study]/[experiment]/Analysis  
 		$ t1=table_groups.txt  
@@ -277,7 +319,7 @@ Sample listing:
 		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
 		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
 ```
-		
+
 	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
 
 
@@ -289,8 +331,8 @@ LDAS has specialized scripts to perform complex analyses. These scripts often ha
 		$ xs-ldas5-XHAR1 [base] [options] : Hargreaves analysis for one folder
 		$ xs-ldas5-XHAR1b [db] [options]  : batch analyse entire experiment
 ```  
-		
-These batch scripts require a database [db] file to specify which *Data_Working* directories to use for the analyses. As described above, this db-file includes group-ids originally defined in a separate *table_groups.txt* file, and may also incorporate roup-names from the *table_groupnames.txt* file. 
+
+These batch scripts require a database [db] file to specify which *Data_Working* directories to use for the analyses. As described above, this db-file includes group-ids originally defined in a separate *table_groups.txt* file, and may also incorporate roup-names from the *table_groupnames.txt* file.
 However, any db-file can be modified in order to...
 
 	- remove or comment-out (#) paths which should be exluded from analysis 	
@@ -298,7 +340,7 @@ However, any db-file can be modified in order to...
 	- change group-names originally derived from *table_groupnames.txt*
 
 ################################################################################
-## ANALYSES 
+## ANALYSES
 
 ### Aligning data to trials or events
 
@@ -311,7 +353,7 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 		- start(sample)
 		- stop(sample)
 		- seconds(duration)
-		- name(text) 
+		- name(text)
 
 2. A .ssp file in the data folder  
 	- all events in a given .ssp file are of the same type  
@@ -351,12 +393,12 @@ These are some basic filetypes used by LDAS.
 	- an alternative to defining many "trials" in the .notes file
 	- format: <timestamp> <description>
 	- <description> should be a single word with underscores separating fields
-	- e.g.: 
+	- e.g.:
 ```
 		1000	STIM_ON_LEFT
 		2000	STIM_OFF_LEFT
 ```
-		
+
 	- timestamps are usually in seeconds for O2 experiments
 
 ## [base].notes
@@ -449,15 +491,15 @@ These are some basic filetypes used by LDAS.
 * If not, they can be installed by the superuser or users with sudo-access.  
 * Before installing LDAS, install dependencies with the appropriate command:
 ```
-	Fedora/Redhat: 	$ sudo yum install -y [program] 
-	Ubuntu: 	$ sudo apt-get install -y [program] 
+	Fedora/Redhat: 	$ sudo yum install -y [program]
+	Ubuntu: 	$ sudo apt-get install -y [program]
 ```
 
 Most of the examples below describe a Fedora/Redhat installation. You may have to look online for specific install instructions for different versions of Linux
 
 
 ## Essential
-LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command. 
+LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
 
 - wget - for downloading the installer  
 - zip - for zipping archives  
@@ -469,10 +511,10 @@ LDAS will not install or will fail to run properly without these programs, but t
 
 ## Optional (most functionality does not require these)
 
-- pandoc - document converter, used for creating manuals 
+- pandoc - document converter, used for creating manuals
 ```
 		$ version=2.9.1.1
-		$ tarname="pandoc-"$version"-linux-amd64.tar.gz" 
+		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
 		$ dest=/opt/pandoc/
 		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
 		$ sudo tar xvzf $tarname --strip-components 1 -C $dest
@@ -480,7 +522,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 
 - git - Useful for install-management of LDAS
 ```
-		$ sudo yum install -y git 
+		$ sudo yum install -y git
 ```
 
 - python3 + hdf5 support (required for some of the MEA scripts)
@@ -488,7 +530,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ sudo yum install -y libffi-devel
 		$ sudo yum install -y openssl-devel
  		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
-		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi 
+		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi
 		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
 		$ tar -xvf Python-$p.tgz
 		$ cd Python-$p/
@@ -500,7 +542,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ python3 -m pip install matplotlib
 ```
 
-- R - for some of the xr-* statistics scripts (ANOVA, Multiple regression, etc)
+- R - for some of the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
 		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/  
 ```
 		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
@@ -518,14 +560,14 @@ LDAS will not install or will fail to run properly without these programs, but t
 ```
 
 - libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files  
-	- this example is for a Fedora install using an RPM tarball 
+	- this example is for a Fedora install using an RPM tarball
 ```
 		$ version=6.3.4
-		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm" 
-		$ tarname=$rpmname".tar.gz" 
+		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
+		$ tarname=$rpmname".tar.gz"
 		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
 		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
-		$ tar zxvf $tarname 
+		$ tar zxvf $tarname
 		$ cd $rpmname
 		$ cd RPMS
 		$ sudo yum install *.rpm
