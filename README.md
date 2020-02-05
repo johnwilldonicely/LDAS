@@ -124,7 +124,7 @@ $ cut -f 2 temp_xs-makesignal1 |
 $ xs-makesignal1 60 1000 -B g -E "-ei 10 -ed 5 -et 1 -ea 300"
 ```
 ## make a time-course heat-map for spectral power
-* here we generate the fft, rotate and smooth the matrix, and then plot the results
+* here we generate the fft-output ats a time-series matrix (option: -o 1), rotate and smooth the matrix, and then plot the results
 
 ```
 $ cut -f 2 temp_xs-makesignal1 |
