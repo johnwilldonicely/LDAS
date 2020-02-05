@@ -1,7 +1,7 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals) [* PROGRAM TYPE TAGS](#program-type-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* DEPENDENCIES](#dependencies)  
+[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals) [* PROGRAM TYPE TAGS](#program-type-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* DEPENDENCIES](#dependencies)
 
 # Introduction
 * LDAS is a modular suite of data-analysis tools, designed for high-speed and batch processing run on Linux systems.
@@ -11,15 +11,15 @@
 	* spectral power analysis (FFT)
 	* coherence and correlation
 	* phase-amplitude coupling
-	* filters (IIR, FIR, notch)  
+	* filters (IIR, FIR, notch)
 
 	...and more.
 
 * There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-):
 
-	* xe- : executable C-programs  
-	* xs- : executable Bash shell-scripts  
-	* xf_ : C-functions which form components of xe- programs  
+	* xe- : executable C-programs
+	* xs- : executable Bash shell-scripts
+	* xf_ : C-functions which form components of xe- programs
 
 Intensive processing is performed by the C-programs, which are optimized for speed and low memory-usage.  The shell-scripts are used to link the C-programs together to perform more complicated jobs, and also to perform some of the file-management operations.
 
@@ -63,19 +63,19 @@ https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
 ## Steps to install LDAS
 
-### 1. Download the install script:  
-This should be performed in your home or download directory  
+### 1. Download the install script:
+This should be performed in your home or download directory
 ```
  		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ```
 
-### 2. Make the script executable:  
+### 2. Make the script executable:
 ```
 		$ chmod a+x LDAS_INSTALL.sh
 ```
 
 ### 3. Run the script, specifying the scope of the installation.
-Examples:  
+Examples:
 ```
 	$ ./LDAS_INSTALL.sh local
 		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
@@ -89,7 +89,7 @@ You might wnat to keep the installer if the installation was not successful. But
 ################################################################################
 # QUICKSTART TEST
 
-To get a feel for how LDAS works, let's make some sample data and analyse it.  
+To get a feel for how LDAS works, let's make some sample data and analyse it.
 When typing the following commands, omit the "$", as this represents the command-prompt
 
 ## make some data and plot it
@@ -115,7 +115,7 @@ $ cut -f 2 temp_xs-makesignal1 |
 ```
 $ xs-makesignal1 60 1000 -B g -E "-ei 10 -ed 5 -et 1 -ea 300"
 ```
-## make a time-course heat-map for spectral power  
+## make a time-course heat-map for spectral power
 ```
 $ cut -f 2 temp_xs-makesignal1 |
 	xe-fftpow2 stdin -w 1000 -min 2 -max 150 -o 1 |
@@ -127,30 +127,31 @@ $ cut -f 2 temp_xs-makesignal1 |
 ```
 		evince temp_xe-plotmatrix1 &
 ```
+![plotmatrix](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/sample_plotmatrix.jpg)
 
 ################################################################################
 # MANUALS
 
-* Run any LDAS executable (xe- or xs-) without arguments to print the instructions to screen.  
+* Run any LDAS executable (xe- or xs-) without arguments to print the instructions to screen.
 * Instructions - including this document - can displayed at any time using **xs-manual**. This script will show a given manual  in one of three ways:
 
 1. to the terminal
 2. as an html document (requires pandoc and Firefox to be installed)
 3. as a pdf file (requires the evince document viewer)
 
-For example:  
-```  
-		$ xs-manual ldas  
-		$ xs-manual ldas --make html  
+For example:
+```
+		$ xs-manual ldas
+		$ xs-manual ldas --make html
 		$ xs-manual ldas --veiw pdf
-```  
+```
 
 ################################################################################
 # PROGRAM TYPE TAGS
 
-The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the **xs-progtag** script to find or list programs scripts or functions with a particular tag. For example...  
+The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the **xs-progtag** script to find or list programs scripts or functions with a particular tag. For example...
 ```
-		$ xs-ldas-progtag find "plot"  
+		$ xs-ldas-progtag find "plot"
 ```
 
 A full description of all LDAS components can be found in docs/PROGTAG.html
@@ -163,10 +164,10 @@ A full description of all LDAS components can be found in docs/PROGTAG.html
 
 Most LDAS scripts and programs are designed as general tools, but some were designed to work with specific acquisition systems, or assume your data is organized according to the LDAS file/folder experiment conventions (see EXPERIMENTAL DESIGN, below). Here are some examples of patform-specific modules:
 
-* xs-TAINI- : data generated by TAINI wireless electrophysiology systems  
-* xs-O2-    : oxygen amperometry data from CHART  
-* xs-SLICE- : slice-electrophysiology data from WinLTP  
-* xs-MEA-   : from Multi-Electrode-Array (MEA) systems  
+* xs-TAINI- : data generated by TAINI wireless electrophysiology systems
+* xs-O2-    : oxygen amperometry data from CHART
+* xs-SLICE- : slice-electrophysiology data from WinLTP
+* xs-MEA-   : from Multi-Electrode-Array (MEA) systems
 
 
 ################################################################################
@@ -197,7 +198,7 @@ LDAS is not just a suite of analysis tools - it is also a system of organizing e
 		- how the session is divided into trials is defined in a .notes file
 			-see APPENDIX: FILE TYPES
 
-	[subject] the unique subject ID (e.g. dossier ID).  
+	[subject] the unique subject ID (e.g. dossier ID).
 		- must be numeric
 
 	[channel] the channel-number
@@ -261,20 +262,20 @@ The folders are nested as follows:
 			- files: local output from analyses
 ```
 
-Sample listing:  
+Sample listing:
 
 ```
-	$ ls Data_Working/20181214-000_31229/  
-	20181214-000_31229-000.bin  20181214-000_31229-010.bin  
-	20181214-000_31229-001.bin  20181214-000_31229-011.bin  
-	20181214-000_31229-002.bin  20181214-000_31229-012.bin  
-	20181214-000_31229-003.bin  20181214-000_31229-013.bin  
-	20181214-000_31229-004.bin  20181214-000_31229-014.bin  
-	20181214-000_31229-005.bin  20181214-000_31229-015.bin  
-	20181214-000_31229-006.bin  20181214-000_31229.dat  
-	20181214-000_31229-007.bin  20181214-000_31229-lost.ssp  
-	20181214-000_31229-008.bin  20181214-000_31229.notes  
-	20181214-000_31229-009.bin  20181214-000_31229.sync  
+	$ ls Data_Working/20181214-000_31229/
+	20181214-000_31229-000.bin  20181214-000_31229-010.bin
+	20181214-000_31229-001.bin  20181214-000_31229-011.bin
+	20181214-000_31229-002.bin  20181214-000_31229-012.bin
+	20181214-000_31229-003.bin  20181214-000_31229-013.bin
+	20181214-000_31229-004.bin  20181214-000_31229-014.bin
+	20181214-000_31229-005.bin  20181214-000_31229-015.bin
+	20181214-000_31229-006.bin  20181214-000_31229.dat
+	20181214-000_31229-007.bin  20181214-000_31229-lost.ssp
+	20181214-000_31229-008.bin  20181214-000_31229.notes
+	20181214-000_31229-009.bin  20181214-000_31229.sync
 ```
 
 ### Preparing an experiment (on the data-server)
@@ -287,37 +288,37 @@ Sample listing:
 	- Data_Library
 	- Data_Working
 
-3. Add tables to *Analysis* directory  
+3. Add tables to *Analysis* directory
 
 ```
-		$ cd [study]/[experiment]  
-		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt  
-		$ echo -e "group\\tname" > Analysis/table_groupnames.txt  
+		$ cd [study]/[experiment]
+		$ echo -e "subject\\tgroup" > Analysis/table_groups.txt
+		$ echo -e "group\\tname" > Analysis/table_groupnames.txt
 ```
 
 4. Build links to files in *Data_Library* in *Data_Working*:
 	- the working-data directories are where analyses are perfomed
-	- this protects the original files in the Data_Library  
+	- this protects the original files in the Data_Library
 
 ```
-		$ cd [study]/[experiment]  
-		$ xs-makelink1 Data_Library Data_Working --patterns BASE  
+		$ cd [study]/[experiment]
+		$ xs-makelink1 Data_Library Data_Working --patterns BASE
 ```
 
-5. Make a database file:  
-	- defines the [date]_[subject] paths to *Data_Working* folders  
-	- also defines the group-id for each path  
-	- **NOTE**: LDAS groups must be integers (0,1,2,3 etc).  
-	- subject-groups can be defined in *table_groups.txt*, if available  
-	- group-names may be defined in *table_groupnames.txt* if available  
-	- these names may be incorporated into the db-file header  
+5. Make a database file:
+	- defines the [date]_[subject] paths to *Data_Working* folders
+	- also defines the group-id for each path
+	- **NOTE**: LDAS groups must be integers (0,1,2,3 etc).
+	- subject-groups can be defined in *table_groups.txt*, if available
+	- group-names may be defined in *table_groupnames.txt* if available
+	- these names may be incorporated into the db-file header
 
 ```
-		$ cd [study]/[experiment]/Analysis  
-		$ t1=table_groups.txt  
-		$ t2=table_groupnames.txt  
-		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"  
-		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt  
+		$ cd [study]/[experiment]/Analysis
+		$ t1=table_groups.txt
+		$ t2=table_groupnames.txt
+		$ opts="--xml PATHS --groups $t1 --names $t2 --expt HARGREAVES"
+		$ xs-dbmake1 ../Data_Working/ $opts > db_all.txt
 ```
 
 	- see *APPENDIX FILE TYPES / db_[name].txt* for an example db-file
@@ -325,17 +326,17 @@ Sample listing:
 
 ### Batch analysis
 
-LDAS has specialized scripts to perform complex analyses. These scripts often have a batch-script compliment, typically of the same name, but ending in "b". Example:  
+LDAS has specialized scripts to perform complex analyses. These scripts often have a batch-script compliment, typically of the same name, but ending in "b". Example:
 
-```  
+```
 		$ xs-ldas5-XHAR1 [base] [options] : Hargreaves analysis for one folder
 		$ xs-ldas5-XHAR1b [db] [options]  : batch analyse entire experiment
-```  
+```
 
 These batch scripts require a database [db] file to specify which *Data_Working* directories to use for the analyses. As described above, this db-file includes group-ids originally defined in a separate *table_groups.txt* file, and may also incorporate roup-names from the *table_groupnames.txt* file.
 However, any db-file can be modified in order to...
 
-	- remove or comment-out (#) paths which should be exluded from analysis 	
+	- remove or comment-out (#) paths which should be exluded from analysis
 	- change group-ids to allow for date-specific subject treatments
 	- change group-names originally derived from *table_groupnames.txt*
 
@@ -344,10 +345,10 @@ However, any db-file can be modified in order to...
 
 ### Aligning data to trials or events
 
-There are three ways of aligning recorded data to trials or evens using LDAS:  
+There are three ways of aligning recorded data to trials or evens using LDAS:
 
-1. The <TRIALS> section in the .notes file  
-	- best for defining large blaocks of data defining a phase of an experiment  
+1. The <TRIALS> section in the .notes file
+	- best for defining large blaocks of data defining a phase of an experiment
 	- typically defines:
 		- trial(number)
 		- start(sample)
@@ -355,18 +356,18 @@ There are three ways of aligning recorded data to trials or evens using LDAS:
 		- seconds(duration)
 		- name(text)
 
-2. A .ssp file in the data folder  
-	- all events in a given .ssp file are of the same type  
+2. A .ssp file in the data folder
+	- all events in a given .ssp file are of the same type
 
-3. A .cmt file in the data folder  
-	- each event can be of a diffeerent type  
+3. A .cmt file in the data folder
+	- each event can be of a diffeerent type
 
 ################################################################################
-# FILE TYPES  
+# FILE TYPES
 
 These are some basic filetypes used by LDAS.
 
-## [base].dat  
+## [base].dat
 - binary, 16-bit (2-byte) signed integer
 - multi-channel (interlaced) acquisition data
 	- for TAINI systems:
@@ -374,9 +375,9 @@ These are some basic filetypes used by LDAS.
 		- 12-bit range, uv_per_unit= 3.1002
 		- offset= 537 units, approximately
 		- sample_rate= 19531.25 Hz
-- found in Data_Acquired/[date]/ and Data_Library/[base]/ folders  
+- found in Data_Acquired/[date]/ and Data_Library/[base]/ folders
 
-## [base]-[channel].bin  
+## [base]-[channel].bin
 - binary, 32-bit (4-byte) floating-point values
 - single-channel, extracted from .dat file
 	- anti-aliased at 2KHz
@@ -434,13 +435,13 @@ These are some basic filetypes used by LDAS.
 - found in the [Analysis] folder
 - example:
 ```
-	subject	group  
-	31229	0  		
-	31230	1  
-	31231	2  
-	31232	0  
-	31233	1  
-	31234	2  
+	subject	group
+	31229	0
+	31230	1
+	31231	2
+	31232	0
+	31233	1
+	31234	2
 ```
 
 ## table_groupnames.txt
@@ -487,8 +488,8 @@ These are some basic filetypes used by LDAS.
 
 ################################################################################
 # DEPENDENCIES
-* Most LDAS dependencies will come with your Linux distribution.  
-* If not, they can be installed by the superuser or users with sudo-access.  
+* Most LDAS dependencies will come with your Linux distribution.
+* If not, they can be installed by the superuser or users with sudo-access.
 * Before installing LDAS, install dependencies with the appropriate command:
 ```
 	Fedora/Redhat: 	$ sudo yum install -y [program]
@@ -501,13 +502,13 @@ Most of the examples below describe a Fedora/Redhat installation. You may have t
 ## Essential
 LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
 
-- wget - for downloading the installer  
-- zip - for zipping archives  
-- unzip - for unzipping archives  
-- gcc - compiler used for C-source code  
-- dos2unix - required for correcting DOS-style line-breaks  
-- gs - ghostscript - essential for dealing with LDAS graphics  
-- nano - simple text editor - used for showing manuals  
+- wget - for downloading the installer
+- zip - for zipping archives
+- unzip - for unzipping archives
+- gcc - compiler used for C-source code
+- dos2unix - required for correcting DOS-style line-breaks
+- gs - ghostscript - essential for dealing with LDAS graphics
+- nano - simple text editor - used for showing manuals
 
 ## Optional (most functionality does not require these)
 
@@ -543,7 +544,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 ```
 
 - R - for some of the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
-		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/  
+		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
 		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
 		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
@@ -559,7 +560,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
 ```
 
-- libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files  
+- libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files
 	- this example is for a Fedora install using an RPM tarball
 ```
 		$ version=6.3.4
