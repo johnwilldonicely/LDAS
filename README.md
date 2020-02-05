@@ -74,7 +74,7 @@ This should be performed in your home or download directory
 	$ chmod a+x LDAS_INSTALL.sh
 ```
 
-### 3. Run the script, specifying the scope of the installation.
+### 3. Run the script, specifying the scope of the installation (local or global).
 Examples:
 ```
 	$ ./LDAS_INSTALL.sh local
