@@ -32,12 +32,12 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 
 #### Installation scope: local or global
 
-* Local installation is for the current user only:
-	* any user should be able to install
+* Local installation is for the **current user only**:
+	* any user can install
 	* LDAS installed in /home/$USER/bin/LDAS
 	* $PATH variable updated in /home/$USER/.bashrc
 
-* Global installation makes LDAS usable for all users:
+* Global installation for **all users**:
 	* sudo or super-user priviledges required during installation
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
@@ -48,12 +48,12 @@ By default, the installation script provided with LDAS installs by using the pro
 
 * for Ubuntu
 ```
-		$ sudo apt-get install git
+	$ sudo apt-get install git
 ```
 
 * for other flavours of Linux:
 ```
-		$ sudo yum install git
+	$ sudo yum install git
 ```
 
 Alternatively, you can install LDAS using a previously downloaded zip-archive. This does not require git, and is also a way of keeping backup copies of LDAS, should you want to roll-back the installation. Download the latest zip-archive here:
@@ -66,21 +66,21 @@ https://github.com/johnwilldonicely/LDAS/archive/master.zip
 ### 1. Download the install script:
 This should be performed in your home or download directory
 ```
- 		$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
+ 	$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ```
 
 ### 2. Make the script executable:
 ```
-		$ chmod a+x LDAS_INSTALL.sh
+	$ chmod a+x LDAS_INSTALL.sh
 ```
 
 ### 3. Run the script, specifying the scope of the installation.
 Examples:
 ```
 	$ ./LDAS_INSTALL.sh local
-		$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
-		$ ./LDAS_INSTALL.sh global
-		$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
+	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
+	$ ./LDAS_INSTALL.sh global
+	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 ```
 
 ### 4. [optional] - delete the INSTALLER
