@@ -101,7 +101,7 @@ $ xe-plottable1 "temp_xs-makesignal1" -xscale 1 -line 1 -ps 0
 ```
 $ evince temp_xe-plottable1.ps &
 ```
-## try a power spectal analysis
+## try a power spectral analysis
 * Use the built-in linux command **cut** to extract the second column from the data file (exclude the timestamps), use **xe-fftpow2** to calculate the mean spectrum, and plot using **xe-plottable1**.
 * Here we take advantage of the Linux pipe (|) to pass the output from one program to the next. This powerful feature of Linux eliminates the need to create intermediate files.
 * Note that for LDAS programs, piped-data is read by specifying "stdin" as the filename (standard-input)
