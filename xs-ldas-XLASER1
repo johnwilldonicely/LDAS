@@ -30,7 +30,7 @@ date0=$(date)
 setregions="all"
 settrials="all"
 setalign="start"
-setpre="-5"
+setpre="-2"
 setpost="5"
 setprenorm="-.01"
 
@@ -184,6 +184,8 @@ done
 # DEFINE LIST OF REGIONS TO ANALYSE
 if [ "$setregions" == "all" ] || [ "$setregions" == "" ] ; then
 	listregions=$(xs-ldas-getchannel $filenotes $setregions --good 1 --outcol region)
+
+
 	let z=$(echo $listregions | grep "Error" | wc -l)
 	if [ $z -gt 0 ]; then { echo -e "\n"$listregions"\n" ; exit ; } fi
 else
@@ -203,30 +205,34 @@ echo -e "\n---------------------------------------------------------------------
 echo "BEHAVIOURAL ANALYSIS"
 
 # define list of columns-of-interest, output, and plot file
-listcols="trial,stim,paw,response,name"
+listcols="trial,stim,target,response,name"
 out1=$progbase1"_BEHAV_summary.txt"
 plotfile=$(echo $out1 | sed -e 's/.txt/.ps/g')
 
-# make a group-name table based on paw (including XX, blank-stim)
-listpaw=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin paw -s 1 -o 1 | sort -u)
-echo $listpaw | tr ' ' '\n' | sort -r | awk 'BEGIN{n=0; print "group\tname" }{print ++n"\t"$1}' > $tempfile".groupnames"
+# make a group-name table based on stim (including XX, blank-stim)
+listtarget=$(xe-strxmlparse1 $filenotes TRIALS | xe-dbmatch1 stdin response "-" -m -2 | xe-cut1 stdin stim -s 1 -o 1 | sort -u)
+echo $listtarget | tr ' ' '\n' | sort -r |
+	awk 'BEGIN{print "group\tname" }{print $1"\tstim_"$1}' > $tempfile".groupnames"
 
-# make a paw-sorted data table
+# make a stim-sorted data table - valid responses only
 echo $listcols | tr ',' '\t' > $out1
-xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin $listcols -s 1 -o 1 | sort -k3,3r -k1,1n >> $out1
+xe-strxmlparse1 $filenotes TRIALS |
+	xe-dbmatch1 stdin response "-" -m -2 |
+	xe-cut1 stdin $listcols -s 1 -o 1 >> $out1
 
 # make the plot - xe-plottable1 will assign group-colours according to sorting, above
-xe-plottable1 $out1 -cx 1 -cy 4 -cg 3 -ymin 0 -ymax 4 -yint 1 -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
-xs-plotmod1 $tempfile".groupnames" --out 1 --legend $tempfile".groupnames"
+xe-plottable1 $out1 -cx 1 -cy 4 -cg 2 -ymin 0 -ymax 4 -yint 1 -title $setbase -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
+sleep .5
+xs-plotmod1 $plotfile --out 1 --legend $tempfile".groupnames"
 
 ################################################################################
 echo -e "\n-------------------------------------------------------------------------------"
 echo "EVOKED POTENTIAL ANALYSIS"
 
-# 1. evoked response by region and by stim strength - combine all paws
+# 1. evoked response by region and by stim strength - combine all targets
 liststim=$(
 	xe-strxmlparse1 $filenotes TRIALS |
-	xe-cut1 stdin paw,stim -s 1 -o 1 |
+	xe-cut1 stdin target,stim -s 1 -o 1 |
 	awk '{if($1=="XX") print "0" ; else print $2}' |
 	sort -nu
 	)
@@ -259,13 +265,18 @@ for region in $listregions ; do
 		echo -e "\t\tstim="$stim
 		title="$setbase    Region: $region    Stim: $stim"
 
+		# build a .cmt file for xe-ldas-align2
 		xe-strxmlparse1 $filenotes TRIALS |
-			xe-cut1 stdin start,stim,paw -s 1 -d '\t' |
-			awk '{s=$2; if($3=="XX")s=0; if(s=='$stim') print $1"\tSTART"}' |
+			xe-cut1 stdin start,stim,target -s 1 -d '\t' |
+			awk '{s=$2; if($3=="-")s=0; if(s=='$stim') print $1"\tSTART"}' |
 			xe-math_div1 stdin -cy 1 -v $bindec -long 1 > $tempfile".cmt"
 
 		# align the data, then average while aligning - this binary read is faster than running xe-statsgrp1 on the aligned text-output
-# echo "xe-ldas-align2 $in1 $tempfile".cmt" $optalign"
+		# the output is "block time signal"
+
+# ??? NEED A REJECT-NOISY BLOCKS OPTION - test in align2?
+# however, align2 outputs each block as it is read, and does not at present pre-compile all the blocks - come back to this!
+
 		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 1 > $tempfile".aligned"
 		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 0 > $tempfile".average"
 		# append the results to the output files
@@ -275,16 +286,16 @@ for region in $listregions ; do
 		# plot individual traces
 		plotfile=$tempfile"."$count".A.ps"
 		plotlist1=$plotlist1" "$plotfile
-		xe-cut1 $tempfile".aligned" 2,3,1 -n 1 |
-			xe-plottable1 stdin $optplot -cg 3 -legend 1 -xlabel "$xl" -ylabel "$yl" -title "$title" -ebright 8 -out $plotfile
+		xe-cut1 $tempfile".aligned" 2,3 -n 1 |
+			xe-plottable1 stdin $optplot -xlabel "$xl" -ylabel "$yl" -title "$title" -lb 2 -out $plotfile
 		# plot mean trace + error-bars
 		plotfile=$tempfile"."$count".B.ps"
 		plotlist1=$plotlist1" "$plotfile
 		xe-statsgrp1 $tempfile".aligned" -cg1 2 -cy 3 |
 			xe-cut1 stdin grp1,mean,sem |
-			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -out $plotfile
-
+			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -ebright 8 -out $plotfile
 	done
+
 	xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
 	plotfile=$tempfile"_"$region".ps"
 	plotlist2=$plotlist2" "$plotfile
@@ -296,6 +307,7 @@ echo "- output sent to "$progbase1"_EVOKED_summary.ps"
 
 rm -f $plotlist2
 
+exit
 
 ################################################################################
 echo -e "\n-------------------------------------------------------------------------------"
@@ -403,7 +415,7 @@ echo "SPECTRAL COHERENCE ANALYSIS"
 listplotfft=""
 listsum1=""
 listavg1=""
-listregions="prefrontal amygdala.central insular.agranular" # EMG.L EMG.R
+listregions="xe-dbmatch1 $filenotes good 1 -xml CHANNELS  -oc region -o 1 | LC_COLLATE=C sort"
 listregionpairs=$(echo $listregions | tr ' ' ',' | xe-makepairs1 stdin)
 listheaderavg="freq "$listregionpairs
 listavg1=$tempfile"_avg_time.txt"

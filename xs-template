@@ -387,6 +387,9 @@ more $filename
 nano $filename --view --smooth # smooth allows smooth scrolling
 cat $infile | while read line ; do echo -e "$line" ; done
 
+# SORT PUTTING UPPERCASSE ENTRIES FIRST
+cat $listfile | LC_COLLATE=C sort 
+
 # SORT A FILE USING MULTIPLE COLUMNS
 # example: sort a file using columns 7 and 8
 # use numeric sort for both columns, but reversed-order for column 8

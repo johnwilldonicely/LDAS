@@ -187,8 +187,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-ce: y-error estimate column [%d]\n",setecol);
 		fprintf(stderr,"	-cf: x-error estimate column [%d]\n",setfcol);
 		fprintf(stderr,"	-cg: group ID column [%d]\n",setgcol);
-		fprintf(stderr,"		Should be +ive integers 0-%d\n",MAXGROUPS);
-		fprintf(stderr,"		Otherwise group-colour assigned by order of appearance\n");
+		fprintf(stderr,"		- can be numerical or text (no spaces)%d\n",MAXGROUPS);
+		fprintf(stderr,"		- if text, group-colour assigned by order of appearance\n");
 		fprintf(stderr,"	-xmin -xmax -ymin -ymax: manually set data range\n");
 		fprintf(stderr,"	-xpad -ypad: pad between data range and plot axes (-1=auto)\n");
 		fprintf(stderr,"	-xint -yint: interval between axis-tics (0=AUTO -1=OMIT) [%g %g]\n",setxint,setyint);
