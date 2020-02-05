@@ -37,7 +37,7 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 	* LDAS installed in /home/$USER/bin/LDAS
 	* $PATH variable updated in /home/$USER/.bashrc
 
-* Global installation for **all users**:
+* Global installation is for **all users**:
 	* sudo or super-user priviledges required during installation
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
