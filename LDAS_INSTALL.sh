@@ -206,7 +206,7 @@ case $x in *$y*) echo -e $RED"\n--- Error ["$thisprog"]: do not run installer in
 
 # FOR FULL-INSTALL, CHECK WHETHER INSTALLER BEING USED IS FROM THE PREVPATH
 # because really a fresh install should use the latest installer
-if [ "$setupdate" == "0" ] ; then
+if [ $prevdest != "" ] && [ "$setupdate" == "0" ] ; then
 	x=$(which $0)
 	y=$prevdest
 	case $x in *$y*)
@@ -439,6 +439,7 @@ if [ "$setupdate" == "0" ] ; then
 		else
 			sudo sh -c "cat $tempfile.path >> $setrc"
 		fi
+	source $setrc
 	# ??? should add test here for whether LDAS path is defined somewhere else!
 	fi
 
