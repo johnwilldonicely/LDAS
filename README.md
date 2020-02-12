@@ -83,7 +83,11 @@ Examples:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 ```
 
-### 4. [optional] - delete the INSTALLER
+### 4. Log out and back in again
+This is required to ensure that the $PATH varible is updated for your login session
+
+
+### 5. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 ################################################################################
