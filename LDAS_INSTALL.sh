@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATED MD-to-PDF CONVERSION
+# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATEX MD-to-PDF CONVERSION
 
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 bar="############################################################"
 
 ################################################################################
-# INTIAL VARIABLE DEFINITIONS
+# INITIAL VARIABLE DEFINITIONS
 ################################################################################
 # for most scripts...
 thisprog=`basename "$0"`
@@ -38,6 +38,57 @@ setfilezip=""
 setupdate="0"
 setverb="1"
 setclean="1"
+
+
+################################################################################
+# DETECT OS, AND, IF IT IS LINUX, DETECTS WHICH LINUX DISTRIBUTION
+################################################################################
+function func_os () {
+
+	OS=`uname -s`
+	REV=`uname -r`
+	MACH=`uname -m`
+
+	if [ "${OS}" = "SunOS" ] ; then
+		OS=Solaris
+		ARCH=`uname -p`
+		OSSTR="${OS} ${REV}(${ARCH} `uname -v`)"
+
+	elif [ "${OS}" = "AIX" ] ; then
+		OSSTR="${OS} `oslevel` (`oslevel -r`)"
+
+	elif [ "${OS}" = "Linux" ] ; then
+		KERNEL=`uname -r`
+		if [ -f /etc/os-release ] ; then
+			DIST=`cat /etc/os-release | awk -F = '$1=="NAME"{print $2}'`
+			PSUEDONAME=`cat /etc/os-release | awk -F = '$1=="PRETTY_NAME"{print $2}'`
+			REV=`cat /etc/os-release | awk -F = '$1=="VERSION_ID"{print $2}'`
+		elif [ -f /etc/redhat-release ] ; then
+			DIST=`cat /etc/redhat-release | tr "\n" ' '| sed s/VERSION.*//`
+			PSUEDONAME=`cat /etc/redhat-release | sed s/.*\(// | sed s/\)//`
+			REV=`cat /etc/redhat-release | sed s/.*release\ // | sed s/\ .*//`
+		elif [ -f /etc/SuSE-release ] ; then
+			DIST=`cat /etc/SuSE-release | tr "\n" ' '| sed s/VERSION.*//`
+			REV=`cat /etc/SuSE-release | tr "\n" ' ' | sed s/.*=\ //`
+		elif [ -f /etc/mandrake-release ] ; then
+			DIST='Mandrake'
+			PSUEDONAME=`cat /etc/mandrake-release | sed s/.*\(// | sed s/\)//`
+			REV=`cat /etc/mandrake-release | sed s/.*release\ // | sed s/\ .*//`
+		elif [ -f /etc/debian_version ] ; then
+			DIST="Debian `cat /etc/debian_version`"
+			REV=""
+		fi
+
+		if [ -f /etc/UnitedLinux-release ] ; then
+		        DIST="${DIST}[`cat /etc/UnitedLinux-release | tr "\n" ' ' | sed s/VERSION.*//`]"
+		fi
+	
+		OSSTR="${OS} ${DIST} ${REV} (${PSUEDONAME} ${KERNEL} ${MACH})"
+	fi
+
+	echo ${OSSTR}
+}
+
 
 ################################################################################
 # DEFINE PERMISSION FUNCTION: CALL FORMAT: status=$(func_permission $path yes|no)
@@ -83,6 +134,7 @@ function func_permission () {
 		echo "permission= "$zaccess
 	fi
 }
+
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -153,8 +205,11 @@ if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Erro
 # PRELIMINARY SETUP AND ERROR CHECKS
 ################################################################################
 # DETERMINE LINUX VERSION AND REPORT
-distro=$(lsb_release -a | grep "Distributor ID:" | cut -f 2)
-release=$(lsb_release -a | grep "Release:" | cut -f 2)
+z=$(func_os)
+if [ "$z" != "" ] ; then 
+	distro=$(echo $z | awk '{print $2}')
+	version=$(echo $z | awk '{print $3}')
+fi
 
 # DETERMINE DESTINATION, PATH-DEFINITION, & NANORC OPTIONS, DEPENDING ON SELECTED SCOPE
 # local= current user only, global= all users
@@ -486,12 +541,14 @@ fi
 ################################################################################
 # REPORT, CLEANUP AND EXIT
 ################################################################################
-if [ "$setverb" == "1" ] ; then
-	end_time=$(date +'%s.%3N')
-	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
-	m=$(echo $s | awk '{print ($1/60)}')
-	echo -e "\n\tTime to finish job: "$s" seconds = "$m" minutes\n"
-fi
+end_time=$(date +'%s.%3N')
+s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+m=$(echo $s | awk '{print ($1/60)}')
+echo -e "\n--------------------------------------------------------------------------------"
+echo -e "FINISHED!"
+echo -e "\t- Time to finish job: "$s" seconds = "$m" minutes\n"
+echo -e $GREEN"\t- please log out and back in to complete the process"$NC
+
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile"_"* ; fi
 fi
