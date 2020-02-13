@@ -334,7 +334,7 @@ Based on this assumption, the base-name [base] (see above) is the foundation of 
 
 2. *Data_Acquired*
 	- holds raw-data in [day] sub-directories
-	- holds a .plan file describing the experimental parameters
+	- holds any files describing recordng prarameters and describing trials
 
 3. *Data_Library*
 	- holds renamed, processed data files and corresponding .notes
@@ -375,10 +375,11 @@ The folders are nested as follows:
 			- files: local output from analyses
 ```
 
-Sample listing:
+Sample listing from 14 Dec. 2018, session 0, subject 31229:
 
 ```
 	$ ls Data_Working/20181214-000_31229/
+	
 	20181214-000_31229-000.bin  20181214-000_31229-010.bin
 	20181214-000_31229-001.bin  20181214-000_31229-011.bin
 	20181214-000_31229-002.bin  20181214-000_31229-012.bin
