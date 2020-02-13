@@ -60,9 +60,9 @@ function func_os () {
 	elif [ "${OS}" = "Linux" ] ; then
 		KERNEL=`uname -r`
 		if [ -f /etc/os-release ] ; then
-			DIST=`cat /etc/os-release | awk -F = '$1=="NAME"{print $2}'`
+			DIST=`cat /etc/os-release | tr -d '"' | awk -F = '$1=="NAME"{print $2}'`
 			PSUEDONAME=`cat /etc/os-release | awk -F = '$1=="PRETTY_NAME"{print $2}'`
-			REV=`cat /etc/os-release | awk -F = '$1=="VERSION_ID"{print $2}'`
+			REV=`cat /etc/os-release | tr -d '"' | awk -F = '$1=="VERSION_ID"{print $2}'`
 		elif [ -f /etc/redhat-release ] ; then
 			DIST=`cat /etc/redhat-release | tr "\n" ' '| sed s/VERSION.*//`
 			PSUEDONAME=`cat /etc/redhat-release | sed s/.*\(// | sed s/\)//`
@@ -467,6 +467,9 @@ if [ "$prevdest" != "" ] ; then
 	fi
 fi
 
+################################################################################
+# PROCEED WITH INSTALL 
+################################################################################
 
 echo -e "\n--------------------------------------------------------------------------------"
 echo -e "MOVING LDAS TO DESTINATION FOLDER $setdest ..."
@@ -489,15 +492,17 @@ if [ "$setupdate" == "0" ] ; then
 	# update the appropriate file with the path
 	z=$(grep -s '$PATH:'$setdest/LDAS $setrc | head -n 1)
 	if [ "$z" == "" ] ; then
+# ??? should add test here for whether LDAS path is defined somewhere else!
 		if [ $setscope == "local" ] ; then
 			cat $tempfile.path >> $setrc
 		else
 			sudo sh -c "cat $tempfile.path >> $setrc"
 		fi
-	source $setrc
-	# ??? should add test here for whether LDAS path is defined somewhere else!
 	fi
 
+	# update $PATH by sourecing rc-file, regardless of whether $PATH already referred to LDAS
+	# this helps prevent errors due to a previous failed install that wasn't followed by a re-login
+	source $setrc
 
 	echo "--------------------------------------------------------------------------------"
 	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES ($setnano)..."
@@ -547,7 +552,7 @@ m=$(echo $s | awk '{print ($1/60)}')
 echo -e "\n--------------------------------------------------------------------------------"
 echo -e "FINISHED!"
 echo -e "\t- Time to finish job: "$s" seconds = "$m" minutes\n"
-echo -e $GREEN"\t- please log out and back in to complete the process"$NC
+echo -e $GREEN"\t- please log out and back in to complete the process\n\n"$NC
 
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile"_"* ; fi
