@@ -83,11 +83,16 @@ Examples:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 ```
 
-### 4. Log out and back in again
-This is required to ensure that the $PATH varible is updated for your login session
+### 4. Check for Warnings and Errors 
+Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considerig if the install failed...
+* Are you using the most up-to-date installer?
+* Do you have sudo priviledges (required for GLOBAL installs and for installing missing dependencies)
+* Is there a Firewall preventing access to remote repositories?
 
+### 5. Log out and back in again
+After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed. 
 
-### 5. [optional] - delete the INSTALLER
+### 6. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 
