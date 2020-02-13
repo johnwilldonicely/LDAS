@@ -1,7 +1,7 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* DEPENDENCIES](#dependencies)
+[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* DEPENDENCIES](#dependencies) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types)
 
 # Introduction
 * LDAS is a modular suite of data-analysis tools, designed for high-speed and batch processing run on Linux systems.
@@ -89,6 +89,109 @@ This is required to ensure that the $PATH varible is updated for your login sess
 
 ### 5. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
+
+
+################################################################################
+# DEPENDENCIES
+* Most LDAS dependencies will come with your Linux distribution.
+* If not, they can be installed by the superuser or users with sudo-access.
+* Before installing LDAS, install dependencies with the appropriate command:
+```
+	Fedora/Redhat: 	$ sudo yum install -y [program]
+	Ubuntu: 	$ sudo apt-get install -y [program]
+```
+
+Most of the examples below describe a Fedora/Redhat installation. You may have to look online for specific install instructions for different versions of Linux
+
+
+## Essential
+LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
+
+- wget - for downloading the installer
+- zip - for zipping archives
+- unzip - for unzipping archives
+- gcc - compiler used for C-source code
+- dos2unix - required for correcting DOS-style line-breaks
+- gs - ghostscript - essential for dealing with LDAS graphics
+- nano - simple text editor - used for showing manuals
+
+## Optional (most functionality does not require these)
+
+- pandoc - document converter, used for creating manuals
+```
+		$ version=2.9.1.1
+		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
+		$ dest=/opt/pandoc/
+		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
+		$ sudo tar xvzf $tarname --strip-components 1 -C $dest
+```
+	- for pandoc to generate PDF output, addtional dependencies may be required:
+		- texlive-latex-base
+		- texlive-fonts-recommended
+		
+
+- git - Useful for install-management of LDAS
+```
+		$ sudo yum install -y git
+```
+
+- python3 + hdf5 support (required for some of the MEA scripts)
+```
+		$ sudo yum install -y libffi-devel
+		$ sudo yum install -y openssl-devel
+ 		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
+		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi
+		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
+		$ tar -xvf Python-$p.tgz
+		$ cd Python-$p/
+		$ ./configure
+		$ make
+		$ make install - this doesn't work without sudo trace?
+		$ python3 -m pip install h5py numpy pandas requests
+		$ python3 -m pip install mne
+		$ python3 -m pip install matplotlib
+```
+
+- R - for some of the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
+		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+```
+		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
+		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
+		$ sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
+		$ sudo yum install -y tre-devel-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
+		$ sudo yum install -y libRmath-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y libRmath-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y openblas-Rblas-0.3.3-2.el7.x86_64.rpm
+		$ sudo yum install -y R-core-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-core-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
+```
+
+- libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files
+	- this example is for a Fedora install using an RPM tarball
+```
+		$ version=6.3.4
+		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
+		$ tarname=$rpmname".tar.gz"
+		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
+		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
+		$ tar zxvf $tarname
+		$ cd $rpmname
+		$ cd RPMS
+		$ sudo yum install *.rpm
+```
+
+## The following are not required, but can be useful
+
+- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
+```
+		$ sudo yum install -y atom.x86_64.rpm
+```
+
+
+
 
 ################################################################################
 # QUICKSTART TEST
@@ -491,97 +594,3 @@ These are some basic filetypes used by LDAS.
 
 
 
-################################################################################
-# DEPENDENCIES
-* Most LDAS dependencies will come with your Linux distribution.
-* If not, they can be installed by the superuser or users with sudo-access.
-* Before installing LDAS, install dependencies with the appropriate command:
-```
-	Fedora/Redhat: 	$ sudo yum install -y [program]
-	Ubuntu: 	$ sudo apt-get install -y [program]
-```
-
-Most of the examples below describe a Fedora/Redhat installation. You may have to look online for specific install instructions for different versions of Linux
-
-
-## Essential
-LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
-
-- wget - for downloading the installer
-- zip - for zipping archives
-- unzip - for unzipping archives
-- gcc - compiler used for C-source code
-- dos2unix - required for correcting DOS-style line-breaks
-- gs - ghostscript - essential for dealing with LDAS graphics
-- nano - simple text editor - used for showing manuals
-
-## Optional (most functionality does not require these)
-
-- pandoc - document converter, used for creating manuals
-```
-		$ version=2.9.1.1
-		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
-		$ dest=/opt/pandoc/
-		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
-		$ sudo tar xvzf $tarname --strip-components 1 -C $dest
-```
-
-- git - Useful for install-management of LDAS
-```
-		$ sudo yum install -y git
-```
-
-- python3 + hdf5 support (required for some of the MEA scripts)
-```
-		$ sudo yum install -y libffi-devel
-		$ sudo yum install -y openssl-devel
- 		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
-		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi
-		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
-		$ tar -xvf Python-$p.tgz
-		$ cd Python-$p/
-		$ ./configure
-		$ make
-		$ make install - this doesn't work without sudo trace?
-		$ python3 -m pip install h5py numpy pandas requests
-		$ python3 -m pip install mne
-		$ python3 -m pip install matplotlib
-```
-
-- R - for some of the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
-		... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
-```
-		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
-		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
-		$ sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		$ sudo yum install -y tre-devel-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		$ sudo yum install -y libRmath-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y libRmath-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y openblas-Rblas-0.3.3-2.el7.x86_64.rpm
-		$ sudo yum install -y R-core-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-core-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
-```
-
-- libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files
-	- this example is for a Fedora install using an RPM tarball
-```
-		$ version=6.3.4
-		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
-		$ tarname=$rpmname".tar.gz"
-		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
-		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
-		$ tar zxvf $tarname
-		$ cd $rpmname
-		$ cd RPMS
-		$ sudo yum install *.rpm
-```
-
-## The following are not required, but can be useful
-
-- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
-```
-		$ sudo yum install -y atom.x86_64.rpm
-```
