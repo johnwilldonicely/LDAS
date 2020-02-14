@@ -196,7 +196,6 @@ of scripts, programs, and functions.
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
 <a href="#code-xs-TAINI-hargreaves0">xs-TAINI-hargreaves0</a><br>
-<a href="#code-xs-TAINI-laser0">xs-TAINI-laser0</a><br>
 <a href="#code-xs-TAINI-legacy0">xs-TAINI-legacy0</a><br>
 <a href="#code-xs-TAINI-legacy1">xs-TAINI-legacy1</a><br>
 <a href="#code-xs-TAINI-legacy2">xs-TAINI-legacy2</a><br>
@@ -363,7 +362,7 @@ of scripts, programs, and functions.
 <h3 id="tag-laser"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: laser</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-TAINI-sheet2plan">xs-TAINI-sheet2plan</a><br>
+<a href="#code-xs-TAINI-laser1">xs-TAINI-laser1</a><br>
 </td></table></tr>
 <h3 id="tag-ldas"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: ldas</font></h3>
 <table><tr>
@@ -1072,6 +1071,7 @@ of scripts, programs, and functions.
 <a href="#code-xs-match">xs-match</a><br>
 <a href="#code-xs-rename">xs-rename</a><br>
 <a href="#code-xs-renamespace">xs-renamespace</a><br>
+<a href="#code-xs-strmatch">xs-strmatch</a><br>
 <a href="#code-xs-strsub">xs-strsub</a><br>
 <a href="#code-xs-strsubfile">xs-strsubfile</a><br>
 </td><td><b><font color="Black">Programs</font></b><br><br>
@@ -1129,7 +1129,6 @@ of scripts, programs, and functions.
 <a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
 <a href="#code-xs-ldas-XLASER1b">xs-ldas-XLASER1b</a><br>
 <a href="#code-xs-TAINI-hargreaves0">xs-TAINI-hargreaves0</a><br>
-<a href="#code-xs-TAINI-laser0">xs-TAINI-laser0</a><br>
 <a href="#code-xs-TAINI-legacy0">xs-TAINI-legacy0</a><br>
 <a href="#code-xs-TAINI-legacy1">xs-TAINI-legacy1</a><br>
 <a href="#code-xs-TAINI-legacy2">xs-TAINI-legacy2</a><br>
@@ -1361,6 +1360,7 @@ USAGE: xs-dat2bin [infile] [nchans] [srin]
 	[nchans]: number of channels in infile
 	[srin]: sample-rate of infile
 VALID OPTIONS (defaults in []):
+	--chans: CSV list of channels (from 0) to process []
 	--base: basename for output (if unset, infile minus extension) []
 	--mean: window size (seconds) for de-meaning data (0=SKIP) [0]
 	--srout: output sample-rate (Hz) [1000]
@@ -3925,7 +3925,7 @@ OPTIONS FOR xs-ldas5-pow1/coh1 FOR ALTERING START-STOP PAIRS:
 	--trials: CSV list of trial-names to use (or "all" or "no") [all]
 	--align: redefine start & stop as one or the other (start|stop) [start]
 		NOTE: if set, use --pre or --post to make non-zero-length trials
-	--pre: seconds to add to start [-5]
+	--pre: seconds to add to start [-2]
 	--post: seconds to add to stop [5]
 	--fhi: high-freq. cut (smooth) for power-timecourse (0=NONE) [10])
 BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
@@ -4038,7 +4038,7 @@ USAGE:
 OPTIONS (in quotes) to be passed to xe-makedata1: 
 	-D: delta options [-a 200.0 -f 02 -fsd 0.1]
 	-T: theta options [-a 100.0 -f 08 -fsd 1.0]
-	-G: delta options [-a 50.0 -f 75 -fsd 8.0]
+	-G: gamma options [-a 50.0 -f 75 -fsd 8.0]
 	-N: noise options [-a 0 -n 50 -g 1]
 		two noise signals will be added:
 		1) the noise specified by the user
@@ -4084,10 +4084,11 @@ xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
 		ldas
-		hargreaves
-		mea
 		git
 		taini
+		mea
+		laser
+		hargreaves
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
 		NOTE: only "terminal" will work if logging in remotely
@@ -4923,7 +4924,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200120.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200212.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5007,7 +5008,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2020_01_20
+		log_xs-O2-makex6b_2020_02_12
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5779,7 +5780,8 @@ USAGE: xs-progclean1 [version] [archive | noarchive]
 
 <font color="Black"><h3 id="code-xs-progcompile"><a href="#CODE">&#8679</a> xs-progcompile</h3></font>
 [<a href="#tag-programming">programming</a>]<br>
-<blockquote><pre>
+<blockquote><pre>/opt/LDAS/xs-progcompile: line 21: lsb_release: command not found
+
 ------------------------------------------------------------
 Compiler script for programs using external functions
 Avoids having to create a Makefile for the program
@@ -6056,6 +6058,69 @@ EXAMPLES:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xs-R_ancova"><a href="#CODE">&#8679</a> xs-R_ancova</h3></font>
+<blockquote><pre>
+Perform ANCOVA using R
+Determine effect of factor A on Y, controlling for correlation between X and Y
+Format: xr_ancova [filename] [y column] [x column] [A column]
+
+Assumptions: X and Y are continuous variables, while A is integers
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_anova"><a href="#CODE">&#8679</a> xs-R_anova</h3></font>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+- Perform ANOVA using R
+- Will perform Tukey's HSD post-hoc tests
+USAGE: 
+	xr_anova [filename] [data] [predictors]
+		filename:  input file with headered columns
+		data: name of the column containing the dependent variable
+		predictors: CSV list of column-names for independent variables
+			- NOTE: predictors should be integer values
+EXAMPLE: 
+	xs-R_anova data.txt height age,sex,income
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_anova_circ"><a href="#CODE">&#8679</a> xs-R_anova_circ</h3></font>
+<blockquote><pre>	---------------------------------------------------------
+	Perform one-way circular ANOVA using R
+	Format: xr_anova_circ [filename] [data (dv)] [factor (iv)]
+	---------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_anova_rc"><a href="#CODE">&#8679</a> xs-R_anova_rc</h3></font>
+<blockquote><pre>-----------------------------------------------------------
+Perform repeated-measures ANOVA using R
+Specify filename and list of columns
+Format: xr_anova_rc [file] [data] [sub] [rep] [options]
+	[file] = input file
+	[data] = column containing dependent variable
+	[sub] = subject-number column
+	[rep] = repeated-measures column
+	[options]: optional arguments...
+		-b [between-subjects factors]
+			Specify factor-columns(in quotes)
+		-c [planned comparisons]
+			Specify comparisons (in quotes) to be performed
+			Run without -c to see available contrasts
+			Example: -c "0 0 0 -1 0 0 1"
+		-l : list possible planned comparisons
+		-d : Dunnetts posthoc comparisons
+		-t : Tukeys posthoc comparisons
+Examples:
+	xr_anova_rc file.txt 5 1 3
+	xr_anova_rc file.txt 5 1 3 -d
+	xr_anova_rc file.txt 5 1 4 -b "3 2 " -c 0,0,-1,1,0,0,0
+
+NOTE: proper planned comparisons require specifying orthogonal 
+	contrast-coefficient sets - do manually using temp file?
+-----------------------------------------------------------
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xs-rega"><a href="#CODE">&#8679</a> xs-rega</h3></font>
 [<a href="#tag-file">file</a>][<a href="#tag-plot">plot</a>][<a href="#tag-file">file</a>][<a href="#tag-plot">plot</a>]<br>
 <blockquote><pre>
@@ -6135,6 +6200,129 @@ EXAMPLE:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xs-R_multregression_example"><a href="#CODE">&#8679</a> xs-R_multregression_example</h3></font>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_multregression_example: command not found
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_regress"><a href="#CODE">&#8679</a> xs-R_regress</h3></font>
+<blockquote><pre>
+Perform multiple regression using R
+Specify filename and list of columns containing data and predictors
+Format: 
+	xr_regress [filename] [y column] [x1 column] [x2 column]... etc
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_sample_contrasts"><a href="#CODE">&#8679</a> xs-R_sample_contrasts</h3></font>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_sample_contrasts: command not found
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_sample_data"><a href="#CODE">&#8679</a> xs-R_sample_data</h3></font>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_sample_data: command not found
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_ttest"><a href="#CODE">&#8679</a> xs-R_ttest</h3></font>
+<blockquote><pre>-----------------------------------------------------------
+Perform a t-test using R
+Uses Welch's correction if variances are unequal
+Assumes files DO NOT have headers identifying variables
+Strips non-numeric or missing values from dataset
+Format: xr_ttest [file][dv][iv] [options]
+	[file] = input file
+	[dv] = column-number holding dependent variable
+	[iv] = column-number holding independent variable (2-levels)
+Valid options:
+	-v set verbose output
+Non-verbose output:
+	mean1  mean2  t  df  p  (w) if Welch's correction
+Examples:
+	xr_ttest file.txt  5 1 
+-----------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_ttest1"><a href="#CODE">&#8679</a> xs-R_ttest1</h3></font>
+<blockquote><pre>-----------------------------------------------------------
+Perform a 1-sample t-test using R
+Assumes files DO NOT have headers identifying variables
+Strips non-numeric or missing values from dataset
+Format: xr_ttest1 [file][dv] [options]
+	[file] = input file
+	[dv] = column-number holding dependent variable
+Valid options:
+	-r set reference value for comparison (default=zero)
+	-v set verbose output
+Non-verbose output:
+	mean1 t  df  p 
+Examples:
+	xr_ttest1 file.txt  5 -r 0.5 -v 
+-----------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_ttest2"><a href="#CODE">&#8679</a> xs-R_ttest2</h3></font>
+<blockquote><pre>-----------------------------------------------------------
+Perform a 2-sample Student's t-test using R
+Uses Welch's correction if variances are unequal
+Assumes files DO NOT have headers identifying variables
+Strips non-numeric or missing values from dataset
+Format: xr_ttest2 [file][dv][iv] [options]
+	[file] = input file
+	[dv] = column-number holding dependent variable
+	[iv] = column-number holding independent variable (2-levels)
+Valid options:
+	-v set verbose output
+Non-verbose output:
+	mean1  mean2  t  df  p  (w) if Welch's correction
+Examples:
+	xr_ttest2 file.txt  5 1 
+-----------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_ttest_header"><a href="#CODE">&#8679</a> xs-R_ttest_header</h3></font>
+<blockquote><pre>-----------------------------------------------------------
+Perform a t-test using R
+Uses Welch's correction if variances are unequal
+Assumes files have headers identifying variables
+Strips non-numeric or missing values from dataset
+Format: xr_ttest_header [file][dv][iv] [options]
+	[file] = input file
+	[dv] = name of the dependent variable
+	[iv] = name of the independent variable (2-levels)
+Valid options:
+	-v set verbose output
+Non-verbose output:
+	mean1  mean2  t  df  p  (w) if Welch's correction
+Examples:
+	xr_ttest_header file.txt  weight group 
+-----------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-R_watsons"><a href="#CODE">&#8679</a> xs-R_watsons</h3></font>
+<blockquote><pre>	--------------------------------------------------------
+	Perform Watsons 2-sample test sing R
+	Format: xr_watsons [filename] [column1] [column2] [alpha]
+	--------------------------------------------------------
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-strmatch"><a href="#CODE">&#8679</a> xs-strmatch</h3></font>
+[<a href="#tag-string">string</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-strmatch: is one character string (needle) is found in another (haystack) ?
+
+USAGE: xs-strmatch  [haystack] [mode] [needle]
+
+	[haystack]: string in which to search for [needle]
+	[mode]: type or match, must be "exact" or "contains"
+	[needle]: text to find
+
+NOTE: will not detect white-space (space, tab, newline)
+OUTPUT: "yes" or "no"
+EXAMPLE: 
+	xs-strmatch "10 15 20" contains "5"
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xs-strsub"><a href="#CODE">&#8679</a> xs-strsub</h3></font>
 [<a href="#tag-string">string</a>][<a href="#tag-file">file</a>][<a href="#tag-file">file</a>][<a href="#tag-string">string</a>]<br>
 <blockquote><pre>
@@ -6187,27 +6375,31 @@ EXAMPLE:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xs-TAINI-laser0"><a href="#CODE">&#8679</a> xs-TAINI-laser0</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<font color="Black"><h3 id="code-xs-TAINI-laser1"><a href="#CODE">&#8679</a> xs-TAINI-laser1</h3></font>
+[<a href="#tag-laser">laser</a>]<br>
 <blockquote><pre>
 --------------------------------------------------------------------------------
-xs-TAINI-laser0: extract laser-ERP trial-records from acquisition PLAN file
- - trial start-stop pairs are inserted into the .notes file for each subject
-USAGE: xs-TAINI-laser0 [plan] [options]
-	[plan]: a file defining how the eperiment was run
-		- defines date= and experiment= 
-		- &#60MAPPING&#62 section summarizes session, subject and trial
-			- batch,box,device,band,subject
-		- &#60TRIALS&#62 section describes individual trials
-			- batch,box,paw,response,stim
-VALID OPTIONS (defaults in []):
-	--seq: CSV list of valid sync-number sequence [2,0]
-	--batch: batch-run on this CSV list of directories []
-		NOTE: use "*.plan" as the plan name - the quotes matter!
+xs-TAINI-laser1: 
+- creates .notes &#60TRIALS&#62 sections for a laser-ERP expt.
+- uses the config (.yaml) file for extracting parameters
+
+USAGE: xs-TAINI-laser1 [worksheet] [options]
+	[worksheet]: laser-ERP experimental worksheet (.xlsx or .csv)
+	- see /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
+	- this can be multiple files, or wildcards - if in quotes
+
+VALID OPTIONS...
 	--verb: verbose output (0=NO 1=YES) [0]
 	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-TAINI-laser0 PLAN.txt  2&#62&1 | tee log_xs-TAINI-laser0.txt
+
+EXAMPLES: 
+	xs-TAINI-laser1 20181231_000.xlsx
+	xs-TAINI-laser1 "*.xlsx"
+	xs-TAINI-laser1 "A.xlsx  B.xslx"
+
+OUTPUT...
+	- update to individual .notes files in ../../Data_Acquired/[base]/
+	- missed-stimuli (x's) summary: LASER1.missing
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -6352,8 +6544,11 @@ USAGE: xs-TAINI-preproc1 [dat] [options]
 		[dat]: quoted list of .dat files (wildcards allowed)
 VALID OPTIONS:
 	--batch: batch-run on this CSV list of directories []
-		NOTE: use "*.plan" as the plan name - the quotes matter!
 	--expt: name of experiment, for .notes file  [0]
+		- overrides "experiment= " in TAINI .yaml config file notes
+	--good: analyse good channels only (0=NO 1=YES) [0]
+		- as defined in a table_channels file
+		- if this file is missing, all channels are treated as good
 	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [0]
 	--chans: template to use if table_channels_[subject].txt is missing
 	 	[/opt/LDAS/docs/templates/table_channels_taini_2.txt]
@@ -6364,27 +6559,6 @@ VALID OPTIONS:
 EXAMPLE: 
 	xs-TAINI-preproc1 "*.dat" -s d 2&#62&1| tee log_xs-TAINI-preproc1.txt
 	xs-TAINI-preproc1 "*.dat" --skip pd --batch dir1,dir2,dir3
---------------------------------------------------------------------------------
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xs-TAINI-sheet2plan"><a href="#CODE">&#8679</a> xs-TAINI-sheet2plan</h3></font>
-[<a href="#tag-laser">laser</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-sheet2plan: convert a laser-ERP CSV file to a .plan for xs-TAINI-preproc1
-USAGE: xs-TAINI-sheet2plan [worksheet] [options]
-	[worksheet]: an XLSX or CSV version of a laser-ERP experimental worksheet
-
-GENERAL OPTIONS...
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-
-EXAMPLE: 
-	xs-TAINI-sheet2plan "20181231_000.xlsx 20181231_001.xslx"
-
-OUTPUT...
-
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -6432,6 +6606,10 @@ VALID MODES (followed by options starting with --):
 		Output configuration settings (from .yaml)
 		--file: you MUST specify a .dat or .yaml file
 		--expt: override-name of experiment from .yaml []
+	parse
+		Parse a TAINI filename to extract a keyword
+		--file: the file whose name you want to parse
+		--key: the value of interest: id alias year month day date1 date2 inc
 	rename
 		Rename files from TaiNi default to LDAS format
 		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat
@@ -7828,10 +8006,10 @@ EXAMPLES: xe-fftpow2 [input] [options]
 	xe-fftpow2 data.txt -t bin -sf 1500 
 	cat data.bin | xe-fftpow2 stdin -t asc 
 OUTPUT: 
-	if -out 0:  &#60frequency&#62 &#60power&#62
-	if -out 1:  spectral matrix, row=window (time), column=frequency
-	if -out 2:  &#60time&#62 &#60spectrum&#62
-	if -out 3:  &#60time&#62 &#60deltapower&#62 &#60thetapower&#62 &#60betapower&#62 &#60gammapower&#62
+	if -o 0:  &#60frequency&#62 &#60power&#62
+	if -o 1:  spectral matrix, row=window (time), column=frequency
+	if -o 2:  &#60time&#62 &#60spectrum&#62
+	if -o 3:  &#60time&#62 &#60deltapower&#62 &#60thetapower&#62 &#60betapower&#62 &#60gammapower&#62
 
 </blockquote></pre>
 
@@ -8151,7 +8329,7 @@ USAGE:
 VALID OPTIONS...
 	-c: case sensitive? (0=no, 1=yes, default=1)
 	-d: characters to use as column-delimiters [ ,\t\n])
-EXAMPLES:
+		- include ""\n to find keys at the end of the lineEXAMPLES:
 	xe-getkeycol data.txt rate -c 0 -d '\t -'
 	cat temp.txt | xe-getkeycol stdin PHONE
 OUTPUT:
@@ -8987,7 +9165,7 @@ VALID OPTIONS:
 	-con: number of contiguous bins required to keep a bin [0]
 	-vrate: video sample rate (samples/s) [25]
 	-vrange: 4-item CSV list defining xmin,ymin,xmax,ymax [unset]
-	-binsize : size of map-pixels (cm) [63]
+	-binsize : size of map-pixels (cm) [-1]
 	-sx : 2D gaussian smoothing (bins) applied to rate matrix [0]
 	-sy : 2D gaussian smoothing (bins) applied to matrix [0]
 	-st : smoothing type (0,1 or 2) [2]
@@ -11140,8 +11318,8 @@ VALID OPTIONS (default in [])...
 	-ce: y-error estimate column [-1]
 	-cf: x-error estimate column [-1]
 	-cg: group ID column [-1]
-		Should be +ive integers 0-32
-		Otherwise group-colour assigned by order of appearance
+		- can be numerical or text (no spaces)32
+		- if text, group-colour assigned by order of appearance
 	-xmin -xmax -ymin -ymax: manually set data range
 	-xpad -ypad: pad between data range and plot axes (-1=auto)
 	-xint -yint: interval between axis-tics (0=AUTO -1=OMIT) [0 0]
@@ -11422,7 +11600,7 @@ EXAMPLES:
 	xe-readscore1 data30686.hpc4 -start 6 -n 1 -out 2 &#62 output.bin
 OUTPUT:
 	- all output is sent to stdout
-	- if -out 0, header for each record +  lipping
+	- if -out 0, header for each record + ÿlipping
 	- if -out 1, simple ASCII (1-column) data stream
 	- if -out 2, binary (unsigned char, = 8bit int) data stream
 ----------------------------------------------------------------------
@@ -11570,7 +11748,7 @@ Apply boxcar-averaging to data
 Sliding window averages values to either side of central data-point
 USAGE: xe-smoothbox1 [infile] [s]
 	[infile]: data file or stdin
-	[s]: samples either side of data to use for averaging [30]
+	[s]: samples either side of data to use for averaging [4294967295]
 		- total size of averaging window = s+s+1
 EXAMPLES:
 	xe-smoothbox1 data.txt 5

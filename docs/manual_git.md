@@ -70,11 +70,11 @@ cd LDAS
 	$ echo "backups/" >> .gitignore
 	$ echo source/temp_xs-progcompile.log >> .gitignore
 
-## option-1: add remote directory
+## add remote directory
 
 	$ git remote add origin https://github.com/[copmpany]/[repo].git
 
-## option-2: add remote directory - use an SSH key for automatic authentification...
+## specify URL for SSH-key authentication 
 
 - Verify which remotes are using SSH  
 
@@ -84,8 +84,9 @@ cd LDAS
 	- select SSH and copy the new SSH URL  
         - update the URL  
 
-	$ git remote set-url origin [new SSH URL] - example....
-	$ git remote set-url origin git@github.com:[company]/[repo].git
+	$ git remote set-url origin [new SSH URL] 
+- example....
+	$ git remote set-url origin git@github.com:myname/myrepo1.git
 
 ## make sure output is in colour
 - add this to the git config file:
@@ -104,7 +105,7 @@ cd LDAS
 
 
 ################################################################################
-# RETREIVE THE REPOSITORY 
+# RETRIEVE THE REPOSITORY 
 
 	$ git pull origin master
 
