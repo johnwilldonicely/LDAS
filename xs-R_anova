@@ -1,11 +1,17 @@
 #!/bin/bash
 #  make a batch file for ANOVA using R
+# <TAGS> R </TAGS>
 
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
 ################################################################################
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog #"."$$"."
+datafile=$tempfile".txt"
+scriptfile=$tempfile".R"
+setplot="1"
+setclean="1"
+plotfile="plot_"$thisprog".pdf"
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -15,14 +21,25 @@ if [ ! $3 ] ; then
 	echo "--------------------------------------------------------------------------------"
 	echo "- Perform ANOVA using R"
 	echo "- Will perform Tukey's HSD post-hoc tests"
+	echo "- Non-numeric values for the dependent varaiable will be treated as NAN"
+	echo "- Predictors can be numeric or alpha-numeric"
+	echo ""
 	echo "USAGE: "
-	echo "	xr_anova [filename] [data] [predictors]"
-	echo "		filename:  input file with headered columns"
-	echo "		data: name of the column containing the dependent variable"
-	echo "		predictors: CSV list of column-names for independent variables"
-	echo "			- NOTE: predictors should be integer values"
+	echo "	$thisprog [file] [y] [list] [opt]"
+	echo ""
+	echo "	[file]filename:  input file with headered columns"
+	echo "	[y]: name of the column containing the dependent variable"
+	echo "	[list]: CSV list of column-names for predictors"
+	echo "	[opt]: options (see below)"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--plot: create a .pdf plot for the ANOVA (0=NO 1=YES) [$setplot]"
+	echo "		- output sent to $plotfile"
+	echo "		- NOTE: currently only implemented for 1- or 2-way ANOVAs"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt height age,sex,income"
+	echo "	"$thisprog" data.txt  height  age,sex,income"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -35,15 +52,39 @@ infile=$1; shift
 data=$1; shift
 predictors=$1; shift
 
-datafile=$tempfile".txt"
-scriptfile=$tempfile".R"
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="c:" ; vl="clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
 
 ########################################################################################
 # CREATE A DATAFILE WITH INVALID OR NON-FINITE NUMBERS REMOVED
 ########################################################################################
 xe-cut1 $infile $data,$predictors -s 1 > $tempfile
 head -n 1 $tempfile > $datafile
-xe-checkisnum2 $tempfile -t 1 -m xxxx >> $datafile
+xe-checkisnum2 $tempfile -f 1 -t 2 -c 1 -m "-" |
+	xe-strsub1 stdin "-" "NA" |
+	xe-strsub1 stdin "NAN" "NA" |
+	xe-strsub1 stdin "NaN" "NA" |
+	xe-strsub1 stdin "Nan" "NA" |
+	xe-strsub1 stdin "nan" "NA" >> $datafile
 
 #cat $infile > $datafile
 
@@ -51,28 +92,42 @@ xe-checkisnum2 $tempfile -t 1 -m xxxx >> $datafile
 ########################################################################################
 # CREATE AN R-SCRIPT FILE
 ########################################################################################
+let npred=$(echo $predictors | tr ',' ' ' | wc -w)
 listpred1=$(echo $predictors | tr ',' ' ')
-listpred2=$(echo $predictors | xe-strsub1 stdin "," " + ")
+listpred2=$(echo $predictors | xe-strsub1 stdin "," " * ")
+predfirst=$(echo $predictors | awk -F , '{print $1}')
+predlast=$(echo $predictors  | awk -F , '{print $NF}')
 
 # READ THE DATA
-echo "
-datamatrix <- read.table('"$datafile"', header = TRUE)
-attach(datamatrix)
-" > $scriptfile
+echo -e "df <- read.table('"$datafile"', header = TRUE)" > $scriptfile
 
 # SPECIFY THAT PREDICTORS ARE CATEGORICAL FACTORS
 for pred in $listpred1 ; do
-	echo "$pred <- factor($pred)" >> $scriptfile
+	echo -e "df\$$pred = as.factor(df\$$pred)" >> $scriptfile
 done
+
+# ATTACH THE DATAFRAME
+echo "attach(df)" >> $scriptfile
 
 # RUN THE ANOVA
 echo "
-results = aov(formula = $data ~ $listpred2)
-summary(results)
+model <- lm( $data ~ $listpred2)
+anova(model)
 " >> $scriptfile
 
-# DO THE POST-HOC TESTS
-echo "TukeyHSD(results)" >> $scriptfile
+# DO THE POST-HOC TESTS - requires an AOV output
+echo "TukeyHSD(aov( $data ~ $listpred2))" >> $scriptfile
+
+# PLOT IF REQUIRED
+if [ "$setplot==1" ] ; then
+	echo -e "" >> $scriptfile
+	if [ $npred -lt 3 ] ; then
+		echo -e "pdf(\"$plotfile\")" >> $scriptfile
+		echo -e "boxplot($data ~ $predlast + $predfirst, notch=F, col=rainbow(length(unique($predlast))))" >> $scriptfile
+		echo -e "plot(model)" >> $scriptfile
+		echo -e "dev.off()" >> $scriptfile
+	fi
+fi
 
 
 ########################################################################################
@@ -81,19 +136,38 @@ echo "TukeyHSD(results)" >> $scriptfile
 cat $scriptfile | R -q --no-save --slave > $tempfile
 
 ########################################################################################
-# PROCESS THE FILE
+# SUMMARISE THE OUTPUT
 ########################################################################################
-cat $tempfile
+cat $tempfile |
+	xe-cut2 stdin Df -s3 "---" |
+	xe-strsub1 stdin " Sq" "_Sq" |
+	xe-strsub1 stdin "F value" "F_Value" |
+	xe-strsub1 stdin "Pr(>F)" "p" |
+	xe-strsub1 stdin "< " "<" |
+	awk 'BEGIN{n=0}{if(++n==1) print "Factor\t"$0"\tsig" ; else print $0}' |
+	xe-delimit stdin > $tempfile".out.anova"
 
-stats1=$(xe-getkeyline1 temp_xr_anova group | head -n 1)
-stats2=$(xe-getkeyline1 temp_xr_anova Residuals | head -n 1)
+cat $tempfile | xe-cut2 stdin "---" -s1 1 > $tempfile".out.notes1"
+cat $tempfile | xe-cut2 stdin "$" -s3 "null" > $tempfile".out.effects"
 
-F=$(echo $stats1 | cut -d ' ' -f 5)
-p=$(echo $stats1 | cut -d ' ' -f 6)
-df1=$(echo $stats1 | cut -d ' ' -f 2)
-df2=$(echo $stats2 | cut -d ' ' -f 2)
-echo
-echo "Overview: F("$df1","$df2")= "$F" , p= "$p
-echo
+dfres=$(cat $tempfile".out.anova" | awk '$1=="Residuals"{print $2}')
 
-rm -f $tempfile*
+echo -e "\n--- ANOVA TABLE FOR $data ------------------------------------------------------"
+cat $tempfile".out.anova"
+cat  $tempfile".out.notes1"
+
+echo -e "\n--- SUMMARY --------------------------------------------------------------------"
+xe-cut1 $tempfile".out.anova" Factor,Df,F_Value,p,sig -o 1 |
+	grep -v Residuals |
+	awk '{print $1"\tF("$2",'$dfres')= "$3"\tp= "$4"\t"$5}'
+
+echo -e "\n--- MAIN EFFECTS ---------------------------------------------------------------"
+cat $tempfile | xe-cut2 stdin "$" -s3 "null"
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
