@@ -102,10 +102,6 @@ if [ "$(command -v pandoc)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]:
 # - will remove all known arguments and options leaving non-argument "positional" options
 # - will throw an error for bad arguments or missing options to arguments
 ########################################################################################
-# initialize variables
-aflag=no
-bflag=no
-setformat="unset"
 # define acceptable short (vs) and long (vl) options, colon after options requiring values
 vs="s:b:v:c:" ; vl="batch:,skip:,verb:,clean:"
 # check for errors
