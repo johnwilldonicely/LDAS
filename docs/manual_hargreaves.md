@@ -55,7 +55,7 @@
 		$ xs-TAINI-hargreaves1 [base]
 		- determines trials meeting the timeout criteria
 
-			$ xs-ldas5-pow1/coh1 (list)
+			$ xs-ldas-pow1/coh1 (list)
 
 				$ xs-ldas5-getttrials
 				- adjustment start-stop using a 3rd column

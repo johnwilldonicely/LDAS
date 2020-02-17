@@ -695,8 +695,8 @@ of scripts, programs, and functions.
 <td><b><font color="Black">Scripts</font></b><br><br>
 <a href="#code-xs-autocor">xs-autocor</a><br>
 <a href="#code-xs-crunch2">xs-crunch2</a><br>
-<a href="#code-xs-ldas5-coh1">xs-ldas5-coh1</a><br>
-<a href="#code-xs-ldas5-pow1">xs-ldas5-pow1</a><br>
+<a href="#code-xs-ldas-coh1">xs-ldas-coh1</a><br>
+<a href="#code-xs-ldas-pow1">xs-ldas-pow1</a><br>
 <a href="#code-xs-ldas5-XHAR1">xs-ldas5-XHAR1</a><br>
 <a href="#code-xs-ldas5-XHAR1b">xs-ldas5-XHAR1b</a><br>
 <a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
@@ -916,8 +916,8 @@ of scripts, programs, and functions.
 <h3 id="tag-spectra"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: spectra</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-ldas5-coh1">xs-ldas5-coh1</a><br>
-<a href="#code-xs-ldas5-pow1">xs-ldas5-pow1</a><br>
+<a href="#code-xs-ldas-coh1">xs-ldas-coh1</a><br>
+<a href="#code-xs-ldas-pow1">xs-ldas-pow1</a><br>
 <a href="#code-xs-ldas5-XHAR1">xs-ldas5-XHAR1</a><br>
 <a href="#code-xs-ldas5-XHAR1b">xs-ldas5-XHAR1b</a><br>
 <a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
@@ -1714,16 +1714,16 @@ EXAMPLE:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xs-ldas5-coh1"><a href="#CODE">&#8679</a> xs-ldas5-coh1</h3></font>
+<font color="Black"><h3 id="code-xs-ldas-coh1"><a href="#CODE">&#8679</a> xs-ldas-coh1</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
 <blockquote><pre>
 --------------------------------------------------------------------------------
-xs-ldas5-coh1: spectral coherence between time-series data
+xs-ldas-coh1: spectral coherence between time-series data
 - reads .bin files (single-channel 32-bit float)
 - requires a .notes file specifying sample_rate= and a CHANNELS section
 - assumes .bin files are present for the matching channel
 REQUIRES: a properly formatted .notes file
-USAGE: xs-ldas5-coh1 [notes] [c1] [c2] [options]
+USAGE: xs-ldas-coh1 [notes] [c1] [c2] [options]
 	[notes]: parameter-file
 	[c1]: 1st channel number or region-name
 	[c2]: 2nd channel number or region-name
@@ -1765,7 +1765,7 @@ PLOT OPTIONS...
 	--psx: Gaussian smoother, x-axis, units []
 	--psy: Gaussian smoother, y-axis (matrix plot only), units []
 EXAMPLE: 
-	xs-ldas5-coh1 *.notes amyg hipp --pre -60  2&#62&1 | tee log_xs-ldas5-coh1.txt
+	xs-ldas-coh1 *.notes amyg hipp --pre -60  2&#62&1 | tee log_xs-ldas-coh1.txt
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -2125,16 +2125,16 @@ EXAMPLE:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xs-ldas5-pow1"><a href="#CODE">&#8679</a> xs-ldas5-pow1</h3></font>
+<font color="Black"><h3 id="code-xs-ldas-pow1"><a href="#CODE">&#8679</a> xs-ldas-pow1</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
 <blockquote><pre>
 --------------------------------------------------------------------------------
-xs-ldas5-pow1: spectral analysis of time-series data
+xs-ldas-pow1: spectral analysis of time-series data
 - reads .bin files (single-channel 32-bit float)
 - requires a .notes file specifying sample_rate= and a CHANNELS section
 - assumes .bin file is present for the matching channel
 REQUIRES: a properly formatted .notes file
-USAGE: xs-ldas5-pow1 [notes] [c1] [options]
+USAGE: xs-ldas-pow1 [notes] [c1] [options]
 	[notes]: parameter-file
 	[c1]: channel number or region-name
 GENERAL OPTIONS (defaults in []):
@@ -2174,8 +2174,8 @@ PLOT OPTIONS...
 	--psx: Gaussian smoother, x-axis, units []
 	--psy: Gaussian smoother, y-axis (matrix plot only), units []
 EXAMPLE: 
-	xs-ldas5-pow1 *.notes amyg  --pre -60  2&#62&1|
-		tee log_xs-ldas5-pow1.txt
+	xs-ldas-pow1 *.notes amyg  --pre -60  2&#62&1|
+		tee log_xs-ldas-pow1.txt
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -2700,7 +2700,7 @@ GENERAL OPTIONS...
 	--plot: generate plots (0=NO,2=YES) [1]
 	--verb: verbose output (0=NO 1=YES) [0]
 	--clean: remove temporary files (0=NO 1=YES) [1]
-OPTIONS FOR xs-ldas5-pow1/coh1 FOR ALTERING START-STOP PAIRS:
+OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
 	--trials: CSV list of trial-names to use (or "all" or "no") [all]
 	--adj: adjust trial duration using seconds in a named TRIALS column []
 		"-" prefix resets start relative to stop
@@ -3921,7 +3921,7 @@ GENERAL OPTIONS...
 	--verb: verbose output (0=NO 1=YES) [0]
 	--clean: remove temporary files (0=NO 1=YES) [1]
 
-OPTIONS FOR xs-ldas5-pow1/coh1 FOR ALTERING START-STOP PAIRS:
+OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
 	--trials: CSV list of trial-names to use (or "all" or "no") [all]
 	--align: redefine start & stop as one or the other (start|stop) [start]
 		NOTE: if set, use --pre or --post to make non-zero-length trials
@@ -11600,7 +11600,7 @@ EXAMPLES:
 	xe-readscore1 data30686.hpc4 -start 6 -n 1 -out 2 &#62 output.bin
 OUTPUT:
 	- all output is sent to stdout
-	- if -out 0, header for each record + ÿlipping
+	- if -out 0, header for each record + ï¿½lipping
 	- if -out 1, simple ASCII (1-column) data stream
 	- if -out 2, binary (unsigned char, = 8bit int) data stream
 ----------------------------------------------------------------------

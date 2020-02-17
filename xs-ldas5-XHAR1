@@ -55,7 +55,7 @@ if [ $# -lt 1 ]; then
 	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
-	echo "OPTIONS FOR xs-ldas5-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
+	echo "OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
 	echo "	--trials: CSV list of trial-names to use (or \"all\" or \"no\") [$settrials]"
 	echo "	--adj: adjust trial duration using seconds in a named TRIALS column [$setadj]"
 	echo "		\"-\" prefix resets start relative to stop"
@@ -170,7 +170,7 @@ done
 # BUILD LIST OF TRIALS AND SSP-FILE
 # - $listtrials1 : CSV trialname-list: passing timeout criterion
 # - NOTE that we do not apply --align --pre --post here
-# 	- that's done by xs-ldas5-pow1 and xs-ldas5-coh1
+# 	- that's done by xs-ldas-pow1 and xs-ldas-coh1
 ################################################################################
 if [ "$setverb" == "1" ] ; then echo "...original trials..." ;  xs-ldas-gettrials2 $filenotes ; fi
 
@@ -226,23 +226,23 @@ for region in $listregions ; do
 	# CHECK THAT BINFILE EXISTS AND CHANNEL IS VALID
 	filebin=$(xe-dbmatch1 $filenotes region $region -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
 	if [ ! -e $filebin ] ; then { echo -e "--- Warning ["$thisprog"]: missing .bin file '$filebin'" ; continue ; } fi
-	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas5-pow1
+	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas-pow1
 	y=$(xe-dbmatch1 $filenotes region $region -xml CHANNELS -oc good -o 1 | head -n 1)
 	if [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
 
 	# CALCULATE POWER
-	command="xs-ldas5-pow1 $filenotes $region --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	command="xs-ldas-pow1 $filenotes $region --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
 	echo $command
 	$command
 
 	# STORE THE AVG OUTPUT TIMESTAMPS - XS-PASTE1 MUST HAVE SINGLE-COLUMN FOR EACH PASTED FILE
 	let count=$count+1
-	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas5-pow1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
+	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas-pow1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
 	# for all regions, also save the avg power to a new filename and remove orginal - don't want to rename afterwards
-	xe-cut1 "output_xs-ldas5-pow1_avg.txt" $region > $progbase2"avg.txt"
-	rm -f   "output_xs-ldas5-pow1_avg.txt"
+	xe-cut1 "output_xs-ldas-pow1_avg.txt" $region > $progbase2"avg.txt"
+	rm -f   "output_xs-ldas-pow1_avg.txt"
 	# RENAME THE REMAINING OUTPUT THAT WE WANT TO SAVE
-	xs-rename "output_xs-ldas5-pow1_" $progbase2 "output_xs-ldas5-pow1_*" >/dev/null
+	xs-rename "output_xs-ldas-pow1_" $progbase2 "output_xs-ldas-pow1_*" >/dev/null
 	# BUILD LISTS (note that avg already included above)
 	listsum1=$listsum1" "$progbase2"summary.txt"
 	listplotfft=$listplotfft" "$progbase2"summary.ps"
@@ -289,24 +289,24 @@ for regionpair in $listregionpairs ; do
 	filebin1=$(xe-dbmatch1 $filenotes region $region1 -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
 	filebin2=$(xe-dbmatch1 $filenotes region $region2 -xml CHANNELS -oc chan -o 1 | head -n 1 | awk '{printf("'$setbase'-%03d.bin",$1)}' )
 	if [ ! -e $filebin1 ] || [ ! -e $filebin2 ] ; then { echo -e "--- Warning ["$thisprog"]: missing .bin file '$filebin1' or '$filebin2'" ; continue ; } fi
-	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas5-pow1
+	# CHECK THAT THE CHANNEL IS GOOD - IF NOT, USE THE DUMMY OPTION FOR xs-ldas-pow1
 	x=$(xe-dbmatch1 $filenotes region $region1 -xml CHANNELS -oc good -o 1)
 	y=$(xe-dbmatch1 $filenotes region $region2 -xml CHANNELS -oc good -o 1)
 	if [ "$x" == "0" ] || [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
 
 	# CALCULATE COHERENCE
-	command="xs-ldas5-coh1 $filenotes $region1 $region2 --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	command="xs-ldas-coh1 $filenotes $region1 $region2 --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
 	echo $command
 	$command
 
 	# STORE THE AVG OUTPUT TIMESTAMPS - XS-PASTE1 MUST HAVE SINGLE-COLUMN FOR EACH PASTED FILE
 	let count=$count+1
-	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas5-coh1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
+	if [ $count -eq 1 ] ; then xe-cut1 "output_xs-ldas-coh1_avg.txt" freq  > $tempfile"_avg_time.txt" ; fi
 	# for all regions, also save the avg power to a new filename and remove orginal - don't want to rename afterwards
-	xe-cut1 "output_xs-ldas5-coh1_avg.txt" $region1"_"$region2 > $progbase2"avg.txt"
-	rm -f   "output_xs-ldas5-coh1_avg.txt"
+	xe-cut1 "output_xs-ldas-coh1_avg.txt" $region1"_"$region2 > $progbase2"avg.txt"
+	rm -f   "output_xs-ldas-coh1_avg.txt"
 	# RENAME THE REMAINING OUTPUT THAT WE WANT TO SAVE
-	xs-rename "output_xs-ldas5-coh1_" $progbase2 "output_xs-ldas5-coh1_*" >/dev/null
+	xs-rename "output_xs-ldas-coh1_" $progbase2 "output_xs-ldas-coh1_*" >/dev/null
 	# BUILD LISTS
 	listsum1=$listsum1" "$progbase2"summary.txt"
 	listplotfft=$listplotfft" "$progbase2"summary.ps"

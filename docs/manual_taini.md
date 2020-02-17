@@ -28,7 +28,8 @@ These instructions are for experiments using the TAINI wireless recording system
 #### b) Power up and log in to the Taini workstation
 
 #### c) Open a terminal and navigate to the Data_Acquisition folder.
-- This is a standard LDAS directory-name inside an experiments. Regardless of the path to your data, Data_Acquisition should hold raw data. Within Data_Acquisition, create a separate folder for each day. Example:
+- This is a standard LDAS directory-name inside an experiment. Regardless of the path to your data, Data_Acquisition should hold raw data.
+- Example:
 
 		     Path     Study      Expt   Acquisition_Folder
 		     |        |          |      |
@@ -146,7 +147,7 @@ These instructions are for experiments using the TAINI wireless recording system
 - Amend table_channels_[subject].txt files in case channels are dead
 - Merge paper record with TRIALS section of the .plan file
 
-#### h) Copy today's Data_Acquired folder to an external hard-drive or server 
+#### h) Copy today's Data_Acquired folder to an external hard-drive or server
 - this is critical, for data-security and to free space on your acquisition workstation
 
 
@@ -182,4 +183,3 @@ These instructions are for experiments using the TAINI wireless recording system
 
 4. Process the trials for this type of experiment
 - **REFER TO** experiment-specific manuals, pre-processing section
-
