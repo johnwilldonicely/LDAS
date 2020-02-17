@@ -21,7 +21,7 @@ thatprog="xe-fftcoh3"
 
 settrials=""
 setssp=""
-setseconds=""
+setsecs=""
 setalign=""
 setpre="0"
 setpost="0"
@@ -75,15 +75,11 @@ if [ $# -lt 3 ]; then
 	echo "TRIAL-DEFINITION OPTIONS (defaults in []):"
 	echo "	--trials: CSV list of .notes file trial-names (or \"all\" or \"no\") [all]"
 	echo "	--ssp: alternatively, start-stop pairs file (.ssp) defining trials [$setssp]"
-	echo "	--seconds: alternatively, a CSV list of start-stop times in seconds [$setseconds]"
-	echo "GENERAL OPTIONS (defaults in []):"
-	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
-	echo "	--dummy: NAN output (0=NO 1=YES, useful for dead channels) [$setdummy]"
-	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
-	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
-	echo "DATA REALIGNMENT OPTIONS..."
+	echo "	--secs: alternatively, a CSV list of start-stop times in seconds [$setsecs]"
+	echo "DATA REALIGNMENT OPTIONS... "
+	echo "		NOTE: these settings do not apply if --ssp or --secs are used"
 	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
-	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
+	echo "		NOTE: if set, use --pre or --post to define trial-lengths"
 	echo "	--pre: seconds to add to start [$setpre]"
 	echo "	--post: seconds to add to stop [$setpost]"
 	echo "DATA PROCESSING OPTIONS..."
@@ -103,9 +99,14 @@ if [ $# -lt 3 ]; then
 	for band in $(seq 1 $nbands) ; do
 		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
 	done
-	echo "PLOT OPTIONS..."
-	echo "	--psx: Gaussian smoother, x-axis, units [$setsx]"
-	echo "	--psy: Gaussian smoother, y-axis (matrix plot only), units [$setsy]"
+	echo "ADDITIONAL OPTIONS..."
+	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
+	echo "	--psx: Gaussian plot-smoother (pixels), x-axis, pixels [$setsx]"
+	echo "	--psy: Gaussian plot-smoother, (pixels) y-axis, (matrix plot only) [$setsy]"
+	echo "	--dummy: NAN output (0=NO 1=YES, useful for dead channels) [$setdummy]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo
 	echo "EXAMPLE: "
 	echo "	"$thisprog" *.notes amyg hipp --pre -60  2>&1|tee log_"$thisprog".txt"
 	echo "--------------------------------------------------------------------------------"
@@ -120,12 +121,12 @@ fi
 filenotes=$1 ; shift
 setchannel1=$1 ; shift
 setchannel2=$1 ; shift
-if [ ! -e $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: missing file $filenotes" ; echo ; exit; } ; fi
-if [ ! -s $filenotes ] ; then { echo ; echo "--- Error ["$thisprog"]: $filenotes is empty" ; echo ; exit; } ; fi
+if [ ! -e $filenotes ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $filenotes\n" ; exit ; } fi
+if [ ! -s $filenotes ] ; then { echo -e "\n--- Error ["$thisprog"]: $filenotes is empty\n" ; exit ; } fi
 let z=$(echo  "$setchannel1" | tr ',' ' ' | wc -w)
-if [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: too many channels specified ($setchannel1)" ; echo ; exit; } ; fi
+if [ $z -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: too many channels specified ($setchannel1)\n" ; exit ; } fi
 let z=$(echo  "$setchannel2" | tr ',' ' ' | wc -w)
-if [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: too many channels specified ($setchannel2)" ; echo ; exit; } ; fi
+if [ $z -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: too many channels specified ($setchannel2)\n" ; exit ; } fi
 # take basename from notes file name
 setbase=${filenotes%.*}
 
@@ -133,7 +134,7 @@ setbase=${filenotes%.*}
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:c:" ; vl="trials:,ssp:,seconds:,align:,pre:,post:,win:,step:,bin:,clip:,norm:,n1:,n2:,nz:,ns:,np:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,psx:,psy:,dummy:,verb:,clean:"
+vs="v:c:" ; vl="trials:,ssp:,secs:,align:,pre:,post:,win:,step:,bin:,clip:,norm:,n1:,n2:,nz:,ns:,np:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,psx:,psy:,dummy:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -145,7 +146,7 @@ while [ $# -gt 0 ] ; do
 		# arguments with required options (an additional shift is required)
 		--trials ) settrials=$2 ; shift ;;
 		--ssp ) setssp=$2 ; shift ;;
-		--seconds ) setseconds=$2 ; shift ;;
+		--secs ) setsecs=$2 ; shift ;;
 		--align ) setalign=$2 ; shift ;;
 		--pre ) setpre=$2 ; shift ;;
 		--post ) setpost=$2 ; shift ;;
@@ -173,29 +174,31 @@ while [ $# -gt 0 ] ; do
 done
 
 # make sure some kind of trial definition was used - if not, default to "all"
-let z=$(echo $settrials $setssp $setseconds | wc -w)
+let z=$(echo $settrials $setssp $setsecs | wc -w)
 if [ $z -lt 1 ] ; then settrials="all"
-elif [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: set only one of --trials ($settrials) --ssp ($setssp) or --seconds ($setseconds)" ; echo ; exit; }
+elif [ $z -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: set only one of --trials ($settrials) --ssp ($setssp) or --secs ($setsecs)" ; echo ; exit; }
 fi
 # for ssps, make sure the ssp file exists
 if [ "$setssp" != "" ] ; then
-	if [ ! -e $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: missing .ssp file $setssp" ; echo ; exit; } ; fi
-	if [ ! -s $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: ssp file $setssp is empty" ; echo ; exit; } ; fi
+	if [ "$setpre" != "0" ] || [ "$setpost" != "0" ] || [ "$setalign" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]: do not use align, pre or post options with --ssp\n" ; exit; } ; fi
+	if [ ! -e $setssp ] ; then { echo -e "\n--- Error ["$thisprog"]: missing .ssp file $setssp\n" ; exit ; } fi
+	if [ ! -s $setssp ] ; then { echo -e "\n--- Error ["$thisprog"]: ssp file $setssp is empty\n" ; exit ; } fi
 fi
 # for seconds, make sure the numbers are in pairs which are themselves in ascending order
-if [ "$setseconds" != "" ] ; then
-	let z=$(echo $setseconds | tr ',' ' ' | wc -w)
-	if [ $(echo "$z%2" | bc) -ne 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: must be even number of elements in --seconds ($setseconds)" ; echo ; exit; } ; fi
-	let z=$(printf "%s\t%s\n" $(echo $setseconds | tr ',' ' ') | xe-getdelta2 stdin | awk '{if($1<=0) print "oops"}' | wc -l )
-	if [ $z -gt 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: --seconds contains pairs where start>=stop ($setseconds)" ; echo ; exit; } ; fi
+if [ "$setsecs" != "" ] ; then
+	if [ "$setpre" != "0" ] || [ "$setpost" != "0" ] || [ "$setalign" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]: do not use align, pre or post options with --secs\n" ; exit; } ; fi
+	let z=$(echo $setsecs | tr ',' ' ' | wc -w)
+	if [ $(echo "$z%2" | bc) -ne 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: must be even number of elements in --secs ($setsecs)\n" ; exit ; } fi
+	let z=$(printf "%s\t%s\n" $(echo $setsecs | tr ',' ' ') | xe-getdelta2 stdin | awk '{if($1<=0) print "oops"}' | wc -l )
+	if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: --secs contains pairs where start>=stop ($setsecs)\n" ; exit ; } fi
 fi
-if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"" ; echo ; exit; } ; fi
-if [ "$setns" != "-1" ] && [ "$setns" != "0" ] && [ "$setns" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --ns ($setns) -  must be -1, 0 or 1" ; echo ; exit; } ; fi
-if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1" ; echo ; exit; } ; fi
-if [ "$setdummy" != "0" ] && [ "$setdummy" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --dummy ($setdummy) -  must be 0 or 1" ; echo ; exit; } ; fi
-if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
-if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
-if [ $(echo "$setwin<0"|bc) -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --win ($setwin) -  must a positive number" ; echo ; exit; } ; fi
+if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"\n" ; exit ; } fi
+if [ "$setns" != "-1" ] && [ "$setns" != "0" ] && [ "$setns" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --ns ($setns) -  must be -1, 0 or 1\n" ; exit ; } fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n" ; exit ; } fi
+if [ "$setdummy" != "0" ] && [ "$setdummy" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --dummy ($setdummy) -  must be 0 or 1\n" ; exit ; } fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit ; } fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit ; } fi
+if [ $(echo "$setwin<0"|bc) -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --win ($setwin) -  must a positive number\n" ; exit ; } fi
 
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
@@ -211,9 +214,9 @@ for band in $(seq 1 $nbands) ; do
 		n=${fname[$band]}
 		a=$(echo ${setband[$band]} | xe-cut1 stdin 1 -n 1 -d ",")
 		b=$(echo ${setband[$band]} | xe-cut1 stdin 2 -n 1 -d ",")
-		if [ "$a" == "" ] || [ "$b" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair" ; echo ; exit; } ; fi
+		if [ "$a" == "" ] || [ "$b" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair\n" ; exit ; } fi
 		let z=$(echo "$a<$b"|bc)
-		if [ $z -eq 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd" ; echo ; exit; } ; fi
+		if [ $z -eq 0 ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd\n" ; exit ; } fi
 		fa[$band]=$a
 		fz[$band]=$b
 	fi
@@ -227,8 +230,8 @@ if [ $setverb == "1" ] ; then echo ; fi
 echo "...getting parameters from .notes file $filenotes..."
 sf=$(xe-getkey $filenotes sample_rate=)
 bindec=$(xe-getkey $filenotes bin_decimation=)
-if [ -z $sf ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
-if [ -z $bindec ] ; then { echo ; echo "--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
+if [ -z $sf ] ; then { echo -e "\n--- Error ["$thisprog"]: no definition of sample_rate in $filenotes" ; echo ; exit ; } fi
+if [ -z $bindec ] ; then { echo -e "\n--- Error ["$thisprog"]: no definition of bin-decimation in $filenotes" ; echo ; exit ; } fi
 binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
 
 
@@ -252,8 +255,8 @@ else # numeric channel-id - exact match required
 	region2=$(xe-dbmatch1 $filenotes chan $chan2 -m 2 -xml CHANNELS -oc region -o 1)
 fi
 
-if [ "$region1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel1\"" ; echo ; exit ; } fi
-if [ "$region2" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel2\"" ; echo ; exit ; } fi
+if [ "$region1" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel1\"" ; echo ; exit ; } fi
+if [ "$region2" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel2\"" ; echo ; exit ; } fi
 
 # if multiple channels match, use the first one
 let z=$(echo $region1 | wc -w)
@@ -270,7 +273,7 @@ if [ $z -gt 1 ] ; then
 fi
 
 # for coherence, channels cannot be the same
-if [ "$chan1" == "$chan2" ] ; then { echo ; echo "--- Error ["$thisprog"]: c1 ($setchannel1) matches the same channel as c2 ($setchannel2)" ; echo ; exit ; } fi
+if [ "$chan1" == "$chan2" ] ; then { echo -e "\n--- Error ["$thisprog"]: c1 ($setchannel1) matches the same channel as c2 ($setchannel2)" ; echo ; exit ; } fi
 
 
 ################################################################################
@@ -281,22 +284,23 @@ chan1b=$(echo $chan1 | awk '{printf("%03d",$1)}')
 chan2b=$(echo $chan2 | awk '{printf("%03d",$1)}')
 filebin1=$setbase"-"$chan1b".bin"
 filebin2=$setbase"-"$chan2b".bin"
-if [ ! -e $filebin1 ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin1' missing" ; echo ; exit ; } fi
-if [ ! -e $filebin2 ] ; then { echo ; echo "--- Error ["$thisprog"]: bin file '$filebin2' missing" ; echo ; exit ; } fi
-# determine the number of samples
-x=$(du -bL $filebin1 | cut -f 1) # bytes in the file
-y=$(echo "4*1" | bc) # divisor, = float datasize (4-bytes) x 1 channel in a .bin file
-nsampstot2=$(echo "scale=12; $x/$y" | bc | xe-math_round1 stdin) # for the .bin file
+if [ ! -e $filebin1 ] ; then { echo -e "\n--- Error ["$thisprog"]: bin file '$filebin1' missing" ; echo ; exit ; } fi
+if [ ! -e $filebin2 ] ; then { echo -e "\n--- Error ["$thisprog"]: bin file '$filebin2' missing" ; echo ; exit ; } fi
+# determine the duration and number of samples
+filestats=$(xe-filesize1 $filebin -sf $binrate -dt 8)
+dursecs=$(echo $filestats | xe-getkey stdin nseconds=)
+nsampstot2=$(echo $filestats | xe-getkey stdin nrecords=)
 nsampstot1=$(echo "$nsampstot2*$bindec" | bc | xe-math_round1 stdin) # for the original .dat file - estimate
 
 if [ $setverb == "1" ] ; then
 	echo "	filebin1= "$filebin1
+	echo "	duration= "$dursecs" seconds"
+	echo "	nsamps= "$nsampstot2
 	echo "	region_1= "$region1
 	echo "	channel_1= "$chan1
 	echo "	filebin2= "$filebin2
 	echo "	region_2= "$region2
 	echo "	channel_2= "$chan2
-	echo "	nsamps= "$nsampstot2
 	echo "	sample_rate= "$binrate "Hz"
 	echo "	set_align= "$setalign
 	echo "	set_pre= "$setpre
@@ -315,13 +319,13 @@ let postsamps2=$(echo "scale=0; $setpost*$binrate" | bc | xe-math_round1 stdin )
 
 ################################################################################
 # PULL OUT THE TRIAL START-STOP TIMES - SAVE TO $tempfile.ssp.1
-# - option to use settrials, setssp, or setseconds
+# - option to use settrials, setssp, or setsecs
 ################################################################################
 echo "...getting start/stop times for specified trials ($settrials)..."
 if [ "$settrials" != "" ]; then
 	# check for missing or empty TRIALS section
 	let z=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin trial -s 1 -o 1 |wc -l)
-	if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS section in $filenotes\n\t- run a trials-processing script to populate the section\n\t- or consider using the --ssp or --seconds options to define trials\n" ; exit ; } fi
+	if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS section in $filenotes\n\t- run a trials-processing script to populate the section\n\t- or consider using the --ssp or --secs options to define trials\n" ; exit ; } fi
 	if [ "$setalign" == "" ] ; then
 		command="xs-ldas-gettrials2 $filenotes --name $settrials --pre $setpre --post $setpost --down 1 --out ssp --verb $setverb "
 	else
@@ -333,8 +337,12 @@ elif [ "$setssp" != "" ]; then
 	command="xe-ldas5-readssp1 $setssp -div $bindec -out 7"
 	if [ "$setverb" == "1" ] ; then echo -e "$GREEN\t"$command"$NC" ; fi
 	$command > $tempfile".ssp.1"
-elif [ "$setseconds" != "" ]; then
-	echo $setseconds | tr ',' ' ' | xe-math_mult1 stdin -cy -1 -v $binrate -long 1 | xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
+	z=$(xe-ldas5-readssp1 $tempfile".ssp.1" | tr '\t' '\n' | sort -nu | tail -n 1)
+	if [ $(echo "$z>$nsampstot2" | bc) -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: --ssp max ($z) out of range for file size ($nsampstot2 samples)\n" ; exit ; } fi
+elif [ "$setsecs" != "" ]; then
+	z=$(echo $setsecs | tr ',' '\n' | sort -nu | tail -n 1)
+	if [ $(echo "$z>$dursecs" | bc) -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: --secs ($z) out of range for file duration ($dursecs)\n" ; exit ; } fi
+	echo $setsecs | tr ',' ' ' | xe-math_mult1 stdin -cy -1 -v $binrate -long 1 | xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
 fi
 
 # print trials table
@@ -343,7 +351,7 @@ if [ "$setverb" == "1" ] ; then
 	awk 'BEGIN{n=0;print"\ttrial\tstart\tstop"}{n++;print "\t"n"\t"$0}'
 fi
 
-# check for basic problems with trials
+# check for problems with trials which may have been reported by xs-ldas-gettrials2
 let z=$(grep Error $tempfile".ssp.1" | wc -l)
 if [ $z -gt 0 ] ; then	cat $tempfile".ssp.1"; exit; fi
 
@@ -531,12 +539,13 @@ if [ "$setplot" == "1" ] ; then
 	xe-plottable1 $progbase1"_avg.txt" $plotopts -xlabel "Frequency (Hz)" -ylabel "Amplitude" -title "$title"
 
 	# HEATMAP - PLOT THE TOP AND BOTTOM HALF, SPLITTING AT GAMMA-MINIMUM (30HZ)
+	# actually override freqmin here - these plots should really start from zero
 	m="-r -90 -sx $setpsx -sy $setpsy" # matrixmod options
 	xl="Time (s)"
 	yl="Freq. (Hz)"
 	plotfile=$progbase1"_matrix.ps"
 	plotlist1=$plotlist1" "$plotfile
-	xs-plotmatrixsplit1 $progbase1"_matrix.txt" --mod "$m" --xrange $xmin,$xmax --yrange $freqmin,$freqmax --splity 30 --xl "$xl" --yl "$yl" --title "$title" --opts1 "-xmax $xmax" --out $plotfile
+	xs-plotmatrixsplit1 $progbase1"_matrix.txt" --mod "$m" --xrange $xmin,$xmax --yrange 0,$freqmax --splity 30 --xl "$xl" --yl "$yl" --title "$title" --opts1 "-xmax $xmax" --out $plotfile
 
 	# PLOT AUC FOR BANDS
 	plotopts="-cx 1 -cy 2 -line 1 -ps 0 -lwa .25 -colour 3 -xmin $xmin -xmax $xmax -xscale 0.4 -yscale .12 -vline 0 -xpad 0 -lb 1 -font 8"
@@ -564,6 +573,7 @@ if [ "$setplot" == "1" ] ; then
 			else print $0
 		}' >> $plotfile
 	rm -f $plotlist1
+	rm -f "temp_xe-plotmerge1.001.ps"
 fi
 
 
