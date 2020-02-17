@@ -317,7 +317,7 @@ let postsamps2=$(echo "scale=0; $setpost*$binrate" | bc | xe-math_round1 stdin )
 # PULL OUT THE TRIAL START-STOP TIMES - SAVE TO $tempfile.ssp.1
 # - option to use settrials, setssp, or setseconds
 ################################################################################
-echo "...determining start-stop samples for trials getting start/stop times for specified trials ($settrials)..."
+echo "...getting start/stop times for specified trials ($settrials)..."
 if [ "$settrials" != "" ]; then
 	# check for missing or empty TRIALS section
 	let z=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin trial -s 1 -o 1 |wc -l)
