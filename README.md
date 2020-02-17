@@ -122,6 +122,11 @@ LDAS will not install or will fail to run properly without these programs, but t
 
 ## Optional (most functionality does not require these)
 
+- git - Useful for install-management of LDAS
+```
+		$ sudo yum install -y git
+```
+
 - pandoc - document converter, used for creating manuals
 ```
 		$ version=2.9.1.1
@@ -134,11 +139,6 @@ LDAS will not install or will fail to run properly without these programs, but t
 		- texlive-latex-base
 		- texlive-fonts-recommended
 		
-
-- git - Useful for install-management of LDAS
-```
-		$ sudo yum install -y git
-```
 
 - python3 + hdf5 support (required for some of the MEA scripts)
 ```
@@ -174,7 +174,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
 ```
 
-- libreoffice - for some LASER scripts, required to convert Excell spreadsheets to CSV files
+- libreoffice - for some scripts, required to convert Excell spreadsheets to CSV files
 	- this example is for a Fedora install using an RPM tarball
 ```
 		$ version=6.3.4
@@ -187,15 +187,6 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ cd RPMS
 		$ sudo yum install *.rpm
 ```
-
-## The following are not required, but can be useful
-
-- atom ... optional editor for managing LDAS: https://atom.io/download/rpm
-```
-		$ sudo yum install -y atom.x86_64.rpm
-```
-
-
 
 
 ################################################################################
