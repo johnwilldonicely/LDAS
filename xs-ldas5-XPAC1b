@@ -43,7 +43,7 @@ if [ $# -lt 3 ]; then
 	echo "		c: collation of results files"
 	echo "	--opts: options (in quotes) for $thatprog [$setopts]"
 	echo "EXAMPLE: "
-	echo "	$thisprog db_25HOUR.txt --opts \"-r pfc -t FAM,NOV\"  2>&1 | tee logfile.txt"
+	echo "	$thisprog db_25HOUR.txt --opts \"-r pfc -t FAM,NOV\"  2>&1|tee logfile.txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit

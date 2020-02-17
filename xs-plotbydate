@@ -29,7 +29,7 @@ if [ $# -lt 1 ]; then
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt  2>&1 | tee log"$thisprog".txt"
+	echo "	"$thisprog" data.txt  2>&1|tee log"$thisprog".txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit

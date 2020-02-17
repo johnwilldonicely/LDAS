@@ -120,7 +120,7 @@ else
 		echo "################################################################################"
 		echo "processing "$i" (logfile $logfile ) "
 		echo "################################################################################"
-		crackit process $infile ./  2>&1 | tee $logfile
+		crackit process $infile ./  2>&1|tee $logfile
 	done
 fi
 

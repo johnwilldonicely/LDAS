@@ -57,7 +57,7 @@ if [ $# -lt 1 ]; then
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt  2>&1 | tee log"$thisprog".txt"
+	echo "	"$thisprog" data.txt  2>&1|tee log"$thisprog".txt"
 	echo "	"$thisprog" \"*.plan\" --batch dir1,dir2,dir3"
 	echo "--------------------------------------------------------------------------------"
 	echo
@@ -283,7 +283,7 @@ echo all jobs are done!
 2>&1 | program # redirect to a program accepting stdin
 ls time* 2> jjj  | grep ssp # send stderr to a file while piping stdout to another program
 [program] 1> out.txt 2> error.txt  # stdout to one file and stderr to another
-[program] 2>&1 | tee logfile.txt # all output to both a logfile and screen
+[program] 2>&1|tee logfile.txt # all output to both a logfile and screen
 echo "error" >&2  # send bash command to stderr: ">&2" literally means redirect the address of file descriptor 1 (stdout) to the address of file descriptor 2 (stderr) for that command1. Depending on how deeply you want to understand it, read this: http://wiki.bash-hackers.org/howto/redirection_tutorial
 (>&2 echo "error") # as above but to avoid interaction with other redirections use subshell
 # example: quiet list (suppress error message for ls)

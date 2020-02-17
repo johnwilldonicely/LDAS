@@ -165,7 +165,7 @@ echo "
 	dursamp= $dursamp
 	endAUC= $setendAUC
 	vlines= $vlines
-" 2>&1 | tee -a $logfile
+" 2>&1|tee -a $logfile
 
 
 # DETERMINE TITLES ASSOCIATED WITH NORMALIZATION

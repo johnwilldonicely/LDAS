@@ -30,7 +30,7 @@
 		$ cd Data_Acquired
 		$ j=$(pwd)
 		$ list=$(ls *Hargreaves* -d --color=never)
-		$ for i in $list ; do cd $i ; xs-TAINI-hargreaves0 *.plan --verb 1 2>&1 | tee log_xs-TAINI-hargreaves0.txt ; cd $j ; done
+		$ for i in $list ; do cd $i ; xs-TAINI-hargreaves0 *.plan --verb 1 2>&1|tee log_xs-TAINI-hargreaves0.txt ; cd $j ; done
 
 
 ################################################################################

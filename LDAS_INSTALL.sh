@@ -416,7 +416,7 @@ if [ "$setfilezip" != "" ] ; then
 else
 	echo -e "GIT-CLONING LDAS FROM $setsource ..."
 	rm -f $tempfile".error"
-	git clone $setsource $tempdir/LDAS 2>&1 | tee $tempfile".error"
+	git clone $setsource $tempdir/LDAS 2>&1|tee $tempfile".error"
 	z=$(grep fatal: $tempfile".error")
 	if [ "$z" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $z\n"$NC ; rm -f $tempfile".error" ;  exit ; } fi
 fi

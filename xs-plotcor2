@@ -57,7 +57,7 @@ if [ $# -lt 2 ]; then
 	echo "	--p1: general options for the box-plot ["$setp1"]"
 	echo "	--swap: swap x- and y-axes (0=NO 1=YES) ["$setswap"]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt  2>&1 | tee logfile.txt"
+	echo "	"$thisprog" data.txt  2>&1|tee logfile.txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit

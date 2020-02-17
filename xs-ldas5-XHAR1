@@ -73,7 +73,7 @@ if [ $# -lt 1 ]; then
 		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
 	done
 	echo "EXAMPLE: "
-	echo "	$thisprog 20181231-000_12345 2>&1 | tee log_"$thisprog".txt"
+	echo "	$thisprog 20181231-000_12345 2>&1|tee log_"$thisprog".txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit

@@ -32,7 +32,7 @@ if [ $# -lt 1 ]; then
 	echo "		x: execute analysis in each database directory"
 	echo "		c: collate analyis results"
 	echo "EXAMPLE: "
-	echo "	$thisprog db_25HOUR.txt -O \"-r pfc -t NOVEL\" 2>&1 | tee $progbase1.log"
+	echo "	$thisprog db_25HOUR.txt -O \"-r pfc -t NOVEL\" 2>&1|tee $progbase1.log"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit

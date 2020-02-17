@@ -11,10 +11,17 @@ tempfile="temp_"$thisprog #"."$$"."
 startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date0=$(date)
-thatprog="xe-fftpow2"
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
 
-settrials="all"
+thatprog="xe-fftcoh3"
+
+settrials=""
 setssp=""
+setseconds=""
 setalign=""
 setpre="0"
 setpost="0"
@@ -65,13 +72,11 @@ if [ $# -lt 3 ]; then
 	echo "	[notes]: parameter-file"
 	echo "	[c1]: 1st channel number or region-name"
 	echo "	[c2]: 2nd channel number or region-name"
-	echo "GENERAL OPTIONS (defaults in []):"
-	echo "	--trials: CSV list of .notes file trial-names (or \"all\" or \"no\") [$settrials]"
+	echo "TRIAL-DEFINITION OPTIONS (defaults in []):"
+	echo "	--trials: CSV list of .notes file trial-names (or \"all\" or \"no\") [all]"
 	echo "	--ssp: alternatively, start-stop pairs file (.ssp) defining trials [$setssp]"
-	echo "	--win: FFT window size (seconds) [$setwin]"
-	echo "	--step: number of steps spanning FFT-window [$setsteps]"
-	echo "	--norm: band timecourse normalization-type - refer to xe-norm2 [$setnorm]"
-	echo "	--bin: bin-size (seconds) for summary [$setbin]"
+	echo "	--seconds: alternatively, a CSV list of start-stop times in seconds [$setseconds]"
+	echo "GENERAL OPTIONS (defaults in []):"
 	echo "	--plot: generate plots (0=NO,2=YES) [$setplot]"
 	echo "	--dummy: NAN output (0=NO 1=YES, useful for dead channels) [$setdummy]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
@@ -81,17 +86,19 @@ if [ $# -lt 3 ]; then
 	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
 	echo "	--pre: seconds to add to start [$setpre]"
 	echo "	--post: seconds to add to stop [$setpost]"
-	echo "NORMALIZATION OPTIONS (FOR BAND-OUTPUT)..."
+	echo "DATA PROCESSING OPTIONS..."
+	echo "	--win: FFT window size (seconds) [$setwin]"
+	echo "	--step: number of steps spanning FFT-window [$setsteps]"
+	echo "	--fhi: high-frequency cut (0=NONE) [$setfhi])"
 	echo "	--norm: band timecourse normalization-type - refer to xe-norm2 [$setnorm]"
 	echo "		--n1: norm-start (seconds after start, -1=start) [$setn1]"
 	echo "		--n2: norm-stop  (seconds after stop,  -1=stop)  [$setn2]"
+	echo "	--bin: bin-size (seconds) for summary [$setbin]"
 	echo "NOISE-REMOVAL OPTIONS..."
 	echo "	--clip: clipping value (de-noising only,-1=noclip) [$setclip]"
 	echo "	--nz: Z-score threshold for noise at each freq (NAN to skip) [$setnz]"
 	echo "	--ns: sign of thesholding (-1=NEG,+1=POS,0=BOTH) [$setns]"
 	echo "	--np: % of freq > nz needed to invalidate timepoint [$setnp]"
-	echo "HIGH-CUT FILTER OPTIONS..."
-	echo "	--fhi: high-frequency cut (0=NONE) [$setfhi])"
 	echo "BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs..."
 	for band in $(seq 1 $nbands) ; do
 		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
@@ -100,7 +107,7 @@ if [ $# -lt 3 ]; then
 	echo "	--psx: Gaussian smoother, x-axis, units [$setsx]"
 	echo "	--psy: Gaussian smoother, y-axis (matrix plot only), units [$setsy]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" *.notes amyg hipp --pre -60  2>&1 | tee log_"$thisprog".txt"
+	echo "	"$thisprog" *.notes amyg hipp --pre -60  2>&1|tee log_"$thisprog".txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -126,7 +133,7 @@ setbase=${filenotes%.*}
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:c:" ; vl="trials:,ssp:,align:,pre:,post:,win:,step:,bin:,clip:,norm:,n1:,n2:,nz:,ns:,np:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,psx:,psy:,dummy:,verb:,clean:"
+vs="v:c:" ; vl="trials:,ssp:,seconds:,align:,pre:,post:,win:,step:,bin:,clip:,norm:,n1:,n2:,nz:,ns:,np:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,psx:,psy:,dummy:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -138,6 +145,7 @@ while [ $# -gt 0 ] ; do
 		# arguments with required options (an additional shift is required)
 		--trials ) settrials=$2 ; shift ;;
 		--ssp ) setssp=$2 ; shift ;;
+		--seconds ) setseconds=$2 ; shift ;;
 		--align ) setalign=$2 ; shift ;;
 		--pre ) setpre=$2 ; shift ;;
 		--post ) setpost=$2 ; shift ;;
@@ -164,6 +172,23 @@ while [ $# -gt 0 ] ; do
 	shift
 done
 
+# make sure some kind of trial definition was used - if not, default to "all"
+let z=$(echo $settrials $setssp $setseconds | wc -w)
+if [ $z -lt 1 ] ; then settrials="all"
+elif [ $z -gt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: set only one of --trials ($settrials) --ssp ($setssp) or --seconds ($setseconds)" ; echo ; exit; }
+fi
+# for ssps, make sure the ssp file exists
+if [ "$setssp" != "" ] ; then
+	if [ ! -e $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: missing .ssp file $setssp" ; echo ; exit; } ; fi
+	if [ ! -s $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: ssp file $setssp is empty" ; echo ; exit; } ; fi
+fi
+# for seconds, make sure the numbers are in pairs which are themselves in ascending order
+if [ "$setseconds" != "" ] ; then
+	let z=$(echo $setseconds | tr ',' ' ' | wc -w)
+	if [ $(echo "$z%2" | bc) -ne 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: must be even number of elements in --seconds ($setseconds)" ; echo ; exit; } ; fi
+	let z=$(printf "%s\t%s\n" $(echo $setseconds | tr ',' ' ') | xe-getdelta2 stdin | awk '{if($1<=0) print "oops"}' | wc -l )
+	if [ $z -gt 0 ] ; then { echo ; echo "--- Error ["$thisprog"]: --seconds contains pairs where start>=stop ($setseconds)" ; echo ; exit; } ; fi
+fi
 if [ "$setalign" != "" ] && [ "$setalign" != "start" ] && [ "$setalign" != "stop" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --align ($setalign) -  must be unset, \"start\" or \"stop\"" ; echo ; exit; } ; fi
 if [ "$setns" != "-1" ] && [ "$setns" != "0" ] && [ "$setns" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --ns ($setns) -  must be -1, 0 or 1" ; echo ; exit; } ; fi
 if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1" ; echo ; exit; } ; fi
@@ -171,12 +196,6 @@ if [ "$setdummy" != "0" ] && [ "$setdummy" != "1" ] ; then { echo ; echo "--- Er
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ $(echo "$setwin<0"|bc) -eq 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --win ($setwin) -  must a positive number" ; echo ; exit; } ; fi
-if [ "$settrials" != "" ] && [ "$setssp" != "" ] ; then { echo ; echo "--- Error ["$thisprog"]: cannot set both --trials ($settrials) and --ssp ($setssp)" ; echo ; exit; } ; fi
-if [ "$settrials" == "" ] && [ "$setssp" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: must set one of --trials or --ssp " ; echo ; exit; } ; fi
-if [ "$setssp" != "" ] ; then
-	if [ ! -e $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: missing .ssp file $setssp" ; echo ; exit; } ; fi
-	if [ ! -s $setssp ] ; then { echo ; echo "--- Error ["$thisprog"]: ssp file $setssp is empty" ; echo ; exit; } ; fi
-fi
 
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
@@ -217,39 +236,41 @@ binrate=$(echo $sf $bindec | awk '{printf("%g",($1/$2))}')
 # DETERMINE THE CHANNEL NUMBER AND FULL REGION NAME
 ################################################################################
 z=$(echo  "$setchannel1" | grep '[^-,0-9]')
-if [ "$z" != "" ] ; then
+if [ "$z" != "" ] ; then # non-numeric channel-id
 	chan1=$(xe-dbmatch1 $filenotes region $setchannel1 -m 1 -xml CHANNELS -oc chan -o 1)
 	region1=$(xe-dbmatch1 $filenotes region $setchannel1 -m 1 -xml CHANNELS -oc region -o 1)
-else
+else # numeric channel-id - exact match required
 	chan1=$setchannel1
-	region1=$(xe-dbmatch1 $filenotes chan $chan1 -m 1 -xml CHANNELS -oc region -o 1)
+	region1=$(xe-dbmatch1 $filenotes chan $chan1 -m 2 -xml CHANNELS -oc region -o 1)
 fi
 z=$(echo  "$setchannel2" | grep '[^-,0-9]')
-if [ "$z" != "" ] ; then
+if [ "$z" != "" ] ; then # non-numeric channel-id
 	chan2=$(xe-dbmatch1 $filenotes region $setchannel2 -m 1 -xml CHANNELS -oc chan -o 1)
 	region2=$(xe-dbmatch1 $filenotes region $setchannel2 -m 1 -xml CHANNELS -oc region -o 1)
-else
+else # numeric channel-id - exact match required
 	chan2=$setchannel2
-	region2=$(xe-dbmatch1 $filenotes chan $chan2 -m 1 -xml CHANNELS -oc region -o 1)
+	region2=$(xe-dbmatch1 $filenotes chan $chan2 -m 2 -xml CHANNELS -oc region -o 1)
 fi
 
-if [ "$chan1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel1\"" ; echo ; exit ; } fi
-if [ "$chan2" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel2\"" ; echo ; exit ; } fi
+if [ "$region1" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel1\"" ; echo ; exit ; } fi
+if [ "$region2" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: '$filenotes' does not specify CHANNEL \"$setchannel2\"" ; echo ; exit ; } fi
 
 # if multiple channels match, use the first one
-let z=$(echo $chan1 | wc -w)
+let z=$(echo $region1 | wc -w)
 if [ $z -gt 1 ] ; then
 	chan1=$(echo $chan1 | awk '{print $1}')
+	region1=$(echo $region1| awk '{print $1}')
 	echo "--- Warning ["$thisprog"]: multiple channels match \"$setchannel1\" in $filenotes : using channel $chan1 "
 fi
-let z=$(echo $chan2 | wc -w)
+let z=$(echo $region2 | wc -w)
 if [ $z -gt 1 ] ; then
 	chan2=$(echo $chan2 | awk '{print $1}')
+	region2=$(echo $region2| awk '{print $1}')
 	echo "--- Warning ["$thisprog"]: multiple channels match \"$setchannel2\" in $filenotes : using channel $chan2 "
 fi
 
 # for coherence, channels cannot be the same
-if [ "$chan1" == "$chan2" ] ; then { echo ; echo "--- Error ["$thisprog"]: c1 should differ from c2" ; echo ; exit ; } fi
+if [ "$chan1" == "$chan2" ] ; then { echo ; echo "--- Error ["$thisprog"]: c1 ($setchannel1) matches the same channel as c2 ($setchannel2)" ; echo ; exit ; } fi
 
 
 ################################################################################
@@ -293,22 +314,28 @@ let postsamps2=$(echo "scale=0; $setpost*$binrate" | bc | xe-math_round1 stdin )
 
 
 ################################################################################
-# PULL OUT THE TRIAL START-STOP TIMES - SAVE TO $tempfile.ssp
+# PULL OUT THE TRIAL START-STOP TIMES - SAVE TO $tempfile.ssp.1
+# - option to use settrials, setssp, or setseconds
 ################################################################################
-echo "...getting start/stop times for specified trials ($settrials)..."
-if [ "$settrials" == "" ]; then
-	command="xe-ldas5-readssp1 $setssp -div $bindec -out 7"
-else
+echo "...determining start-stop samples for trials getting start/stop times for specified trials ($settrials)..."
+if [ "$settrials" != "" ]; then
+	# check for missing or empty TRIALS section
+	let z=$(xe-strxmlparse1 $filenotes TRIALS | xe-cut1 stdin trial -s 1 -o 1 |wc -l)
+	if [ $z -lt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: no TRIALS section in $filenotes\n\t- run a trials-processing script to populate the section\n\t- or consider using the --ssp or --seconds options to define trials\n" ; exit ; } fi
 	if [ "$setalign" == "" ] ; then
 		command="xs-ldas-gettrials2 $filenotes --name $settrials --pre $setpre --post $setpost --down 1 --out ssp --verb $setverb "
 	else
 		command="xs-ldas-gettrials2 $filenotes --name $settrials --align $setalign --pre $setpre --post $setpost --down 1 --out ssp --verb $setverb "
 	fi
+	if [ "$setverb" == "1" ] ; then echo -e "$GREEN\t"$command"$NC" ; fi
+	$command > $tempfile".ssp.1"
+elif [ "$setssp" != "" ]; then
+	command="xe-ldas5-readssp1 $setssp -div $bindec -out 7"
+	if [ "$setverb" == "1" ] ; then echo -e "$GREEN\t"$command"$NC" ; fi
+	$command > $tempfile".ssp.1"
+elif [ "$setseconds" != "" ]; then
+	echo $setseconds | tr ',' ' ' | xe-math_mult1 stdin -cy -1 -v $binrate -long 1 | xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
 fi
-if [ "$setverb" == "1" ] ; then echo $command ; fi
-$command > $tempfile".ssp.1"
-
-let ntrials=$(xe-ldas5-readssp1 $tempfile".ssp.1" | wc -l)
 
 # print trials table
 if [ "$setverb" == "1" ] ; then
@@ -330,6 +357,8 @@ if [ $z -eq 0 ] ; then
 	echo
 	exit
 fi
+
+let ntrials=$(xe-ldas5-readssp1 $tempfile".ssp.1" | wc -l)
 
 
 ################################################################################

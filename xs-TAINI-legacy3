@@ -100,7 +100,7 @@ crackit acquire -d 4 $tempfile.xml
 " > $logfile
 cat $tempfile.xml >> $logfile
 
-crackit acquire -d 4 $tempfile.xml 2>&1 | tee -a $logfile
+crackit acquire -d 4 $tempfile.xml 2>&1|tee -a $logfile
 
 # REPORT TIME TO FINISH THE JOB
 end_time=$(date +'%s.%3N')

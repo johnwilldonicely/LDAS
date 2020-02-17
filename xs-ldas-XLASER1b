@@ -45,7 +45,7 @@ if [ $# -lt 1 ]; then
 	echo "	--n1: start of normalisation zone (week-number)) [$setn1]"
 	echo "	--n2: end of normalisation zone (week-number) [$setn2]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" db_all.txt  2>&1 | tee log_"$thisprog".txt"
+	echo "	"$thisprog" db_all.txt  2>&1|tee log_"$thisprog".txt"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
