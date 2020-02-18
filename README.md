@@ -19,7 +19,7 @@
 
 	...and more.
 	
-![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots.png)
+![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots)
 
 
 ################################################################################
