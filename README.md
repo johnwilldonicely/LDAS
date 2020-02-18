@@ -4,31 +4,29 @@
 [* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* DEPENDENCIES](#dependencies) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types)
 
 # Introduction
-* LDAS is a modular suite of data-analysis tools, designed for high-speed and batch processing run on Linux systems.
-* LDAS programs are executed on the command-line, either directly, or remotely via a terminal connection.
+* There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
+	* coded in C for very high-speed processing 
+	* minimal dependencies for quick and easy installation
+	* modular design allows custom scripting for complex tasks
+
 * Capabilities include:
 	* data visualization (smart-postscript)
 	* spectral power analysis (FFT)
 	* coherence and correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)
+	* large-scale automated batch-processing for entire experiments
 
 	...and more.
-
-* There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-):
-
-	* xe- : executable C-programs
-	* xs- : executable Bash shell-scripts
-	* xf_ : C-functions which form components of xe- programs
-
-Intensive processing is performed by the C-programs, which are optimized for speed and low memory-usage.  The shell-scripts are used to link the C-programs together to perform more complicated jobs, and also to perform some of the file-management operations.
+	
+![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots.png)
 
 
 ################################################################################
 # INSTALLATION
 
 ## Preamble
-LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. In principal LDAS should also run on Unix and OS-X systems, although this has not been tested.
+LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. LDAS should also run on Unix and OS-X systems, although this has not been tested.
 
 #### Installation scope: local or global
 
@@ -247,6 +245,11 @@ $ cut -f 2 temp_xs-makesignal1 |
 
 ################################################################################
 # MANUALS AND PROGRAM-TAGS
+
+* There are three different types of code in LDAS, identifiable by their prefixes (xs-, xe-, xf-):
+	* xe- : executable C-programs
+	* xs- : executable shell-scripts written in native Bash
+	* xf_ : C-functions which form components of xe- programs
 
 1. To print the instructions for any LDAS executable to the screen, type the name of the program and press [RETURN], with no options
 
