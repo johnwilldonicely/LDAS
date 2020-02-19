@@ -309,7 +309,7 @@ int main (int argc, char *argv[]) {
 	if(setlegend<0||setlegend>2) {fprintf(stderr,"\n\a--- Error[%s]: invalid -legend (%d) - should be either 0 1 or 2\n\n",thisprog,setlegend);exit(1); }
 	if(setyzeroline!=0&&setyzeroline!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -yzero (%d) - should be either 0 or 1\n\n",thisprog,setyzeroline);exit(1); }
 	if(setverb!=0&&setverb!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -verb (%d) - should be either 0 or 1\n\n",thisprog,setverb);exit(1); }
-	if(setebright<0||setebright>(MAXGROUPS-8)) {fprintf(stderr,"\n\a--- Error[%s]: invalid -ebright (%d) - should be 0-%d\n\n",thisprog,setebright,(MAXGROUPS-1));exit(1); }
+	if(setebright<0||setebright>(MAXGROUPS-1)) {fprintf(stderr,"\n\a--- Error[%s]: invalid -ebright (%d) - should be 0-%d\n\n",thisprog,setebright,(MAXGROUPS-1));exit(1); }
 	if(pointfill<0 && (strcmp(plottype,"histo")==0 || strcmp(plottype,"bar")==0)) {fprintf(stderr,"\n\a--- Error[%s]: white-fill (-pf -1) cannnot be used with histograms (-pt histo) or bars (-pt bar) \n\n",thisprog);exit(1); }
 	// automatically determine error-bar width and line width if required
 	if(setewidth==0) ewidth=0.5*boxwidth;

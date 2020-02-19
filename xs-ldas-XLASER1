@@ -293,7 +293,7 @@ for region in $listregions ; do
 		plotlist1=$plotlist1" "$plotfile
 		xe-statsgrp1 $tempfile".aligned" -cg1 2 -cy 3 |
 			xe-cut1 stdin grp1,mean,sem |
-			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -ebright 8 -out $plotfile
+			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -out $plotfile
 	done
 
 	xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
