@@ -11,7 +11,7 @@ date0=$(date)
 
 setskip="-"
 setchantemplate="/opt/LDAS/docs/templates/table_channels_taini_2.txt"
-setdestbase="../../Data_Library/"
+setdest="../../Data_Library/"
 setbinsf="1000"
 setdemean="100"
 setgood="0"
@@ -26,10 +26,10 @@ if [ $# -lt 1 ]; then
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": Process a Taini-Live ephys recording session"
 	echo "- run in [experiment]/Data_Aquired/[date] - folder for one experiment-type"
-	echo "- renames TAINI_*.dat and *.sync files to the LDAS standard"
 	echo "- creates [yyyymmdd]-[session]_[subject] folders"
 	echo "	- copies or links .dat files"
 	echo "	- copies .sync files"
+	echo "	- renames copies to the LDAS standard"
 	echo "	- downsamples each .dat channel to a separate 1KHz .bin file"
 	echo "	- creates lost-packet lost.ssp files"
 	echo "	- builds (overwrites) the .notes file"
@@ -41,8 +41,10 @@ if [ $# -lt 1 ]; then
 	echo "			- $setchantemplate"
 	echo ""
 	echo "USAGE: $thisprog [dat] [options]"
-	echo "		[dat]: quoted list of .dat files (wildcards allowed)"
+	echo "	[dat]: quoted list of .dat files (wildcards allowed)"
 	echo "VALID OPTIONS:"
+	echo "	--dest: base-destination output [$setdest]"
+	echo "		- will create sub-directories for each .dat file"
 	echo "	--batch: batch-run on this CSV list of directories [$setbatch]"
 	echo "	--expt: name of experiment, for .notes file  [$setconv]"
 	echo "		- overrides \"experiment= \" in TAINI .yaml config file notes"
@@ -72,12 +74,13 @@ listinfiles=$(ls $1 2>/dev/null)
 let ninfiles=$(echo $listinfiles | wc -w)
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:" ; vl="batch:,good:,expt:,conv:,skip:,chans:,verb:,clean:"
+vs="v:" ; vl="dest:,batch:,good:,expt:,conv:,skip:,chans:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--dest ) setdest=$2 ; shift ;;
 		--batch ) setbatch=$2 ; shift ;;
 		--good ) setgood=$2 ; shift ;;
 		--expt ) setexpt=$2 ; shift ;;
@@ -202,7 +205,7 @@ done
 # BUILD THE LIBRARY-FOLDERS FOR THE EXPERIMENT
 # - copy/create the files to populate those folders - depending on --skip settings
 ########################################################################################
-mkdir -p $setdestbase
+mkdir -p $setdest
 
 for filedat in $listdat0 ; do
 
@@ -229,7 +232,7 @@ for filedat in $listdat0 ; do
 	base=$(grep --color=never "ldas_basename= " $tempfile".config1" | awk '{print $2}')
 
 	# BUILD THE DESTINATION
-	dest=$setdestbase"/"$base
+	dest=$setdest"/"$base
 	mkdir -p $dest
 
 	# BUILD THE NOTES FILE -------------------------------------------------

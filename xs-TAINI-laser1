@@ -14,7 +14,7 @@ startdir=$(pwd)
 progtime_start=$(date +'%s.%3N')
 setverb="0"
 setclean="1"
-
+setdest="../../Data_Library"
 
 # colours for use with text printed to terminal
 RED='\033[0;31m'	# for errors
@@ -70,6 +70,9 @@ if [ $# -lt 1 ]; then
 	echo "	- this can be multiple files, or wildcards - if in quotes"
 	echo ""
 	echo "VALID OPTIONS..."
+	echo "	--dest: destination output [$setdest]"
+	echo "		- seeks [base] sub-directories at this location"
+	echo "		- each [base] sub-directory should contain a .notes file"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo ""
@@ -94,7 +97,7 @@ listinfiles=$(ls $1 2>/dev/null) ; shift
 if [ "$listinfiles" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no worksheet files found matching \"$1\"\n" ;  exit; } ; fi
 
 # optional arguments
-vs="v:c:" ; vl="verb:,clean:"
+vs="v:c:" ; vl="dest:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -103,6 +106,7 @@ while [ $# -gt 0 ] ; do
 	for band in $(seq 1 $nbands) ; do if [ "$1" == "--"${fname[$band]} ] ; then { setband[$band]=$2 ; shift ; } fi ; done
 	# do the rest
 	case $1 in
+		--dest ) setdest=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -305,7 +309,7 @@ for infile in $listinfiles ; do
 		echo "</TRIALS>" >> $tempfile"_trials_"$subject
 
 		# update the appropriate .notes file
-		dest="../../Data_Library/$base"
+		dest=$setdest"/"$base
 		filenotes=$dest"/"$base".notes"
 		if [ -e "$filenotes" ] ; then
 			xs-ldas-updatenotes2 $filenotes TRIALS $tempfile"_trials_"$subject > $tempfile
@@ -313,8 +317,8 @@ for infile in $listinfiles ; do
 			echo "- results sent to: "$filenotes
 		else
 			echo -e "$RED\n--- Error ["$thisprog"]: no notes file in $dest/$base"
-			echo -e "\t- plan file $fileplan might not been have been pre-processed"
-			echo -e "\t- run xs-TAINI-preproc1 before running $thisprog $NC\n"
+			echo -e "\t- is --dest ($setdest) correct?"
+			echo -e "\t- if so, run xs-TAINI-preproc1 before running $thisprog $NC\n"
 			exit
 		fi
 
