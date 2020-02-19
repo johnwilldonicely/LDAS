@@ -59,11 +59,14 @@ if [ $# -lt 1 ]; then
 	echo "--------------------------------------------------------------------------------"
 	echo "$thisprog: "
 	echo "- creates .notes <TRIALS> sections for a laser-ERP expt."
-	echo "- uses the config (.yaml) file for extracting parameters"
+	echo "- requires an xml worksheet for each recording session"
+	echo "	- see $progpath/docs/templates/template_taini_worksheet_laser.xlsx"
+	echo "- uses the config file (.yaml) for extracting parameters"
+	echo "- assumes sync-pair for laser-stim is SYNC_2,SYNC_0"
+	echo "- assumes sync-pair for audio-stim is SYNC_1,SYNC_0"
 	echo ""
 	echo "USAGE: $thisprog [worksheet] [options]"
 	echo "	[worksheet]: laser-ERP experimental worksheet (.xlsx or .csv)"
-	echo "	- see $progpath/docs/templates/template_taini_worksheet_laser.xlsx"
 	echo "	- this can be multiple files, or wildcards - if in quotes"
 	echo ""
 	echo "VALID OPTIONS..."
@@ -146,15 +149,25 @@ for infile in $listinfiles ; do
 	################################################################################
 	# PROCESS THE CONFIG FILE - DATA FOR ALL SUBJECT-SESSION RECORDINGS
 	fileconfig=$(xe-getkey2 $tempfile".1" CONFIG_FILE=)
+	ext=${fileconfig##*.}
+	if [  "$ext" != "yaml" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: worksheeyt does not specify a .yaml CONFIG file (CONFIG_FILE= $fileconfig)\n"$NC ;  exit; fi
 	if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ;  exit; fi
 	if [  ! -e $fileconfig ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing CONFIG_FILE $fileconfig\n"$NC ;  exit; fi
+
+
+
 	# get the TAINI configuration summary for all recordings in this config file
  	xs-TAINI-tools config --file $fileconfig > $tempfile".config"
+	# check for other errors
+	let z=$(grep -- "--- Error" $tempfile".config" | wc -l )
+	if [ $z -gt 0 ] ; then echo -e $RED; cat $tempfile".config" ; echo -e $NC ; exit ; fi
 	listsubjects1=$(xe-getkey $tempfile".config" subject=)
 	let nsubjects1=$(echo $listsubjects1 | tr ',' ' ' | wc -w)
-	date1=$(xe-getkey $tempfile.config start_date= | xe-dateconv1 stdin -i 3)
+	date1=$(xe-getkey $tempfile".config" start_date= | xe-dateconv1 stdin -i 3)
 	listdat1=$(grep output_destination: *.yaml | awk -F / '{print $NF}')
 	expt1=$(xe-getkey $tempfile".config" experiment=)
+
+
 
 	################################################################################
 	# PROCESS THE CONVERTED WORKSHEET ($tempfile.1)
@@ -169,9 +182,11 @@ for infile in $listinfiles ; do
 	# determine the number of boxes - should be 4, depending on whether a subject_id is entered for the boxes in the worksheet
 	let nboxes=$(xe-getkey2 $tempfile".1" NBOXES=)
 	# make sure it matches the number of subjects from the config file
-	if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of subject-ids in worksheet ($nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
+	if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of active boxes in worksheet (NBOXES= $nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
 	# store CSV list of subject-ID's >0
 	listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print $i}' | paste -s | tr '\t' ',')
+	# make sure SUBJECT_IDs were found
+	if [ "$listsubjects2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: no SUBJECT_IDs found in worksheet $fileconfig \n"$NC ; exit; fi
 	# store list of box-columns for subject-ID > 0
 	listcols2=$(grep NBOXES= $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print i}' | paste -s | tr '\t' ',')
 	# determine number of blocks of trials
@@ -238,7 +253,7 @@ for infile in $listinfiles ; do
 	done # END OF LIST-BLOCKS LOOP - STILL ONSIDE OF WORKSHEET-LIST LOOP
 
 	################################################################################
-	# MAKE THE <TRIALS> SECTION FOR EACH SUBJECT-SESSION FOR THIS WORkSHEET
+	# MAKE THE <TRIALS> SECTION FOR EACH .DAT FILE IN THE CONFIG
 	let count=0
 	for filedat in $listdat1 ; do
 		let count=$count+1
@@ -251,7 +266,8 @@ for infile in $listinfiles ; do
 		sample_rate=$(echo $config | xe-getkey stdin sample_rate=)
 		trial_dur=$(echo "scale=12; ($pulse_dur_ms / 1000) * $sample_rate" | bc | xe-math_round1 stdin)
 
-		# pull out all the sync records of type1 (auditory) or type2 (laser) - bear in mind some of these are for other subjects
+		# pull out all the sync records of type1 (auditory) or type2 (laser)
+		# - bear in mind some of these are for other subjects
 		filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
 		xe-getsequence1 $filesync 2 exact SYNC_1 SYNC_0 | grep SYNC_1 --color=never > $tempfile"_sync1"
 		xe-getsequence1 $filesync 2 exact SYNC_2 SYNC_0 | grep SYNC_2 --color=never > $tempfile"_sync2"
@@ -273,10 +289,16 @@ for infile in $listinfiles ; do
 
 		# build the temp trials file for this subject - including a new name field incorporating multiple datatypes
 		# - for audio trials, convert subject to "ALL" for matching (all subjects receive audio stimulus)
+		# - first determine the column defining "stim" in the combined output
+
+		paste $tempfile"_sync_all" $tempfile"_trials_all" > $tempfile".4"
+		let subcol=$(xe-getkeycol $tempfile".4" subject)
+		let stimcol=$(xe-getkeycol $tempfile".4" stim)
 		echo "<TRIALS>" > $tempfile"_trials_"$subject
-		xe-strsub2 $tempfile"_trials_all" ALL -cols 2 -in audio |
-			paste $tempfile"_sync_all" - |
-			xe-dbmatch1 stdin subject ALL,$subject |
+		cat $tempfile".4" |
+			xe-strsub2 stdin audio -cols $stimcol -in SYNC_1 | 	# replace stim strength with audio
+			xe-strsub2 stdin ALL -cols $subcol -in SYNC_1 |		# replace subject with ALL for audio trials
+			xe-dbmatch1 stdin subject ALL,$subject |		# take syncs for all or current subject
 			xe-cut1 stdin start,stop,sync,syncnum,block,stim,target,response |
 			awk 'BEGIN{n=-1}{if(++n==0) print $0"\ttrial\tname" ; else {print $0"\t"n"\t"n"_"$6"_"$7"_"$8"_"$3}}' |
 			xe-cut1 stdin start,stop,trial,syncnum,block,stim,target,response,name >> $tempfile"_trials_"$subject
@@ -303,7 +325,7 @@ done # END OF INFILE LOOP
 ################################################################################
 # REPORT, CLEANUP AND EXIT
 ################################################################################
-echo 
+echo
 if [ "$setverb" == "1" ] ; then
 	progtime_end=$(date +'%s.%3N')
 	s=$(echo $progtime_end $progtime_start | awk '{print $1-$2}' )
