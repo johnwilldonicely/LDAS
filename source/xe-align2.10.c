@@ -1,5 +1,5 @@
-#define thisprog "xe-aligndat2"
-#define TITLE_STRING thisprog" v 10: 6.April.2015 [JRH]"
+#define thisprog "xe-align2"
+#define TITLE_STRING thisprog" v 11: 22.February.2020 [JRH]"
 #define MAXLINELEN 1000
 #define MAXLABELS 1000
 #include <stdio.h>

@@ -158,8 +158,6 @@ for infile in $listinfiles ; do
 	if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ;  exit; fi
 	if [  ! -e $fileconfig ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing CONFIG_FILE $fileconfig\n"$NC ;  exit; fi
 
-
-
 	# get the TAINI configuration summary for all recordings in this config file
  	xs-TAINI-tools config --file $fileconfig > $tempfile".config"
 	# check for other errors
@@ -170,7 +168,6 @@ for infile in $listinfiles ; do
 	date1=$(xe-getkey $tempfile".config" start_date= | xe-dateconv1 stdin -i 3)
 	listdat1=$(grep output_destination: *.yaml | awk -F / '{print $NF}')
 	expt1=$(xe-getkey $tempfile".config" experiment=)
-
 
 
 	################################################################################
@@ -187,16 +184,24 @@ for infile in $listinfiles ; do
 	let nboxes=$(xe-getkey2 $tempfile".1" NBOXES=)
 	# make sure it matches the number of subjects from the config file
 	if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of active boxes in worksheet (NBOXES= $nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
-	# store CSV list of subject-ID's >0
-	listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print $i}' | paste -s | tr '\t' ',')
-	# make sure SUBJECT_IDs were found
-	if [ "$listsubjects2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: no SUBJECT_IDs found in worksheet $fileconfig \n"$NC ; exit; fi
+	# store CSV list of subject-ID's >0 and numeric-only
+	listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0 && $i ~ /^[0-9]+$/)print $i}' | paste -s | tr '\t' ',')
+	# make sure SUBJECT_IDs were found, were numeric>0 and match subjects in config
+	# - note that listsubjects2b is just for reporting purposes in the event of an error
+	listsubjects2b=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i!="") print $i}' | paste -s | tr '\t' ',')
+	let nsubjects2=$(echo $listsubjects2 | tr ',' ' ' | wc -w)
+	if [ "$listsubjects2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: no SUBJECT_IDs found in worksheet $infile \n"$NC ; exit; fi
+	if [ $nsubjects2 -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: remove zero or non-numeric subject ID's ($listsubjects2b) from worksheet $infile\n"$NC ; exit; fi
+
 	# store list of box-columns for subject-ID > 0
 	listcols2=$(grep NBOXES= $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print i}' | paste -s | tr '\t' ',')
 	# determine number of blocks of trials
 	pattern="BLOCK#"
 	listblocks=$(grep $pattern $tempfile".1" --color=never | awk '{print $1}' | tr '\n' ' ')
 	let nblocks=$(grep -c $pattern $tempfile".1")
+
+echo $listsubjects2
+exit
 
 	################################################################################
 	# BUILD THE TRIALS SECTION

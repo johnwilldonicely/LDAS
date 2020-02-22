@@ -32,9 +32,10 @@ settrials="all"
 setalign="start"
 setpre="-2"
 setpost="5"
-setprenorm="-.01"
+setprenorm=""
+setnoise="-1"
 
-setfhi="10"
+setevhi="10"
 setfftwin=".1"
 
 setplot="1"
@@ -76,6 +77,9 @@ if [ $# -lt 1 ]; then
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo ""
+	echo "OPTIONS FOR xe-align2 (EVOKED POTENTIAL ANALYSIS):"
+	echo "	--evhi: high-freq. smoothing cutoff (freq.,0=NONE) [$setevhi])"
+	echo ""
 	echo "OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
 	echo "	--trials: CSV list of trial-names to use (or \"all\" or \"no\") [$settrials]"
 	echo "	--noise: exclude trials based on std.dev (-1=SKIP) [$setnoise] "
@@ -85,7 +89,6 @@ if [ $# -lt 1 ]; then
 	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
 	echo "	--pre: seconds to add to start [$setpre]"
 	echo "	--post: seconds to add to stop [$setpost]"
-	echo "	--fhi: high-freq. cut (smooth) for power-timecourse (0=NONE) [$setfhi])"
 	echo "BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs..."
 	for band in $(seq 1 $nbands) ; do
 		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
@@ -108,7 +111,7 @@ filedat=$setbase".dat"
 if [ ! -e $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: missing file $filenotes\n" ; exit ;  } ; fi
 if [ ! -s $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: $filenotes is empty\n" ; exit ;  } ; fi
 # optional arguments
-vs="v:c:" ; vl="regions:,trials:,align:,pre:,post:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,noise:,verb:,clean:"
+vs="v:c:" ; vl="regions:,trials:,align:,pre:,post:,evhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,noise:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -122,7 +125,7 @@ while [ $# -gt 0 ] ; do
 		--align ) setalign=$2 ; shift ;;
 		--pre ) setpre=$2 ; shift ;;
 		--post ) setpost=$2 ; shift ;;
-		--fhi ) setfhi=$2 ; shift ;;
+		--evhi ) setevhi=$2 ; shift ;;
 		--plot ) setplot=$2 ; shift ;;
 		--noise ) setnoise=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
@@ -143,10 +146,28 @@ fi
 
 if [ "$setprenorm" == "" ] ; then setprenorm=$setpre ; fi
 
+# SET BAND OVERRIDE PARAMETERS
+optbands=""
+for band in $(seq 1 $nbands) ; do
+	if [ "${setband[$band]}" != "" ] ; then
+		n=${fname[$band]}
+		a=$(echo ${setband[$band]} | xe-cut1 stdin 1 -n 1 -d ",")
+		b=$(echo ${setband[$band]} | xe-cut1 stdin 2 -n 1 -d ",")
+		if [ "$a" == "" ] || [ "$b" == "" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair\n" ; exit ;  } ; fi
+		let z=$(echo "$a<$b"|bc)
+		if [ $z -eq 0 ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd\n" ; exit ;  } ; fi
+		fa[$band]=$a
+		fz[$band]=$b
+	fi
+	z="--"${fname[$band]}" "${fa[$band]}","${fz[$band]}
+	optbands=$optbands" "$z
+done
+
 
 echo "--------------------------------------------------------------------------------"
 echo $thisprog $allopts
 echo "--------------------------------------------------------------------------------"
+
 
 ################################################################################
 # GET PARAMETERS FROM NOTES FILE
@@ -166,30 +187,10 @@ if [ $z -eq 0 ] ; then {
 	exit
 } fi
 
-################################################################################
-# SET BAND OVERRIDE PARAMETERS
-################################################################################
-optbands=""
-for band in $(seq 1 $nbands) ; do
-	if [ "${setband[$band]}" != "" ] ; then
-		n=${fname[$band]}
-		a=$(echo ${setband[$band]} | xe-cut1 stdin 1 -n 1 -d ",")
-		b=$(echo ${setband[$band]} | xe-cut1 stdin 2 -n 1 -d ",")
-		if [ "$a" == "" ] || [ "$b" == "" ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) is not a comma-separated pair\n" ; exit ;  } ; fi
-		let z=$(echo "$a<$b"|bc)
-		if [ $z -eq 0 ] ; then {  echo -e "\n--- Error ["$thisprog"]: invalid --$n (${setband[$band]}) - 1st value >= 2nd\n" ; exit ;  } ; fi
-		fa[$band]=$a
-		fz[$band]=$b
-	fi
-	z="--"${fname[$band]}" "${fa[$band]}","${fz[$band]}
-	optbands=$optbands" "$z
-done
 
-# DEFINE LIST OF REGIONS TO ANALYSE
+# DEFINE LIST OF REGIONS TO ANALYSE WITH CAPITALIZED NAMES FIRST
 if [ "$setregions" == "all" ] || [ "$setregions" == "" ] ; then
-	listregions=$(xs-ldas-getchannel $filenotes $setregions --good 1 --outcol region)
-
-
+	listregions=$(xe-dbmatch1 $filenotes good 1 -xml CHANNELS -oc region -o 1 | LC_COLLATE=C sort)
 	let z=$(echo $listregions | grep "Error" | wc -l)
 	if [ $z -gt 0 ]; then { echo -e "\n"$listregions"\n" ; exit ; } fi
 else
@@ -202,7 +203,15 @@ fi
 # ANALYSE THE DATA
 ################################################################################
 ################################################################################
-if [ "$setverb" == "1" ] ; then echo "...original trials..." ;  xs-ldas-gettrials2 $filenotes ; fi
+
+# BUILD THE LIST OF MATCHING TRIALS RECORDS FOR BEHAVIOUR AND EVOKED-RESPONSE ANALYSIS
+if [ $settrials == "all" ] ; then
+	xe-strxmlparse1 $filenotes TRIALS > $tempfile".notestrials"
+else
+ 	xe-dbmatch1 $filenotes name $settrials -m 1 -xml TRIALS > $tempfile".notestrials"
+fi
+if [ "$setverb" == "1" ] ; then echo "...used trials..." ; cat $tempfile".notestrials" ; fi
+
 
 ################################################################################
 echo -e "\n-------------------------------------------------------------------------------"
@@ -213,39 +222,34 @@ listcols="trial,stim,target,response,name"
 out1=$progbase1"_BEHAV_summary.txt"
 plotfile=$(echo $out1 | sed -e 's/.txt/.ps/g')
 
+# save the trials with good responses, sorted on stim-strength (for plot group-colour assignement)
+xe-dbmatch1 $tempfile".notestrials" response "-" -m -2 | xe-cut1 stdin $listcols |sort -k2,2n -k1,1n > $tempfile
+# make a group-name table
+liststim=$(xe-cut1 $tempfile stim -s 1 -o 1 | sort -nu)
 # make a group-name table based on stim (including XX, blank-stim)
-listtarget=$(xe-strxmlparse1 $filenotes TRIALS | xe-dbmatch1 stdin response "-" -m -2 | xe-cut1 stdin stim -s 1 -o 1 | sort -u)
-echo $listtarget | tr ' ' '\n' | sort -r |
-	awk 'BEGIN{print "group\tname" }{print $1"\tstim_"$1}' > $tempfile".groupnames"
-
-# make a stim-sorted data table - valid responses only
-echo $listcols | tr ',' '\t' > $out1
-xe-strxmlparse1 $filenotes TRIALS |
-	xe-dbmatch1 stdin response "-" -m -2 |
-	xe-cut1 stdin $listcols -s 1 -o 1 >> $out1
+echo $liststim | tr ' ' '\n' | sort -r | awk 'BEGIN{print "group\tname" }{print $1"\tstim_"$1}' > $tempfile".groupnames"
 
 # make the plot - xe-plottable1 will assign group-colours according to sorting, above
-xe-plottable1 $out1 -cx 1 -cy 4 -cg 2 -ymin 0 -ymax 4 -yint 1 -title $setbase -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
-sleep .5
+xe-plottable1 $tempfile -cx 1 -cy 4 -cg 2 -ymin 0 -ymax 4 -yint 1 -title $setbase -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
+sleep .5 # pause to make sure plot-writing is completed!
 xs-plotmod1 $plotfile --out 1 --legend $tempfile".groupnames"
+
+echo "- output sent to $plotfile"
+
 
 ################################################################################
 echo -e "\n-------------------------------------------------------------------------------"
 echo "EVOKED POTENTIAL ANALYSIS"
 
 # 1. evoked response by region and by stim strength - combine all targets
-liststim=$(
-	xe-strxmlparse1 $filenotes TRIALS |
-	xe-cut1 stdin target,stim -s 1 -o 1 |
-	awk '{if($1=="XX") print "0" ; else print $2}' |
-	sort -nu
-	)
+# use previously created list of trials
+liststim=$(xe-cut1 $tempfile".notestrials" stim -s 1 -o 1 | sort -nu)
 
 newpre=$(echo "$setpre * -1 * $binrate" | bc | xe-math_round2 stdin)
 newpost=$(echo "$setpost * $binrate" | bc | xe-math_round2 stdin)
 newprenorm=$(echo "$setprenorm * -1 * $binrate" | bc | xe-math_round2 stdin)
 
-optalign="-dt 8 -sf $binrate -low $setflo -high $setfhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -noise $setnoise -verb 0"
+optalign="-dt 8 -sf $binrate -low $setflo -high $setevhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -noise $setnoise -verb $setverb"
 optplot="-cx 1 -cy 2 -line 1 -ps 0 -xscale .4 -yscale .25 -vline 0 -xpad 0 -lb 2 -ew 0 -ebright 16 -lwe .1 -colour 1"
 xl="Time (seconds)"
 yl="Amplitude"
@@ -314,51 +318,20 @@ if [ "$setplot" == "1" ] ; then
 	rm -f $plotlist2
 fi
 
-exit
+
 
 ################################################################################
 echo -e "\n-------------------------------------------------------------------------------"
 echo "SPECTRAL POWER ANALYSIS (good trials only)"
+
 listplotfft=""
 listsum1=""
+optspow=" $optbands --trials $settrials --align $setalign --pre $setpre --post $setpost --verb $setverb"
 
-# list all trials where stimulus was applied
-listtrials=$(xs-ldas-gettrials2 $filenotes --name XX --match -1 | xe-cut1 stdin name -o 1)
-listtrials2=$(echo $listtrials | tr ' ' ',')
-let z=$(echo $listtrials | wc -w)
-if [ $z -eq 0 ]; then { echo -e "\n--- Error [$thisprog]: no valid trials\n" ; exit ; } fi
+for region in $listregions ; do
+	xs-ldas-pow1 $filenotes $region $optspow --win .1 --step 1 --psx 2 
+done
 
-echo $listtrials
-echo $listtrials2
-
-
-# PROPOSED ANALYSIS:
-
-channame=CG
-channum=$(xe-dbmatch1 *notes region CG -xml CHANNELS -oc chan -o 1)
-channum2=$(echo $chan | awk '{printf("%03d",$1)}')
-echo $channum2
-echo $setbase
-filebin=$setbase"-"$channum2".bin"
-
-xs-ldas-gettrials2 *notes --name $listtrials2 --down 1 --align start --pre -.5 --post 1.5 |
-	xe-cut1 stdin start,stop -o 1 |
-	xe-writebinary1 stdin -dt 7 > jjj.ssp
-
-xe-fftpow2 $filebin -dt 8 -sf 1000 -w 200 -s 10 -scrf jjj.ssp -min 5 -max 150 -o 1 -v 0 |
-	xe-matrixavg2 stdin -norm 3 -n1 0 -n2 1 -r 1 > jjj.txt
-
-xe-matrixmod1 jjj.txt -r -90 |
-	xe-plotmatrix1 stdin -xmin -500 -xmax 1500 -ymin 5 -ymax 150 -xint 250 -xscale .45 -yscale .2 -frame 0 -lwa .25
-
-xs-plotmatrixsplit1 jjj.txt --mod "-r -90 -h 100 -w 300 -sy 10 -sx 10" --xrange -500,1500 --yrange 0,150 --splity 60 --opts1 "-font 6 -xint 250 -uc 0 -us 1"
-
-echo "DONE"
-exit
-
-
-# alternative  fails and bandanalysis stage
-xs-ldas-pow1 *notes 10 --align stop --pre -.5 --post 1.5 --win 0.200 --step 100
 
 exit
 
@@ -378,7 +351,7 @@ for region in $listregions ; do
 	if [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
 
 	# CALCULATE POWER
-	command="xs-ldas-pow1 $filenotes $region --trials $(echo $listtrials | tr ' ' ',') --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --win $setfftwin --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	command="xs-ldas-pow1 $filenotes $region --trials $(echo $listtrials | tr ' ' ',') --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --win $setfftwin --evhi $setevhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
 	echo $command
 	$command
 
@@ -422,6 +395,7 @@ echo "SPECTRAL COHERENCE ANALYSIS"
 listplotfft=""
 listsum1=""
 listavg1=""
+# make list of regions, with capitalized names first
 listregions="xe-dbmatch1 $filenotes good 1 -xml CHANNELS  -oc region -o 1 | LC_COLLATE=C sort"
 listregionpairs=$(echo $listregions | tr ' ' ',' | xe-makepairs1 stdin)
 listheaderavg="freq "$listregionpairs
@@ -443,7 +417,7 @@ for regionpair in $listregionpairs ; do
 	if [ "$x" == "0" ] || [ "$y" == "0" ] ; then dummy=1 ; else dummy=0 ; fi
 
 	# CALCULATE COHERENCE
-	command="xs-ldas-coh1 $filenotes $region1 $region2 --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --fhi $setfhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
+	command="xs-ldas-coh1 $filenotes $region1 $region2 --trials $listtrials1 --align "$setalign" --pre $setpre --post $setpost --clip $setclip --nz 1 --ns 0 --np 50 --evhi $setevhi --norm -1 --plot $setplot $optbands --verb $setverb --dummy $dummy"
 	echo $command
 	$command
 
