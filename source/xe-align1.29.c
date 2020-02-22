@@ -1,4 +1,4 @@
-#define thisprog "xe-ldas-align1"
+#define thisprog "xe-align1"
 #define TITLE_STRING thisprog" v 29: 1.August.2017 [JRH]"
 #define MAXLINELEN 1000
 #define MAXLABELS 1000

@@ -5,7 +5,7 @@ thisprog=`basename "$0"`
 tempfile="temp_"$thisprog ; rm -f $tempfile*
 outbase="X1_" ; rm -f $outbase*
 
-# default options for block alignment using for xe-ldas-align1
+# default options for block alignment using for xe-align1
 set_start="Start"
 set_stop=""
 set_firstblock=""
@@ -50,7 +50,7 @@ if [ $# -lt 3 ]; then
 	echo "	-x skip certain processing steps ["$set_skip"]"
 	echo "		p: no plots (numerical output only - good for highly dense data)"
 	echo
-	echo " 	[options] passed to xe-ldas-align1 (converted to arguments in ():"
+	echo " 	[options] passed to xe-align1 (converted to arguments in ():"
 	echo
 	echo "	-s (-start) start signal (partial match, case-sensitive) ["$set_start"]"
 	echo "	-e (-stop) end, or stop signal (partial match, case-sensitive) ["$set_stop"]"
@@ -180,7 +180,7 @@ message=$(echo $freqhigh $highthresh1 | awk '{if($1>=$2) print "error1" } ')
 if [ $message ] ; then { echo ; echo "--- Error ["$thisprog"]: \"-i "$set_inthigh"\" sets high-freq cutoff at "$freqhigh"Hz - too high for data sampled at "$sample_rate"Hz - chose a value for -1 larger than $highthresh2" ; echo ; echo ; exit ; } ; fi
 
 
-# BUILD THE OPTIONS FOR xe-ldas-align1 ; NOTE THAT IF $SET_STOP IS UNDEFINED IT BECOMES THE SAME AS $SET_START
+# BUILD THE OPTIONS FOR xe-align1 ; NOTE THAT IF $SET_STOP IS UNDEFINED IT BECOMES THE SAME AS $SET_START
 echo "set_low="$set_intlow
 echo "set_high="$set_inthigh
 aopts="-sdthresh "$set_sdthresh" -rmsthresh "$set_rmsthresh
@@ -223,12 +223,12 @@ echo "timefile="$timefile
 echo "cmtfile="$cmtfile
 echo "
 	paste $timefile $infile |
-	xe-ldas-align1 stdin $cmtfile $aopts -verb 1 >> "$outbase"aligned.txt
+	xe-align1 stdin $cmtfile $aopts -verb 1 >> "$outbase"aligned.txt
 "
 {
 paste $timefile $infile |
 	# align with appropriate comments (includes binning) and save
-	xe-ldas-align1 stdin $cmtfile $aopts -verb 1 >> $outbase"aligned.txt"
+	xe-align1 stdin $cmtfile $aopts -verb 1 >> $outbase"aligned.txt"
 } 2> $tempfile
 cat $tempfile
 
@@ -257,7 +257,7 @@ xe-cut1 $outbase"aligned.txt" time,nA -o 1 |
 #################################################################################
 
 # AUC DERIVED FROM XE-ALIGN1 OUTPUT FILE (MEAN OF INDIVIDUAL AUC's BASED ON UNBINNED DATA)
-aucfile="temp_xe-ldas-align1.txt"
+aucfile="temp_xe-align1.txt"
 if [ ! -e $aucfile ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$aucfile' missing" ; echo ; echo ; exit ; } ; fi
 areatot=$(xe-cut1 $aucfile auc -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)
 areaneg=$(xe-cut1 $aucfile aucpos -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN)

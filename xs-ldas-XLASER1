@@ -78,6 +78,9 @@ if [ $# -lt 1 ]; then
 	echo ""
 	echo "OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
 	echo "	--trials: CSV list of trial-names to use (or \"all\" or \"no\") [$settrials]"
+	echo "	--noise: exclude trials based on std.dev (-1=SKIP) [$setnoise] "
+	echo "		- at present, applies only to evoked responses"
+	echo "		- based on mean-rectified-difference from median trace"
 	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
 	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
 	echo "	--pre: seconds to add to start [$setpre]"
@@ -105,7 +108,7 @@ filedat=$setbase".dat"
 if [ ! -e $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: missing file $filenotes\n" ; exit ;  } ; fi
 if [ ! -s $filenotes ] ; then {  echo -e "\n--- Error ["$thisprog"]: $filenotes is empty\n" ; exit ;  } ; fi
 # optional arguments
-vs="v:c:" ; vl="regions:,trials:,align:,pre:,post:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,verb:,clean:"
+vs="v:c:" ; vl="regions:,trials:,align:,pre:,post:,fhi:,delta:,alpha:,theta:,beta:,gamma:,hfo:,plot:,noise:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -121,6 +124,7 @@ while [ $# -gt 0 ] ; do
 		--post ) setpost=$2 ; shift ;;
 		--fhi ) setfhi=$2 ; shift ;;
 		--plot ) setplot=$2 ; shift ;;
+		--noise ) setnoise=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -241,7 +245,7 @@ newpre=$(echo "$setpre * -1 * $binrate" | bc | xe-math_round2 stdin)
 newpost=$(echo "$setpost * $binrate" | bc | xe-math_round2 stdin)
 newprenorm=$(echo "$setprenorm * -1 * $binrate" | bc | xe-math_round2 stdin)
 
-optalign="-dt 8 -sf $binrate -low $setflo -high $setfhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -verb 0"
+optalign="-dt 8 -sf $binrate -low $setflo -high $setfhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -noise $setnoise -verb 0"
 optplot="-cx 1 -cy 2 -line 1 -ps 0 -xscale .4 -yscale .25 -vline 0 -xpad 0 -lb 2 -ew 0 -ebright 16 -lwe .1 -colour 1"
 xl="Time (seconds)"
 yl="Amplitude"
@@ -265,7 +269,7 @@ for region in $listregions ; do
 		echo -e "\t\tstim="$stim
 		title="$setbase    Region: $region    Stim: $stim"
 
-		# build a .cmt file for xe-ldas-align2
+		# build a .cmt file for xe-align2
 		xe-strxmlparse1 $filenotes TRIALS |
 			xe-cut1 stdin start,stim,target -s 1 -d '\t' |
 			awk '{s=$2; if($3=="-")s=0; if(s=='$stim') print $1"\tSTART"}' |
@@ -273,39 +277,42 @@ for region in $listregions ; do
 
 		# align the data, then average while aligning - this binary read is faster than running xe-statsgrp1 on the aligned text-output
 		# the output is "block time signal"
-
-# ??? NEED A REJECT-NOISY BLOCKS OPTION - test in align2?
-# however, align2 outputs each block as it is read, and does not at present pre-compile all the blocks - come back to this!
-
-		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 1 > $tempfile".aligned"
-		xe-ldas-align2 $in1 $tempfile".cmt" $optalign -out 0 > $tempfile".average"
+		if [ "$setverb" == "1" ] ; then echo -e "\txe-align2 $in1 $tempfile.cmt $optalign" ; fi
+		xe-align2 $in1 $tempfile".cmt" $optalign -out 1 > $tempfile".aligned"
+		xe-align2 $in1 $tempfile".cmt" $optalign -out 0 > $tempfile".average"
 		# append the results to the output files
 		cat $tempfile".aligned" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_aligned.txt"
 		cat $tempfile".average" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_average.txt"
 
-		# plot individual traces
-		plotfile=$tempfile"."$count".A.ps"
-		plotlist1=$plotlist1" "$plotfile
-		xe-cut1 $tempfile".aligned" 2,3 -n 1 |
-			xe-plottable1 stdin $optplot -xlabel "$xl" -ylabel "$yl" -title "$title" -lb 2 -out $plotfile
-		# plot mean trace + error-bars
-		plotfile=$tempfile"."$count".B.ps"
-		plotlist1=$plotlist1" "$plotfile
-		xe-statsgrp1 $tempfile".aligned" -cg1 2 -cy 3 |
-			xe-cut1 stdin grp1,mean,sem |
-			xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -out $plotfile
+		if [ "$setplot" == "1" ] ; then
+			# plot individual traces
+			plotfile=$tempfile"."$count".A.ps"
+			plotlist1=$plotlist1" "$plotfile
+			xe-cut1 $tempfile".aligned" 2,3 -n 1 |
+				xe-plottable1 stdin $optplot -xlabel "$xl" -ylabel "$yl" -title "$title" -lb 2 -out $plotfile
+			# plot mean trace + error-bars
+			plotfile=$tempfile"."$count".B.ps"
+			plotlist1=$plotlist1" "$plotfile
+			xe-statsgrp1 $tempfile".aligned" -cg1 2 -cy 3 |
+				xe-cut1 stdin grp1,mean,sem |
+				xe-plottable1 stdin $optplot -ce 3 -xlabel "$xl" -ylabel "Mean $yl" -out $plotfile
+		fi
 	done
 
-	xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
-	plotfile=$tempfile"_"$region".ps"
-	plotlist2=$plotlist2" "$plotfile
-	mv temp_xe-plotmerge1.001.ps $plotfile
-	rm -f $plotlist1
+	if [ "$setplot" == "1" ] ; then
+		xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
+		plotfile=$tempfile"_"$region".ps"
+		plotlist2=$plotlist2" "$plotfile
+		mv temp_xe-plotmerge1.001.ps $plotfile
+		rm -f $plotlist1
+	fi
 done
-xe-plotmerge2 $plotlist2 > $progbase1"_EVOKED_summary.ps"
-echo "- output sent to "$progbase1"_EVOKED_summary.ps"
 
-rm -f $plotlist2
+if [ "$setplot" == "1" ] ; then
+	xe-plotmerge2 $plotlist2 > $progbase1"_EVOKED_summary.ps"
+	echo "- output sent to "$progbase1"_EVOKED_summary.ps"
+	rm -f $plotlist2
+fi
 
 exit
 

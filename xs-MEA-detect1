@@ -266,7 +266,7 @@ if [ "$setanalysis" != "summary" ] ; then
 		echo ; echo "	CALCULATING AVERAGE EVENT"
 		if [ ${nevents[$channel]} -gt 0 ] ; then
 			echo $listevents | tr ' ' '\n' > $tempfile.2
-			xe-ldas-align2 $tempfile.0 $tempfile.2 -dt -1 -pre $pre -post $post -norm 2 -pn $pre -pnx $pre|
+			xe-align2 $tempfile.0 $tempfile.2 -dt -1 -pre $pre -post $post -norm 2 -pn $pre -pnx $pre|
 			awk '{print 1000*$1/'$samprate',$2*'$voltsperunit'}' > $outfile
 		else
 			echo "0 0" > $outfile

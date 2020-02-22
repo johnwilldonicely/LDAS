@@ -13,7 +13,7 @@ rm -f $tempfile*
 outbase="EVENT1_"
 rm -f $outbase*
 
-# default options for block alignment using for xe-ldas-align2
+# default options for block alignment using for xe-align2
 set_start="Start"
 set_pre="10"
 set_post="10"
@@ -229,13 +229,13 @@ echo "set_z="$set_z
 echo "	Making aligned trace..."
 echo "	cat $infile |
 		xe-interp1 stdin |
-		xe-ldas-align2 stdin  $tempfile".start" -dt -1 -pre $sprelen -post $spostlen -sf $sample_freq |
+		xe-align2 stdin  $tempfile".start" -dt -1 -pre $sprelen -post $spostlen -sf $sample_freq |
 		cut -f 2 > $outbase"trace_aligned.txt"
 "
 echo $sstart > $tempfile".start"
 cat $infile |
 	xe-interp1 stdin |
-	xe-ldas-align2 stdin  $tempfile".start" -dt -1 -pre $sprelen -post $spostlen -sf $sample_freq |
+	xe-align2 stdin  $tempfile".start" -dt -1 -pre $sprelen -post $spostlen -sf $sample_freq |
 	cut -f 2 > $outbase"trace_aligned.txt"
 
 
@@ -309,14 +309,14 @@ for i in 1 2 ; do
 
 	echo "
 	cut -f 2 $tempfile.evt.$i > $tempfile
-	xe-ldas-align2 $outbase"trace_aligned.txt" $tempfile -dt -1 -sf $sample_freq -pre $smax -post $smax -norm 5 -nbins 101  |
+	xe-align2 $outbase"trace_aligned.txt" $tempfile -dt -1 -sf $sample_freq -pre $smax -post $smax -norm 5 -nbins 101  |
 		awk '{print "'$i'\\t",$0}' >> $outfile
 	"
 
 	# make a temporary event-sample (peak) file for the current block
 	cut -f 2 $tempfile.evt.$i > $tempfile
 	# align to events and output the average event (downsample to 101 values)
-	xe-ldas-align2 $outbase"trace_aligned.txt" $tempfile -dt -1 -sf $sample_freq -pre $smax -post $smax -norm 5 -nbins 101  |
+	xe-align2 $outbase"trace_aligned.txt" $tempfile -dt -1 -sf $sample_freq -pre $smax -post $smax -norm 5 -nbins 101  |
 	# add a number specifying the block
 	awk '{print "'$i'\t",$0}' >> $outfile
 
@@ -356,7 +356,7 @@ xe-fftpow2 $outbase"trace_aligned.txt" -sf $sample_freq -w $sample_freq -s 1 -t 
 cat $tempfile.evt.? | cut -f 2 | xe-math_div1 stdin -cy -1 -v $sample_freq | xe-math_round1 stdin > $tempfile
 # align theta power to event-times
 outfile=$outbase"theta_average.txt"
-xe-ldas-align2 $outbase"trace_power_theta.txt" $tempfile -dt -1 -sf 1 -pre 300 -post 300 -norm 0 -nbins 101  > $outfile
+xe-align2 $outbase"trace_power_theta.txt" $tempfile -dt -1 -sf 1 -pre 300 -post 300 -norm 0 -nbins 101  > $outfile
 
 
 ################################################################################

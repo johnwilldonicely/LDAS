@@ -325,7 +325,7 @@ if [ "$setanalysis" != "summary" ] ; then
 		if [ $n1 -gt 0 ] ; then
 			echo "	CALCULATING AVERAGE EVENT "
 			xe-cut1 $tempfile.events peak -o 1 > $tempfile.peaks
-			xe-ldas-align2 $in1 $tempfile.peaks -dt 8 -pre $pre -post $post -norm 2 -pn $pre -pnx $pre |
+			xe-align2 $in1 $tempfile.peaks -dt 8 -pre $pre -post $post -norm 2 -pn $pre -pnx $pre |
 				awk '{print 1000*$1/'$samprate',$2*'$voltsperunit'}' > $outmean
 			echo "	MAKING CLUB PRECURSOR "
 			awk '{print "'$channel'\t"$0}' $tempfile.peaks >> $tempfile.club # channel="cluster", peak="time"

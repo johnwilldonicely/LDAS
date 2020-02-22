@@ -37,7 +37,7 @@ if [ $# -lt 3 ]; then
 	echo "	-x skip certain processing steps ["$set_skip"]"
 	echo "		p: no plots (numerical output only - good for highly dense data)"
 	echo
-	echo " 	options passed to xe-ldas-align1 (converted to arguments in ():"
+	echo " 	options passed to xe-align1 (converted to arguments in ():"
 	echo
 	echo "	-s (-start) start signal (partial match, case-sensitive)"
 	echo "	-e (-stop) end, or stop signal (partial match, case-sensitive)"

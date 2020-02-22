@@ -38,7 +38,9 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	if ( xf_percentile1_d(data,n,result) >=0) median=result[5];
-	else { fprintf(stderr,"** Memory allocation error\n"); exit(1); }
+	else {
+	 fprintf(stderr,"--- Error: Memory allocation error\n"); exit(1); 
+ 	}
 */
 
 #include <stdlib.h>

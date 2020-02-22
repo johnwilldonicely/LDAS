@@ -309,8 +309,8 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
 <a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
-<a href="#code-xe-ldas-align1">xe-ldas-align1</a><br>
-<a href="#code-xe-ldas-align2">xe-ldas-align2</a><br>
+<a href="#code-xe-align1">xe-align1</a><br>
+<a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-oversample1">xe-oversample1</a><br>
 <a href="#code-xe-smoothbox1">xe-smoothbox1</a><br>
 <a href="#code-xe-smoothgauss1">xe-smoothgauss1</a><br>
@@ -391,8 +391,8 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
 <a href="#code-xe-ldas5-expandclub1">xe-ldas5-expandclub1</a><br>
 <a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
-<a href="#code-xe-ldas-align1">xe-ldas-align1</a><br>
-<a href="#code-xe-ldas-align2">xe-ldas-align2</a><br>
+<a href="#code-xe-align1">xe-align1</a><br>
+<a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-ldas-invalidcmt1">xe-ldas-invalidcmt1</a><br>
 <a href="#code-xe-ldas-medcmt1">xe-ldas-medcmt1</a><br>
 <a href="#code-xe-ldas-readchart1">xe-ldas-readchart1</a><br>
@@ -766,8 +766,8 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
 <a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
-<a href="#code-xe-ldas-align1">xe-ldas-align1</a><br>
-<a href="#code-xe-ldas-align2">xe-ldas-align2</a><br>
+<a href="#code-xe-align1">xe-align1</a><br>
+<a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-lombscargle1">xe-lombscargle1</a><br>
 <a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
 <a href="#code-xe-matrixsplit1">xe-matrixsplit1</a><br>
@@ -971,8 +971,8 @@ of scripts, programs, and functions.
 <a href="#code-xe-hist1">xe-hist1</a><br>
 <a href="#code-xe-histstats1">xe-histstats1</a><br>
 <a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
-<a href="#code-xe-ldas-align1">xe-ldas-align1</a><br>
-<a href="#code-xe-ldas-align2">xe-ldas-align2</a><br>
+<a href="#code-xe-align1">xe-align1</a><br>
+<a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-lombscargle1">xe-lombscargle1</a><br>
 <a href="#code-xe-norm2">xe-norm2</a><br>
 <a href="#code-xe-norm3">xe-norm3</a><br>
@@ -1175,8 +1175,8 @@ of scripts, programs, and functions.
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-densitymatrix2">xe-densitymatrix2</a><br>
 <a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
-<a href="#code-xe-ldas-align1">xe-ldas-align1</a><br>
-<a href="#code-xe-ldas-align2">xe-ldas-align2</a><br>
+<a href="#code-xe-align1">xe-align1</a><br>
+<a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-transpose3">xe-transpose3</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_bin1a_d">xf_bin1a_d</a><br>
@@ -5226,7 +5226,7 @@ USAGE: xs-O2-X1 [base] [hem] [region] [options]
 	-x skip certain processing steps [-]
 		p: no plots (numerical output only - good for highly dense data)
 
- 	[options] passed to xe-ldas-align1 (converted to arguments in ():
+ 	[options] passed to xe-align1 (converted to arguments in ():
 
 	-s (-start) start signal (partial match, case-sensitive) [Start]
 	-e (-stop) end, or stop signal (partial match, case-sensitive) []
@@ -5271,7 +5271,7 @@ USAGE: xs-O2-X1b [database] [region] [analysis] [opts]
 	-x skip certain processing steps [-]
 		p: no plots (numerical output only - good for highly dense data)
 
- 	options passed to xe-ldas-align1 (converted to arguments in ():
+ 	options passed to xe-align1 (converted to arguments in ():
 
 	-s (-start) start signal (partial match, case-sensitive)
 	-e (-stop) end, or stop signal (partial match, case-sensitive)
@@ -9757,15 +9757,15 @@ OUTPUT:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-ldas-align1"><a href="#CODE">&#8679</a> xe-ldas-align1</h3></font>
+<font color="Black"><h3 id="code-xe-align1"><a href="#CODE">&#8679</a> xe-align1</h3></font>
 [<a href="#tag-ldas">ldas</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-ldas-align1 v 29: 1.August.2017 [JRH]
+xe-align1 v 29: 1.August.2017 [JRH]
 ----------------------------------------------------------------------
 Align data to start/stop signals in a separate file
 MEMORY_REQUIREMENTS: 4*double (32 bytes) for every &#60time&#62&#60data&#62 pair
-USAGE: xe-ldas-align1 [input] [cfile] [options]
+USAGE: xe-align1 [input] [cfile] [options]
 	[input]: data file or "stdin" in format &#60time&#62 &#60data&#62
 	[cfile]: comment file of format &#60time&#62 &#60comments&#62
 VALID OPTIONS (defaults in []):
@@ -9802,26 +9802,26 @@ VALID OPTIONS (defaults in []):
 	-flip: flip data (multiply by -1) (0=NO 1=YES) [0]
 	-verb: verbosity of reporting (0=none,1=report to stderr) [1]
 EXAMPLES:
-	xe-ldas-align1 sub001.dat sub001.cmt -start "pump on"
-	cat my.dat | xe-ldas-align1 stdin temp.cmt -start "ON" -dur 5
+	xe-align1 sub001.dat sub001.cmt -start "pump on"
+	cat my.dat | xe-align1 stdin temp.cmt -start "ON" -dur 5
 OUTPUT:
 	- [block] [time-in-block] [datavalue]
-	- file temp_xe-ldas-align1.txt (AUC for each block)
+	- file temp_xe-align1.txt (AUC for each block)
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-ldas-align2"><a href="#CODE">&#8679</a> xe-ldas-align2</h3></font>
+<font color="Black"><h3 id="code-xe-align2"><a href="#CODE">&#8679</a> xe-align2</h3></font>
 [<a href="#tag-ldas">ldas</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-ldas-align2 v 10: 6.April.2015 [JRH]
+xe-align2 v 10: 6.April.2015 [JRH]
 ----------------------------------------------------------------------
 Align data to start signals in a separate file
 	- this version assumes binary input with constant sampling rate
 	- all "times" are expressed as samples
 MEMORY_REQUIREMENTS: 4*double (32 bytes) for every &#60time&#62&#60data&#62 pair
-USAGE: xe-ldas-align2 [input] [start] [options]
+USAGE: xe-align2 [input] [start] [options]
 	[input]: data file
 	[start]: file containing block start-samples (zero-offset)
 VALID OPTIONS (defaults in []):
@@ -9850,8 +9850,8 @@ VALID OPTIONS (defaults in []):
 	-out: output type (0=average, 1=all aligned blocks) [0]
 	-verb: verbosity of reporting (0=none,1=report to stderr) [0]
 EXAMPLES:
-	xe-ldas-align2 sub001.dat sub001.cmt -start "pump on"
-	cat temp.dat | xe-ldas-align2 stdin temp.cmt -start "ON" -dur 60
+	xe-align2 sub001.dat sub001.cmt -start "pump on"
+	cat temp.dat | xe-align2 stdin temp.cmt -start "ON" -dur 60
 OUTPUT - ASCII version of data as follows:
 	if -out 0: [time-in-block] [average]
 	if -out 1: [block] [time-in-block] [original-value]

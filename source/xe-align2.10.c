@@ -1,4 +1,4 @@
-#define thisprog "xe-ldas-align2"
+#define thisprog "xe-aligndat2"
 #define TITLE_STRING thisprog" v 10: 6.April.2015 [JRH]"
 #define MAXLINELEN 1000
 #define MAXLABELS 1000
@@ -10,6 +10,13 @@
 /* <TAGS> ldas signal_processing transform filter stats </TAGS> */
 
 /*
+v 11: 22.February.2020 [JRH]
+	- add pre-interpolation of data, plus warning if interpolation is >10%
+	- add QC check for first/last arguments
+	- change all size_t arguments to long to allow checks for sign
+	- pre-screen blocks for first/last criteria and for pre/post falling within data range
+	- add option to exclude blocks based o nnoise criterion (rectified-mean-difference from median curve)
+
 v 10: 6.September.2019 [JRH]
 	- add filter option to input
 
@@ -22,7 +29,7 @@ v 10: 6.April.2015 [JRH]
 v 9: 16.February.2015 [JRH]
 	- added ability to normalize each aligned block by the overall mean in the block (-norm 4)
 	- added ability to normalize each aligned block by the overall linear trend in the block (-norm 5)
-	- simplified indexing and improved efficiency in loops creating data2 from data1 (pdata1 pointer introduced)
+	- simplified indexing and improved efficiency in loops creating dat2 from dat1 (pdat1 pointer introduced)
 	- improved instructions to reflect how samples are included or excluded
 
 v 8: 1.September.2014 [JRH]
@@ -52,6 +59,10 @@ v 4: 26.January.2014 [JRH]
 */
 
 /* external functions start */
+long xf_interp3_f(float *data, long ndata);
+int xf_compare1_d(const void *a, const void *b);
+int xf_percentile1_f(float *data, long nn, double *result);
+float xf_stats1_f(double *dat1, long nn, int digits);
 float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 int xf_filter_bworth1_f(float *X, off_t nn, float sample_freq, float setlow, float sethigh, float res, char *message);
 double xf_bin1a_f(float *data, size_t *setn, size_t *setz, size_t setnbins, char *message);
@@ -69,18 +80,19 @@ int main (int argc, char *argv[]) {
 	double aa,bb,cc,dd,result_d[32];
 	FILE *fpin,*fpout;
 	/* program-specific variables */
-	float *data1=NULL,*data2=NULL,*sumdata2,*pdata1;
+	float *dat1=NULL,*dat2=NULL,*dat3=NULL,*sumdat2=NULL,*pdat1=NULL;
 	size_t *start=NULL;
-	size_t n2=0,n3=0,block,nblocks=0,usedblocks=0;
+	size_t ndat1,ndat2=0,n3=0,block,nblocks=0,nblocks3=0,usedblocks=0;
 	size_t index1,index1b,index1c,index2,index3,zero,bmin,bmax;
 	off_t parameters[5];
 	double sum,mean,sumofsq,stddev,sampint,binsize,binint=0;
 	/* arguments */
 	char cmtfile[256];
-	int setnorm=0,setflip=0,setverb=0,setfirst=0,setlast=-1,setdatatype=0,setout=0;
-	size_t setpre=0,setpost=10,setpn=0,setpnx=0,setnbins=0;
+	int setnorm=0,setflip=0,setverb=0,setdatatype=0,setout=0;
+	long setfirst=0,setlast=-1,setpre=0,setpost=10,setpn=0,setpnx=0,setnbins=0;
 	float setlow=0.0,sethigh=0.0;  // filter cutoffs
 	float setresonance=1.4142; // filter resonance setting ()
+	float setnoise=3.0; // standard-deviations cutoff for defining an outlier-block to be excluded (0=skip)
 	double setsampfreq=1;
 
 	status=1;
@@ -92,7 +104,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Align data to start signals in a separate file\n");
-		fprintf(stderr,"	- this version assumes binary input with constant sampling rate\n");
+		fprintf(stderr,"	- assumes input has constant sampling rate\n");
 		fprintf(stderr,"	- all \"times\" are expressed as samples\n");
 		fprintf(stderr,"MEMORY_REQUIREMENTS: 4*double (32 bytes) for every <time><data> pair\n");
 		fprintf(stderr,"USAGE: %s [input] [start] [options]\n",thisprog);
@@ -117,10 +129,11 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-norm: normalization method [%d]\n",setnorm);
 		fprintf(stderr,"		0:none, 1: sample zero (start), 2: -pn average, 3:z-score\n");
 		fprintf(stderr,"		4:de-mean 5: de-trend (4 & 5 apply to entire block\n");
-		fprintf(stderr,"	-first: select first block to use (numbered from zero) [%d]\n",setfirst);
-		fprintf(stderr,"	-last: select last block to use (-1=to the last one) [%d]\n",setlast);
+		fprintf(stderr,"	-first: select first block to use (numbered from zero) [%ld]\n",setfirst);
+		fprintf(stderr,"	-last: select last block to use (-1=to the last one) [%ld]\n",setlast);
 		fprintf(stderr,"	-nbins: number of non-overlapping bins to average output (0=none) [%ld]\n",setnbins);
 		fprintf(stderr,"	-flip: flip data (multiply by -1) (0=NO, 1=YES) [%d]\n",setflip);
+		fprintf(stderr,"	-noise: exclude noisy blocks (S.DEV from median trace, -1=SKIP) [%g]\n",setnoise);
 		fprintf(stderr,"	-out: output type (0=average, 1=all aligned blocks) [%d]\n",setout);
 		fprintf(stderr,"	-verb: verbosity of reporting (0=none,1=report to stderr) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
@@ -142,22 +155,24 @@ int main (int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-dt")==0) setdatatype=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-sf")==0) setsampfreq=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-low")==0) setlow=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-high")==0) sethigh=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-pre")==0) setpre=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-post")==0) setpost=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-pn")==0) setpn=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-pnx")==0) setpnx=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-norm")==0) setnorm=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-nbins")==0) setnbins=atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-flip")==0) setflip=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-low")==0) setlow=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-high")==0) sethigh=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-first")==0)setfirst=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-last")==0) setlast=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-flip")==0) setflip=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-noise")==0) setnoise=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-nbins")==0) setnbins=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-out")==0) setout=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-verb")==0) setverb=atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
+	if(setverb!=0&&setverb!=1) {fprintf(stderr,"\n--- Error[%s]: -verb (%d) must be 0 or 1\n\n",thisprog,setverb);exit(1);};
 	if(setpost<0) {fprintf(stderr,"\n--- Error[%s]: -post (%ld) must be >=0\n\n",thisprog,setpost);exit(1);};
 	if(setsampfreq<=0) {fprintf(stderr,"\n--- Error[%s]: -sf (%g) must be >0\n\n",thisprog,setsampfreq);exit(1);};
 	if(setlow<0) {fprintf(stderr,"\n--- Error[%s]: low frequency cutoff (-low %g) must be >= 0 \n\n",thisprog,setlow);exit(1);};
@@ -167,29 +182,32 @@ int main (int argc, char *argv[]) {
 	if(setnorm<0||setnorm>5) {fprintf(stderr,"\n--- Error[%s]: -norm (%d) must be 0,1,2,3,4 or 5\n\n",thisprog,setnorm);exit(1);};
 	if(setflip!=0&&setflip!=1) {fprintf(stderr,"\n--- Error[%s]: -flip (%d) must be 0 or 1\n\n",thisprog,setflip);exit(1);};
 	if(setout!=0&&setout!=1) {fprintf(stderr,"\n--- Error[%s]: -out (%d) must be 0 or 1\n\n",thisprog,setout);exit(1);};
-	if(setverb!=0&&setverb!=1) {fprintf(stderr,"\n--- Error[%s]: -verb (%d) must be 0 or 1\n\n",thisprog,setverb);exit(1);};
-
+	if(setlast!=-1 && setfirst>setlast) {fprintf(stderr,"\n--- Error[%s]: -first (%ld) is greater than -last (%ld)\n\n",thisprog,setfirst,setlast);exit(1);};
 	if(setpn==0) setpn=setpre;
 	else if(setnorm==1) {fprintf(stderr,"\n--- Error[%s]: cannot set -pn (%ld) with single-sample normalization (-norm %d)\n\n",thisprog,setpn,setnorm);exit(1);};
 
+	/* calculate block size (ndat2) */
+	ndat2=setpre+setpost+1;
+	/* determine the sample-interval */
+	sampint= 1.0 / setsampfreq;
 
-	/************************************************************
+	/********************************************************************************
 	READ THE DATA
-	************************************************************/
-	nn=0;
+	********************************************************************************/
+	ndat1=0;
 	/* if data is ASCII */
 	if(setdatatype==-1) {
+		kk= sizeof(*dat1);
 		if(strcmp(infile,"stdin")==0) fpin=stdin;
 		else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
 		while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 			if(sscanf(line,"%f",&a)!=1) continue;
-			data1=(float *)realloc(data1,(nn+1)*sizeoffloat);
-			if(data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-			data1[nn++]=a;
+			dat1= realloc(dat1,(ndat1+1)*kk);
+			if(dat1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+			dat1[ndat1++]= a;
 		}
 		if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	}
-
 	/* if data is binary */
 	else if(setdatatype>=0) {
 		if(strcmp(infile,"stdin")==0) {fprintf(stderr,"\n--- Error[%s]: piped input from \"stdin\" input not enabled for binary data (-dt %d). Please select file name for input\n\n",thisprog,setdatatype);exit(1);}
@@ -198,17 +216,14 @@ int main (int argc, char *argv[]) {
 		parameters[1]=0; // header-bytes
 		parameters[2]=0; // numbers to skip
 		parameters[3]=0; // bytes to read if set to zero, will read all available bytes after the header+(start*datasize)
-
-		data1 = xf_readbin2_f(infile,parameters,message);
-
-		nn=parameters[3]; // parameters[3] is reset to the number of elements (bytes/datasize) by xf_readbin2_f
-		if(data1==NULL) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message);exit(1);}
+		dat1 = xf_readbin2_f(infile,parameters,message);
+		ndat1=parameters[3]; // parameters[3] is reset to the number of elements (bytes/datasize) by xf_readbin2_f
+		if(dat1==NULL) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message);exit(1);}
 	}
-
-	//TEST	for(ii=0;ii<10;ii++) printf("%g\n",data1[ii]);exit(1);
-
+	//TEST	for(ii=0;ii<10;ii++) printf("%g\n",dat1[ii]);exit(1);
 	if(setverb>0) {
-		for(ii=0;ii<argc;ii++) fprintf(stderr,"%s ",argv[ii]);fprintf(stderr,"\n");
+		for(ii=0;ii<argc;ii++) fprintf(stderr,"%s ",argv[ii]);
+		fprintf(stderr,"\n");
 		fprintf(stderr,"\tpre-start samples: %ld\n",setpre);
 		fprintf(stderr,"\tpost-start samples: %ld\n",setpost);
 		fprintf(stderr,"\tnormalization_presample: %ld\n",setpn);
@@ -218,67 +233,145 @@ int main (int argc, char *argv[]) {
 		if(setnorm==3) fprintf(stderr,"\tnormalized: presample z-score\n");
 		fprintf(stderr,"\tbinning: %ld\n",setnbins);
 		fprintf(stderr,"\tflip data: "); if(setflip==0) fprintf(stderr,"no\n"); else fprintf(stderr,"yes\n");
-		fprintf(stderr,"\ttotal_samples: %ld\n",nn);
+		fprintf(stderr,"\ttotal_samples: %ld\n",ndat1);
 	}
 
-	/************************************************************
-	FLIP THE DATA IF REQUIRED
-	************************************************************/
-	if (setflip==1) { for(ii=0;ii<nn;ii++) data1[ii]= 0.0-data1[ii]; }
+	/* INTERPOLATE THE DATA*/
+	kk= xf_interp3_f(dat1,ndat1);
+	if(kk<0) {fprintf(stderr,"\n--- Error[%s]: no valid numbers in input \"%s\" not found\n\n",thisprog,infile);exit(1);}
+	if((double)kk/(double)ndat1>0.10) {fprintf(stderr,"--- Warning[%s]: >10%% of data points in %s required interpolation\n",thisprog,infile);}
 
-	/********************************************************************************
-	APPLY THE FILTER TO THE ENTIRE INPUT
-	********************************************************************************/
+	/* FLIP THE DATA IF REQUIRED */
+	if (setflip==1) { for(ii=0;ii<ndat1;ii++) dat1[ii]= 0.0-dat1[ii]; }
+
+	/* APPLY FILTERING */
 	if(setverb==1) fprintf(stderr,"\tfiltering...\n");
-	ii= xf_filter_bworth1_f(data1,nn,setsampfreq,setlow,sethigh,setresonance,message);
+	ii= xf_filter_bworth1_f(dat1,ndat1,setsampfreq,setlow,sethigh,setresonance,message);
 	if(ii<0) { fprintf(stderr,"\n\t --- Error [%s]: %s\n\n\n",thisprog,message); goto END1; }
 
 
-
-	/******************************************************************************/
-	/* READ THE START SIGNALS */
-	/******************************************************************************/
+	/******************************************************************************
+	READ THE START SIGNALS DEFINING BLOCKS
+	- eliminate blocks falling outside the range
+	- eliminate blocks where pre/post settings cause them to fall outside the data range
+	******************************************************************************/
 	if((fpin=fopen(cmtfile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: time-file \"%s\" not found\n\n",thisprog,cmtfile);exit(1);}
 	nblocks=0;
-	kk=sizeof(size_t);
+	kk= sizeof(*start);
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 		if(sscanf(line,"%lf",&aa)!=1) continue;
 		if(isfinite(aa)) {
-			if((start=(size_t *)realloc(start,(nblocks+1)*kk))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-			start[nblocks]=aa;
+			if((start= realloc(start,(nblocks+1)*kk))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+			start[nblocks]= aa;
 			nblocks++;
 	}}
 	fclose(fpin);
-	if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no start-times in file %s\n",thisprog,cmtfile);exit(0);}
+	if(nblocks<1) {fprintf(stderr,"--- Warning[%s]: no start-times in file %s\n",thisprog,cmtfile);exit(0);}
 
-	/* determine last block to use */
-	if(setlast==-1) setlast=(nblocks-1);
-
-	/* calculate block size (n2) */
-	n2=setpre+setpost+1;
-
-	/* determine the sample-interval */
-	sampint= 1.0 / setsampfreq;
-
-	/* allocate memory for aligned arrays */
-	data2=(float *)realloc(data2,(n2)*sizeoffloat); /* actual block length is 1 larger than stop-start */
-	if(data2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-
-	/* allocate memory for mean arrays - allow for binning to reduce required memory size */
-	sumdata2=calloc(n2,sizeof(double));
-	if(sumdata2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-
+	/* determine first & last block to use */
+	if(setfirst<0) setfirst=0;
+	if(setlast<0) setlast=(nblocks-1);
 	if(setverb>0) {
 		fprintf(stderr,"\tuse blocks ");
 		if(setfirst==-1) fprintf(stderr,"0 to ");
-		else fprintf(stderr,"%d to ",setfirst);
+		else fprintf(stderr,"%ld to ",setfirst);
 		if(setlast==-1) fprintf(stderr,"[end]\n");
-		else fprintf(stderr,"%d\n",setlast);
+		else fprintf(stderr,"%ld\n",setlast);
+	}
+	/* reset starts accordingly */
+	for(ii=jj=0;ii<nblocks;ii++) { if(ii>=setfirst && ii<=setlast) start[jj++]= start[ii]; }
+	nblocks= jj;
+	if(nblocks<1) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
+
+	/* now screen for valid pre/post settings and finite "zero" */
+	for(block=jj=0;block<nblocks;block++) {
+		index2= start[block]; // "zero"
+		if(!isfinite(dat1[index2])) {fprintf(stderr,"--- Warning[%s]: block %ld skipped- data at start-time (zero) is invalid\n",thisprog,block);continue;}
+		if(index2>=setpre) index1= index2-setpre; // "pre"
+		else {fprintf(stderr,"--- Warning[%s]: block %ld skipped- start (%ld) less than -pre (%ld)\n",thisprog,block,index2,setpre);continue;}
+		index3= index2+setpost; // "post"
+		if(index3>=ndat1) {fprintf(stderr,"--- Warning[%s]: block %ld skipped- end (%ld) exceeds data length (%ld)\n",thisprog,block,index3,ndat1);continue;}
+		/* if all criteria met, save the block */
+		start[jj++]= start[block];
+	}
+	nblocks= jj;
+	if(nblocks<1) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
+
+	//TEST: for(block=0;block<nblocks;block++) printf("block %ld start %ld\n",block,start[block]);
+
+
+	/******************************************************************************
+	ALLOCATE MEMORY FOR TEMP DATA STORAGE
+	******************************************************************************/
+	/* allocate memory for aligned data */
+	dat2= realloc(dat2,(ndat2*sizeof(*dat2))); /* actual block length is 1 larger than stop-start */
+	/* allocate memory for median-data calculations */
+	dat3= realloc(dat3,(nblocks*sizeof(*dat3)));
+	/* allocate memory for mean arrays - allow for binning to reduce required memory size */
+	sumdat2=calloc(ndat2,sizeof(double));
+
+	if(dat2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+	if(dat3==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+	if(sumdat2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+
+
+	/********************************************************************************
+	NOISY OUTLIER EXCLUSION
+	********************************************************************************/
+	if(setnoise>=0.0) {
+		/* 1. build the median-normalized-curve (dat2) for all blocks - normalized to "zero" */
+		/*	- median at each sample, across blocks, calculated using dat3 */
+		for(ii=0;ii<ndat2;ii++) {
+			for(block=0;block<nblocks;block++) {
+				index2= start[block]; //" zero"
+				index1= index2-setpre; // "pre"
+				// set pointer to current block, offset by the current sample, normalized to "zero"
+				dat3[block]= dat1[index1+ii] - dat1[index2];
+			}
+			/* save the median for this sample (dat3), across blocks */
+			if(xf_percentile1_f(dat3,nblocks,result_d)==0) dat2[ii]= result_d[5];
+			else { fprintf(stderr,"\b\n\t--- Error [%s/xf_percentile1_f}: memory allocation error\n\n",thisprog); exit(1); }
+		}
+		//TEST: for(ii=0;ii<ndat2;ii++) printf("median[%ld]: %g\n",ii,dat2[ii]); exit(0);
+
+		/* 2. calculate the rectified mean-difference of each normalized-curve from the median-normalized-curve */
+		sum= 0.0;
+		sumofsq= 0.0;
+		double var,sd,sem;
+		for(block=0;block<nblocks;block++) {
+			bb= 0.0; // summed rectified difference for this block
+			index2= start[block]; //" zero"
+			index1= index2-setpre; // "pre"
+			for(ii=0;ii<ndat2;ii++) {
+				// difference of normalized data-point from pre-normalized median curve
+				aa= dat2[ii] - (dat1[index1+ii] - dat1[index2]) ;
+				if(aa<0) aa= 0.0-aa; // rectify so all deviations are positive
+				bb+= aa;
+			}
+			cc= bb/ndat2; // mean rectified difference from median curve, for this block
+			sum+= cc;
+			sumofsq+= cc*cc;
+			dat3[block]= cc; // reporpose dat3 to store the mean rectified difference for each block
+		}
+		/* calculate the mean "mean-rectified-difference", and corresponding standard deviation */
+		mean= sum/(double)nblocks;
+		var= ( sumofsq - ( (sum*sum)/(double)nblocks )) / ((double)nblocks-1.0) ;
+		if(ndat2>1) sd= sqrt(var);
+		else var= sd= 0.0;
+
+		/* 3. determine which blocks stay in based on mean deviation from median curve */
+		aa= sd*setnoise;
+		for(block=jj=0;block<nblocks;block++) {
+			if(dat3[block]< aa) start[jj++]= start[block];
+			else fprintf(stderr,"--- Warning[%s]: block %ld skipped- exceeds noise criterion (%g std.dev. = %g)\n",thisprog,block,setnoise,sd);
+		}
+		nblocks= jj;
+		if(nblocks<1) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
 	}
 
 
 	/*************************************************************************************************
-	ALIGN THE DATA
+	NOW ALIGN THE DATA
 	- read each block - scan entire record for data falling within this block
 	- this is the only strategy which allows for the possibility of overlapping blocks
 	- we must consider the possibility of overlapping blocks because of the pre-sample and duration settings
@@ -289,72 +382,61 @@ int main (int argc, char *argv[]) {
 	/* for each data block */
 	for(ii=0;ii<nblocks;ii++) {
 
-		if(ii<setfirst) continue;
-		else if(ii>setlast) break;
-
-		//set alignment index
-		index2= start[ii];
-		// set index for start of the block (presample period)
-		if(index2>=setpre) index1= index2-setpre;
-		else {fprintf(stderr,"--- Warning[%s]: block %ld skipped- start (%ld) less than -pre (%ld)\n",thisprog,ii,index2,setpre);continue;}
-		// set start index for normalization
-		index1b= index2-setpn;
-		// set stop index for normalization - e.g. if -pnx = 1, sample zero will be excluded
-		index1c= index2-setpnx;
-		// set index for end of the block
-		index3= index2+setpost;
-		if(index3>=nn) {fprintf(stderr,"--- Warning[%s]: block %ld skipped- end (%ld) exceeds data length (%ld)\n",thisprog,ii,index3,nn);continue;}
-
-		// set pointer to current block for data1
-		pdata1= (data1+index1);
+		index2= start[ii]; //" zero"
+		index1= index2-setpre; // "pre"
+		index1b= index2-setpn; // set start index for normalization
+		index1c= index2-setpnx; // set stop index for normalization - e.g. if -pnx = 1, sample zero will be excluded
+		index3= index2+setpost; // "post"
+		// set pointer to current block for dat1
+		pdat1= (dat1+index1);
 
 		/********************************************************************************/
 		/* NORMALIZE THE DATA */
 		/* form normalization methods requiring it, calculate mean and standard deviation in pre-sample portion of the block */
 		if(setnorm==0) {
-			for(jj=0;jj<n2;jj++) { data2[jj]= pdata1[jj]; }
+			for(jj=0;jj<ndat2;jj++) { dat2[jj]= pdat1[jj]; }
 		}
 		else if(setnorm<4) {
 			kk=0; sum=0.0; sumofsq=0.0;
-			for(jj=index1b;jj<=index1c;jj++) { cc=data1[jj]; if(isfinite(cc)) { sum+=cc; sumofsq+=cc*cc; kk++; }	}
+			for(jj=index1b;jj<=index1c;jj++) { cc=dat1[jj]; if(isfinite(cc)) { sum+=cc; sumofsq+=cc*cc; kk++; }	}
 			if(kk<1) {fprintf(stderr,"--- Warning[%s]: block %ld skipped- no valid data in pre-sample interval\n",thisprog,ii);continue;}
 			else if(sum==0.0) mean=0.0;
 			else mean=sum/(double)kk;
 			if(kk>1) stddev= sqrt((double)((kk*sumofsq-(sum*sum))/(double)(kk*(kk-1))));
 			else stddev=1.1;
-			//TEST: fprintf(stderr,"%ld	%ld	%ld	%g %g\n",index1b,index1c,n2,mean,stddev); continue;
+			//TEST: fprintf(stderr,"%ld	%ld	%ld	%g %g\n",index1b,index1c,ndat2,mean,stddev); continue;
 
 			if(setnorm==1) {
-				cc=data1[index2];
+				cc=dat1[index2];
 				if(!isfinite(cc)) {fprintf(stderr,"--- Warning[%s]: block %ld skipped- invalid data at start-sample invalidates entire block\n\n",thisprog,ii);continue;}
-				for(jj=0;jj<n2;jj++) { data2[jj]= pdata1[jj]-cc; }
+				for(jj=0;jj<ndat2;jj++) { dat2[jj]= pdat1[jj]-cc; }
 			}
-			else if(setnorm==2) { for(jj=0;jj<n2;jj++) { data2[jj]=  pdata1[jj]-mean;}}
-			else if(setnorm==3) { for(jj=0;jj<n2;jj++) { data2[jj]= (pdata1[jj]-mean)/stddev;}}
+			else if(setnorm==2) { for(jj=0;jj<ndat2;jj++) { dat2[jj]=  pdat1[jj]-mean;}}
+			else if(setnorm==3) { for(jj=0;jj<ndat2;jj++) { dat2[jj]= (pdat1[jj]-mean)/stddev;}}
 		}
 		/* normalize to the overall mean in the block  */
 		else if(setnorm==4) {
 			// get the mean
-			sum= 0.0; for(jj=0;jj<n2;jj++) sum+= pdata1[jj];	mean= sum/n2;
-			// define data2
-			for(jj=0;jj<n2;jj++) data2[jj]= pdata1[jj]/mean;
+			sum= 0.0; for(jj=0;jj<ndat2;jj++) sum+= pdat1[jj];	mean= sum/ndat2;
+			// define dat2
+			for(jj=0;jj<ndat2;jj++) dat2[jj]= pdat1[jj]/mean;
 		}
 		/* normalize to the linear trend in the block  */
 		else if(setnorm==5) {
-			// copy data1 to data2
-			for(jj=0;jj<n2;jj++) data2[jj]= pdata1[jj];
-			x= xf_detrend1_f(data2,(size_t)n2,result_d);
+			// copy dat1 to dat2
+			for(jj=0;jj<ndat2;jj++) dat2[jj]= pdat1[jj];
+			x= xf_detrend1_f(dat2,(size_t)ndat2,result_d);
 		}
 
 		/********************************************************************************/
 		/* BIN THE DATA FOR THIS BLOCK (IF REQUIRED) TO FACILITATE AVERAGING ACROSS BLOCKS BY OTHER PROGRAMS */
-		/* - data2, n3 and zero will be adjusted */
+		/* - dat2, n3 and zero will be adjusted */
 		/* - binsize is converted from the number of samples averaged (may be a fraction) to seconds */
 		zero=setpre;
-		n3=n2;
+		n3=ndat2;
 
 		if(setnbins>0) {
-			binsize= xf_bin1a_f(data2,&n3,&zero,setnbins,message);
+			binsize= xf_bin1a_f(dat2,&n3,&zero,setnbins,message);
 			if(binsize==0.0) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message);exit(1);}
 			binint= binsize*sampint;
 		}
@@ -365,19 +447,22 @@ int main (int argc, char *argv[]) {
 
 		/* calculate the mean */
 		if(setout==0) {
-			for(jj=0;jj<n3;jj++) sumdata2[jj]+=data2[jj];
+			for(jj=0;jj<n3;jj++) sumdat2[jj]+=dat2[jj];
 		}
 		/* otherwise output each block of aligned data: [block=i] [time] [data]  - this will be a shortened array if setnbins>0 */
 		/* note adjustment of calculation to avoid setting a size_t variable to negative */
 		else if(setout==1) {
 			if(zero==0) bb=0.0; else bb=(double)(zero)*(-1)*binint;
-			for(jj=0;jj<n3;jj++) { if(jj==zero) bb=0; printf("%ld\t%g\t%f\n",ii,bb,data2[jj]); bb+=binint; }
+			for(jj=0;jj<n3;jj++) { if(jj==zero) bb=0; printf("%ld\t%g\t%f\n",ii,bb,dat2[jj]); bb+=binint; }
 		}
 		usedblocks++;
 
 		if(setverb>0) fprintf(stderr,"\tblock: %ld	pre:%ld start:%ld	stop:%ld\n",ii,index1,index2,index3);
 
-	}
+
+
+	} // END OF BLOCKS LOOP
+
 
 	/*************************************************************************************************
 	OUTPUT THE AVERAGE ALIGNED DATA:
@@ -386,13 +471,14 @@ int main (int argc, char *argv[]) {
 	*************************************************************************************************/
 	if(setout==0 && usedblocks>0) {
 		if(zero==0) bb=0.0; else bb=(double)(zero)*(-1.0)*binint; // initial timestamp
-		for(jj=0;jj<n3;jj++) { if(jj==zero) bb=0; printf("%g\t%f\n",bb,(sumdata2[jj]/usedblocks));	bb+=binint; }
+		for(jj=0;jj<n3;jj++) { if(jj==zero) bb=0; printf("%g\t%f\n",bb,(sumdat2[jj]/usedblocks));	bb+=binint; }
 	}
 
 END1:
-	if(data1!=NULL) free(data1);
-	if(data2!=NULL) free(data2);
-	if(sumdata2!=NULL) free(sumdata2);
+	if(dat1!=NULL) free(dat1);
+	if(dat2!=NULL) free(dat2);
+	if(dat3!=NULL) free(dat3);
+	if(sumdat2!=NULL) free(sumdat2);
 	if(start!=NULL) free(start);
 	if(setverb>0) fprintf(stderr,"\n");
 	exit(0);

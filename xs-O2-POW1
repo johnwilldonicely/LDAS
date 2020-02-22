@@ -154,7 +154,7 @@ fi
 # PERFORM THE FFT
 ################################################################################
 paste $infile1 $infile2 |
-	xe-ldas-align1 stdin $filecmt -start $set_start -pre $set_pre -dur $set_post -verb 1 |
+	xe-align1 stdin $filecmt -start $set_start -pre $set_pre -dur $set_post -verb 1 |
 	cut -f 3 | # > $tempfile
 
 # - ??? need to update notch filter program to accept a list of notch frequencies

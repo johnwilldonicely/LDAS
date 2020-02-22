@@ -3,10 +3,10 @@
 <TAGS>stats</TAGS>
 
 DESCRIPTION:
-	Calculate summary statistics on an array of numbers (double-precision floating-point)
+	Calculate summary statistics on an array of numbers (single-precision floating-point)
 	This is the fastest of the stats family of functions - mean only is calculated
 	Uses high-precision calculation for large datasets
-		- here the mean is first calculated by breaking the double-values into integer and fractional parts
+		- here the mean is first calculated by breaking the float-values into integer and fractional parts
 		- then the individual differences from the  mean are calculated
 		- the sums used for calculating the standard deviation are also similarly adjusted
 	NOTE: no check for invalid values (NAN or INF)
@@ -15,18 +15,18 @@ USES:
 DEPENDENCIES:
 	No dependencies
 ARGUMENTS:
-	double *data1: array holding the data
+	float *data1: array holding the data
 	long nn: number of elements in the array
 	int digits: number of digits precision
 RETURN VALUE:
 	the mean, to [digits] precision
 	NAN if no input data or digits<0
 SAMPLE CALL:
-	mean= xf_stats1_d(data,nn,3);
+	mean= xf_stats1_f(data,nn,3);
 */
 
 #include <math.h>
-double xf_stats1_d(double *data1, long nn, int digits) {
+float xf_stats1_f(double *data1, long nn, int digits) {
 
 	long ii,jj,kk,sumjj,sumkk,base=10,precision;
 	double aa,bb,cc,mean;
