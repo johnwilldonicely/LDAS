@@ -328,8 +328,9 @@ listplotfft=""
 listsum1=""
 optspow=" $optbands --trials $settrials --align $setalign --pre $setpre --post $setpost --verb $setverb"
 
+exit
 for region in $listregions ; do
-	xs-ldas-pow1 $filenotes $region $optspow --win .1 --step 1 --psx 2 
+	xs-ldas-pow1 $filenotes $region $optspow --win .1 --step 1 --psx 2
 done
 
 

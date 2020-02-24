@@ -7,7 +7,7 @@
 #include <string.h>
 #include <math.h>
 
-/* <TAGS> ldas signal_processing transform filter stats </TAGS> */
+/* <TAGS> dt_block signal_processing transform filter stats </TAGS> */
 
 /*
 v 11: 22.February.2020 [JRH]
@@ -60,9 +60,12 @@ v 4: 26.January.2014 [JRH]
 
 /* external functions start */
 long xf_interp3_f(float *data, long ndata);
+
+long xf_outlier2_f(float *dat1, long ndat1, long *start, long nblocks, long blocklen, long zero, char *ref, char *score, float thresh, double *result, char *message);
 int xf_compare1_d(const void *a, const void *b);
 int xf_percentile1_f(float *data, long nn, double *result);
 float xf_stats1_f(double *dat1, long nn, int digits);
+
 float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 int xf_filter_bworth1_f(float *X, off_t nn, float sample_freq, float setlow, float sethigh, float res, char *message);
 double xf_bin1a_f(float *data, size_t *setn, size_t *setz, size_t setnbins, char *message);
@@ -72,18 +75,15 @@ int xf_detrend1_f(float *y, size_t nn, double *result_d);
 int main (int argc, char *argv[]) {
 	/* general variables */
 	char infile[256],outfile[256],line[MAXLINELEN],templine[MAXLINELEN],message[MAXLINELEN],*pcol;
-	long int i,j,k;
-	size_t ii,jj,kk,nn;
-	int v,w,x,y,z,col,colmatch,setcolmatch,status;
-	size_t sizeoffloat=sizeof(float),sizeofdouble=sizeof(double);
+	long ii,jj,kk,nn;
+	int z,col,colmatch,setcolmatch;
 	float a,b,c,d;
 	double aa,bb,cc,dd,result_d[32];
 	FILE *fpin,*fpout;
 	/* program-specific variables */
 	float *dat1=NULL,*dat2=NULL,*dat3=NULL,*sumdat2=NULL,*pdat1=NULL;
-	size_t *start=NULL;
-	size_t ndat1,ndat2=0,n3=0,block,nblocks=0,nblocks3=0,usedblocks=0;
-	size_t index1,index1b,index1c,index2,index3,zero,bmin,bmax;
+	long *start=NULL,ndat1,ndat2=0,n3=0,block,nblocks=0,nblocks3=0,usedblocks=0;
+	long index1,index1b,index1c,index2,index3,zero,bmin,bmax;
 	off_t parameters[5];
 	double sum,mean,sumofsq,stddev,sampint,binsize,binint=0;
 	/* arguments */
@@ -94,8 +94,6 @@ int main (int argc, char *argv[]) {
 	float setresonance=1.4142; // filter resonance setting ()
 	float setnoise=3.0; // standard-deviations cutoff for defining an outlier-block to be excluded (0=skip)
 	double setsampfreq=1;
-
-	status=1;
 
 	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
 	if(argc<3) {
@@ -245,7 +243,7 @@ int main (int argc, char *argv[]) {
 	if (setflip==1) { for(ii=0;ii<ndat1;ii++) dat1[ii]= 0.0-dat1[ii]; }
 
 	/* APPLY FILTERING */
-	if(setverb==1) fprintf(stderr,"\tfiltering...\n");
+	if(setverb>0) fprintf(stderr,"\tfiltering...\n");
 	ii= xf_filter_bworth1_f(dat1,ndat1,setsampfreq,setlow,sethigh,setresonance,message);
 	if(ii<0) { fprintf(stderr,"\n\t --- Error [%s]: %s\n\n\n",thisprog,message); goto END1; }
 
@@ -319,54 +317,14 @@ int main (int argc, char *argv[]) {
 	NOISY OUTLIER EXCLUSION
 	********************************************************************************/
 	if(setnoise>=0.0) {
-		/* 1. build the median-normalized-curve (dat2) for all blocks - normalized to "zero" */
-		/*	- median at each sample, across blocks, calculated using dat3 */
-		for(ii=0;ii<ndat2;ii++) {
-			for(block=0;block<nblocks;block++) {
-				index2= start[block]; //" zero"
-				index1= index2-setpre; // "pre"
-				// set pointer to current block, offset by the current sample, normalized to "zero"
-				dat3[block]= dat1[index1+ii] - dat1[index2];
-			}
-			/* save the median for this sample (dat3), across blocks */
-			if(xf_percentile1_f(dat3,nblocks,result_d)==0) dat2[ii]= result_d[5];
-			else { fprintf(stderr,"\b\n\t--- Error [%s/xf_percentile1_f}: memory allocation error\n\n",thisprog); exit(1); }
+		jj= xf_outlier2_f(dat1,ndat1,start,nblocks,ndat2,setpre,"median","diff",setnoise,result_d,message);
+		if(jj<0) {fprintf(stderr,"%s/%s\n",thisprog,message); exit(1); }
+		if(jj!=nblocks) {
+			kk= nblocks-jj;
+			nblocks= jj;
+			if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
+			if(setverb>0) fprintf(stderr,"\t%ld outlier blocks (threshold %g mean %g sd %g)\n",kk,result_d[0],result_d[1],result_d[2]);
 		}
-		//TEST: for(ii=0;ii<ndat2;ii++) printf("median[%ld]: %g\n",ii,dat2[ii]); exit(0);
-
-		/* 2. calculate the rectified mean-difference of each normalized-curve from the median-normalized-curve */
-		sum= 0.0;
-		sumofsq= 0.0;
-		double var,sd,sem;
-		for(block=0;block<nblocks;block++) {
-			bb= 0.0; // summed rectified difference for this block
-			index2= start[block]; //" zero"
-			index1= index2-setpre; // "pre"
-			for(ii=0;ii<ndat2;ii++) {
-				// difference of normalized data-point from pre-normalized median curve
-				aa= dat2[ii] - (dat1[index1+ii] - dat1[index2]) ;
-				if(aa<0) aa= 0.0-aa; // rectify so all deviations are positive
-				bb+= aa;
-			}
-			cc= bb/ndat2; // mean rectified difference from median curve, for this block
-			sum+= cc;
-			sumofsq+= cc*cc;
-			dat3[block]= cc; // reporpose dat3 to store the mean rectified difference for each block
-		}
-		/* calculate the mean "mean-rectified-difference", and corresponding standard deviation */
-		mean= sum/(double)nblocks;
-		var= ( sumofsq - ( (sum*sum)/(double)nblocks )) / ((double)nblocks-1.0) ;
-		if(ndat2>1) sd= sqrt(var);
-		else var= sd= 0.0;
-
-		/* 3. determine which blocks stay in based on mean deviation from median curve */
-		aa= sd*setnoise;
-		for(block=jj=0;block<nblocks;block++) {
-			if(dat3[block]< aa) start[jj++]= start[block];
-			else fprintf(stderr,"--- Warning[%s]: block %ld skipped- exceeds noise criterion (%g std.dev. = %g)\n",thisprog,block,setnoise,sd);
-		}
-		nblocks= jj;
-		if(nblocks<1) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
 	}
 
 
@@ -425,7 +383,7 @@ int main (int argc, char *argv[]) {
 		else if(setnorm==5) {
 			// copy dat1 to dat2
 			for(jj=0;jj<ndat2;jj++) dat2[jj]= pdat1[jj];
-			x= xf_detrend1_f(dat2,(size_t)ndat2,result_d);
+			kk= xf_detrend1_f(dat2,(size_t)ndat2,result_d);
 		}
 
 		/********************************************************************************/

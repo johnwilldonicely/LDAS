@@ -8,7 +8,7 @@
 #include <math.h>
 
 
-/* <TAGS> ldas signal_processing transform filter stats </TAGS> */
+/* <TAGS> dt_block signal_processing transform filter stats </TAGS> */
 
 
 /*
