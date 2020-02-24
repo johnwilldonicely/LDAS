@@ -8,7 +8,7 @@
 #define MAX_LINELEN 1000
 
 /*
-<TAGS>ldas spikes math</TAGS>
+<TAGS>LDAS dt.spikes math</TAGS>
 
 CHANGES THIS VERSION:
 v 2: 20.July.2017 [JRH]

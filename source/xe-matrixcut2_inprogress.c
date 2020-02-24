@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 24.February.2019 [JRH]
 	- new matrix read program to read matrices one at a time with selection criteria

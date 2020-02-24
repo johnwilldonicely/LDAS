@@ -12,7 +12,7 @@
 #include <errno.h>
 
 /************************************************************************
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 2: 16.March.2019 [JRH]
 	- update to use new function xf_screen_club - because the older xs-screen_ls should not update the timestamps

@@ -8,7 +8,7 @@
 #include <sys/stat.h>  /* this and next header allow testing file exists using stat() function */
 #include <errno.h>
 
-/* <TAGS>ldas spikes</TAGS> */
+/* <TAGS>LDAS dt.spikes</TAGS> */
 
 /************************************************************************
 v 1: 1.June.2017 [JRH]

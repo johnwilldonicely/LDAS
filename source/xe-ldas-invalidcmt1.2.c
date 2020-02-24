@@ -8,7 +8,7 @@
 #define MAXLINELEN 1000
 #define MAXWORDS 64
 
-/* <TAGS> ldas screen</TAGS> */
+/* <TAGS> LDAS screen</TAGS> */
 
 /*
 v 2: 14.August.2012 [JRH]

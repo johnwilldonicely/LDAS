@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 DESCRIPTION:
 	Calculate the spatial coherence of a matrix
 	- how well does one bin rate predict the 8 neighbouring bins

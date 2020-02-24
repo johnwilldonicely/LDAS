@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS> ldas file </TAGS>
+# <TAGS> LDAS file </TAGS>
 
 thisprog=`basename "$0"`
 # define temporary file name, incorporating current process-id

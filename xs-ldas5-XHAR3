@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS> taini </TAGS>
+# <TAGS> TAINI </TAGS>
 
 allopts=$@
 thisprog=`basename "$0"`

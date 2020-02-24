@@ -7,7 +7,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE COPYRIGHT OWNERS DISCLAIM ALL WARRANTIE
 */
 
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 DESCRIPTION:
 	- define a peak-zone of contiguous values exceeding a threshold in a 2D matrix

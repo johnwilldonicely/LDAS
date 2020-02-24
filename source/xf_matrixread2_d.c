@@ -1,5 +1,5 @@
 /*
-<TAGS>file matrix</TAGS>
+<TAGS>file dt.matrix</TAGS>
 
 DESCRIPTION:
 		Read one or more matrices from an input

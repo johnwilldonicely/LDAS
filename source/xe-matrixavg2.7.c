@@ -7,7 +7,7 @@
 #define TITLE_STRING thisprog" v 1: 22.January.2019 [JRH]"
 
 /*
-<TAGS>math matrix noise</TAGS>
+<TAGS>math dt.matrix noise</TAGS>
 
 v 1: 8.September.2019 [JRH]
 	- add row-normalization capabilities

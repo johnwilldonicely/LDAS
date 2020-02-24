@@ -1,5 +1,5 @@
 /*
-<TAGS>filter matrix</TAGS>
+<TAGS>filter dt.matrix</TAGS>
 DESCRIPTION:
 	Downsize an input array representing a 2D matrix to a new width and heght
 	Alters the input array

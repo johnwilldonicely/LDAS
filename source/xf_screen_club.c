@@ -1,5 +1,5 @@
 /*
-<TAGS>signal_processing screen time spikes</TAGS>
+<TAGS>signal_processing screen time dt.spikes</TAGS>
 DESCRIPTION:
 	- screen time-series club using start-stop pairs (keep club falling between the pairs)
 	- NOTE: timestamps (clubt) will be adjusted, because they are part of the club/t parallel-array structure

@@ -11,7 +11,7 @@
 #define MAXLABELS 1000
 
 /*
-<TAGS>signal_processing matrix</TAGS>
+<TAGS>signal_processing dt.matrix</TAGS>
 
 TO DO:
 

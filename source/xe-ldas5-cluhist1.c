@@ -8,7 +8,7 @@
 #include <math.h>
 
 /*
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 1: 21.August.2018 [JRH]
 	- remove limit on maximum histogram size

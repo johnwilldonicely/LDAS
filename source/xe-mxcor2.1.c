@@ -8,7 +8,7 @@
 #define MAXLINELEN 1000
 #define MAXCELLS 1000
 /*
-<TAGS>signal_processing matrix</TAGS>
+<TAGS>signal_processing dt.matrix</TAGS>
 
 Versions History:
 v 2.1: 7.February.2019 [JRH]

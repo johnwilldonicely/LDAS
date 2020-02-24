@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 DESCRIPTION:
 	Transpose a 1-dimensional array of numbers meant to be interpreted as a 2-dimentional matrix
 	Note that this differs from rotation, because low columns become low rows ( & vice versa)

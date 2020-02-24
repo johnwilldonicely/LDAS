@@ -8,7 +8,7 @@
 #include <errno.h>
 
 /************************************************************************
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 1: 24.November.2017 [JRH]
 	- bugfix: duration is now defined properly

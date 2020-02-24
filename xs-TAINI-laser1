@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS>laser</TAGS>
+# <TAGS>LASER</TAGS>
 
 thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))

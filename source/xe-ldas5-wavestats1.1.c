@@ -10,7 +10,7 @@
 #define MAX_CH 128
 
 
-/* <TAGS> ldas spikes stats </TAGS> */
+/* <TAGS> LDAS dt.spikes stats </TAGS> */
 
 /*
 CHANGES THIS VERSION:

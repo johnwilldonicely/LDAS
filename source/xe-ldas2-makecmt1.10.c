@@ -11,7 +11,7 @@
 #include <string.h>
 
 /*
-<TAGS> ethovision </TAGS>
+<TAGS> EV </TAGS>
 
 .EVtcv: conditioned version of an Ethovision trial-control record
 	- three columns: time, variable, value

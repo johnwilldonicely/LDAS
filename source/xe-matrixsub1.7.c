@@ -7,7 +7,7 @@
 #define TITLE_STRING thisprog" v 6: 28.November.2012 [JRH]"
 
 /*
-<TAGS>math matrix</TAGS>
+<TAGS>math dt.matrix</TAGS>
 
 v 7: 16.December.2012 [JRH]
 	- now uses function _readline1 to read lines of unknown length

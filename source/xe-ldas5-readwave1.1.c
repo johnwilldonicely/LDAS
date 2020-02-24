@@ -9,7 +9,7 @@
 #define MAX_LINELEN 1000
 #define MAX_CH 128
 
-/* <TAGS> file spikes </TAGS> */
+/* <TAGS> file dt.spikes </TAGS> */
 
 /*
 CHANGES THIS VERSION:

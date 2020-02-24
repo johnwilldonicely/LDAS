@@ -1,5 +1,5 @@
 /*
-<TAGS> dt_block stats </TAGS>
+<TAGS> dt.block stats </TAGS>
 
 DESCRIPTION:
 	- remove outliers from a continuous data-series contains multiple, equal-length blocks of data

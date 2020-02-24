@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS>taini electrophysiology</TAGS>
+# <TAGS>TAINI electrophysiology</TAGS>
 
 thisprog=`basename "$0"`
 allopts=$@

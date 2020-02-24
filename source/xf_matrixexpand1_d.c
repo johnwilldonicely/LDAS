@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix transform</TAGS>
+<TAGS>dt.matrix transform</TAGS>
 
 DESCRIPTION:
 	Expand an array of numbers representing a 2D matrix

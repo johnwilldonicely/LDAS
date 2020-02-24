@@ -8,7 +8,7 @@
 #include <string.h>
 
 /*
-<TAGS>matrix signal_processing spectra noise</TAGS>
+<TAGS>dt.matrix signal_processing spectra noise</TAGS>
 
 v 1: 22.January.2019 [JRH]
 	- add clipping capabilities

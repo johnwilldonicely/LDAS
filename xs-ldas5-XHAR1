@@ -1,6 +1,6 @@
 
 #!/bin/bash
-# <TAGS>taini signal_processing spectra</TAGS>
+# <TAGS>TAINI signal_processing spectra</TAGS>
 
 # for most scripts...
 thisprog=`basename "$0"`

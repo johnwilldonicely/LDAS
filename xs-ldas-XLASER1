@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS>taini signal_processing</TAGS>
+# <TAGS>TAINI signal_processing</TAGS>
 
 # From Peng & Iannetti, 2018
 #	- acquisition: high pass: 0.01 Hz; sampling rate: 1000 Hz

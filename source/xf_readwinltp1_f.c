@@ -1,5 +1,5 @@
 /*
-<TAGS>file slice</TAGS>
+<TAGS>file SLICE</TAGS>
 DESCRIPTION:
 	- Read WinLTP files (.PO or .APO) containing sweeps for slice electrophysiology
 

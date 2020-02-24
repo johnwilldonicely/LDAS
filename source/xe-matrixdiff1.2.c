@@ -9,7 +9,7 @@
 #define MAXLABELS 1000
 
 /*
-<TAGS>math matrix</TAGS>
+<TAGS>math dt.matrix</TAGS>
 
 v 2: 13.April.2013 [JRH]
 	- add t-test as a way of determining sifgnificant differences - independent or paired

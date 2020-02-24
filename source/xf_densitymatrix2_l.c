@@ -1,5 +1,5 @@
 /*
-<TAGS>signal_processing stats matrix</TAGS>
+<TAGS>signal_processing stats dt.matrix</TAGS>
 
 DESCRIPTION:
 	Determine the cumulative occurance of x/y values rounded to fill a matrix of fixed dimensions

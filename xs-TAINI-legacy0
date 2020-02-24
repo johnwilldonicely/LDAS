@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS>taini electrophysiology</TAGS>
+# <TAGS>TAINI electrophysiology</TAGS>
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog #"."$$"." # define temp file name, incorporating current process-id
 start_dir=$(pwd)

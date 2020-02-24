@@ -7,7 +7,7 @@
 #define MAXLINELEN 1000
 
 /*
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 1: 27.November.2017 [JRH] :
 	- based on xe-cofiring1 & (now retired) xe-cofiring2

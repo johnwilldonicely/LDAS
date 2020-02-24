@@ -36,38 +36,38 @@ The rest of this guide is divided into three sections:
 LDAS uses tags to help you find code to perform particular tasks. A given script, program or function may have multiple tags, as they may have overlapping functions. This is a list of every category-tag found in the LDAS code:
 <br><br>
 
+<a href="#tag-EV">EV</a> 
+<a href="#tag-LASER">LASER</a> 
+<a href="#tag-LDAS">LDAS</a> 
+<a href="#tag-MEA">MEA</a> 
+<a href="#tag-MED">MED</a> 
+<a href="#tag-NLX">NLX</a> 
+<a href="#tag-O2">O2</a> 
+<a href="#tag-R">R</a> 
+<a href="#tag-SCORE">SCORE</a> 
+<a href="#tag-SLICE">SLICE</a> 
+<a href="#tag-TAINI">TAINI</a> 
+<p>
 <a href="#tag-behaviour">behaviour</a> 
 <a href="#tag-database">database</a> 
 <a href="#tag-detect">detect</a> 
-<a href="#tag-dt_block">dt_block</a> 
+<a href="#tag-dt.block">dt.block</a> 
+<a href="#tag-dt.matrix">dt.matrix</a> 
+<a href="#tag-dt.spikes">dt.spikes</a> 
 <a href="#tag-electrophysiology">electrophysiology</a> 
-<a href="#tag-ethovision">ethovision</a> 
 <a href="#tag-file">file</a> 
 <a href="#tag-filter">filter</a> 
-<a href="#tag-laser">laser</a> 
-<a href="#tag-ldas">ldas</a> 
 <a href="#tag-math">math</a> 
-<a href="#tag-matrix">matrix</a> 
-<a href="#tag-MEA">MEA</a> 
-<a href="#tag-MED">MED</a> 
 <a href="#tag-misc">misc</a> 
-<a href="#tag-neuralynx">neuralynx</a> 
 <a href="#tag-noise">noise</a> 
-<a href="#tag-O2">O2</a> 
 <a href="#tag-plot">plot</a> 
 <a href="#tag-programming">programming</a> 
-<a href="#tag-R">R</a> 
-<a href="#tag-SCORE">SCORE</a> 
 <a href="#tag-screen">screen</a> 
 <a href="#tag-signal_processing">signal_processing</a> 
-<a href="#tag-slice">slice</a> 
-<a href="#tag-SLICE">SLICE</a> 
 <a href="#tag-spectra">spectra</a> 
-<a href="#tag-spikes">spikes</a> 
 <a href="#tag-stats">stats</a> 
 <a href="#tag-string">string</a> 
 <a href="#tag-synthetic_data">synthetic_data</a> 
-<a href="#tag-taini">taini</a> 
 <a href="#tag-time">time</a> 
 <a href="#tag-transform">transform</a> 
 
@@ -75,7 +75,13 @@ LDAS uses tags to help you find code to perform particular tasks. A given script
 <blockquote>
 <b>database</b>: working with database tables<br>
 <b>file</b>: reading and converting files of different formats<br>
-<b>matrix</b>: working with 2D matrices of numbers<br>
+</blockquote>
+
+<h3><font color="SteelBlue">data types</font></h3>
+<blockquote>
+<b>dt.block</b>: timeseries data divided into blocks (e.g. trials, events)<br>
+<b>dt.matrix</b>: 2D matrices of numbers<br>
+<b>dt.spikes</b>: action-potential records, typically in clubt/club file pairs<br>
 </blockquote>
 
 <h3><font color="SteelBlue">describe data</font></h3>
@@ -110,13 +116,17 @@ LDAS uses tags to help you find code to perform particular tasks. A given script
 <h3><font color="SteelBlue">platform-specific</font></h3>
 <blockquote>
 <b>ldas</b>: code assuming an LDAS data structure and folder contents<br>
-<b>SLICE</b>: for slice electrophysiology experiments (WinLTP software)<br>
-<b>O2</b>: for oxygen-amperometry experiments (CHART software)<br>
+<b>R</b>: scripts to facilitate statstical analysis using R<br>
+<BR>
+<b>EV</b>: Noldus Ethovision whole-body video-tracking<br>
+<b>LASER</b>: for laser-evoked potential studies (medical laser stimulator + TAINI)<br>
 <b>MEA</b>: for slice multi-electrode-array electrophysiology (MES software)<br>
-<b>taini</b>: Taini wireless transmitter data (TainiLive software)<br>
 <b>MED</b>: MED-PC data processing<br>
+<b>NLX</b>: Neuralynx file processing (.ncs)<br>
+<b>O2</b>: for oxygen-amperometry experiments (CHART software)<br>
 <b>SCORE</b>: SCORE data processing (CLB files from 3EG)<br>
-<b>neuralynx</b>: Neuralynx file processing (.ncs)<br>
+<b>SLICE</b>: for slice electrophysiology experiments (WinLTP software)<br>
+<b>TAINI</b>: Taini wireless transmitter data (TainiLive software)<br>
 </blockquote>
 
 
@@ -130,6 +140,139 @@ possible category-tags. The links are organised in one column for each
 of scripts, programs, and functions.
 <br>
 
+<h3 id="tag-EV"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: EV</font></h3>
+<table><tr>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas2-makecmt1">xe-ldas2-makecmt1</a><br>
+</td></table></tr>
+<h3 id="tag-LASER"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: LASER</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-TAINI-laser1">xs-TAINI-laser1</a><br>
+</td></table></tr>
+<h3 id="tag-LDAS"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: LDAS</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-dat2bin">xs-dat2bin</a><br>
+<a href="#code-xs-getgroupnames1">xs-getgroupnames1</a><br>
+<a href="#code-xs-ldas-getchannel">xs-ldas-getchannel</a><br>
+<a href="#code-xs-ldas-killbadchans1">xs-ldas-killbadchans1</a><br>
+<a href="#code-xs-ldas-zipexpt">xs-ldas-zipexpt</a><br>
+<a href="#code-xs-manual">xs-manual</a><br>
+<a href="#code-xs-template">xs-template</a><br>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
+<a href="#code-xe-ldas5-clucombinelist1">xe-ldas5-clucombinelist1</a><br>
+<a href="#code-xe-ldas5-clukiller1">xe-ldas5-clukiller1</a><br>
+<a href="#code-xe-ldas5-clukillerlist1">xe-ldas5-clukillerlist1</a><br>
+<a href="#code-xe-ldas5-clumatch1">xe-ldas5-clumatch1</a><br>
+<a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
+<a href="#code-xe-ldas5-expandclub1">xe-ldas5-expandclub1</a><br>
+<a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
+<a href="#code-xe-ldas-invalidcmt1">xe-ldas-invalidcmt1</a><br>
+<a href="#code-xe-template">xe-template</a><br>
+</td><td><b><font color="Black">Functions</font></b><br><br>
+<a href="#code-xf_template">xf_template</a><br>
+</td></table></tr>
+<h3 id="tag-MEA"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: MEA</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-MEA-amp1">xs-MEA-amp1</a><br>
+<a href="#code-xs-MEA-detect1">xs-MEA-detect1</a><br>
+<a href="#code-xs-MEA-detect2">xs-MEA-detect2</a><br>
+<a href="#code-xs-MEA-detect2b">xs-MEA-detect2b</a><br>
+<a href="#code-xs-MEA-detect3">xs-MEA-detect3</a><br>
+<a href="#code-xs-MEA-hdf5">xs-MEA-hdf5</a><br>
+<a href="#code-xs-MEA-merge1">xs-MEA-merge1</a><br>
+<a href="#code-xs-MEA-plotflip">xs-MEA-plotflip</a><br>
+<a href="#code-xs-MEA-pow1">xs-MEA-pow1</a><br>
+<a href="#code-xs-MEA-rate1">xs-MEA-rate1</a><br>
+<a href="#code-xs-MEA-rate1b">xs-MEA-rate1b</a><br>
+<a href="#code-xs-MEA-xcor1">xs-MEA-xcor1</a><br>
+</td></table></tr>
+<h3 id="tag-MED"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: MED</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-ldas-medpavprob1">xs-ldas-medpavprob1</a><br>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas-medcmt1">xe-ldas-medcmt1</a><br>
+</td></table></tr>
+<h3 id="tag-NLX"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: NLX</font></h3>
+<table><tr>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-nlx2bin">xe-nlx2bin</a><br>
+</td><td><b><font color="Black">Functions</font></b><br><br>
+<a href="#code-xf_readnlx_ncs">xf_readnlx_ncs</a><br>
+</td></table></tr>
+<h3 id="tag-O2"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: O2</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-O2-blockcurve1">xs-O2-blockcurve1</a><br>
+<a href="#code-xs-O2-checkchansb">xs-O2-checkchansb</a><br>
+<a href="#code-xs-O2-checktxt">xs-O2-checktxt</a><br>
+<a href="#code-xs-O2-copycomments">xs-O2-copycomments</a><br>
+<a href="#code-xs-O2-COR1">xs-O2-COR1</a><br>
+<a href="#code-xs-O2-COR1b">xs-O2-COR1b</a><br>
+<a href="#code-xs-O2-COR2b">xs-O2-COR2b</a><br>
+<a href="#code-xs-O2-COR4b">xs-O2-COR4b</a><br>
+<a href="#code-xs-O2-CORSUMMARIZE1">xs-O2-CORSUMMARIZE1</a><br>
+<a href="#code-xs-O2-DIF1b">xs-O2-DIF1b</a><br>
+<a href="#code-xs-O2-EVENT1">xs-O2-EVENT1</a><br>
+<a href="#code-xs-O2-EVENT1b">xs-O2-EVENT1b</a><br>
+<a href="#code-xs-O2-makelink">xs-O2-makelink</a><br>
+<a href="#code-xs-O2-makex5b">xs-O2-makex5b</a><br>
+<a href="#code-xs-O2-makex6b">xs-O2-makex6b</a><br>
+<a href="#code-xs-O2-plot1">xs-O2-plot1</a><br>
+<a href="#code-xs-O2-plot1b">xs-O2-plot1b</a><br>
+<a href="#code-xs-O2-plotaligned2">xs-O2-plotaligned2</a><br>
+<a href="#code-xs-O2-POW1">xs-O2-POW1</a><br>
+<a href="#code-xs-O2-POW1b">xs-O2-POW1b</a><br>
+<a href="#code-xs-O2-preproc1">xs-O2-preproc1</a><br>
+<a href="#code-xs-O2-trimtime1">xs-O2-trimtime1</a><br>
+<a href="#code-xs-O2-X1">xs-O2-X1</a><br>
+<a href="#code-xs-O2-X1b">xs-O2-X1b</a><br>
+<a href="#code-xs-O2-X2b">xs-O2-X2b</a><br>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas-readchart1">xe-ldas-readchart1</a><br>
+<a href="#code-xe-O2-readchart2">xe-O2-readchart2</a><br>
+<a href="#code-xe-O2-readmed1">xe-O2-readmed1</a><br>
+<a href="#code-xe-O2-readmed2">xe-O2-readmed2</a><br>
+</td></table></tr>
+<h3 id="tag-R"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: R</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-R_anova">xs-R_anova</a><br>
+</td></table></tr>
+<h3 id="tag-SCORE"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: SCORE</font></h3>
+<table><tr>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas-txt2clb1">xe-ldas-txt2clb1</a><br>
+</td></table></tr>
+<h3 id="tag-SLICE"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: SLICE</font></h3>
+<table><tr>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
+<a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
+</td><td><b><font color="Black">Functions</font></b><br><br>
+<a href="#code-xf_readwinltp1_f">xf_readwinltp1_f</a><br>
+</td></table></tr>
+<h3 id="tag-TAINI"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: TAINI</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-ldas5-XHAR1">xs-ldas5-XHAR1</a><br>
+<a href="#code-xs-ldas5-XHAR1b">xs-ldas5-XHAR1b</a><br>
+<a href="#code-xs-ldas5-XHAR3">xs-ldas5-XHAR3</a><br>
+<a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
+<a href="#code-xs-ldas-XLASER1b">xs-ldas-XLASER1b</a><br>
+<a href="#code-xs-TAINI-hargreaves0">xs-TAINI-hargreaves0</a><br>
+<a href="#code-xs-TAINI-laser1">xs-TAINI-laser1</a><br>
+<a href="#code-xs-TAINI-legacy0">xs-TAINI-legacy0</a><br>
+<a href="#code-xs-TAINI-legacy1">xs-TAINI-legacy1</a><br>
+<a href="#code-xs-TAINI-legacy2">xs-TAINI-legacy2</a><br>
+<a href="#code-xs-TAINI-legacy3">xs-TAINI-legacy3</a><br>
+<a href="#code-xs-TAINI-preproc1">xs-TAINI-preproc1</a><br>
+<a href="#code-xs-TAINI-tools">xs-TAINI-tools</a><br>
+</td></table></tr>
 <h3 id="tag-behaviour"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: behaviour</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
@@ -196,13 +339,80 @@ of scripts, programs, and functions.
 <a href="#code-xf_detectevents3_lf">xf_detectevents3_lf</a><br>
 <a href="#code-xf_detectinflect1_f">xf_detectinflect1_f</a><br>
 </td></table></tr>
-<h3 id="tag-dt_block"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: dt_block</font></h3>
+<h3 id="tag-dt.block"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: dt.block</font></h3>
 <table><tr>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-align1">xe-align1</a><br>
 <a href="#code-xe-align2">xe-align2</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_outlier2_f">xf_outlier2_f</a><br>
+</td></table></tr>
+<h3 id="tag-dt.matrix"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: dt.matrix</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-plotmatrixsplit1">xs-plotmatrixsplit1</a><br>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-matrixavg2">xe-matrixavg2</a><br>
+<a href="#code-xe-matrixcut1">xe-matrixcut1</a><br>
+<a href="#code-xe-matrixcut2">xe-matrixcut2</a><br>
+<a href="#code-xe-matrixcut2_inprogress">xe-matrixcut2_inprogress</a><br>
+<a href="#code-xe-matrixdiff1">xe-matrixdiff1</a><br>
+<a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
+<a href="#code-xe-matrixpeak1">xe-matrixpeak1</a><br>
+<a href="#code-xe-matrixsplit1">xe-matrixsplit1</a><br>
+<a href="#code-xe-matrixstats1">xe-matrixstats1</a><br>
+<a href="#code-xe-matrixsub1">xe-matrixsub1</a><br>
+<a href="#code-xe-mxcor2">xe-mxcor2</a><br>
+<a href="#code-xe-plotmatrix1">xe-plotmatrix1</a><br>
+<a href="#code-xe-spectdenoise1">xe-spectdenoise1</a><br>
+</td><td><b><font color="Black">Functions</font></b><br><br>
+<a href="#code-xf_densitymatrix1_l">xf_densitymatrix1_l</a><br>
+<a href="#code-xf_densitymatrix2_l">xf_densitymatrix2_l</a><br>
+<a href="#code-xf_filter_bworth_matrix1_d">xf_filter_bworth_matrix1_d</a><br>
+<a href="#code-xf_matrixavg1_d">xf_matrixavg1_d</a><br>
+<a href="#code-xf_matrixavg1_f">xf_matrixavg1_f</a><br>
+<a href="#code-xf_matrixbin1_d">xf_matrixbin1_d</a><br>
+<a href="#code-xf_matrixcoh1_d">xf_matrixcoh1_d</a><br>
+<a href="#code-xf_matrixcontig1_l">xf_matrixcontig1_l</a><br>
+<a href="#code-xf_matrixexpand1_d">xf_matrixexpand1_d</a><br>
+<a href="#code-xf_matrixflipx_d">xf_matrixflipx_d</a><br>
+<a href="#code-xf_matrixflipy_d">xf_matrixflipy_d</a><br>
+<a href="#code-xf_matrixpeak1_d">xf_matrixpeak1_d</a><br>
+<a href="#code-xf_matrixread1_d">xf_matrixread1_d</a><br>
+<a href="#code-xf_matrixread2_d">xf_matrixread2_d</a><br>
+<a href="#code-xf_matrixread3_d">xf_matrixread3_d</a><br>
+<a href="#code-xf_matrixresample1_d">xf_matrixresample1_d</a><br>
+<a href="#code-xf_matrixrotate1_d">xf_matrixrotate1_d</a><br>
+<a href="#code-xf_matrixrotate1_f">xf_matrixrotate1_f</a><br>
+<a href="#code-xf_matrixrotate2_d">xf_matrixrotate2_d</a><br>
+<a href="#code-xf_matrixtrans1_d">xf_matrixtrans1_d</a><br>
+<a href="#code-xf_mullerize_d10">xf_mullerize_d10</a><br>
+<a href="#code-xf_placeinfo1_l">xf_placeinfo1_l</a><br>
+<a href="#code-xf_placestats1_d">xf_placestats1_d</a><br>
+<a href="#code-xf_spectdenoise1_d">xf_spectdenoise1_d</a><br>
+</td></table></tr>
+<h3 id="tag-dt.spikes"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: dt.spikes</font></h3>
+<table><tr>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-cofiring1">xe-cofiring1</a><br>
+<a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
+<a href="#code-xe-ldas5-clucombinelist1">xe-ldas5-clucombinelist1</a><br>
+<a href="#code-xe-ldas5-cluhist1">xe-ldas5-cluhist1</a><br>
+<a href="#code-xe-ldas5-clukiller1">xe-ldas5-clukiller1</a><br>
+<a href="#code-xe-ldas5-clukillerlist1">xe-ldas5-clukillerlist1</a><br>
+<a href="#code-xe-ldas5-clumatch1">xe-ldas5-clumatch1</a><br>
+<a href="#code-xe-ldas5-clurate1">xe-ldas5-clurate1</a><br>
+<a href="#code-xe-ldas5-clusort1">xe-ldas5-clusort1</a><br>
+<a href="#code-xe-ldas5-cofiring1">xe-ldas5-cofiring1</a><br>
+<a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
+<a href="#code-xe-ldas5-expandclub1">xe-ldas5-expandclub1</a><br>
+<a href="#code-xe-ldas5-placefields1">xe-ldas5-placefields1</a><br>
+<a href="#code-xe-ldas5-placestats1">xe-ldas5-placestats1</a><br>
+<a href="#code-xe-ldas5-readclub1">xe-ldas5-readclub1</a><br>
+<a href="#code-xe-ldas5-readwave1">xe-ldas5-readwave1</a><br>
+<a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
+</td><td><b><font color="Black">Functions</font></b><br><br>
+<a href="#code-xf_screen_club">xf_screen_club</a><br>
 </td></table></tr>
 <h3 id="tag-electrophysiology"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: electrophysiology</font></h3>
 <table><tr>
@@ -213,11 +423,6 @@ of scripts, programs, and functions.
 <a href="#code-xs-TAINI-legacy2">xs-TAINI-legacy2</a><br>
 <a href="#code-xs-TAINI-legacy3">xs-TAINI-legacy3</a><br>
 <a href="#code-xs-TAINI-preproc1">xs-TAINI-preproc1</a><br>
-</td></table></tr>
-<h3 id="tag-ethovision"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: ethovision</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas2-makecmt1">xe-ldas2-makecmt1</a><br>
 </td></table></tr>
 <h3 id="tag-file"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: file</font></h3>
 <table><tr>
@@ -371,49 +576,6 @@ of scripts, programs, and functions.
 <a href="#code-xf_smoothgaussd">xf_smoothgaussd</a><br>
 <a href="#code-xf_wavefilt1_f">xf_wavefilt1_f</a><br>
 </td></table></tr>
-<h3 id="tag-laser"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: laser</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-TAINI-laser1">xs-TAINI-laser1</a><br>
-</td></table></tr>
-<h3 id="tag-ldas"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: ldas</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-dat2bin">xs-dat2bin</a><br>
-<a href="#code-xs-getgroupnames1">xs-getgroupnames1</a><br>
-<a href="#code-xs-ldas-coh1">xs-ldas-coh1</a><br>
-<a href="#code-xs-ldas-getchannel">xs-ldas-getchannel</a><br>
-<a href="#code-xs-ldas-gettrials1">xs-ldas-gettrials1</a><br>
-<a href="#code-xs-ldas-gettrials2">xs-ldas-gettrials2</a><br>
-<a href="#code-xs-ldas-killbadchans1">xs-ldas-killbadchans1</a><br>
-<a href="#code-xs-ldas-medpavprob1">xs-ldas-medpavprob1</a><br>
-<a href="#code-xs-ldas-parsename">xs-ldas-parsename</a><br>
-<a href="#code-xs-ldas-pow1">xs-ldas-pow1</a><br>
-<a href="#code-xs-ldas-trials2cmt">xs-ldas-trials2cmt</a><br>
-<a href="#code-xs-ldas-updatenotes">xs-ldas-updatenotes</a><br>
-<a href="#code-xs-ldas-updatenotes2">xs-ldas-updatenotes2</a><br>
-<a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
-<a href="#code-xs-ldas-XLASER1b">xs-ldas-XLASER1b</a><br>
-<a href="#code-xs-ldas-zipexpt">xs-ldas-zipexpt</a><br>
-<a href="#code-xs-manual">xs-manual</a><br>
-<a href="#code-xs-template">xs-template</a><br>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
-<a href="#code-xe-ldas5-clucombinelist1">xe-ldas5-clucombinelist1</a><br>
-<a href="#code-xe-ldas5-clukiller1">xe-ldas5-clukiller1</a><br>
-<a href="#code-xe-ldas5-clukillerlist1">xe-ldas5-clukillerlist1</a><br>
-<a href="#code-xe-ldas5-clumatch1">xe-ldas5-clumatch1</a><br>
-<a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
-<a href="#code-xe-ldas5-expandclub1">xe-ldas5-expandclub1</a><br>
-<a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
-<a href="#code-xe-ldas-invalidcmt1">xe-ldas-invalidcmt1</a><br>
-<a href="#code-xe-ldas-medcmt1">xe-ldas-medcmt1</a><br>
-<a href="#code-xe-ldas-readchart1">xe-ldas-readchart1</a><br>
-<a href="#code-xe-ldas-txt2clb1">xe-ldas-txt2clb1</a><br>
-<a href="#code-xe-template">xe-template</a><br>
-</td><td><b><font color="Black">Functions</font></b><br><br>
-<a href="#code-xf_template">xf_template</a><br>
-</td></table></tr>
 <h3 id="tag-math"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: math</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
@@ -489,125 +651,17 @@ of scripts, programs, and functions.
 <a href="#code-xf_unique_d">xf_unique_d</a><br>
 <a href="#code-xf_velocity1">xf_velocity1</a><br>
 </td></table></tr>
-<h3 id="tag-matrix"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: matrix</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-plotmatrixsplit1">xs-plotmatrixsplit1</a><br>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-matrixavg2">xe-matrixavg2</a><br>
-<a href="#code-xe-matrixcut1">xe-matrixcut1</a><br>
-<a href="#code-xe-matrixcut2">xe-matrixcut2</a><br>
-<a href="#code-xe-matrixcut2_inprogress">xe-matrixcut2_inprogress</a><br>
-<a href="#code-xe-matrixdiff1">xe-matrixdiff1</a><br>
-<a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
-<a href="#code-xe-matrixpeak1">xe-matrixpeak1</a><br>
-<a href="#code-xe-matrixsplit1">xe-matrixsplit1</a><br>
-<a href="#code-xe-matrixstats1">xe-matrixstats1</a><br>
-<a href="#code-xe-matrixsub1">xe-matrixsub1</a><br>
-<a href="#code-xe-mxcor2">xe-mxcor2</a><br>
-<a href="#code-xe-plotmatrix1">xe-plotmatrix1</a><br>
-<a href="#code-xe-spectdenoise1">xe-spectdenoise1</a><br>
-</td><td><b><font color="Black">Functions</font></b><br><br>
-<a href="#code-xf_densitymatrix1_l">xf_densitymatrix1_l</a><br>
-<a href="#code-xf_densitymatrix2_l">xf_densitymatrix2_l</a><br>
-<a href="#code-xf_filter_bworth_matrix1_d">xf_filter_bworth_matrix1_d</a><br>
-<a href="#code-xf_matrixavg1_d">xf_matrixavg1_d</a><br>
-<a href="#code-xf_matrixavg1_f">xf_matrixavg1_f</a><br>
-<a href="#code-xf_matrixbin1_d">xf_matrixbin1_d</a><br>
-<a href="#code-xf_matrixcoh1_d">xf_matrixcoh1_d</a><br>
-<a href="#code-xf_matrixcontig1_l">xf_matrixcontig1_l</a><br>
-<a href="#code-xf_matrixexpand1_d">xf_matrixexpand1_d</a><br>
-<a href="#code-xf_matrixflipx_d">xf_matrixflipx_d</a><br>
-<a href="#code-xf_matrixflipy_d">xf_matrixflipy_d</a><br>
-<a href="#code-xf_matrixpeak1_d">xf_matrixpeak1_d</a><br>
-<a href="#code-xf_matrixread1_d">xf_matrixread1_d</a><br>
-<a href="#code-xf_matrixread2_d">xf_matrixread2_d</a><br>
-<a href="#code-xf_matrixread3_d">xf_matrixread3_d</a><br>
-<a href="#code-xf_matrixresample1_d">xf_matrixresample1_d</a><br>
-<a href="#code-xf_matrixrotate1_d">xf_matrixrotate1_d</a><br>
-<a href="#code-xf_matrixrotate1_f">xf_matrixrotate1_f</a><br>
-<a href="#code-xf_matrixrotate2_d">xf_matrixrotate2_d</a><br>
-<a href="#code-xf_matrixtrans1_d">xf_matrixtrans1_d</a><br>
-<a href="#code-xf_mullerize_d10">xf_mullerize_d10</a><br>
-<a href="#code-xf_placeinfo1_l">xf_placeinfo1_l</a><br>
-<a href="#code-xf_placestats1_d">xf_placestats1_d</a><br>
-<a href="#code-xf_spectdenoise1_d">xf_spectdenoise1_d</a><br>
-</td></table></tr>
-<h3 id="tag-MEA"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: MEA</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-MEA-amp1">xs-MEA-amp1</a><br>
-<a href="#code-xs-MEA-detect1">xs-MEA-detect1</a><br>
-<a href="#code-xs-MEA-detect2">xs-MEA-detect2</a><br>
-<a href="#code-xs-MEA-detect2b">xs-MEA-detect2b</a><br>
-<a href="#code-xs-MEA-detect3">xs-MEA-detect3</a><br>
-<a href="#code-xs-MEA-hdf5">xs-MEA-hdf5</a><br>
-<a href="#code-xs-MEA-merge1">xs-MEA-merge1</a><br>
-<a href="#code-xs-MEA-plotflip">xs-MEA-plotflip</a><br>
-<a href="#code-xs-MEA-pow1">xs-MEA-pow1</a><br>
-<a href="#code-xs-MEA-rate1">xs-MEA-rate1</a><br>
-<a href="#code-xs-MEA-rate1b">xs-MEA-rate1b</a><br>
-<a href="#code-xs-MEA-xcor1">xs-MEA-xcor1</a><br>
-</td></table></tr>
-<h3 id="tag-MED"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: MED</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-ldas-medpavprob1">xs-ldas-medpavprob1</a><br>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas-medcmt1">xe-ldas-medcmt1</a><br>
-</td></table></tr>
 <h3 id="tag-misc"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: misc</font></h3>
 <table><tr>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_pause1">xf_pause1</a><br>
 <a href="#code-xf_rollbuffer1_f">xf_rollbuffer1_f</a><br>
 </td></table></tr>
-<h3 id="tag-neuralynx"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: neuralynx</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-nlx2bin">xe-nlx2bin</a><br>
-</td><td><b><font color="Black">Functions</font></b><br><br>
-<a href="#code-xf_readnlx_ncs">xf_readnlx_ncs</a><br>
-</td></table></tr>
 <h3 id="tag-noise"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: noise</font></h3>
 <table><tr>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-matrixavg2">xe-matrixavg2</a><br>
 <a href="#code-xe-spectdenoise1">xe-spectdenoise1</a><br>
-</td></table></tr>
-<h3 id="tag-O2"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: O2</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-O2-blockcurve1">xs-O2-blockcurve1</a><br>
-<a href="#code-xs-O2-checkchansb">xs-O2-checkchansb</a><br>
-<a href="#code-xs-O2-checktxt">xs-O2-checktxt</a><br>
-<a href="#code-xs-O2-copycomments">xs-O2-copycomments</a><br>
-<a href="#code-xs-O2-COR1">xs-O2-COR1</a><br>
-<a href="#code-xs-O2-COR1b">xs-O2-COR1b</a><br>
-<a href="#code-xs-O2-COR2b">xs-O2-COR2b</a><br>
-<a href="#code-xs-O2-COR4b">xs-O2-COR4b</a><br>
-<a href="#code-xs-O2-CORSUMMARIZE1">xs-O2-CORSUMMARIZE1</a><br>
-<a href="#code-xs-O2-DIF1b">xs-O2-DIF1b</a><br>
-<a href="#code-xs-O2-EVENT1">xs-O2-EVENT1</a><br>
-<a href="#code-xs-O2-EVENT1b">xs-O2-EVENT1b</a><br>
-<a href="#code-xs-O2-makelink">xs-O2-makelink</a><br>
-<a href="#code-xs-O2-makex5b">xs-O2-makex5b</a><br>
-<a href="#code-xs-O2-makex6b">xs-O2-makex6b</a><br>
-<a href="#code-xs-O2-plot1">xs-O2-plot1</a><br>
-<a href="#code-xs-O2-plot1b">xs-O2-plot1b</a><br>
-<a href="#code-xs-O2-plotaligned2">xs-O2-plotaligned2</a><br>
-<a href="#code-xs-O2-POW1">xs-O2-POW1</a><br>
-<a href="#code-xs-O2-POW1b">xs-O2-POW1b</a><br>
-<a href="#code-xs-O2-preproc1">xs-O2-preproc1</a><br>
-<a href="#code-xs-O2-trimtime1">xs-O2-trimtime1</a><br>
-<a href="#code-xs-O2-X1">xs-O2-X1</a><br>
-<a href="#code-xs-O2-X1b">xs-O2-X1b</a><br>
-<a href="#code-xs-O2-X2b">xs-O2-X2b</a><br>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas-readchart1">xe-ldas-readchart1</a><br>
-<a href="#code-xe-O2-readchart2">xe-O2-readchart2</a><br>
-<a href="#code-xe-O2-readmed1">xe-O2-readmed1</a><br>
-<a href="#code-xe-O2-readmed2">xe-O2-readmed2</a><br>
 </td></table></tr>
 <h3 id="tag-plot"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: plot</font></h3>
 <table><tr>
@@ -676,16 +730,6 @@ of scripts, programs, and functions.
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_err1">xf_err1</a><br>
 <a href="#code-xf_template">xf_template</a><br>
-</td></table></tr>
-<h3 id="tag-R"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: R</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-R_anova">xs-R_anova</a><br>
-</td></table></tr>
-<h3 id="tag-SCORE"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: SCORE</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas-txt2clb1">xe-ldas-txt2clb1</a><br>
 </td></table></tr>
 <h3 id="tag-screen"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: screen</font></h3>
 <table><tr>
@@ -921,17 +965,6 @@ of scripts, programs, and functions.
 <a href="#code-xf_wint2_di">xf_wint2_di</a><br>
 <a href="#code-xf_wint3_ls">xf_wint3_ls</a><br>
 </td></table></tr>
-<h3 id="tag-slice"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: slice</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Functions</font></b><br><br>
-<a href="#code-xf_readwinltp1_f">xf_readwinltp1_f</a><br>
-</td></table></tr>
-<h3 id="tag-SLICE"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: SLICE</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
-<a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
-</td></table></tr>
 <h3 id="tag-spectra"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: spectra</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
@@ -949,29 +982,6 @@ of scripts, programs, and functions.
 <a href="#code-xe-spectdenoise1">xe-spectdenoise1</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_spectdenoise1_d">xf_spectdenoise1_d</a><br>
-</td></table></tr>
-<h3 id="tag-spikes"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: spikes</font></h3>
-<table><tr>
-</td><td><b><font color="Black">Programs</font></b><br><br>
-<a href="#code-xe-cofiring1">xe-cofiring1</a><br>
-<a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
-<a href="#code-xe-ldas5-clucombinelist1">xe-ldas5-clucombinelist1</a><br>
-<a href="#code-xe-ldas5-cluhist1">xe-ldas5-cluhist1</a><br>
-<a href="#code-xe-ldas5-clukiller1">xe-ldas5-clukiller1</a><br>
-<a href="#code-xe-ldas5-clukillerlist1">xe-ldas5-clukillerlist1</a><br>
-<a href="#code-xe-ldas5-clumatch1">xe-ldas5-clumatch1</a><br>
-<a href="#code-xe-ldas5-clurate1">xe-ldas5-clurate1</a><br>
-<a href="#code-xe-ldas5-clusort1">xe-ldas5-clusort1</a><br>
-<a href="#code-xe-ldas5-cofiring1">xe-ldas5-cofiring1</a><br>
-<a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
-<a href="#code-xe-ldas5-expandclub1">xe-ldas5-expandclub1</a><br>
-<a href="#code-xe-ldas5-placefields1">xe-ldas5-placefields1</a><br>
-<a href="#code-xe-ldas5-placestats1">xe-ldas5-placestats1</a><br>
-<a href="#code-xe-ldas5-readclub1">xe-ldas5-readclub1</a><br>
-<a href="#code-xe-ldas5-readwave1">xe-ldas5-readwave1</a><br>
-<a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
-</td><td><b><font color="Black">Functions</font></b><br><br>
-<a href="#code-xf_screen_club">xf_screen_club</a><br>
 </td></table></tr>
 <h3 id="tag-stats"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: stats</font></h3>
 <table><tr>
@@ -1140,22 +1150,6 @@ of scripts, programs, and functions.
 <a href="#code-xe-timestamp2">xe-timestamp2</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_rand1_d">xf_rand1_d</a><br>
-</td></table></tr>
-<h3 id="tag-taini"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: taini</font></h3>
-<table><tr>
-<td><b><font color="Black">Scripts</font></b><br><br>
-<a href="#code-xs-ldas5-XHAR1">xs-ldas5-XHAR1</a><br>
-<a href="#code-xs-ldas5-XHAR1b">xs-ldas5-XHAR1b</a><br>
-<a href="#code-xs-ldas5-XHAR3">xs-ldas5-XHAR3</a><br>
-<a href="#code-xs-ldas-XLASER1">xs-ldas-XLASER1</a><br>
-<a href="#code-xs-ldas-XLASER1b">xs-ldas-XLASER1b</a><br>
-<a href="#code-xs-TAINI-hargreaves0">xs-TAINI-hargreaves0</a><br>
-<a href="#code-xs-TAINI-legacy0">xs-TAINI-legacy0</a><br>
-<a href="#code-xs-TAINI-legacy1">xs-TAINI-legacy1</a><br>
-<a href="#code-xs-TAINI-legacy2">xs-TAINI-legacy2</a><br>
-<a href="#code-xs-TAINI-legacy3">xs-TAINI-legacy3</a><br>
-<a href="#code-xs-TAINI-preproc1">xs-TAINI-preproc1</a><br>
-<a href="#code-xs-TAINI-tools">xs-TAINI-tools</a><br>
 </td></table></tr>
 <h3 id="tag-time"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: time</font></h3>
 <table><tr>
@@ -1368,29 +1362,8 @@ key variables defined by reading the .notes file in the data directory
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-dat2bin"><a href="#CODE">&#8679</a> xs-dat2bin</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-dat2bin: downsample an interlaced .dat file
-	- uses xe-ldas5-readdat2 to interpolate, filter(anti-alias), and decimate
-	- outputs multiple 1-channel .bin files (binary 32-bit float)
-	- basename is everything before the last dot in the input file name
-USAGE: xs-dat2bin [infile] [nchans] [srin]
-	[infile]: interlaced multi-channel binary file (16-bit short-integer)
-	[nchans]: number of channels in infile
-	[srin]: sample-rate of infile
-VALID OPTIONS (defaults in []):
-	--chans: CSV list of channels (from 0) to process []
-	--base: basename for output (if unset, infile minus extension) []
-	--mean: window size (seconds) for de-meaning data (0=SKIP) [0]
-	--srout: output sample-rate (Hz) [1000]
-	--bad: invalid value (0,-1, or 1=SHRT_MAX) [1]
-	--verb: verbose output (0=NO 1=YES) [1]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-dat2bin 20180101_123456.dat 64 20000
---------------------------------------------------------------------------------
-
+[<a href="#tag-file">file</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-dat2bin: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-dbcheck1"><a href="#CODE">&#8679</a> xs-dbcheck1</h3></font>
@@ -1520,30 +1493,8 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-getgroupnames1"><a href="#CODE">&#8679</a> xs-getgroupnames1</h3></font>
-[<a href="#tag-database">database</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-getgroupnames1: extract group-names from an LDAS database (db) file
- - output is in the format &#60group&#62 &#60name&#62
- - there are three potential sources for the group names: 
-		1: db-file comments in the format "# group_[no]= [name]"
-			[no]= group-number (integer)
-			[name]= group-name, with no spaces or tabs
- 			example: # group_5= ketamine_3mg/kg
- 		2: --names table to use, if db-file doesn't list group names [] 
-		3: the db-file group-ids themselves, with the prefix "group_"
-USAGE: 
-	xs-getgroupnames1 [infile]
-		[infile]: a file with group definitions
-VALID OPTIONS (defaults in []):
-	--names: headered file defining group and name []
-	--xml: specify an infile XML section with path & group columns []
-	--head: output header? (0=NO 1=YES) [1]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-getgroupnames1 db_all.txt &#62 table_groupnames.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-database">database</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-getgroupnames1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-getheader"><a href="#CODE">&#8679</a> xs-getheader</h3></font>
@@ -2593,71 +2544,13 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR1"><a href="#CODE">&#8679</a> xs-ldas5-XHAR1</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas5-XHAR1: analyze Hargreaves task behaviour and ephys data
-ANALYSES:
-	- behavioural latencies
-		- looks for TRIAL "latency" column in the .notes file
-		- if present, this is used to re-define "start" for each trial
-		- if latency &#62= timeout (30 seconds), trial is excluded
-USAGE: xs-ldas5-XHAR1 [base] [options]
-	[base]: [yyyymmdd]-[session]_[subject]
-GENERAL OPTIONS...
-	--timeout: time (seconds) at which trials stop automatically [30]
-	--plot: generate plots (0=NO,2=YES) [1]
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
-	--trials: CSV list of trial-names to use (or "all" or "no") [all]
-	--adj: adjust trial duration using seconds in a named TRIALS column []
-		"-" prefix resets start relative to stop
-		"+" prefix resets stop relative to start
-		- Hargreaves task stop-signals (paw-withdrawal) are accurate
-		- however the trial start-syncs may preceed the lamp-activation
-		- e.g. --adj -latency : start=(stop-latency*samplerate)
-	--align: redefine start & stop as one or the other (start|stop) [stop]
-		NOTE: if set, use --pre or --post to make non-zero-length trials
-	--pre: seconds to add to start [-60]
-	--post: seconds to add to stop [60]
-	--fhi: high-freq. cut (smooth) for power-timecourse (0=NONE) [0.000])
-BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
-	--delta: [.5,4]
-	--alpha: [4,6]
-	--theta: [6,12]
-	--beta: [12,30]
-	--gamma: [30,100]
-	--hfo: [120,150]
-EXAMPLE: 
-	xs-ldas5-XHAR1 20181231-000_12345 2&#62&1|tee log_xs-ldas5-XHAR1.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR1b"><a href="#CODE">&#8679</a> xs-ldas5-XHAR1b</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas5-XHAR1b: batch-run xs-ldas5-XHAR1
-REQUIRES: a properly formatted .notes file
-USAGE: xs-ldas5-XHAR1b [db] [options]
-	[db]: database file specifying path and group on each line
-VALID OPTIONS (defaults in []):
-	--opt1: quoted options to pass to xs-ldas5-XHAR1 []
-	--skip: skip these steps [-]
-		x: execute analysis in each database directory
-		c: collate analyis results
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-...options by-date plots
-	--norm: normalisation (see xe-normrow2) [-1]
-	--n1: start of normalisation zone (week-number)) [0]
-	--n2: end of normalisation zone (week-number) [1]
-EXAMPLE: 
-	xs-ldas5-XHAR1b db_all.txt  2&#62&1|tee log_xs-ldas5-XHAR1b.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR1b: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR2"><a href="#CODE">&#8679</a> xs-ldas5-XHAR2</h3></font>
@@ -2686,30 +2579,8 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR3"><a href="#CODE">&#8679</a> xs-ldas5-XHAR3</h3></font>
-[<a href="#tag-taini">taini</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas5-XHAR3: analyse XHAR1b output: coherence (inflection, pre & post withdrawal)
-	- run this in the Analysis folder
-	- xs-ldas5-XHAR1b must be run first
-USAGE: xs-ldas5-XHAR3 [analysis] [options]
-	[analysis]: POW or COH 
-VALID OPTIONS (defaults in []):
-	--omit: CSV list of subjects to omit []
-REQUIRES: xs-ldas5-XHAR1b must be run first
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-...options for by-week plots
-	--norm2: by-date normalisation (see xe-normrow2) [2]
-...options within-trial plots
-	--bin: bin-size (seconds) [5]
-	--norm1: within-trial normalisation (see xe-norm3) [3]
-	--n1: start of normalisation zone (week-number)) [-60]
-	--n2: end of normalisation zone (week-number) [-30]
-EXAMPLE: 
-	xs-ldas5-XHAR3 COH --norm 2
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR3: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XPAC1"><a href="#CODE">&#8679</a> xs-ldas5-XPAC1</h3></font>
@@ -3291,11 +3162,12 @@ DATA PROCESSING OPTIONS...
 		--n1: norm-start (seconds after start, -1=start) [-1]
 		--n2: norm-stop  (seconds after stop,  -1=stop)  [-1]
 	--bin: bin-size (seconds) for summary [1]
-NOISE-REMOVAL OPTIONS...
+NOISE-REMOVAL OPTIONS FOR MATRIX SPECTRAL OUTPUT...
 	--clip: clipping value (de-noising only,-1=noclip) [-1]
 	--nz: Z-score threshold for noise at each freq (NAN to skip) [1.0]
 	--ns: sign of thesholding (-1=NEG,+1=POS,0=BOTH) [1]
 	--np: % of freq &#62 nz needed to invalidate timepoint [33.333]
+	--fhi: high-frequency cut (0=NONE) [0.00])
 BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
 	--delta: [.5,4]
 	--alpha: [4,6]
@@ -3382,24 +3254,8 @@ Output:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-getchannel"><a href="#CODE">&#8679</a> xs-ldas-getchannel</h3></font>
-[<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas-getchannel: get the channel-number for a region in an LDAS .notes file
-	- this is derived from the CHANNELS table in the .notes file
-USAGE: xs-ldas-getchannel [notes] [region] [options]
-	[notes]: an LDAS .notes file containing a CHANNELS xml section
-	[region]: the brain region to find
-VALID OPTIONS (defaults in []):
-	--output column [chan]
-	--good: accept only good channels (0=NO 1=YES) [1]
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-OUTPUT: a CSV list of channels meeting criteria, or an error message
-EXAMPLE: 
-	chan=$(xs-ldas-getchannel file.notes PFC)
---------------------------------------------------------------------------------
-
+[<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-getchannel: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-getseqb"><a href="#CODE">&#8679</a> xs-ldas-getseqb</h3></font>
@@ -3514,25 +3370,8 @@ EXAMPLE: extract data from a .clubt file corresponding with SLEEP trials
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-killbadchans1"><a href="#CODE">&#8679</a> xs-ldas-killbadchans1</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas-killbadchans1: remove .bin files corresponding to dead channels
- - this is a space-saving measure
- - crawls through the folders in Data_Library and Data_Working
- - requires a .notes file in each directory
-USAGE: xs-ldas-killbadchans1 [folders] [options]
-	[folders]: CSV list of folders to scan
-VALID OPTIONS (defaults in []):
-	--xml: XML section containing channel information [CHANNELS]
-	--col: column to match "bad" values [good]
-	--bad: CSV list of values to match indicating bad values [0]
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-ldas-killbadchans1 Data_Library,Data_Working --col good --bad 0 
---------------------------------------------------------------------------------
-
+[<a href="#tag-file">file</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-killbadchans1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-maketestcurves1"><a href="#CODE">&#8679</a> xs-ldas-maketestcurves1</h3></font>
@@ -3717,11 +3556,12 @@ DATA PROCESSING OPTIONS...
 		--n1: norm-start (seconds after start, -1=start) [-1]
 		--n2: norm-stop  (seconds after stop,  -1=stop)  [-1]
 	--bin: bin-size (seconds) for summary [1]
-NOISE-REMOVAL OPTIONS...
+NOISE-REMOVAL OPTIONS FOR MATRIX SPECTRAL OUTPUT...
 	--clip: clipping value (de-noising only,-1=noclip) [-1]
 	--nz: Z-score threshold for noise at each freq (NAN to skip) [1.0]
 	--ns: sign of thesholding (-1=NEG,+1=POS,0=BOTH) [1]
 	--np: % of freq &#62 nz needed to invalidate timepoint [33.333]
+	--fhi: high-frequency cut (0=NONE) [0.00])
 BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
 	--delta: [.5,4]
 	--alpha: [4,6]
@@ -3924,95 +3764,18 @@ EXAMPLE: xs-ldas-updatenotes2 20181231.notes CHANNELS new.txt
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-XLASER1"><a href="#CODE">&#8679</a> xs-ldas-XLASER1</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas-XLASER1: analyze laser-stimulated behaviour, ERPs, and evoked oscillations
-ANALYSES:
-	- behavioural latencies
-		- looks for TRIAL "latency" column in the .notes file
-		- if present, this is used to re-define "start" for each trial
-/opt/LDAS/xs-ldas-XLASER1: line 70: ECHO: command not found
-USAGE: xs-ldas-XLASER1 [base] [options]
-	[base]: [yyyymmdd]-[session]_[subject]
-
-GENERAL OPTIONS...
-	--regions: CSV list of brain-regions to analyse [all]
-	--plot: generate plots (0=NO,2=YES) [1]
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-
-OPTIONS FOR xe-align2 (EVOKED POTENTIAL ANALYSIS):
-	--evhi: high-freq. smoothing cutoff (freq.,0=NONE) [10])
-
-OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
-	--trials: CSV list of trial-names to use (or "all" or "no") [all]
-	--noise: exclude trials based on std.dev (-1=SKIP) [-1] 
-		- at present, applies only to evoked responses
-		- based on mean-rectified-difference from median trace
-	--align: redefine start & stop as one or the other (start|stop) [start]
-		NOTE: if set, use --pre or --post to make non-zero-length trials
-	--pre: seconds to add to start [-2]
-	--post: seconds to add to stop [5]
-BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
-	--delta: [.5,4]
-	--alpha: [4,6]
-	--theta: [6,12]
-	--beta: [12,30]
-	--gamma: [30,100]
-	--hfo: [120,150]
-EXAMPLE: 
-	xs-ldas-XLASER1 20181231-000_12345 2&#62&1|tee log_xs-ldas-XLASER1.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-XLASER1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-XLASER1b"><a href="#CODE">&#8679</a> xs-ldas-XLASER1b</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas-XLASER1b: batch-run xs-ldas-XLASER1
-USAGE: xs-ldas-XLASER1b [db] [options]
-	[db]: database file specifying path and group on each line
-VALID OPTIONS (defaults in []):
-	--opt1: quoted options to pass to xs-ldas-XLASER1 []
-	--skip: skip these steps [-]
-		x: execute analysis in each database directory
-		c: collate analyis results
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-...options for by-date plots
-	--norm: normalisation (see xe-normrow2) [-1]
-	--n1: start of normalisation zone (week-number)) [0]
-	--n2: end of normalisation zone (week-number) [1]
-EXAMPLE: 
-	xs-ldas-XLASER1b db_all.txt  2&#62&1|tee log_xs-ldas-XLASER1b.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-XLASER1b: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-zipexpt"><a href="#CODE">&#8679</a> xs-ldas-zipexpt</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-file">file</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas-zipexpt: compress LDAS experiment folder structure to .zip files
-USAGE: 
-	xs-ldas-zipexpt [options]
-VALID OPTIONS:
-	-a: zip Data_Acquired folder (raw data from acquisition systems)
-	-l: zip Data_Library folder  (LDAS-formatted Data folders)
-	-w: zip Data_Working folder  (links to Data_Library for working-output)
-	-y: zip Analysis folder
-	-d: delete each folder after zipping
-EXAMPLE: 
-	xs-ldas-zipexpt -alwyd
-OUTPUT: 
-	LDAS_Data_Acquired.zip
-	LDAS_Data_Library.zip
-	LDAS_Data_Working.zip
-	LDAS_Analysis.zip
---------------------------------------------------------------------------------
-
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-file">file</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-zipexpt: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-makelink1"><a href="#CODE">&#8679</a> xs-makelink1</h3></font>
@@ -4103,28 +3866,8 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-manual"><a href="#CODE">&#8679</a> xs-manual</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-manual: view (default) or make LDAS manuals
-USAGE: xs-manual [manual] [options]
-	available manuals: 
-		ldas
-		git
-		taini
-		mea
-		laser
-		hargreaves
-VALID OPTIONS (defaults in []):
-	--view: view manual in terminal,pdf,html [terminal]
-		NOTE: only "terminal" will work if logging in remotely
-	--make: make different-format manual from .md original []
-		Format choices: pdf,html
-		NOTE: setting --make cancels viewing
-EXAMPLE: 
-	xs-manual ldas --view terminal
---------------------------------------------------------------------------------
-
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-manual: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-match"><a href="#CODE">&#8679</a> xs-match</h3></font>
@@ -4373,10 +4116,10 @@ EXAMPLE:
 	xs-MEA-merge1 .raw
 
 OUTPUT: (note base-name is derived from folder name)
-	LDAS.dat
-	LDAS.ssp
-	LDAS-[channel].bin
-	LDAS.notes
+	source.dat
+	source.ssp
+	source-[channel].bin
+	source.notes
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4950,7 +4693,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/log_xs-O2-makex5b_200224.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200224.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5491,33 +5234,8 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-plotmatrixsplit1"><a href="#CODE">&#8679</a> xs-plotmatrixsplit1</h3></font>
-[<a href="#tag-plot">plot</a>][<a href="#tag-matrix">matrix</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-plotmatrixsplit1: do a split-plot of a matrix
- - this is very useful for spectral heat-maps
-USAGE: xs-plotmatrixsplit1 [in] [options]
-	[in]: input matrix
-VALID OPTIONS (defaults in []):
-	--mod: quoted options for pre-processing with xe-matrixmod1 []
-	--yrange: CSV min,max [1,150]
-	--xrange: CSV min,max [-60,59]
-	--splity: y-value at which to split plot [30]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-	--verb: verbose output (0=NO 1=YES) [0]
-...options for plots
-	--shift: vertical-shift for bottom plot [60]
-	--title: quoted title, top plot only []
-	--xl: quoted x-axis label, bottom-plot only []
-	--yl: quoted y-axis label []
-	--opts1: everything else, for both plots (see xe-plotmatrix1) []
-	--out: name of output file [plot_xs-plotmatrixsplit1.ps]
-OUTPUT: 
-	postscript plot: plot_xs-plotmatrixsplit1.ps
-EXAMPLE: 
-	xs-plotmatrixsplit1 matrix.txt --xrange -60,60 --opts "-font 6"
---------------------------------------------------------------------------------
-
+[<a href="#tag-plot">plot</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-plotmatrixsplit1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-plotmeans1"><a href="#CODE">&#8679</a> xs-plotmeans1</h3></font>
@@ -6219,7 +5937,7 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_multregression_example"><a href="#CODE">&#8679</a> xs-R_multregression_example</h3></font>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_multregression_example: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_multregression_example: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_regress"><a href="#CODE">&#8679</a> xs-R_regress</h3></font>
@@ -6232,11 +5950,11 @@ Format:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_sample_contrasts"><a href="#CODE">&#8679</a> xs-R_sample_contrasts</h3></font>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_sample_contrasts: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_sample_contrasts: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_sample_data"><a href="#CODE">&#8679</a> xs-R_sample_data</h3></font>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 393: xs-R_sample_data: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_sample_data: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_ttest"><a href="#CODE">&#8679</a> xs-R_ttest</h3></font>
@@ -6372,318 +6090,48 @@ OUTPUT: changes saved to original file
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-hargreaves0"><a href="#CODE">&#8679</a> xs-TAINI-hargreaves0</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-hargreaves0: extract HARGREAVES trial-records from acquisition PLAN file
- - trial start-stop pairs are inserted into the .notes file for each subject
-USAGE: xs-TAINI-hargreaves0 [plan] [options]
-	[plan]: a file defining how the eperiment was run
-		- defines date= and experiment= 
-		- &#60MAPPING&#62 section summarizes session, subject and trial
-		- &#60TRIALS&#62 section describes individual trials
-VALID OPTIONS (defaults in []):
-	--batch: batch-run on this CSV list of directories []
-		NOTE: use "*.plan" as the plan name - the quotes matter!
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-TAINI-hargreaves0 PLAN.txt  2&#62&1|tee log_xs-TAINI-hargreaves0.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-hargreaves0: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-laser1"><a href="#CODE">&#8679</a> xs-TAINI-laser1</h3></font>
-[<a href="#tag-laser">laser</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-laser1: 
-- creates .notes &#60TRIALS&#62 sections for a laser-ERP expt.
-- requires an xml worksheet for each recording session
-	- see /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
-- uses the config file (.yaml) for extracting parameters
-- assumes sync-pair for laser-stim is SYNC_2,SYNC_0
-- assumes sync-pair for audio-stim is SYNC_1,SYNC_0
-
-USAGE: xs-TAINI-laser1 [worksheet] [options]
-	[worksheet]: laser-ERP experimental worksheet (.xlsx or .csv)
-	- this can be multiple files, or wildcards - if in quotes
-
-VALID OPTIONS...
-	--dest: destination output [../../Data_Library]
-		- seeks [base] sub-directories at this location
-		- each [base] sub-directory should contain a .notes file
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-
-EXAMPLES: 
-	xs-TAINI-laser1 20181231_000.xlsx
-	xs-TAINI-laser1 "*.xlsx"
-	xs-TAINI-laser1 "A.xlsx  B.xslx"
-
-OUTPUT...
-	- update to individual .notes files in ../../Data_Acquired/[base]/
-	- missed-stimuli (x's) summary: LASER1.missing
---------------------------------------------------------------------------------
-
+[<a href="#tag-LASER">LASER</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-laser1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy0"><a href="#CODE">&#8679</a> xs-TAINI-legacy0</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-legacy0: invoke "crackit process" for multiple .datraw files 
-	- this legacy code uses Taini's legacy "CRACKIT" program output
-	- detects and replaces missing samples
-	- flips data to correct signal polarity
-	- zeros the data by removing the mean
-	- names the new output .dat
-USAGE: 
-	xs-TAINI-legacy0 [pattern]
-		[pattern]= file pattern to match, assumes filename ends in ".datraw"
-	NOTE: for &#624 files, processing is serial
-	    : for &#60=4 files, processesing is parallel and control returned to terminal
-ADDITIONAL ARGUMENTS:
-	-s: force serial processing rather than parallel (0=NO 1=YES) [0]
-		NOTE: serial processing is used anyway for &#624 files
-EXAMPLE: 
-	xs-TAINI-legacy0 20160415-000
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy0: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy1"><a href="#CODE">&#8679</a> xs-TAINI-legacy1</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-legacy1: process .datraw files for ripple-detection
-	- this legacy code uses Taini's legacy "CRACKIT" program output
-	- runs xs-TAINI-legacy0 to replace missing samples and de-mean the data
-	- assumes there are 4 files to process
-	- runs xs-ldas5-ripdet1
-REQUIRES: 
-	- corresponding .synraw files
-USAGE: 
-	xs-TAINI-legacy1 [base] [options]
-		[base]: date-session basename to define input files (.datraw)
-VALID OPTIONS (defaults in []):
-	-d: expected number of .datraw files [4]
-	-n: read duration (seconds, 0=whole-file) [0]
-EXAMPLE: 
-	xs-TAINI-legacy1 20100208-010 -n 4
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy2"><a href="#CODE">&#8679</a> xs-TAINI-legacy2</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-legacy2: Process Taini Ephys and EthoVision data from a single Ephys session
-	- this legacy code uses Taini's legacy "CRACKIT" program output
-	- renames files with spaces and converts from DOS format
-	- checks date and time from CRACK-IT log & extracts sync-samples
-	- extracts xyd info from all EthoVision records in current folder
-		- assumes input is semicolon-delimited text
-		- generates new timestamps (sample#)
-		- corrects EthoVision positions according to Arena
-		- assumes 4 arenas each with a  cm x  cm range
-	- creates a .notes and .cmt file
-	- creates times_alltrials.ssp file describing trial start-stop samples
-	- create date_subject folders:
-		- copy above output to local files
-		- save link to original .dat in notes file
-		- create downsampled .bin files
-		- create a local interpolated .dat file with non-trial data removed
-REQUIRES: 
-	- [yyyymmdd]-[ses]_[subject].dat file
-	- corresponding .syn file listing trial start-stop samples
-	- Ethovision Track files for the corresponding subject and trials
-	- Ethovision Hardware Control files containing SyncStartStop times
-USAGE: 
-	xs-TAINI-legacy2 [pattern] [readme]
-		[pattern]: pattern to match in .dat file (or "*")
-		[readme]:
-			- defines experiment= 
-			- &#60TRIALMAP&#62 section lists EV trials for each session
-			- if &#621 session listed, .dat files merged &#60NOT IMPLEMENTED AT PRESENT!&#62
-ADDITIONAL ARGUMENTS:
-	-a: EthoVision start-sync label [sync_0]
-	-z: EthoVision stop-sync label [sync_1]
-	-s: skip these steps [-]
-		d: dat file interpolation and chunking for cluster-cutting
-		r: make downsampled (1KHz) .bin files
-		v: process EthoVision video failes & make xyd(t) files
-		m: move files to their destination folders
-	-o: output path [./]
-	-t: template to use if table_channels_[subject].txt is missing []
-EXAMPLE: 
-	xs-TAINI-legacy2 20150930-001 README1.txt -a sync_0 -z sync_1 -s rvm
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy2: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy3"><a href="#CODE">&#8679</a> xs-TAINI-legacy3</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-legacy3: run CRACKIT acquitision
-	- assumes four subjects are recorded at once
-	- automaticaly generates .xml control file
-	- uses current directory as output path
-	- the xml &#60ACQUISITION&#62 field in README.txt defines subject for each device
-	- the same field also defines the device transmission frequency (GHz)
-
-USAGE: 
-	xs-TAINI-legacy3 [readme]
-		[readme]: a properly formatted README.txt file
-
-EXAMPLE: 
-	xs-TAINI-legacy3 README.txt
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy3: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-preproc1"><a href="#CODE">&#8679</a> xs-TAINI-preproc1</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-preproc1: Process a Taini-Live ephys recording session
-- run in [experiment]/Data_Aquired/[date] - folder for one experiment-type
-- creates [yyyymmdd]-[session]_[subject] folders
-	- copies or links .dat files
-	- copies .sync files
-	- renames copies to the LDAS standard
-	- downsamples each .dat channel to a separate 1KHz .bin file
-	- creates lost-packet lost.ssp files
-	- builds (overwrites) the .notes file
-		- adds CHANNELS section based on one of:
-			- local table_channel_[subject].txt
-			- local table_channel_template.txt
-			- ../../table_channels_[subject].txt
-			- ../../table_channels_template.txt
-			- /opt/LDAS/docs/templates/table_channels_taini_2.txt
-
-USAGE: xs-TAINI-preproc1 [dat] [options]
-	[dat]: quoted list of .dat files (wildcards allowed)
-VALID OPTIONS:
-	--dest: base-destination output [../../Data_Library/]
-		- will create sub-directories for each .dat file
-	--batch: batch-run on this CSV list of directories []
-	--expt: name of experiment, for .notes file  [0]
-		- overrides "experiment= " in TAINI .yaml config file notes
-	--good: analyse good channels only (0=NO 1=YES) [0]
-		- as defined in a table_channels file
-		- if this file is missing, all channels are treated as good
-	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [0]
-	--chans: template to use if table_channels_[subject].txt is missing
-	 	[/opt/LDAS/docs/templates/table_channels_taini_2.txt]
-	--skip: skip these steps [-]
-		p: lost-packet-finding (-lost.ssp)
-		d: dat file copying (make link instead)
-		b: make downsampled (1KHz) .bin files
-EXAMPLE: 
-	xs-TAINI-preproc1 "*.dat" -s d 2&#62&1| tee log_xs-TAINI-preproc1.txt
-	xs-TAINI-preproc1 "*.dat" --skip pd --batch dir1,dir2,dir3
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-preproc1: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-tools"><a href="#CODE">&#8679</a> xs-TAINI-tools</h3></font>
-[<a href="#tag-taini">taini</a>][<a href="#tag-plot">plot</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-TAINI-tools: run TAINI scripts for data setup, acquisition and testing
-	- some modes require a .plan file with MAPPING and TRIALS sections
-	- TAINI sync-records typically begin with a "blank" sync-0
-
-USAGE: xs-TAINI-tools [mode] [options]
-
-VALID MODES (followed by options starting with --):
-	setup
-		Set up an acquisition directory (requires --expt)
-		Creates a [date]_[expt] directory
-		Adds a [date].plan file
-		Copies channel-table template /opt/LDAS/docs/templates/table_channels_taini_2.txt
-		--expt: name of experiment []
-	fft
-		Run spectrum viewer
-		--input: receiver input to show (ab or cd) [ab]
-	live
-		Run TainiLive
-	sync
-		Check a sync-file and extract start-stop pairs
-		--file: sync file to check & extract []
-		--pre: the sync-record prefix [SYNC_]
-		--seq: CSV list of valid sync-number sequence []
-		--blank: required sync-record which is not output [0]
-		--count: use timestamps to count trials in blocks (0=NO 1=YES) [0]
-			- uses mean interval + 5 s.d. as threshold
-	trials
-		List .plan TRIALS matched to MAPPING subject & session
-		--batch: .plan MAPPING batch to check (#, or "all") [all]
-		--append: CSV list MAPPING columns to append to trials []
-		--file: add sync-file records to trials - see "sync" above
-	check
-		Compare batch trial-counts with subject sync-records
-		--seq: [see above]
-		--batch: [see above]
-	config
-		Output configuration settings (from .yaml)
-		--file: you MUST specify a .dat or .yaml file
-		--expt: override-name of experiment from .yaml []
-	parse
-		Parse a TAINI filename to extract a keyword
-		--file: the file whose name you want to parse
-		--key: the value of interest: id alias year month day date1 date2 inc
-	rename
-		Rename files from TaiNi default to LDAS format
-		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat
-		LDAS standard: [yyyymmdd]-[session]_[alias].dat
-	unrename
-		As above, but restore original TAINI filenames
-		.yaml files required
-	plot
-		Generate a 1-second trace-plot for all .dat files
-		Looks for table_channels_[subject].txt
-
-EXTRA OPTIONS (defaults in []):
-	--plan: specify a plan file (if there is more than one in the folder) []
-	--verb: verbose output (0=NO 1=YES) [0]
-
-EXAMPLES: 
-	xs-TAINI-tools fft --input 2
-	xs-TAINI-tools setup --expt hargreaves_wk3
---------------------------------------------------------------------------------
-
+[<a href="#tag-TAINI">TAINI</a>][<a href="#tag-plot">plot</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-tools: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-template"><a href="#CODE">&#8679</a> xs-template</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
-<blockquote><pre>
---------------------------------------------------------------------------------
-xs-ldas5-XSERIES1b: template BASH script
-xs-ldas5-XSERIES1b: batch-run xs-templat
-REQUIRES: a properly formatted .notes file
-USAGE: xs-ldas5-XSERIES1b [in] [options]
-	[in]: input file, format= &#60time&#62 &#60data&#62
-VALID OPTIONS (defaults in []):
-	-a: set a-flag to 1 []
-	-b: set b-flag to 1 []
-	-f: format []
-	--batch: batch-run on this CSV list of directories []
-		NOTE: in batch mode, quote arguments with wildcards as well
-	--skip: skip these steps [-]
-		x: execute analysis in each database directory
-		c: collate analyis results
-	--opt1: quoted options to pass to xs-templat []
-	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
-EXAMPLE: 
-	xs-ldas5-XSERIES1b data.txt  2&#62&1|tee logxs-ldas5-XSERIES1b.txt
-	xs-ldas5-XSERIES1b "*.plan" --batch dir1,dir2,dir3
---------------------------------------------------------------------------------
-
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-template: Permission denied
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-thetadelta1"><a href="#CODE">&#8679</a> xs-thetadelta1</h3></font>
@@ -6709,7 +6157,7 @@ EXAMPLE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-align1"><a href="#CODE">&#8679</a> xe-align1</h3></font>
-[<a href="#tag-dt_block">dt_block</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
+[<a href="#tag-dt.block">dt.block</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-align1 v 29: 1.August.2017 [JRH]
@@ -6763,7 +6211,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-align2"><a href="#CODE">&#8679</a> xe-align2</h3></font>
-[<a href="#tag-dt_block">dt_block</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
+[<a href="#tag-dt.block">dt.block</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-transform">transform</a>][<a href="#tag-filter">filter</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-align2 v 11: 22.February.2020 [JRH]
@@ -6975,7 +6423,7 @@ CAUTION: strings like 25abc will be interpreted as a number (25)
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-cofiring1"><a href="#CODE">&#8679</a> xe-cofiring1</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-cofiring v 1.2: 18.April.2016 [JRH]
@@ -8716,7 +8164,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas2-makecmt1"><a href="#CODE">&#8679</a> xe-ldas2-makecmt1</h3></font>
-[<a href="#tag-ethovision">ethovision</a>]<br>
+[<a href="#tag-EV">EV</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas2-makecmt1 v 10: 8.October.2012 [JRH]
@@ -8793,7 +8241,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clucombine1"><a href="#CODE">&#8679</a> xe-ldas5-clucombine1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clucombine1 v 4: 17.March.2017 [JRH]
@@ -8846,7 +8294,7 @@ REPORT OUTPUT (-v 0 or 2):
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clucombinelist1"><a href="#CODE">&#8679</a> xe-ldas5-clucombinelist1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clucombinelist1 v 1: 4.April.2017 [JRH]
@@ -8872,7 +8320,7 @@ FILE OUTPUT (-v 1 or 2):
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-cluhist1"><a href="#CODE">&#8679</a> xe-ldas5-cluhist1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-cluhist1 v 1: 28.July.2017 [JRH]
@@ -8917,7 +8365,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clukiller1"><a href="#CODE">&#8679</a> xe-ldas5-clukiller1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clukiller1 v 1: 10.November.2016 [JRH]
@@ -8948,7 +8396,7 @@ VALID OPTIONS (defaults in []):
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clukillerlist1"><a href="#CODE">&#8679</a> xe-ldas5-clukillerlist1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clukillerlist1 v 1: 3.April.2017 [JRH]
@@ -8973,7 +8421,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clumatch1"><a href="#CODE">&#8679</a> xe-ldas5-clumatch1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clumatch1 v 1: 2.June.2017 [JRH]
@@ -9004,7 +8452,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clurate1"><a href="#CODE">&#8679</a> xe-ldas5-clurate1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clurate1 v 1: 24.November.2017 [JRH]
@@ -9029,7 +8477,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-clusort1"><a href="#CODE">&#8679</a> xe-ldas5-clusort1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-clusort1 v 1: 1.July.2017 [JRH]
@@ -9056,7 +8504,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-cofiring1"><a href="#CODE">&#8679</a> xe-ldas5-cofiring1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-cofiring1 v 1: 27.November.2017 [JRH]
@@ -9089,7 +8537,7 @@ OUTPUT: c1 c2 cofir totfir ratio  r F p
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-datwavemean1"><a href="#CODE">&#8679</a> xe-ldas5-datwavemean1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>][<a href="#tag-math">math</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>][<a href="#tag-math">math</a>]<br>
 <blockquote><pre>----------------------------------------------------------------------
 xe-ldas5-datwavemean1 v 2: 20.July.2017 [JRH]
 ----------------------------------------------------------------------
@@ -9119,7 +8567,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-expandclub1"><a href="#CODE">&#8679</a> xe-ldas5-expandclub1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-expandclub1 v 1: 1.May.2016 [JRH]
@@ -9271,7 +8719,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-placefields1"><a href="#CODE">&#8679</a> xe-ldas5-placefields1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-placefields1 v 2: 16.March.2019 [JRH]
@@ -9316,7 +8764,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-placestats1"><a href="#CODE">&#8679</a> xe-ldas5-placestats1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-placestats1 v 3: 21.October.2017 [JRH]
@@ -9360,7 +8808,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-readclub1"><a href="#CODE">&#8679</a> xe-ldas5-readclub1</h3></font>
-[<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas5-readclub1 v 6: 16.March.2019 [JRH]
@@ -9538,7 +8986,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-readwave1"><a href="#CODE">&#8679</a> xe-ldas5-readwave1</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>----------------------------------------------------------------------
 xe-ldas5-readwave1 v 1: 6.July.2017 [JRH]
 ----------------------------------------------------------------------
@@ -9855,7 +9303,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas5-wavestats1"><a href="#CODE">&#8679</a> xe-ldas5-wavestats1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-spikes">spikes</a>][<a href="#tag-stats">stats</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-dt.spikes">dt.spikes</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>----------------------------------------------------------------------
 xe-ldas5-wavestats1 v 1: 24.March.2018 [JRH]
 ----------------------------------------------------------------------
@@ -9887,7 +9335,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-ldas-invalidcmt1"><a href="#CODE">&#8679</a> xe-ldas-invalidcmt1</h3></font>
-[<a href="#tag-ldas">ldas</a>][<a href="#tag-screen">screen</a>]<br>
+[<a href="#tag-LDAS">LDAS</a>][<a href="#tag-screen">screen</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-ldas-invalidcmt1 v 2: 14.August.2012 [JRH]
@@ -10503,7 +9951,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixavg2"><a href="#CODE">&#8679</a> xe-matrixavg2</h3></font>
-[<a href="#tag-math">math</a>][<a href="#tag-matrix">matrix</a>][<a href="#tag-noise">noise</a>]<br>
+[<a href="#tag-math">math</a>][<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-noise">noise</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixavg2 v 1: 22.January.2019 [JRH]
@@ -10557,7 +10005,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixcut1"><a href="#CODE">&#8679</a> xe-matrixcut1</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixcut1 v 1: 2.March.2018 [JRH]
@@ -10578,7 +10026,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixcut2"><a href="#CODE">&#8679</a> xe-matrixcut2</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixcut2 24.February.2019 [JRH]
@@ -10602,7 +10050,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixcut2_inprogress"><a href="#CODE">&#8679</a> xe-matrixcut2_inprogress</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixcut2 24.February.2019 [JRH]
@@ -10626,7 +10074,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixdiff1"><a href="#CODE">&#8679</a> xe-matrixdiff1</h3></font>
-[<a href="#tag-math">math</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-math">math</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixdiff1 v 2: 13.April.2013 [JRH]
@@ -10669,7 +10117,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixmod1"><a href="#CODE">&#8679</a> xe-matrixmod1</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixmod1 v 21.October.2017 [JRH]
@@ -10704,7 +10152,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixpeak1"><a href="#CODE">&#8679</a> xe-matrixpeak1</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixpeak1 v 3: 15.February.2019 [JRH]
@@ -10733,7 +10181,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixsplit1"><a href="#CODE">&#8679</a> xe-matrixsplit1</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixsplit1 v 1: 13.October.2014 [JRH]
@@ -10761,7 +10209,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixstats1"><a href="#CODE">&#8679</a> xe-matrixstats1</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixstats1 v 1: 19.March.2018 [JRH]
@@ -10780,7 +10228,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixsub1"><a href="#CODE">&#8679</a> xe-matrixsub1</h3></font>
-[<a href="#tag-math">math</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-math">math</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixsub1 v 6: 28.November.2012 [JRH]
@@ -10807,7 +10255,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-mxcor2"><a href="#CODE">&#8679</a> xe-mxcor2</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ********************************************************************
 xe-mxcor2 v 2.1: 7.February.2019 [JRH]
@@ -10828,7 +10276,7 @@ Examples:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-nlx2bin"><a href="#CODE">&#8679</a> xe-nlx2bin</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-neuralynx">neuralynx</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-NLX">NLX</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-nlx2bin v 1: 11.November.2019 [JRH]
@@ -11226,7 +10674,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-plotmatrix1"><a href="#CODE">&#8679</a> xe-plotmatrix1</h3></font>
-[<a href="#tag-plot">plot</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-plot">plot</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-plotmatrix1 v 23: 1.January.2019 [JRH]
@@ -11839,7 +11287,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-spectdenoise1"><a href="#CODE">&#8679</a> xe-spectdenoise1</h3></font>
-[<a href="#tag-matrix">matrix</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-noise">noise</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-noise">noise</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-spectdenoise1 v 1: 22.January.2019 [JRH]
@@ -12230,7 +11678,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-template"><a href="#CODE">&#8679</a> xe-template</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-template v 1: 14.April.2014 [JRH]
@@ -14204,7 +13652,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_densitymatrix1_l"><a href="#CODE">&#8679</a> xf_densitymatrix1_l</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-stats">stats</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-stats">stats</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Determine the cumulative occurance of x/y values rounded to fill a matrix of fixed dimensions
 	- note that x/y zero will correspond to the upper left corner of the matrix
@@ -14244,7 +13692,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_densitymatrix2_l"><a href="#CODE">&#8679</a> xf_densitymatrix2_l</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-stats">stats</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-stats">stats</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Determine the cumulative occurance of x/y values rounded to fill a matrix of fixed dimensions
 	- note that x/y zero will correspond to the upper left corner of the matrix
@@ -14887,7 +14335,7 @@ RETURN VALUE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_filter_bworth_matrix1_d"><a href="#CODE">&#8679</a> xf_filter_bworth_matrix1_d</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-filter">filter</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-filter">filter</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 
 	Apply a bi-directional, tweaked biquad Butterworth filter to an 2D matrix of numbers
@@ -16337,7 +15785,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixavg1_d"><a href="#CODE">&#8679</a> xf_matrixavg1_d</h3></font>
-[<a href="#tag-math">math</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-math">math</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate the average matrix from a multi-matrix array
 	John Huxter - 4.March.2012
@@ -16374,7 +15822,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixavg1_f"><a href="#CODE">&#8679</a> xf_matrixavg1_f</h3></font>
-[<a href="#tag-math">math</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-math">math</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate the average matrix from a multi-matrix array
 	John Huxter - 4.March.2012
@@ -16411,7 +15859,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixbin1_d"><a href="#CODE">&#8679</a> xf_matrixbin1_d</h3></font>
-[<a href="#tag-filter">filter</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-filter">filter</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Downsize an input array representing a 2D matrix to a new width and heght
 	Alters the input array
@@ -16441,7 +15889,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixcoh1_d"><a href="#CODE">&#8679</a> xf_matrixcoh1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate the spatial coherence of a matrix
 	- how well does one bin rate predict the 8 neighbouring bins
@@ -16470,7 +15918,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixcontig1_l"><a href="#CODE">&#8679</a> xf_matrixcontig1_l</h3></font>
-[<a href="#tag-matrix">matrix</a>][<a href="#tag-filter">filter</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-filter">filter</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- invalidate (set to zero) matrix bins not adjacent to other non-zero bins
 	- designed for long-integer matrix arrays recording counts of events
@@ -16502,7 +15950,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixexpand1_d"><a href="#CODE">&#8679</a> xf_matrixexpand1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>][<a href="#tag-transform">transform</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-transform">transform</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Expand an array of numbers representing a 2D matrix
 	Rows and columns are duplicated to achieve the user-specified height and width
@@ -16534,7 +15982,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixflipx_d"><a href="#CODE">&#8679</a> xf_matrixflipx_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Flip a matrix in the y-dimaension
 
@@ -16580,7 +16028,7 @@ SAMPLE CALL :
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixflipy_d"><a href="#CODE">&#8679</a> xf_matrixflipy_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Flip a matrix in the y-dimaension
 
@@ -16627,7 +16075,7 @@ SAMPLE CALL :
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixpeak1_d"><a href="#CODE">&#8679</a> xf_matrixpeak1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- define a peak-zone of contiguous values exceeding a threshold in a 2D matrix
 	- peak propogates out in an expanding radius from the highest un-masked element exceeding the threshold
@@ -16672,7 +16120,7 @@ RETURN VALUE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixread1_d"><a href="#CODE">&#8679</a> xf_matrixread1_d</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 		Read one or more matrices from an input
 		Each matrix should be separated by a blank line or a line whos first character is "#"
@@ -16705,7 +16153,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixread2_d"><a href="#CODE">&#8679</a> xf_matrixread2_d</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 		Read one or more matrices from an input
 		Each matrix should be separated by a blank line or a line whos first character is "# followed by an identifier number"
@@ -16753,7 +16201,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixread3_d"><a href="#CODE">&#8679</a> xf_matrixread3_d</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Read one matrix from a single- or multi-matrix input
 	Multiple matrices should be separated by a blank (\n) or header-line (#)
@@ -16814,7 +16262,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixresample1_d"><a href="#CODE">&#8679</a> xf_matrixresample1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>][<a href="#tag-filter">filter</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-filter">filter</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Resample a series of numbers representing a 2D matrix, so
 	there are a user-defined number of rows and columns
@@ -16850,7 +16298,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixrotate1_d"><a href="#CODE">&#8679</a> xf_matrixrotate1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
 
@@ -16903,7 +16351,7 @@ TEST PROGRAM :
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixrotate1_f"><a href="#CODE">&#8679</a> xf_matrixrotate1_f</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
 
@@ -16957,7 +16405,7 @@ TEST PROGRAM :
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixrotate2_d"><a href="#CODE">&#8679</a> xf_matrixrotate2_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
 	- unlike xf_matrixrotate1_d, makes an internal copy of data and modifies the original
@@ -16983,7 +16431,7 @@ RETURN VALUE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_matrixtrans1_d"><a href="#CODE">&#8679</a> xf_matrixtrans1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Transpose a 1-dimensional array of numbers meant to be interpreted as a 2-dimentional matrix
 	Note that this differs from rotation, because low columns become low rows ( & vice versa)
@@ -17252,7 +16700,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_mullerize_d10"><a href="#CODE">&#8679</a> xf_mullerize_d10</h3></font>
-[<a href="#tag-stats">stats</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-stats">stats</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Determine rate cutoffs for Robert-Muller style 10-colour firing-rate maps
 	A fixed proportion of non-zero-rate pixels assigned to each colour...
@@ -17456,7 +16904,7 @@ SAMPLE CALL
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_outlier2_f"><a href="#CODE">&#8679</a> xf_outlier2_f</h3></font>
-[<a href="#tag-dt_block">dt_block</a>][<a href="#tag-stats">stats</a>]<br>
+[<a href="#tag-dt.block">dt.block</a>][<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- remove outliers from a continuous data-series contains multiple, equal-length blocks of data
 	- removal is in the form of invalidating the blocks in which the data-series has an unusual shape
@@ -17862,7 +17310,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_placeinfo1_l"><a href="#CODE">&#8679</a> xf_placeinfo1_l</h3></font>
-[<a href="#tag-stats">stats</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-stats">stats</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate spatial-information-content for place-fields
 	- uses the adaptive binning methods described in Langston et al. 2010 (adapted from Skaggs & McNaughton,1998)
@@ -17907,7 +17355,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_placestats1_d"><a href="#CODE">&#8679</a> xf_placestats1_d</h3></font>
-[<a href="#tag-stats">stats</a>][<a href="#tag-matrix">matrix</a>]<br>
+[<a href="#tag-stats">stats</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate statistics on cell firing rate map pattern...
 
@@ -19073,7 +18521,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_readnlx_ncs"><a href="#CODE">&#8679</a> xf_readnlx_ncs</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-neuralynx">neuralynx</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-NLX">NLX</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Read Neuralynx CSC (.ncs) files into memory - continuously sampled data
 
@@ -19103,7 +18551,7 @@ SAMPLE CALL:
 	x= xf_auc1_d(data, nn, interval, result, );
 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 
-&#60TAGS&#62 file neuralynx&#60/TAGS&#62
+&#60TAGS&#62 file NLX&#60/TAGS&#62
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_readscore1"><a href="#CODE">&#8679</a> xf_readscore1</h3></font>
@@ -19297,7 +18745,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_readwinltp1_f"><a href="#CODE">&#8679</a> xf_readwinltp1_f</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-slice">slice</a>]<br>
+[<a href="#tag-file">file</a>][<a href="#tag-SLICE">SLICE</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- Read WinLTP files (.PO or .APO) containing sweeps for slice electrophysiology
 
@@ -19768,7 +19216,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_screen_club"><a href="#CODE">&#8679</a> xf_screen_club</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-screen">screen</a>][<a href="#tag-time">time</a>][<a href="#tag-spikes">spikes</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-screen">screen</a>][<a href="#tag-time">time</a>][<a href="#tag-dt.spikes">dt.spikes</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- screen time-series club using start-stop pairs (keep club falling between the pairs)
 	- NOTE: timestamps (clubt) will be adjusted, because they are part of the club/t parallel-array structure
@@ -20220,7 +19668,7 @@ RETURN VALUE:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_spectdenoise1_d"><a href="#CODE">&#8679</a> xf_spectdenoise1_d</h3></font>
-[<a href="#tag-matrix">matrix</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
+[<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Remove noise from a spectral-matrix (time x freq)
  	- noise=  single-timepoint decrease/increase that span many adjacent frequencies
@@ -20253,7 +19701,7 @@ SAMPLE CALL:
 	noisecount= xf_spectdenoise1_d(matrix,nn,width,height,-1,3,25,0,0,message);
 	if(noisecount==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 
-&#60TAGS&#62matrix,signal_processing,spectra&#60/TAGS&#62
+&#60TAGS&#62dt.matrix,signal_processing,spectra&#60/TAGS&#62
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_spline1_d"><a href="#CODE">&#8679</a> xf_spline1_d</h3></font>
@@ -20708,7 +20156,7 @@ SAMPLE CALL:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_template"><a href="#CODE">&#8679</a> xf_template</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-ldas">ldas</a>]<br>
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Calculate negative and positive area under the curve - typically fr a time-series
 
@@ -20733,7 +20181,7 @@ SAMPLE CALL:
 	x= xf_auc1_d(data, nn, interval, result, );
 	if(x!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
 
-&#60TAGS&#62 programming ldas &#60/TAGS&#62
+&#60TAGS&#62 programming LDAS &#60/TAGS&#62
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_trimdigits_d"><a href="#CODE">&#8679</a> xf_trimdigits_d</h3></font>

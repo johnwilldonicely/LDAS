@@ -1,5 +1,5 @@
 /*
-<TAGS>stats matrix</TAGS>
+<TAGS>stats dt.matrix</TAGS>
 DESCRIPTION:
 	Calculate spatial-information-content for place-fields
 	- uses the adaptive binning methods described in Langston et al. 2010 (adapted from Skaggs & McNaughton,1998)

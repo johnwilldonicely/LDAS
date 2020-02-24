@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix filter</TAGS>
+<TAGS>dt.matrix filter</TAGS>
 
 DESCRIPTION:
 	Resample a series of numbers representing a 2D matrix, so

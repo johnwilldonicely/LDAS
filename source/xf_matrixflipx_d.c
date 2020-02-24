@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 DESCRIPTION:
 	Flip a matrix in the y-dimaension

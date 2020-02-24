@@ -1,5 +1,5 @@
 /***********************************************************************
-<TAGS>stats signal_processing matrix</TAGS>
+<TAGS>stats signal_processing dt.matrix</TAGS>
 DESCRIPTION:
 	Determine rate cutoffs for Robert-Muller style 10-colour firing-rate maps
 	A fixed proportion of non-zero-rate pixels assigned to each colour...

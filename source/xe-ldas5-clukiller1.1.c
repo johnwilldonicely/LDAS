@@ -7,7 +7,7 @@
 #include <string.h>
 #include <math.h>
 
-/* <TAGS>ldas spikes</TAGS> */
+/* <TAGS>LDAS dt.spikes</TAGS> */
 
 /* external functions start */
 long xf_readclub1(char *infile1, char *infile2, long **clubt, short **club, char *message); 

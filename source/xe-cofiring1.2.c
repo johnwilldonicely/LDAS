@@ -7,7 +7,7 @@
 #define MAXLINELEN 1000
 
 /*
-<TAGS>signal_processing spikes</TAGS>
+<TAGS>signal_processing dt.spikes</TAGS>
 
 v 1.2: 18.April.2016 [JRH]
 	- update correlate function

@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 3: 21.October.2017 [JRH]
 */

@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 v 1: 2.March.2018 [JRH]
 	- user can now define whether a header-comment is included in output

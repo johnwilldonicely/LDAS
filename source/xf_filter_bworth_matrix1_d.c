@@ -1,5 +1,5 @@
 /*
-<TAGS>signal_processing filter matrix</TAGS>
+<TAGS>signal_processing filter dt.matrix</TAGS>
 DESCRIPTION:
 
 	Apply a bi-directional, tweaked biquad Butterworth filter to an 2D matrix of numbers

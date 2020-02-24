@@ -1,5 +1,5 @@
 /*
-<TAGS>math matrix</TAGS>
+<TAGS>math dt.matrix</TAGS>
 DESCRIPTION:
 	Calculate the average matrix from a multi-matrix array
 	John Huxter - 4.March.2012

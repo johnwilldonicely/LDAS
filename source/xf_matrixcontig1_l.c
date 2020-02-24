@@ -1,5 +1,5 @@
 /*
-<TAGS>matrix filter</TAGS>
+<TAGS>dt.matrix filter</TAGS>
 DESCRIPTION:
 	- invalidate (set to zero) matrix bins not adjacent to other non-zero bins
 	- designed for long-integer matrix arrays recording counts of events

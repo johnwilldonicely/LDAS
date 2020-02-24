@@ -9,7 +9,7 @@
 #include <float.h>
 
 /*
-<TAGS>plot matrix</TAGS>
+<TAGS>plot dt.matrix</TAGS>
 
 TO DO:
 	???: incorporate simplified xtlaff/ytaloff definition and axis-functions-definitions as per xe-plottable1 (1.January.2019)

@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 v 3: 15.February.2019 [JRH]
 	- update variable usage, assign input filename directly from argv[1]

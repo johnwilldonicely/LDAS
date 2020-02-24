@@ -210,7 +210,7 @@ if [ "$setmode" == "html" ] ; then
 
 	# MAKE TAG LIST
 	if [ "$setverb" == "1" ] ; then echo "	- building tag-list..." ; fi
-	listtags=$(cut -f 2- $tempfile.1 | paste -s | tr '\t' '\n' | sort -u)
+	listtags=$(cut -f 2- $tempfile.1 | paste -s | tr '\t' '\n' | LC_COLLATE=C sort -u )
 
 # BUILD FILE HEADER
 echo "
@@ -255,7 +255,9 @@ echo "
 LDAS uses tags to help you find code to perform particular tasks. A given script, program or function may have multiple tags, as they may have overlapping functions. This is a list of every category-tag found in the LDAS code:
 <br><br>
 " >> $outfile
+break="0"
 for tag in $listtags ; do
+	if [ "$break" == "0" ] ; then { case ${tag:0:1} in [a-z]*) echo "<p>" >> $outfile ; break="1" ;; esac ; } fi
 	echo "<a href=\"#tag-$tag\">$tag</a> " >> $outfile
 done
 echo "
@@ -263,7 +265,13 @@ echo "
 <blockquote>
 <b>database</b>: working with database tables<br>
 <b>file</b>: reading and converting files of different formats<br>
-<b>matrix</b>: working with 2D matrices of numbers<br>
+</blockquote>
+
+<h3><font color=\"$ct0\">data types</font></h3>
+<blockquote>
+<b>dt.block</b>: timeseries data divided into blocks (e.g. trials, events)<br>
+<b>dt.matrix</b>: 2D matrices of numbers<br>
+<b>dt.spikes</b>: action-potential records, typically in clubt/club file pairs<br>
 </blockquote>
 
 <h3><font color=\"$ct0\">describe data</font></h3>
@@ -298,13 +306,17 @@ echo "
 <h3><font color=\"$ct0\">platform-specific</font></h3>
 <blockquote>
 <b>ldas</b>: code assuming an LDAS data structure and folder contents<br>
-<b>SLICE</b>: for slice electrophysiology experiments (WinLTP software)<br>
-<b>O2</b>: for oxygen-amperometry experiments (CHART software)<br>
+<b>R</b>: scripts to facilitate statstical analysis using R<br>
+<BR>
+<b>EV</b>: Noldus Ethovision whole-body video-tracking<br>
+<b>LASER</b>: for laser-evoked potential studies (medical laser stimulator + TAINI)<br>
 <b>MEA</b>: for slice multi-electrode-array electrophysiology (MES software)<br>
-<b>taini</b>: Taini wireless transmitter data (TainiLive software)<br>
 <b>MED</b>: MED-PC data processing<br>
+<b>NLX</b>: Neuralynx file processing (.ncs)<br>
+<b>O2</b>: for oxygen-amperometry experiments (CHART software)<br>
 <b>SCORE</b>: SCORE data processing (CLB files from 3EG)<br>
-<b>neuralynx</b>: Neuralynx file processing (.ncs)<br>
+<b>SLICE</b>: for slice electrophysiology experiments (WinLTP software)<br>
+<b>TAINI</b>: Taini wireless transmitter data (TainiLive software)<br>
 </blockquote>
 " >> $outfile
 
@@ -322,8 +334,14 @@ of scripts, programs, and functions.
 <br>
 " >> $outfile
 
+break="0"
+echo
 for tag in $listtags ; do
-	if [ "$setverb" == "1" ] ; then echo "		- $tag" ; fi
+	if [ "$setverb" == "1" ] ; then
+		# add a line-break before the first non-capitalized tag
+		if [ "$break" == "0" ] ; then { case ${tag:0:1} in [a-z]*) echo ""; break="1" ;; esac ; } fi
+		echo "		- $tag"
+	fi
 	echo "<h3 id=\"tag-$tag\"><a href=\"#CODE-LINKS\">&#8679</a><font color=\"$ct0\"> CATEGORY: $tag</font></h3>" >> $outfile
 	echo "<table><tr>" >> $outfile
 	# find all files listed in $tempfile.1 which match the current tag

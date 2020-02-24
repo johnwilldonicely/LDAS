@@ -1,5 +1,5 @@
 /*
-<TAGS>stats matrix</TAGS>
+<TAGS>stats dt.matrix</TAGS>
 DESCRIPTION:
 	Calculate statistics on cell firing rate map pattern...
 

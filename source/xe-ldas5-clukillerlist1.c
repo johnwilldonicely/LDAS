@@ -7,7 +7,7 @@
 #include <string.h>
 #include <math.h>
 
-/*<TAGS>ldas spikes</TAGS>*/
+/*<TAGS>LDAS dt.spikes</TAGS>*/
 
 /*
 v 1: 3.April.2017 [JRH]

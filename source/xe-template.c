@@ -12,7 +12,7 @@
 // #include <yaml.h>
 
 /*
-<TAGS>programming ldas</TAGS>
+<TAGS>programming LDAS</TAGS>
 
 v 1: 14.August.2012 [JRH]
 	- bugfix - changed use of fscanf to read data with fgets/sscanf, to avoid problems related to "-" and "."

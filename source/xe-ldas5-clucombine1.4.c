@@ -10,7 +10,7 @@
 #include <limits.h>
 
 /*
-<TAGS>ldas spikes</TAGS>
+<TAGS>LDAS dt.spikes</TAGS>
 
 Versions History:
 v 4: 26.June.2017 [JRH]

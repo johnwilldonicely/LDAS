@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>matrix</TAGS>
+<TAGS>dt.matrix</TAGS>
 
 v 3: 21.October.2017 [JRH]
 */

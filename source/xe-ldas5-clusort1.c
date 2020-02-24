@@ -10,7 +10,7 @@
 #include <float.h>
 
 /*
-<TAGS>spikes</TAGS>
+<TAGS>dt.spikes</TAGS>
 
 v 1: 1.July.2017 [JRH]
 	- add filtering before sorting

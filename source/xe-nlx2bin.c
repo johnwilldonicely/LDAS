@@ -9,7 +9,7 @@
 #include <math.h>
 
 /*
-<TAGS>file neuralynx</TAGS>
+<TAGS>file NLX</TAGS>
 
 v 1: 11.November.2019 [JRH]
 	- program to convert a Neuralynx CSC (.ncs) file into a flat-binary .bin file (float)
