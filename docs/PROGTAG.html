@@ -1363,7 +1363,28 @@ key variables defined by reading the .notes file in the data directory
 
 <font color="Black"><h3 id="code-xs-dat2bin"><a href="#CODE">&#8679</a> xs-dat2bin</h3></font>
 [<a href="#tag-file">file</a>][<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-dat2bin: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-dat2bin: downsample an interlaced .dat file
+	- uses xe-ldas5-readdat2 to interpolate, filter(anti-alias), and decimate
+	- outputs multiple 1-channel .bin files (binary 32-bit float)
+	- basename is everything before the last dot in the input file name
+USAGE: xs-dat2bin [infile] [nchans] [srin]
+	[infile]: interlaced multi-channel binary file (16-bit short-integer)
+	[nchans]: number of channels in infile
+	[srin]: sample-rate of infile
+VALID OPTIONS (defaults in []):
+	--chans: CSV list of channels (from 0) to process []
+	--base: basename for output (if unset, infile minus extension) []
+	--mean: window size (seconds) for de-meaning data (0=SKIP) [0]
+	--srout: output sample-rate (Hz) [1000]
+	--bad: invalid value (0,-1, or 1=SHRT_MAX) [1]
+	--verb: verbose output (0=NO 1=YES) [1]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-dat2bin 20180101_123456.dat 64 20000
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-dbcheck1"><a href="#CODE">&#8679</a> xs-dbcheck1</h3></font>
@@ -1494,7 +1515,29 @@ EXAMPLE:
 
 <font color="Black"><h3 id="code-xs-getgroupnames1"><a href="#CODE">&#8679</a> xs-getgroupnames1</h3></font>
 [<a href="#tag-database">database</a>][<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-getgroupnames1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-getgroupnames1: extract group-names from an LDAS database (db) file
+ - output is in the format &#60group&#62 &#60name&#62
+ - there are three potential sources for the group names: 
+		1: db-file comments in the format "# group_[no]= [name]"
+			[no]= group-number (integer)
+			[name]= group-name, with no spaces or tabs
+ 			example: # group_5= ketamine_3mg/kg
+ 		2: --names table to use, if db-file doesn't list group names [] 
+		3: the db-file group-ids themselves, with the prefix "group_"
+USAGE: 
+	xs-getgroupnames1 [infile]
+		[infile]: a file with group definitions
+VALID OPTIONS (defaults in []):
+	--names: headered file defining group and name []
+	--xml: specify an infile XML section with path & group columns []
+	--head: output header? (0=NO 1=YES) [1]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-getgroupnames1 db_all.txt &#62 table_groupnames.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-getheader"><a href="#CODE">&#8679</a> xs-getheader</h3></font>
@@ -2545,12 +2588,70 @@ EXAMPLE:
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR1"><a href="#CODE">&#8679</a> xs-ldas5-XHAR1</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas5-XHAR1: analyze Hargreaves task behaviour and ephys data
+ANALYSES:
+	- behavioural latencies
+		- looks for TRIAL "latency" column in the .notes file
+		- if present, this is used to re-define "start" for each trial
+		- if latency &#62= timeout (30 seconds), trial is excluded
+USAGE: xs-ldas5-XHAR1 [base] [options]
+	[base]: [yyyymmdd]-[session]_[subject]
+GENERAL OPTIONS...
+	--timeout: time (seconds) at which trials stop automatically [30]
+	--plot: generate plots (0=NO,2=YES) [1]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
+	--trials: CSV list of trial-names to use (or "all" or "no") [all]
+	--adj: adjust trial duration using seconds in a named TRIALS column []
+		"-" prefix resets start relative to stop
+		"+" prefix resets stop relative to start
+		- Hargreaves task stop-signals (paw-withdrawal) are accurate
+		- however the trial start-syncs may preceed the lamp-activation
+		- e.g. --adj -latency : start=(stop-latency*samplerate)
+	--align: redefine start & stop as one or the other (start|stop) [stop]
+		NOTE: if set, use --pre or --post to make non-zero-length trials
+	--pre: seconds to add to start [-60]
+	--post: seconds to add to stop [60]
+	--fhi: high-freq. cut (smooth) for power-timecourse (0=NONE) [0.000])
+BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
+	--delta: [.5,4]
+	--alpha: [4,6]
+	--theta: [6,12]
+	--beta: [12,30]
+	--gamma: [30,100]
+	--hfo: [120,150]
+EXAMPLE: 
+	xs-ldas5-XHAR1 20181231-000_12345 2&#62&1|tee log_xs-ldas5-XHAR1.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR1b"><a href="#CODE">&#8679</a> xs-ldas5-XHAR1b</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR1b: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas5-XHAR1b: batch-run xs-ldas5-XHAR1
+REQUIRES: a properly formatted .notes file
+USAGE: xs-ldas5-XHAR1b [db] [options]
+	[db]: database file specifying path and group on each line
+VALID OPTIONS (defaults in []):
+	--opt1: quoted options to pass to xs-ldas5-XHAR1 []
+	--skip: skip these steps [-]
+		x: execute analysis in each database directory
+		c: collate analyis results
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+...options by-date plots
+	--norm: normalisation (see xe-normrow2) [-1]
+	--n1: start of normalisation zone (week-number)) [0]
+	--n2: end of normalisation zone (week-number) [1]
+EXAMPLE: 
+	xs-ldas5-XHAR1b db_all.txt  2&#62&1|tee log_xs-ldas5-XHAR1b.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR2"><a href="#CODE">&#8679</a> xs-ldas5-XHAR2</h3></font>
@@ -2580,7 +2681,29 @@ EXAMPLE:
 
 <font color="Black"><h3 id="code-xs-ldas5-XHAR3"><a href="#CODE">&#8679</a> xs-ldas5-XHAR3</h3></font>
 [<a href="#tag-TAINI">TAINI</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas5-XHAR3: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas5-XHAR3: analyse XHAR1b output: coherence (inflection, pre & post withdrawal)
+	- run this in the Analysis folder
+	- xs-ldas5-XHAR1b must be run first
+USAGE: xs-ldas5-XHAR3 [analysis] [options]
+	[analysis]: POW or COH 
+VALID OPTIONS (defaults in []):
+	--omit: CSV list of subjects to omit []
+REQUIRES: xs-ldas5-XHAR1b must be run first
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+...options for by-week plots
+	--norm2: by-date normalisation (see xe-normrow2) [2]
+...options within-trial plots
+	--bin: bin-size (seconds) [5]
+	--norm1: within-trial normalisation (see xe-norm3) [3]
+	--n1: start of normalisation zone (week-number)) [-60]
+	--n2: end of normalisation zone (week-number) [-30]
+EXAMPLE: 
+	xs-ldas5-XHAR3 COH --norm 2
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-XPAC1"><a href="#CODE">&#8679</a> xs-ldas5-XPAC1</h3></font>
@@ -3255,7 +3378,23 @@ Output:
 
 <font color="Black"><h3 id="code-xs-ldas-getchannel"><a href="#CODE">&#8679</a> xs-ldas-getchannel</h3></font>
 [<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-getchannel: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas-getchannel: get the channel-number for a region in an LDAS .notes file
+	- this is derived from the CHANNELS table in the .notes file
+USAGE: xs-ldas-getchannel [notes] [region] [options]
+	[notes]: an LDAS .notes file containing a CHANNELS xml section
+	[region]: the brain region to find
+VALID OPTIONS (defaults in []):
+	--output column [chan]
+	--good: accept only good channels (0=NO 1=YES) [1]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+OUTPUT: a CSV list of channels meeting criteria, or an error message
+EXAMPLE: 
+	chan=$(xs-ldas-getchannel file.notes PFC)
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-getseqb"><a href="#CODE">&#8679</a> xs-ldas-getseqb</h3></font>
@@ -3371,7 +3510,24 @@ EXAMPLE: extract data from a .clubt file corresponding with SLEEP trials
 
 <font color="Black"><h3 id="code-xs-ldas-killbadchans1"><a href="#CODE">&#8679</a> xs-ldas-killbadchans1</h3></font>
 [<a href="#tag-file">file</a>][<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-killbadchans1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas-killbadchans1: remove .bin files corresponding to dead channels
+ - this is a space-saving measure
+ - crawls through the folders in Data_Library and Data_Working
+ - requires a .notes file in each directory
+USAGE: xs-ldas-killbadchans1 [folders] [options]
+	[folders]: CSV list of folders to scan
+VALID OPTIONS (defaults in []):
+	--xml: XML section containing channel information [CHANNELS]
+	--col: column to match "bad" values [good]
+	--bad: CSV list of values to match indicating bad values [0]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-ldas-killbadchans1 Data_Library,Data_Working --col good --bad 0 
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-maketestcurves1"><a href="#CODE">&#8679</a> xs-ldas-maketestcurves1</h3></font>
@@ -3765,17 +3921,94 @@ EXAMPLE: xs-ldas-updatenotes2 20181231.notes CHANNELS new.txt
 
 <font color="Black"><h3 id="code-xs-ldas-XLASER1"><a href="#CODE">&#8679</a> xs-ldas-XLASER1</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-XLASER1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas-XLASER1: analyze laser-stimulated behaviour, ERPs, and evoked oscillations
+ANALYSES:
+	- behavioural latencies
+		- looks for TRIAL "latency" column in the .notes file
+		- if present, this is used to re-define "start" for each trial
+/opt/LDAS/xs-ldas-XLASER1: line 70: ECHO: command not found
+USAGE: xs-ldas-XLASER1 [base] [options]
+	[base]: [yyyymmdd]-[session]_[subject]
+
+GENERAL OPTIONS...
+	--regions: CSV list of brain-regions to analyse [all]
+	--plot: generate plots (0=NO,2=YES) [1]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+
+OPTIONS FOR xe-align2 (EVOKED POTENTIAL ANALYSIS):
+	--evhi: high-freq. smoothing cutoff (freq.,0=NONE) [10])
+
+OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:
+	--trials: CSV list of trial-names to use (or "all" or "no") [all]
+	--noise: exclude trials based on std.dev (-1=SKIP) [-1] 
+		- at present, applies only to evoked responses
+		- based on mean-rectified-difference from median trace
+	--align: redefine start & stop as one or the other (start|stop) [start]
+		NOTE: if set, use --pre or --post to make non-zero-length trials
+	--pre: seconds to add to start [-2]
+	--post: seconds to add to stop [5]
+BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs...
+	--delta: [.5,4]
+	--alpha: [4,6]
+	--theta: [6,12]
+	--beta: [12,30]
+	--gamma: [30,100]
+	--hfo: [120,150]
+EXAMPLE: 
+	xs-ldas-XLASER1 20181231-000_12345 2&#62&1|tee log_xs-ldas-XLASER1.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-XLASER1b"><a href="#CODE">&#8679</a> xs-ldas-XLASER1b</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-XLASER1b: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas-XLASER1b: batch-run xs-ldas-XLASER1
+USAGE: xs-ldas-XLASER1b [db] [options]
+	[db]: database file specifying path and group on each line
+VALID OPTIONS (defaults in []):
+	--opt1: quoted options to pass to xs-ldas-XLASER1 []
+	--skip: skip these steps [-]
+		x: execute analysis in each database directory
+		c: collate analyis results
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+...options for by-date plots
+	--norm: normalisation (see xe-normrow2) [-1]
+	--n1: start of normalisation zone (week-number)) [0]
+	--n2: end of normalisation zone (week-number) [1]
+EXAMPLE: 
+	xs-ldas-XLASER1b db_all.txt  2&#62&1|tee log_xs-ldas-XLASER1b.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas-zipexpt"><a href="#CODE">&#8679</a> xs-ldas-zipexpt</h3></font>
 [<a href="#tag-LDAS">LDAS</a>][<a href="#tag-file">file</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-ldas-zipexpt: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas-zipexpt: compress LDAS experiment folder structure to .zip files
+USAGE: 
+	xs-ldas-zipexpt [options]
+VALID OPTIONS:
+	-a: zip Data_Acquired folder (raw data from acquisition systems)
+	-l: zip Data_Library folder  (LDAS-formatted Data folders)
+	-w: zip Data_Working folder  (links to Data_Library for working-output)
+	-y: zip Analysis folder
+	-d: delete each folder after zipping
+EXAMPLE: 
+	xs-ldas-zipexpt -alwyd
+OUTPUT: 
+	LDAS_Data_Acquired.zip
+	LDAS_Data_Library.zip
+	LDAS_Data_Working.zip
+	LDAS_Analysis.zip
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-makelink1"><a href="#CODE">&#8679</a> xs-makelink1</h3></font>
@@ -3867,7 +4100,27 @@ EXAMPLE:
 
 <font color="Black"><h3 id="code-xs-manual"><a href="#CODE">&#8679</a> xs-manual</h3></font>
 [<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-manual: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-manual: view (default) or make LDAS manuals
+USAGE: xs-manual [manual] [options]
+	available manuals: 
+		ldas
+		git
+		taini
+		mea
+		laser
+		hargreaves
+VALID OPTIONS (defaults in []):
+	--view: view manual in terminal,pdf,html [terminal]
+		NOTE: only "terminal" will work if logging in remotely
+	--make: make different-format manual from .md original []
+		Format choices: pdf,html
+		NOTE: setting --make cancels viewing
+EXAMPLE: 
+	xs-manual ldas --view terminal
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-match"><a href="#CODE">&#8679</a> xs-match</h3></font>
@@ -4116,10 +4369,10 @@ EXAMPLE:
 	xs-MEA-merge1 .raw
 
 OUTPUT: (note base-name is derived from folder name)
-	source.dat
-	source.ssp
-	source-[channel].bin
-	source.notes
+	docs.dat
+	docs.ssp
+	docs-[channel].bin
+	docs.notes
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4693,7 +4946,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200224.txt
+- other reports will go to the log file: /opt/LDAS/docs/log_xs-O2-makex5b_200224.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5235,7 +5488,32 @@ EXAMPLE:
 
 <font color="Black"><h3 id="code-xs-plotmatrixsplit1"><a href="#CODE">&#8679</a> xs-plotmatrixsplit1</h3></font>
 [<a href="#tag-plot">plot</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-plotmatrixsplit1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-plotmatrixsplit1: do a split-plot of a matrix
+ - this is very useful for spectral heat-maps
+USAGE: xs-plotmatrixsplit1 [in] [options]
+	[in]: input matrix
+VALID OPTIONS (defaults in []):
+	--mod: quoted options for pre-processing with xe-matrixmod1 []
+	--yrange: CSV min,max [1,150]
+	--xrange: CSV min,max [-60,59]
+	--splity: y-value at which to split plot [30]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+	--verb: verbose output (0=NO 1=YES) [0]
+...options for plots
+	--shift: vertical-shift for bottom plot [60]
+	--title: quoted title, top plot only []
+	--xl: quoted x-axis label, bottom-plot only []
+	--yl: quoted y-axis label []
+	--opts1: everything else, for both plots (see xe-plotmatrix1) []
+	--out: name of output file [plot_xs-plotmatrixsplit1.ps]
+OUTPUT: 
+	postscript plot: plot_xs-plotmatrixsplit1.ps
+EXAMPLE: 
+	xs-plotmatrixsplit1 matrix.txt --xrange -60,60 --opts "-font 6"
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-plotmeans1"><a href="#CODE">&#8679</a> xs-plotmeans1</h3></font>
@@ -6091,47 +6369,317 @@ OUTPUT: changes saved to original file
 
 <font color="Black"><h3 id="code-xs-TAINI-hargreaves0"><a href="#CODE">&#8679</a> xs-TAINI-hargreaves0</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-hargreaves0: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-hargreaves0: extract HARGREAVES trial-records from acquisition PLAN file
+ - trial start-stop pairs are inserted into the .notes file for each subject
+USAGE: xs-TAINI-hargreaves0 [plan] [options]
+	[plan]: a file defining how the eperiment was run
+		- defines date= and experiment= 
+		- &#60MAPPING&#62 section summarizes session, subject and trial
+		- &#60TRIALS&#62 section describes individual trials
+VALID OPTIONS (defaults in []):
+	--batch: batch-run on this CSV list of directories []
+		NOTE: use "*.plan" as the plan name - the quotes matter!
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-TAINI-hargreaves0 PLAN.txt  2&#62&1|tee log_xs-TAINI-hargreaves0.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-laser1"><a href="#CODE">&#8679</a> xs-TAINI-laser1</h3></font>
 [<a href="#tag-LASER">LASER</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-laser1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-laser1: 
+- creates .notes &#60TRIALS&#62 sections for a laser-ERP expt.
+- requires an xml worksheet for each recording session
+	- see /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
+- uses the config file (.yaml) for extracting parameters
+- assumes sync-pair for laser-stim is SYNC_2,SYNC_0
+- assumes sync-pair for audio-stim is SYNC_1,SYNC_0
+
+USAGE: xs-TAINI-laser1 [worksheet] [options]
+	[worksheet]: laser-ERP experimental worksheet (.xlsx or .csv)
+	- this can be multiple files, or wildcards - if in quotes
+
+VALID OPTIONS...
+	--dest: destination output [../../Data_Library]
+		- seeks [base] sub-directories at this location
+		- each [base] sub-directory should contain a .notes file
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+
+EXAMPLES: 
+	xs-TAINI-laser1 20181231_000.xlsx
+	xs-TAINI-laser1 "*.xlsx"
+	xs-TAINI-laser1 "A.xlsx  B.xslx"
+
+OUTPUT...
+	- update to individual .notes files in ../../Data_Acquired/[base]/
+	- missed-stimuli (x's) summary: LASER1.missing
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy0"><a href="#CODE">&#8679</a> xs-TAINI-legacy0</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy0: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-legacy0: invoke "crackit process" for multiple .datraw files 
+	- this legacy code uses Taini's legacy "CRACKIT" program output
+	- detects and replaces missing samples
+	- flips data to correct signal polarity
+	- zeros the data by removing the mean
+	- names the new output .dat
+USAGE: 
+	xs-TAINI-legacy0 [pattern]
+		[pattern]= file pattern to match, assumes filename ends in ".datraw"
+	NOTE: for &#624 files, processing is serial
+	    : for &#60=4 files, processesing is parallel and control returned to terminal
+ADDITIONAL ARGUMENTS:
+	-s: force serial processing rather than parallel (0=NO 1=YES) [0]
+		NOTE: serial processing is used anyway for &#624 files
+EXAMPLE: 
+	xs-TAINI-legacy0 20160415-000
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy1"><a href="#CODE">&#8679</a> xs-TAINI-legacy1</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-legacy1: process .datraw files for ripple-detection
+	- this legacy code uses Taini's legacy "CRACKIT" program output
+	- runs xs-TAINI-legacy0 to replace missing samples and de-mean the data
+	- assumes there are 4 files to process
+	- runs xs-ldas5-ripdet1
+REQUIRES: 
+	- corresponding .synraw files
+USAGE: 
+	xs-TAINI-legacy1 [base] [options]
+		[base]: date-session basename to define input files (.datraw)
+VALID OPTIONS (defaults in []):
+	-d: expected number of .datraw files [4]
+	-n: read duration (seconds, 0=whole-file) [0]
+EXAMPLE: 
+	xs-TAINI-legacy1 20100208-010 -n 4
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy2"><a href="#CODE">&#8679</a> xs-TAINI-legacy2</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy2: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-legacy2: Process Taini Ephys and EthoVision data from a single Ephys session
+	- this legacy code uses Taini's legacy "CRACKIT" program output
+	- renames files with spaces and converts from DOS format
+	- checks date and time from CRACK-IT log & extracts sync-samples
+	- extracts xyd info from all EthoVision records in current folder
+		- assumes input is semicolon-delimited text
+		- generates new timestamps (sample#)
+		- corrects EthoVision positions according to Arena
+		- assumes 4 arenas each with a  cm x  cm range
+	- creates a .notes and .cmt file
+	- creates times_alltrials.ssp file describing trial start-stop samples
+	- create date_subject folders:
+		- copy above output to local files
+		- save link to original .dat in notes file
+		- create downsampled .bin files
+		- create a local interpolated .dat file with non-trial data removed
+REQUIRES: 
+	- [yyyymmdd]-[ses]_[subject].dat file
+	- corresponding .syn file listing trial start-stop samples
+	- Ethovision Track files for the corresponding subject and trials
+	- Ethovision Hardware Control files containing SyncStartStop times
+USAGE: 
+	xs-TAINI-legacy2 [pattern] [readme]
+		[pattern]: pattern to match in .dat file (or "*")
+		[readme]:
+			- defines experiment= 
+			- &#60TRIALMAP&#62 section lists EV trials for each session
+			- if &#621 session listed, .dat files merged &#60NOT IMPLEMENTED AT PRESENT!&#62
+ADDITIONAL ARGUMENTS:
+	-a: EthoVision start-sync label [sync_0]
+	-z: EthoVision stop-sync label [sync_1]
+	-s: skip these steps [-]
+		d: dat file interpolation and chunking for cluster-cutting
+		r: make downsampled (1KHz) .bin files
+		v: process EthoVision video failes & make xyd(t) files
+		m: move files to their destination folders
+	-o: output path [./]
+	-t: template to use if table_channels_[subject].txt is missing []
+EXAMPLE: 
+	xs-TAINI-legacy2 20150930-001 README1.txt -a sync_0 -z sync_1 -s rvm
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-legacy3"><a href="#CODE">&#8679</a> xs-TAINI-legacy3</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-legacy3: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-legacy3: run CRACKIT acquitision
+	- assumes four subjects are recorded at once
+	- automaticaly generates .xml control file
+	- uses current directory as output path
+	- the xml &#60ACQUISITION&#62 field in README.txt defines subject for each device
+	- the same field also defines the device transmission frequency (GHz)
+
+USAGE: 
+	xs-TAINI-legacy3 [readme]
+		[readme]: a properly formatted README.txt file
+
+EXAMPLE: 
+	xs-TAINI-legacy3 README.txt
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-preproc1"><a href="#CODE">&#8679</a> xs-TAINI-preproc1</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-electrophysiology">electrophysiology</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-preproc1: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-preproc1: Process a Taini-Live ephys recording session
+- run in [experiment]/Data_Aquired/[date] - folder for one experiment-type
+- creates [yyyymmdd]-[session]_[subject] folders
+	- copies or links .dat files
+	- copies .sync files
+	- renames copies to the LDAS standard
+	- downsamples each .dat channel to a separate 1KHz .bin file
+	- creates lost-packet lost.ssp files
+	- builds (overwrites) the .notes file
+		- adds CHANNELS section based on one of:
+			- local table_channel_[subject].txt
+			- local table_channel_template.txt
+			- ../../table_channels_[subject].txt
+			- ../../table_channels_template.txt
+			- /opt/LDAS/docs/templates/table_channels_taini_2.txt
+
+USAGE: xs-TAINI-preproc1 [dat] [options]
+	[dat]: quoted list of .dat files (wildcards allowed)
+VALID OPTIONS:
+	--dest: base-destination output [../../Data_Library/]
+		- will create sub-directories for each .dat file
+	--batch: batch-run on this CSV list of directories []
+	--expt: name of experiment, for .notes file  [0]
+		- overrides "experiment= " in TAINI .yaml config file notes
+	--good: analyse good channels only (0=NO 1=YES) [0]
+		- as defined in a table_channels file
+		- if this file is missing, all channels are treated as good
+	--conv: convert .dat files from unsigned to signed (0=NO 1=YES) [0]
+	--chans: template to use if table_channels_[subject].txt is missing
+	 	[/opt/LDAS/docs/templates/table_channels_taini_2.txt]
+	--skip: skip these steps [-]
+		p: lost-packet-finding (-lost.ssp)
+		d: dat file copying (make link instead)
+		b: make downsampled (1KHz) .bin files
+EXAMPLE: 
+	xs-TAINI-preproc1 "*.dat" -s d 2&#62&1| tee log_xs-TAINI-preproc1.txt
+	xs-TAINI-preproc1 "*.dat" --skip pd --batch dir1,dir2,dir3
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-TAINI-tools"><a href="#CODE">&#8679</a> xs-TAINI-tools</h3></font>
 [<a href="#tag-TAINI">TAINI</a>][<a href="#tag-plot">plot</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-TAINI-tools: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-TAINI-tools: run TAINI scripts for data setup, acquisition and testing
+	- some modes require a .plan file with MAPPING and TRIALS sections
+	- TAINI sync-records typically begin with a "blank" sync-0
+
+USAGE: xs-TAINI-tools [mode] [options]
+
+VALID MODES (followed by options starting with --):
+	setup
+		Set up an acquisition directory (requires --expt)
+		Creates a [date]_[expt] directory
+		Adds a [date].plan file
+		Copies channel-table template /opt/LDAS/docs/templates/table_channels_taini_2.txt
+		--expt: name of experiment []
+	fft
+		Run spectrum viewer
+		--input: receiver input to show (ab or cd) [ab]
+	live
+		Run TainiLive
+	sync
+		Check a sync-file and extract start-stop pairs
+		--file: sync file to check & extract []
+		--pre: the sync-record prefix [SYNC_]
+		--seq: CSV list of valid sync-number sequence []
+		--blank: required sync-record which is not output [0]
+		--count: use timestamps to count trials in blocks (0=NO 1=YES) [0]
+			- uses mean interval + 5 s.d. as threshold
+	trials
+		List .plan TRIALS matched to MAPPING subject & session
+		--batch: .plan MAPPING batch to check (#, or "all") [all]
+		--append: CSV list MAPPING columns to append to trials []
+		--file: add sync-file records to trials - see "sync" above
+	check
+		Compare batch trial-counts with subject sync-records
+		--seq: [see above]
+		--batch: [see above]
+	config
+		Output configuration settings (from .yaml)
+		--file: you MUST specify a .dat or .yaml file
+		--expt: override-name of experiment from .yaml []
+	parse
+		Parse a TAINI filename to extract a keyword
+		--file: the file whose name you want to parse
+		--key: the value of interest: id alias year month day date1 date2 inc
+	rename
+		Rename files from TaiNi default to LDAS format
+		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat
+		LDAS standard: [yyyymmdd]-[session]_[alias].dat
+	unrename
+		As above, but restore original TAINI filenames
+		.yaml files required
+	plot
+		Generate a 1-second trace-plot for all .dat files
+		Looks for table_channels_[subject].txt
+
+EXTRA OPTIONS (defaults in []):
+	--plan: specify a plan file (if there is more than one in the folder) []
+	--verb: verbose output (0=NO 1=YES) [0]
+
+EXAMPLES: 
+	xs-TAINI-tools fft --input 2
+	xs-TAINI-tools setup --expt hargreaves_wk3
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-template"><a href="#CODE">&#8679</a> xs-template</h3></font>
 [<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progtag: line 411: /opt/LDAS/xs-template: Permission denied
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-ldas5-XSERIES1b: template BASH script
+xs-ldas5-XSERIES1b: batch-run xs-templat
+REQUIRES: a properly formatted .notes file
+USAGE: xs-ldas5-XSERIES1b [in] [options]
+	[in]: input file, format= &#60time&#62 &#60data&#62
+VALID OPTIONS (defaults in []):
+	-a: set a-flag to 1 []
+	-b: set b-flag to 1 []
+	-f: format []
+	--batch: batch-run on this CSV list of directories []
+		NOTE: in batch mode, quote arguments with wildcards as well
+	--skip: skip these steps [-]
+		x: execute analysis in each database directory
+		c: collate analyis results
+	--opt1: quoted options to pass to xs-templat []
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-ldas5-XSERIES1b data.txt  2&#62&1|tee logxs-ldas5-XSERIES1b.txt
+	xs-ldas5-XSERIES1b "*.plan" --batch dir1,dir2,dir3
+--------------------------------------------------------------------------------
+
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-thetadelta1"><a href="#CODE">&#8679</a> xs-thetadelta1</h3></font>
@@ -11075,7 +11623,7 @@ EXAMPLES:
 	xe-readscore1 data30686.hpc4 -start 6 -n 1 -out 2 &#62 output.bin
 OUTPUT:
 	- all output is sent to stdout
-	- if -out 0, header for each record + clipping
+	- if -out 0, header for each record + %clipping
 	- if -out 1, simple ASCII (1-column) data stream
 	- if -out 2, binary (unsigned char, = 8bit int) data stream
 ----------------------------------------------------------------------
@@ -15704,7 +16252,7 @@ TEST PROGRAM:
 
 	Arguments
 	=========
-	t(input) double precision array, dimension (Nt)	
+	t(input) double precision array, dimension (Nt)
 	 Sample times
 
 	x(input) double precision array, dimension (Nt)
