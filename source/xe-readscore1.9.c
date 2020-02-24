@@ -105,13 +105,13 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"	-sf: sampling frequency (Hz) [%g]\n",setsampfreq);
 		fprintf(stderr,"	-dur: duration (s) of each record [%g]\n",setrecdur);
-		fprintf(stderr,"	-head: size of record headers (bytes) [%d]\n",setnhead);
-		fprintf(stderr,"	-start: record or time to start output at [%d]\n",setstart);
+		fprintf(stderr,"	-head: size of record headers (bytes) [%ld]\n",setnhead);
+		fprintf(stderr,"	-start: record or time to start output at [%ld]\n",setstart);
 		fprintf(stderr,"		two modes: record-number (integer >= zero) or time\n");
 		fprintf(stderr,"		time must be in the format YY:MM:DD:hh:mm:ss\n");
 		fprintf(stderr,"		NOTE: corrects for SCORE's use of MM:DD:YY format\n");
 		fprintf(stderr,"		NOTE: if exact start-time is not found, there will be no output\n");
-		fprintf(stderr,"	-n: max records to output (0 = all) [%d]\n",setnrecords);
+		fprintf(stderr,"	-n: max records to output (0 = all) [%ld]\n",setnrecords);
 		fprintf(stderr,"	-lf: file listing record-numbers (0-offset) to output [unset]\n");
 		fprintf(stderr,"	-out: output format (0=headers only, 1=ASCII, 2=binary) [%d]\n",setout);
 		fprintf(stderr,"		0=headers only\n");
@@ -121,7 +121,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	%s data30686.hpc4 -start 6 -n 1 -out 2 > output.bin\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
 		fprintf(stderr,"	- all output is sent to stdout\n");
-		fprintf(stderr,"	- if -out 0, header for each record + %clipping\n");
+		fprintf(stderr,"	- if -out 0, header for each record + %%clipping\n");
 		fprintf(stderr,"	- if -out 1, simple ASCII (1-column) data stream\n");
 		fprintf(stderr,"	- if -out 2, binary (unsigned char, = 8bit int) data stream\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
@@ -147,9 +147,9 @@ int main (int argc, char *argv[]) {
 	}}
 	if(setsampfreq<0.0) {fprintf(stderr,"\n--- Error[%s]: invalid sample frequency (-sf %g) : must be > 0\n\n",thisprog,setsampfreq);exit(1);}
 	if(setrecdur<0.0) {fprintf(stderr,"\n--- Error[%s]: invalid record duration (-dur %g) : must be > 0\n\n",thisprog,setrecdur);exit(1);}
-	if(setnhead<0.0) {fprintf(stderr,"\n--- Error[%s]: invalid record duration (-head %d) : must be > 0\n\n",thisprog,setnhead);exit(1);}
+	if(setnhead<0.0) {fprintf(stderr,"\n--- Error[%s]: invalid record duration (-head %ld) : must be > 0\n\n",thisprog,setnhead);exit(1);}
 	if(setout<0 || setout>2) {fprintf(stderr,"\n--- Error[%s]: invalid -dtout (%d) : must be 0-2\n\n",thisprog,setout);exit(1);}
-	if(setnrecords<0) {fprintf(stderr,"\n--- Error[%s]: invalid -n (%d) : must be -1 or >= 0\n\n",thisprog,setnrecords);exit(1);}
+	if(setnrecords<0) {fprintf(stderr,"\n--- Error[%s]: invalid -n (%ld) : must be -1 or >= 0\n\n",thisprog,setnrecords);exit(1);}
 
 	/* read start string - decide if it is a SCORE time or a record-number - convert to long integer */
 	if(strstr(startchar,":")!=NULL) {
@@ -157,7 +157,7 @@ int main (int argc, char *argv[]) {
 		startchar= xf_strsub1(startchar,":","");
 	}
 	setstart=atol(startchar);
-	if(setstart<0) {fprintf(stderr,"\n--- Error[%s]: invalid -start (%d) : must be >= 0\n\n",thisprog,setstart);exit(1);}
+	if(setstart<0) {fprintf(stderr,"\n--- Error[%s]: invalid -start (%ld) : must be >= 0\n\n",thisprog,setstart);exit(1);}
 
 	ndata=(size_t)(0.5 + (setsampfreq*setrecdur*(double)sizeof(char)));
 	if((header=(char *)realloc(header,(setnhead)*sizeof(char)))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
@@ -179,7 +179,7 @@ int main (int argc, char *argv[]) {
 		}
 		nlist++;
 		/* allocate memory and initialize list */
-		if((list=(short *)calloc(nlist,sizeof(short)))==NULL) {fprintf(stderr,"--- Error[%s]: insufficient memory\0\n",thisprog);exit(1);}
+		if((list=(short *)calloc(nlist,sizeof(short)))==NULL) {fprintf(stderr,"--- Error[%s]: insufficient memory\n",thisprog);exit(1);}
 		/* go back and assign 0 or 1 to record numbers from the list */
 		rewind(fpin);
 		while(fgets(line,MAXLINELEN,fpin)!=NULL) {
