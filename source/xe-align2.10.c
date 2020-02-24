@@ -321,8 +321,7 @@ int main (int argc, char *argv[]) {
 		if(jj<0) {fprintf(stderr,"%s/%s\n",thisprog,message); exit(1); }
 		if(jj!=nblocks) {
 			kk= nblocks-jj;
-			nblocks= jj;
-			if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
+			nblocks= jj			if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
 			if(setverb>0) fprintf(stderr,"\t%ld outlier blocks (threshold %g mean %g sd %g)\n",kk,result_d[0],result_d[1],result_d[2]);
 		}
 	}

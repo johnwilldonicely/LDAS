@@ -40,6 +40,7 @@ setdummy="0"
 setnz="1.0"
 setns="1"
 setnp="33.333"
+setfhi="0.00"
 
 setplot="1"
 setpsx="0"
@@ -87,11 +88,12 @@ if [ $# -lt 2 ]; then
 	echo "		--n1: norm-start (seconds after start, -1=start) [$setn1]"
 	echo "		--n2: norm-stop  (seconds after stop,  -1=stop)  [$setn2]"
 	echo "	--bin: bin-size (seconds) for summary [$setbin]"
-	echo "NOISE-REMOVAL OPTIONS..."
+	echo "NOISE-REMOVAL OPTIONS FOR MATRIX SPECTRAL OUTPUT..."
 	echo "	--clip: clipping value (de-noising only,-1=noclip) [$setclip]"
 	echo "	--nz: Z-score threshold for noise at each freq (NAN to skip) [$setnz]"
 	echo "	--ns: sign of thesholding (-1=NEG,+1=POS,0=BOTH) [$setns]"
 	echo "	--np: % of freq > nz needed to invalidate timepoint [$setnp]"
+	echo "	--fhi: high-frequency cut (0=NONE) [$setfhi])"
 	echo "BAND OVERRIDE OPTIONS - specify comma-separated start-stop pairs..."
 	for band in $(seq 1 $nbands) ; do
 		echo "	--${fname[$band]}: [${fa[$band]},${fz[$band]}]"
@@ -154,6 +156,7 @@ while [ $# -gt 0 ] ; do
 		--nz ) setnz=$2 ; shift ;;
 		--ns ) setns=$2 ; shift ;;
 		--np ) setnp=$2 ; shift ;;
+		--fhi ) setfhi=$2 ; shift ;;
 		--delta ) setband[1]=$2 ; shift ;;
 		--theta ) setband[2]=$2 ; shift ;;
 		--beta )  setband[3]=$2 ; shift ;;
@@ -397,7 +400,7 @@ freqmax=$setfftmax
 # fft parameters (stderr) saved to separate file
 # noise parameters (stderr) saved to separate file
 xe-fftpow2 $filebin1 -dt 8 -sf $binrate -w $winsize -s $setstep -min $freqmin -max $freqmax -scrf $tempfile.ssp.1 -v 1 -o 1 2> $progbase1"_fftparams.txt" |
-	xe-matrixavg2 stdin -r 1 -c $setclip -z $setnz -s $setns -p $setnp -fsr $freqres -fhi 0 2>$progbase1"_noise.txt" 1>$progbase1"_matrix.txt"
+	xe-matrixavg2 stdin -r 1 -c $setclip -z $setnz -s $setns -p $setnp -fsr $freqres -fhi $setfhi 2>$progbase1"_noise.txt" 1>$progbase1"_matrix.txt"
 if [ "$setverb" == "1" ] ; then cat $progbase1"_fftparams.txt" ; fi
 
 # extract temporal resolution from the fft-parameters output - this is the safest way!
