@@ -1,7 +1,6 @@
 #define thisprog "xe-align2"
-#define TITLE_STRING thisprog" v 11: 22.February.2020 [JRH]"
+#define TITLE_STRING thisprog" v 11: 24.February.2020 [JRH]"
 #define MAXLINELEN 1000
-#define MAXLABELS 1000
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +9,9 @@
 /* <TAGS> dt.block signal_processing transform filter stats </TAGS> */
 
 /*
+v 11: 24.February.2020 [JRH]
+	- move outlier detection to a function (xf_outlier2_f)
+
 v 11: 22.February.2020 [JRH]
 	- add pre-interpolation of data, plus warning if interpolation is >10%
 	- add QC check for first/last arguments
@@ -61,10 +63,9 @@ v 4: 26.January.2014 [JRH]
 /* external functions start */
 long xf_interp3_f(float *data, long ndata);
 
-long xf_outlier2_f(float *dat1, long ndat1, long *start, long nblocks, long blocklen, long zero, char *ref, char *score, float thresh, double *result, char *message);
+long xf_outlier2_f(float *dat1, long ndat1, long *start, long nblocks, long blocklen, long zero, float thresh, double *result, char *message);
 int xf_compare1_d(const void *a, const void *b);
-int xf_percentile1_f(float *data, long nn, double *result);
-float xf_stats1_f(double *dat1, long nn, int digits);
+int xf_percentile1_d(float *data, long nn, double *result);
 
 float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 int xf_filter_bworth1_f(float *X, off_t nn, float sample_freq, float setlow, float sethigh, float res, char *message);
@@ -74,20 +75,21 @@ int xf_detrend1_f(float *y, size_t nn, double *result_d);
 
 int main (int argc, char *argv[]) {
 	/* general variables */
-	char infile[256],outfile[256],line[MAXLINELEN],templine[MAXLINELEN],message[MAXLINELEN],*pcol;
+	char line[MAXLINELEN],message[MAXLINELEN],*pcol;
 	long ii,jj,kk,nn;
 	int z,col,colmatch,setcolmatch;
 	float a,b,c,d;
 	double aa,bb,cc,dd,result_d[32];
 	FILE *fpin,*fpout;
 	/* program-specific variables */
-	float *dat1=NULL,*dat2=NULL,*dat3=NULL,*sumdat2=NULL,*pdat1=NULL;
-	long *start=NULL,ndat1,ndat2=0,n3=0,block,nblocks=0,nblocks3=0,usedblocks=0;
-	long index1,index1b,index1c,index2,index3,zero,bmin,bmax;
+	float *dat1=NULL,*dat2=NULL,*sumdat2=NULL,*pdat1=NULL;
+	long *start=NULL,ndat1,ndat2=0,block,nblocks=0,nblocks3=0,usedblocks=0;
+	long index1,index1b,index1c,index2,index3,bmin,bmax;
+	size_t n3=0,zero; // these are for use with tthe xf_bin1a_f function, which expects unsigned input
 	off_t parameters[5];
 	double sum,mean,sumofsq,stddev,sampint,binsize,binint=0;
 	/* arguments */
-	char cmtfile[256];
+	char *infile=NULL,*cmtfile=NULL;
 	int setnorm=0,setflip=0,setverb=0,setdatatype=0,setout=0;
 	long setfirst=0,setlast=-1,setpre=0,setpost=10,setpn=0,setpnx=0,setnbins=0;
 	float setlow=0.0,sethigh=0.0;  // filter cutoffs
@@ -146,27 +148,27 @@ int main (int argc, char *argv[]) {
 	}
 
 	/* READ THE INPUT FILENAME AND OPTIONAL ARGUMENTS */
-	sprintf(infile,"%s",argv[1]);
-	sprintf(cmtfile,"%s",argv[2]);
-	for(ii=2;ii<argc;ii++) {
+	infile= argv[1];
+	cmtfile= argv[2];
+	for(ii=3;ii<argc;ii++) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
-			else if(strcmp(argv[ii],"-dt")==0) setdatatype=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-sf")==0) setsampfreq=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-pre")==0) setpre=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-post")==0) setpost=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-pn")==0) setpn=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-pnx")==0) setpnx=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-norm")==0) setnorm=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-flip")==0) setflip=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-low")==0) setlow=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-high")==0) sethigh=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-first")==0)setfirst=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-last")==0) setlast=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-noise")==0) setnoise=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-nbins")==0) setnbins=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-out")==0) setout=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-verb")==0) setverb=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-dt")==0) setdatatype= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-sf")==0) setsampfreq= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-pre")==0) setpre= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-post")==0) setpost= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-pn")==0) setpn= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-pnx")==0) setpnx= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-norm")==0) setnorm= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-flip")==0) setflip= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-low")==0) setlow= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-high")==0) sethigh= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-first")==0)setfirst= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-last")==0) setlast= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-noise")==0) setnoise= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-nbins")==0) setnbins= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-out")==0) setout= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
@@ -175,13 +177,18 @@ int main (int argc, char *argv[]) {
 	if(setsampfreq<=0) {fprintf(stderr,"\n--- Error[%s]: -sf (%g) must be >0\n\n",thisprog,setsampfreq);exit(1);};
 	if(setlow<0) {fprintf(stderr,"\n--- Error[%s]: low frequency cutoff (-low %g) must be >= 0 \n\n",thisprog,setlow);exit(1);};
 	if(sethigh<0) {fprintf(stderr,"\n--- Error[%s]: high frequency cutoff (-high %g) must be >= 0 \n\n",thisprog,sethigh);exit(1);};
+
+	if(setpre<0) {fprintf(stderr,"\n--- Error[%s]: -pre (%ld) must be a positive integer\n\n",thisprog,setpre);exit(1);};
+	if(setpn<0) {fprintf(stderr,"\n--- Error[%s]: -pn (%ld) must be a positive integer\n\n",thisprog,setpn);exit(1);};
+	if(setpnx<0) {fprintf(stderr,"\n--- Error[%s]: -pnx (%ld) must be a positive integer\n\n",thisprog,setpnx);exit(1);};
 	if(setpn>setpre) {fprintf(stderr,"\n--- Error[%s]: -pn (%ld) must not exceed -pre (%ld)\n\n",thisprog,setpn,setpre);exit(1);};
 	if(setpnx>setpn) {fprintf(stderr,"\n--- Error[%s]: -pnx (%ld) must not exceed -pn (%ld)\n\n",thisprog,setpnx,setpn);exit(1);};
+	if(setpn==0) setpn=setpre;
+
 	if(setnorm<0||setnorm>5) {fprintf(stderr,"\n--- Error[%s]: -norm (%d) must be 0,1,2,3,4 or 5\n\n",thisprog,setnorm);exit(1);};
 	if(setflip!=0&&setflip!=1) {fprintf(stderr,"\n--- Error[%s]: -flip (%d) must be 0 or 1\n\n",thisprog,setflip);exit(1);};
 	if(setout!=0&&setout!=1) {fprintf(stderr,"\n--- Error[%s]: -out (%d) must be 0 or 1\n\n",thisprog,setout);exit(1);};
-	if(setlast!=-1 && setfirst>setlast) {fprintf(stderr,"\n--- Error[%s]: -first (%ld) is greater than -last (%ld)\n\n",thisprog,setfirst,setlast);exit(1);};
-	if(setpn==0) setpn=setpre;
+	if(setlast!=-1 && setfirst>setlast) {fprintf(stderr,"\n--- Error[%s]: -first (%ld) is greater than -last (%ld)\n\n",thisprog,setfirst,setlast);exit(1);}
 	else if(setnorm==1) {fprintf(stderr,"\n--- Error[%s]: cannot set -pn (%ld) with single-sample normalization (-norm %d)\n\n",thisprog,setpn,setnorm);exit(1);};
 
 	/* calculate block size (ndat2) */
@@ -303,13 +310,9 @@ int main (int argc, char *argv[]) {
 	******************************************************************************/
 	/* allocate memory for aligned data */
 	dat2= realloc(dat2,(ndat2*sizeof(*dat2))); /* actual block length is 1 larger than stop-start */
-	/* allocate memory for median-data calculations */
-	dat3= realloc(dat3,(nblocks*sizeof(*dat3)));
+	if(dat2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 	/* allocate memory for mean arrays - allow for binning to reduce required memory size */
 	sumdat2=calloc(ndat2,sizeof(double));
-
-	if(dat2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-	if(dat3==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 	if(sumdat2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 
 
@@ -317,12 +320,13 @@ int main (int argc, char *argv[]) {
 	NOISY OUTLIER EXCLUSION
 	********************************************************************************/
 	if(setnoise>=0.0) {
-		jj= xf_outlier2_f(dat1,ndat1,start,nblocks,ndat2,setpre,"median","diff",setnoise,result_d,message);
+		jj= xf_outlier2_f(dat1,ndat1,start,nblocks,ndat2,setpre,setnoise,result_d,message);
 		if(jj<0) {fprintf(stderr,"%s/%s\n",thisprog,message); exit(1); }
 		if(jj!=nblocks) {
 			kk= nblocks-jj;
-			nblocks= jj			if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
-			if(setverb>0) fprintf(stderr,"\t%ld outlier blocks (threshold %g mean %g sd %g)\n",kk,result_d[0],result_d[1],result_d[2]);
+			nblocks= jj;
+			if(nblocks==0) {fprintf(stderr,"--- Warning[%s]: no blocks remain after selecting between -first(%ld) and -last(%ld)\n",thisprog,setfirst,setlast);exit(0);}
+			if(setverb>0) fprintf(stderr,"\t%ld outlier blocks (mean score=%g, sd=%g, adjusted threshold=%g)\n",kk,result_d[0],result_d[1],result_d[2]);
 		}
 	}
 
@@ -389,9 +393,8 @@ int main (int argc, char *argv[]) {
 		/* BIN THE DATA FOR THIS BLOCK (IF REQUIRED) TO FACILITATE AVERAGING ACROSS BLOCKS BY OTHER PROGRAMS */
 		/* - dat2, n3 and zero will be adjusted */
 		/* - binsize is converted from the number of samples averaged (may be a fraction) to seconds */
-		zero=setpre;
-		n3=ndat2;
-
+		zero= (size_t)setpre;
+		n3=(size_t)ndat2;
 		if(setnbins>0) {
 			binsize= xf_bin1a_f(dat2,&n3,&zero,setnbins,message);
 			if(binsize==0.0) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message);exit(1);}
@@ -434,7 +437,6 @@ int main (int argc, char *argv[]) {
 END1:
 	if(dat1!=NULL) free(dat1);
 	if(dat2!=NULL) free(dat2);
-	if(dat3!=NULL) free(dat3);
 	if(sumdat2!=NULL) free(sumdat2);
 	if(start!=NULL) free(start);
 	if(setverb>0) fprintf(stderr,"\n");

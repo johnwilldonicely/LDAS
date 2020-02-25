@@ -26,7 +26,7 @@ ARGUMENTS:
 	size_t *setn   : number of elements in data (overwritten - pass as address)
 	size_t *setz   : element to treat as "zero" (overwritten - pass as address)
  	size_t setbins : desired length of data after binning (number of bins used for averaging)
-	char *maessage : array to hold error message
+	char *message  : array to hold error message
 
 RETURN VALUE:
 	- size of bins used for averaging or 0 on fail
@@ -60,7 +60,7 @@ SAMPLE CALL:
 double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message) {
 
 	char *thisfunc="xf_bin1a_d\0";
-	size_t ii,jj,kk,mm,n1,n2,zero,nsums,prevnsums,start;
+	size_t ii,jj,mm,n1,n2,zero,nsums,prevnsums,start;
 	double f1,f2,f4,f0; // variables to indicate optimal binsizes
 	double aa,bb,cc,dd,n1d,binsize,prebins,postbins,limit;
 	double sum,prevsum;
@@ -99,7 +99,6 @@ double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char
 	f1=f2=f4=-1.0;
 	while(aa-->bb) {
 		binsize=aa/bb;
-		kk=(size_t)(binsize);
 		mm= (size_t)(cc/binsize) + (size_t)((n1d-cc)/binsize); // sum of whole-bins before and after zero
 		if(mm==setbins) {
 			dd=binsize; if(dd==(size_t)dd) f1=binsize;     // a whole-integer binsize
