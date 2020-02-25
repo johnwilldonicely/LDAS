@@ -200,9 +200,6 @@ for infile in $listinfiles ; do
 	listblocks=$(grep $pattern $tempfile".1" --color=never | awk '{print $1}' | tr '\n' ' ')
 	let nblocks=$(grep -c $pattern $tempfile".1")
 
-echo $listsubjects2
-exit
-
 	################################################################################
 	# BUILD THE TRIALS SECTION
 	################################################################################

@@ -20,12 +20,18 @@
 # for most scripts...
 thisprog=`basename "$0"`
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
-allopts=$@
 
+allopts=$@
 tempfile="temp_"$thisprog #"."$$"."
 startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date0=$(date)
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
 
 setregions="all"
 settrials="all"
@@ -195,6 +201,14 @@ if [ "$setregions" == "all" ] || [ "$setregions" == "" ] ; then
 	if [ $z -gt 0 ]; then { echo -e "\n"$listregions"\n" ; exit ; } fi
 else
 	listregions=$(echo $setregions | tr ',' ' ')
+	x=""
+	y=""
+	for region in $listregions ; do
+		chan=$(xs-ldas-getchannel $filenotes $region --good 1 --outcol chan)
+		if [ "$chan" == "" ] ; then x=$x" "$region ; else y=$y" "$region ; fi
+	done
+	if [ "$z" != "" ] ; then {  echo -e $GREEN"--- Warning: ["$thisprog"]: skipping bad/missing channels: $x"$NC; } fi
+	listregions=$(echo $y | tr ' ' '\n' | LC_COLLATE=C sort)
 fi
 
 
