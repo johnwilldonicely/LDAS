@@ -207,7 +207,7 @@ else
 		chan=$(xs-ldas-getchannel $filenotes $region --good 1 --outcol chan)
 		if [ "$chan" == "" ] ; then x=$x" "$region ; else y=$y" "$region ; fi
 	done
-	if [ "$z" != "" ] ; then {  echo -e $GREEN"--- Warning: ["$thisprog"]: skipping bad/missing channels: $x"$NC; } fi
+	if [ "$x" != "" ] ; then {  echo -e $GREEN"--- Warning: ["$thisprog"]: skipping bad/missing channels: $x"$NC; } fi
 	listregions=$(echo $y | tr ' ' '\n' | LC_COLLATE=C sort)
 fi
 
@@ -275,17 +275,15 @@ echo -e "region\tstim\ttime\tamp" > $progbase1"_EVOKED_average.txt"
 for region in $listregions ; do
 	echo -e "\tregion="$region
 	plotlist1=""
-	# define the channel
+	# define the channel - no need to check validity of region, we've done that up top
 	chan=$(xs-ldas-getchannel $filenotes $region --good 1 --outcol chan)
-	let z=$(echo $chan | grep "Error" | wc -l)
-	if [ $z -gt 0 ]; then echo -e "\n"$chan"\n" ; exit ; fi
 	# define input file
 	in1=$setbase"-"$(echo $chan| awk '{printf("%03d",$1)}')".bin"
 
 	for stim in $liststim ; do
 		let count=$count+1
 		echo -e "\t\tstim="$stim
-		title="$setbase    Region: $region    Stim: $stim"
+		title="$setbase  Region=$region  Stim=$stim"
 
 		# build a .cmt file for xe-align2
 		xe-strxmlparse1 $filenotes TRIALS |
@@ -298,6 +296,8 @@ for region in $listregions ; do
 		if [ "$setverb" == "1" ] ; then echo -e "\txe-align2 $in1 $tempfile.cmt $optalign" ; fi
 		xe-align2 $in1 $tempfile".cmt" $optalign -out 1 > $tempfile".aligned"
 		xe-align2 $in1 $tempfile".cmt" $optalign -out 0 > $tempfile".average"
+		# determine the number of trials included after outlier-removal
+		let ntrials=$(xe-cut1 $tempfile".aligned" 1 -n 1 | sort -nu | wc -l)
 		# append the results to the output files
 		cat $tempfile".aligned" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_aligned.txt"
 		cat $tempfile".average" | awk '{print "'$region'\t'$stim'\t"$0}' >> $progbase1"_EVOKED_average.txt"
@@ -307,7 +307,7 @@ for region in $listregions ; do
 			plotfile=$tempfile"."$count".A.ps"
 			plotlist1=$plotlist1" "$plotfile
 			xe-cut1 $tempfile".aligned" 2,3 -n 1 |
-				xe-plottable1 stdin $optplot -xlabel "$xl" -ylabel "$yl" -title "$title" -lb 2 -out $plotfile
+				xe-plottable1 stdin $optplot -xlabel "$xl" -ylabel "$yl" -title "$title  trials=$ntrials" -lb 2 -out $plotfile
 			# plot mean trace + error-bars
 			plotfile=$tempfile"."$count".B.ps"
 			plotlist1=$plotlist1" "$plotfile
