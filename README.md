@@ -1,7 +1,7 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* DEPENDENCIES](#dependencies) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types)
+[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types)
 
 # Introduction
 * There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
@@ -94,8 +94,7 @@ After installation is complete, LDAS commands may still not be found until you l
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 
-################################################################################
-# DEPENDENCIES
+## Dependencies
 * Most LDAS dependencies will come with your Linux distribution.
 * If not, they can be installed by the superuser or users with sudo-access.
 * Before installing LDAS, install dependencies with the appropriate command:
@@ -107,7 +106,7 @@ You might wnat to keep the installer if the installation was not successful. But
 Most of the examples below describe a Fedora/Redhat installation. You may have to look online for specific install instructions for different versions of Linux
 
 
-## Essential
+#### Essential
 LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
 
 - wget - for downloading the installer
@@ -118,7 +117,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 - gs - ghostscript - essential for dealing with LDAS graphics
 - nano - simple text editor - used for showing manuals
 
-## Optional (most functionality does not require these)
+#### Optional (most functionality does not require these)
 
 - git - Useful for install-management of LDAS
 ```
@@ -244,6 +243,132 @@ $ cut -f 2 temp_xs-makesignal1 |
 ![plotmatrix](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/sample_plotmatrix.jpg)
 
 ################################################################################
+# USE GUIDELINES 
+
+This sections covers the ground-rules for using LDAS. A lot of this is simply good-practice when working in a Linux environment, but may not be obvious if you are used to working in Windows. This dsection does not cover manuals for individual components of LDAS (se the MANUALS section).
+
+## File-names: no spaces, please!
+
+File and directory (folder) names should **never** contain spaces. If you feel tempted, use an underscore or a hyphen instead. If you copy files from another system which have spaces in them, rename them using **xs-rename**. 
+
+Point-and-click operating systems like Windows have relaxed rules about spaces, but it's a disaster when trying to type commands - don't do it!
+
+## Running commands
+
+Every command you type in Linux begins with the name of the program you want to run. Many Linux built-in programs like "ls" will run just by typing their name and pressing [ENTER].  
+
+Most programs also have otions, often called **arguments**, which come after the program name, separated by a space. The name of the option will begin with a single or double-hyphen (- or --) - it's important to know which. For example, to list all of the contents of a directory in date-order, type:
+```
+	$ ls -t
+```
+
+In LDAS, the typical format for a command is:  
+
+		[program] [input] [otions]  
+
+Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options requires a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type: 
+```
+	$ xe-plottable1 temp.dat -xscale 0.5
+```
+* the program is xe-plottable1
+* the input is temp.dat
+* the option is xscale (beginning with a hyphen)
+* the value for xscale is 0.5 (50%)
+
+## Interrupting commands
+
+When you type a command and press [ENTER] to execute it, normally control of the terminal passes to the program you're running until it finishes. If the proram finishes quickly you may not even notice! However if a program takes a long time to run, anything you type will be ignored until the command prompt ($) returns. 
+
+To stop a program before it finishes to regain control of the terminal:
+```
+	$ [CONTROL]-c
+```
+
+To get control back without stopping the current command, use this sequence:
+```
+	$ [CONTROL]-z
+	$ bg
+```
+Here "bg" tells the system to keep running the last command in the background,
+
+
+To run a program in the background from the outset, so you don't **have** to interrupt it, type the command and add "&" before pressing [ENTER]. For example: 
+```
+	$ xe-plottable1 temp.dat &
+```
+
+## Running programs for long periods
+
+***NOTE***: if you log-out of the Linux workstation, any jobs you have running will, ordinarily, be terminated. This is not a **recommended** way of stopping a program, but one that people often use accidentally. 
+
+If you are running a very long job, and don't want to sit and wait for it to finish, use "&" in combination with **nohup**. This will allow you to log-out and go home for the evening - your work will continue so long as an administraotr doesn't terminate it, and so long as the machine is not shut down. For example, our plot command, run using nohup, looks like this: 
+
+```
+	$ nohup xe-plottable1 temp.dat &
+```
+
+## File-name versus "stdin"
+
+You tell an LDAS program to work on a file either by specifying the name, or, if you are **piping** the data to the program, you substitute the filename for "stdin". Both of the commands below achieve the same thing. 
+``` 
+	$ xe-plottable mydata.txt
+	$ cat mydata.txt | xe-plottable1 stdin 
+```
+For LDAS programs only, "stdin" is a special file-name for **piped** data. If you don't know what the **pipe** is in Linux, read this: 
+
+* https://opensource.com/article/18/8/introduction-pipes-linux
+
+
+## Types of data LDAS works on
+
+LDAS programs usually read one of two types of files: 
+
+* plain text 
+* binary
+
+### Plain text files 
+Plain text files are readable by any text editor, and LDAS typically accepts one of the following types: 
+	* table - with our without headers
+	* matrix - a 2D array of numbers
+
+Note that with tables, if (say) your data is from two groups, **do not** put the data int two columns. Instead, you need a second column which defines the group on each row. For example, rather than this:
+```
+	g1	g2
+	1	4
+	2	5
+	3	6
+```
+Your data sould look instead like this:
+```
+	grp	data
+	1	1
+	1	2
+	1	3
+	2	4
+	2	5
+	2	6
+```
+The second, "correct" format is what is refrred to as a data-frame in the R statistical programming language, and this is the format LDAs expects. 
+
+***NOTE***: Windows programs use a different sequence of invisible characters for the end of each line in text files. This can cause Linux programs (including LDAs) to fail to read them properly. If you are working with files that were edited in Windows, always run **dos2unix** on the file before trying to work with it. 
+
+### Binary data files
+
+Binary data is **NOT** readable in text-editors, so you have to know the format before you process it. Binary files are usually used for large datasets because they are much more compact and much faster to read and write. 
+
+#### Simple is best!
+In LDAS, the philosophy is that simpler = better. Binary file formats created by LDAS are presumed to contain a stream of numbers, all of a single type. There is no file header, no hidden text in the files, and no mixing of data types. 
+
+There are components in LDAS to read more complex binary files like HDF5, but the general strategy is to convert these to a more simple file structure, and to use a **.notes** file to describe the contents in a standard way.
+
+#### Single-channel is fastest!
+While data acquisition systems often interlace data from multiple channels, which may be necessary for efficient data writing at the time of capture, multi-channel files are never as efficient to read as a single-channel file, if you are only looking at one channel at a time. 
+
+For this reason, LDAS happily accepts ".dat" files, which we define as an interlaced file containing multiple channels of **the same type of data**, acquired in parallel. However, for the most efficient processing, LDAS prefers to break the data down into a separate file for each channel for later processing. The storage space on-disk is identical, but the gain in speed is significant.
+
+
+
+################################################################################
 # MANUALS AND PROGRAM-TAGS
 
 1. To print the instructions for any LDAS executable to the screen, type the name of the program and press [RETURN], with no options
@@ -251,6 +376,11 @@ $ cut -f 2 temp_xs-makesignal1 |
 2. the PROGTAG.html document (see below) has a summary of all the onscreen-manuals generated by method (1) above.
 
 3. More general instructions, including this document - can displayed at any time using **xs-manual**. Run **xs-manual** with no arguments for a guide on use.
+
+4. Linux built-in commands like "ls" and "pwd" usually have manuals which you can access by typing "man" followed by the name of the command. For example: 
+``` 
+	$ man ls
+```
 
 ### Program-type tags
 
@@ -594,6 +724,5 @@ These are some basic filetypes used by LDAS.
 ```
 ...
 [END]
-
 
 
