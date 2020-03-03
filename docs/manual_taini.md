@@ -81,12 +81,12 @@ These instructions are for experiments using the TAINI wireless recording system
 	- ** IMPORTANT ** : enter the alias (dossier ID) for each animal
 	- apply settings
 
-* Complete the notes section
+* Complete the "Notes" section
 	- this should include the keyword experiment=
 	- example:
 			experiment= TMAZE_baseline
 
-* Lives section:
+* "Live2 section:
 	- check signals for all devices
 	- if sine-waves appear:
 		- TainiLive is not talking to the receiver

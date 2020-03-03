@@ -252,10 +252,6 @@ if [ "$setfile" != "" ] ; then
 	fi
 fi
 
-if [ "$fileplan" != "" ] ; then
-	filebatch=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin subject,session,batch -s 1 | awk '$1=='$subject'&&$2=='$session'{print $3}')
-	if [ "$filebatch" == "" ] && [ "$setmode" == "trials" ] ; then { echo -e $RED"\n--- Error: no matching batch record for $setfile in $fileplan - this is required for running in \"trials\" mode$NC\n"; exit ; }  fi
-fi
 
 ########################################################################################
 # OPERATING MODES
@@ -524,6 +520,19 @@ fi
 
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "trials" ] ; then
+
+echo -e $RED"\n--- Error["$thisprog"]: this mode is not implemented yet\n"$NC; exit
+
+	if [ "$fileplan" == "" ] ; then echo -e $RED"\n--- Error["$thisprog"]: trials-mode requires a .plan file\n"$NC; exit ; fi
+	let ntrialstot=$(xe-strxmlparse1 $fileplan TRIALS | xe-cut1 stdin batch,box -s 1 -o 1 | wc -l)
+	if [ $ntrialstot -lt 1 ] ; then echo -e $RED"\n--- Error["$thisprog"]: missing or empty TRIALS section in $fileplan\n"$NC; exit ; fi
+
+
+	filebatch=$(xe-strxmlparse1 $fileplan MAPPING | xe-cut1 stdin subject,session,batch -s 1 | awk '$1=='$subject'&&$2=='$session'{print $3}')
+	if [ "$filebatch" == "" ] ; then { echo -e $RED"\n--- Error["$thisprog"]: no matching batch record for $setfile in $fileplan - this is required for running in \"trials\" mode\n"$NC; exit ; }  fi
+
+echo "GOT HERE - filebatch="$filebatch
+
 
 	# DETERMINE THE EXPECTED BATCH FROM SYNC FILE-NAME, IF SPECIFIED
 	if [ "$setfile" != "" ] ; then
