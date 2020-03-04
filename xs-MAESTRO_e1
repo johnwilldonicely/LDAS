@@ -1,0 +1,181 @@
+#!/bin/bash
+# <TAGS> MAESTRO </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+starttime=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+setnames="table_groupnames.txt"
+sett1="0.001"
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": per-electrode analysis for MAESTRO data"
+	echo "USAGE: $thisprog [list] [options]"
+	echo "	[list]: CSV list of .xlsx files, in order"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--t1: electrode inclusion: min.rate on any trial [$sett1]"
+	echo "	--names: file defining group-names [$setnames]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	list=\"one.xlsx,two.xlsx,three.xlsx\""
+	echo "	$thisprog $list"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+listinfiles=$1 ; shift
+
+# check file exists & isn't empty
+if [ "$listinfiles" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: empty file list\n" ;  exit; } ; fi
+let ninfiles=$(echo $listinfiles | tr ',' ' ' | wc -w)
+
+# CHECK IF DEPENDENCY IS INSTALLED - EG PANDOC
+if [ "$(command -v libreoffice)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: libreoffice is not installed on this machine: cannot convert .xlsx files\n" ;  exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="t1:,names:,verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--t1 ) sett1=$2 ; shift ;;
+		--names ) setnames=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
+if [ ! -f "$setnames" ] ; then { echo -e "\n--- Error ["$thisprog"]: names-table file (--name $setnames) not found\n" ;  exit; } ; fi
+
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi 
+
+########################################################################################
+# PROCESS EACH INPUT FILE 
+########################################################################################
+listinfiles=$(echo $listinfiles | tr ',' ' ')
+let count=-1
+outlist=""
+for in1 in $listinfiles ; do 
+	let count=$count+1
+
+	dos2unix -q $in1
+
+	# build wells file
+	echo -e "\t"$in1
+	awk -F , '$1=="Well"{for(i=2;i<=NF;i++) print $i}' $in1 > $tempfile.1
+	awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {x=$i; if(x=="") x="-"; print x}}' $in1 > $tempfile.2
+	echo -e "wellno\twell\ttreat" > $tempfile".wells"
+	paste $tempfile.1 $tempfile.2 | awk 'BEGIN{n=0}{print ++n"\t"$0}' >> $tempfile".wells"
+	
+	# build electrode file 
+	# - we need to be careful here because two fields match "Mean Firing Rate (Hz)"
+	# - only take the line which follows "Measurement"
+	awk -F , '$1=="Measurement"{for(i=2;i<=NF;i++) print $i}' $in1 | tr '_' '\t' > $tempfile.1
+	xe-cut2 $in1 Measurement -s3 "ISI Coefficient of Variation" | 
+		tail -n 1 |
+		awk -F , '{for(i=2;i<=NF;i++) {x=$i; if(x=="") x="-"; print x}}' > $tempfile.2
+	echo -e "elno\twell\tel\trate" > $tempfile".electrodes"
+	paste $tempfile.1 $tempfile.2 | awk 'BEGIN{n=0}{print ++n"\t"$0}' >> $tempfile".electrodes"
+
+	# add treatment & wellno to electrode & firingrate
+	xe-dbmatch2 $tempfile".electrodes" well $tempfile".wells" treat | 
+		xe-dbmatch2 stdin well $tempfile".wells" wellno > $tempfile".3"
+
+	# generate outfile for this infile
+	outfile=$tempfile"_out."$count
+	outlist=$outlist" "$outfile
+
+	if [ $count -eq 0 ] ; then 
+		xe-cut1 $tempfile".3" well,el,wellno,elno,treat,rate |
+		xe-strsub1 stdin "rate" "rate_"$count > $outfile
+	else 
+		xe-cut1 $tempfile".3" rate |
+		xe-strsub1 stdin "rate" "rate_"$count > $outfile
+
+	fi 
+	
+done
+
+paste $outlist | 
+	# apply any-trial activity criterion
+	awk 'BEGIN{n=0}{
+		n++
+		if(n==1) print $0"\tgood"
+		else {
+			g=0
+			for(i=6;i<=NF;i++) { if($i>='$sett1')g=1 } 
+			print $0"\t"g
+		}
+	}' |
+	
+	# add group-numbers
+	xe-dbmatch2 stdin treat $setnames group -k name > "out_"$thisprog"_1"
+	
+
+################################################################################
+# NOW MAKE A DATA FRAME 
+################################################################################
+in1="out_"$thisprog"_1"
+
+list=$(head $in1 -n 1 | tr '\t' '\n' | grep rate_ | cut -f 2 -d _)
+
+
+
+# TEST OUTPUT ???	
+xe-dbmatch1 $in1 good 1 | xe-cut1 stdin well,treat,rate_0,rate_1,rate_2,rate_3,rate_4,rate_5 | awk '$3>.005{print $0}'
+
+
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
