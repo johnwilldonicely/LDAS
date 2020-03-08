@@ -28,19 +28,25 @@
 ## Preamble
 LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. LDAS should also run on Unix and OS-X systems, although this has not been tested.
 
-#### Installation scope: local or global
+#### Installation mode: local, global, update
 
-* Local installation is for the **current user only**:
+* local: installation for the **current user only**:
 	* any user can install
 	* LDAS installed in /home/$USER/bin/LDAS
 	* $PATH variable updated in /home/$USER/.bashrc
 
-* Global installation is for **all users**:
+* global: installation for **all users**:
 	* sudo or super-user priviledges required during installation
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
 
-#### Installation mode: git or zip
+* update: updates existing installation, regardless of installation scope:
+	* for gloabl installs, sudo or super-user priviledges required
+	* existing programs will be removed first
+	* dependencies will not be checked
+	* $PATH variable is not altered
+	
+#### Installation source: git or zip
 
 By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this:
 
@@ -79,6 +85,7 @@ Examples:
 	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
 	$ ./LDAS_INSTALL.sh global
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
+	$ ./LDAS_INSTALL.sh update
 ```
 
 ### 4. Check for Warnings and Errors 
