@@ -79,6 +79,7 @@ y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
+
 	case $1 in
 		--dest ) setdest=$2 ; shift ;;
 		--batch ) setbatch=$2 ; shift ;;
@@ -98,6 +99,10 @@ if [ "$setgood" != "0" ] && [ "$setgood" != "1" ] ; then { echo -e "\n--- Error 
 if [ "$setconv" != "0" ] && [ "$setconv" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --conv ($setconv) -  must be 0 or 1\n" ; exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ; exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ; exit; } ; fi
+
+# STRIP TRAILIG SLASH FROM $setdest
+setdest=${setdest%/}
+
 
 ################################################################################
 # IS THIS ACTUALLY A BATCH JOB?
@@ -243,9 +248,7 @@ for filedat in $listdat0 ; do
 		grep -v filename_field_ > $filenotes
 	echo "bin_decimation= "$bindec >> $filenotes
 	echo "bin_sample_rate= "$setbinsf >> $filenotes
-
 	echo "" >> $filenotes
-
 	cat $tempfile".notes.channels."$subject >> $filenotes
 	echo "" >> $filenotes
 
