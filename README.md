@@ -273,14 +273,14 @@ In LDAS, the typical format for a command is:
 
 		[program] [input] [otions]  
 
-Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options requires a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type: 
+Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options require a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type: 
 ```
-	$ xe-plottable1 temp.dat -xscale 0.5
+	$ xe-plottable1 temp.dat -title "MyPlot"
 ```
 * the program is xe-plottable1
 * the input is temp.dat
-* the option is xscale (beginning with a hyphen)
-* the value for xscale is 0.5 (50%)
+* the option is -title (beginning with a hyphen)
+* the value for -title is "MyPlot"
 
 ## Interrupting commands
 
