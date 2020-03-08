@@ -14,7 +14,7 @@ startdir=$(pwd)
 progtime_start=$(date +'%s.%3N')
 setverb="0"
 setclean="1"
-setdest="../../Data_Library"
+setdest="./Data_Library"
 
 # colours for use with text printed to terminal
 RED='\033[0;31m'	# for errors
@@ -57,8 +57,7 @@ NC='\033[0m' 		# to revert to default text colour
 if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
-	echo "$thisprog: "
-	echo "- creates .notes <TRIALS> sections for a laser-ERP expt."
+	echo "$thisprog:  create a .notes <TRIALS> sections for a laser-ERP expt."
 	echo "- requires an xml worksheet for each recording session"
 	echo "	- see $progpath/docs/templates/template_taini_worksheet_laser.xlsx"
 	echo "- uses the config file (.yaml) for extracting parameters"
@@ -151,13 +150,25 @@ for infile in $listinfiles ; do
 	cat $base".csv" | tr ',' '\t' | awk '{if(NF<2) print "" ; else print $0}' > $tempfile".1"
 
 	################################################################################
-	# PROCESS THE CONFIG FILE - DATA FOR ALL SUBJECT-SESSION RECORDINGS
-	fileconfig=$(xe-getkey2 $tempfile".1" CONFIG_FILE=)
-	ext=${fileconfig##*.}
-	if [  "$ext" != "yaml" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: worksheeyt does not specify a .yaml CONFIG file (CONFIG_FILE= $fileconfig)\n"$NC ;  exit; fi
-	if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ;  exit; fi
-	if [  ! -e $fileconfig ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing CONFIG_FILE $fileconfig\n"$NC ;  exit; fi
+	# CHECK WHAT KIND OF WORKSHEET THIS IS
+	z=$(head $tempfile".1" -n 1 | tr ' ' '\t' | cut -f 1)
+	if [ "$z" == "WORKSHEET" ] ; then  worktype="LDAS" ; else worktype="other" ; fi
 
+
+	################################################################################
+	# PROCESS THE CONFIG FILE - DATA FOR ALL SUBJECT-SESSION RECORDINGS
+	if [ "$worktype" == "LDAS" ] ; then
+		fileconfig=$(xe-getkey2 $tempfile".1" CONFIG_FILE=)
+		ext=${fileconfig##*.}
+		if [  "$ext" != "yaml" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: worksheet does not specify a .yaml CONFIG file (CONFIG_FILE= $fileconfig)\n"$NC ; exit; fi
+		if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ; exit; fi
+		if [  ! -e $fileconfig ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing CONFIG_FILE $fileconfig\n"$NC ; exit; fi
+	else
+		fileconfig=$(ls *configuration.yaml)
+		if [  "$fileconfig" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: CONFIG_FILE= undefined in $infile\n"$NC ; exit; fi
+		let z=$(ls *configuration.yaml | wc -l)
+		if [  $z -gt 1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: multiple config files present - this is incompatible with basic worksheets\n"$NC ; exit; fi
+	fi
 	# get the TAINI configuration summary for all recordings in this config file
  	xs-TAINI-tools config --file $fileconfig > $tempfile".config"
 	# check for other errors
@@ -169,94 +180,142 @@ for infile in $listinfiles ; do
 	listdat1=$(grep output_destination: *.yaml | awk -F / '{print $NF}')
 	expt1=$(xe-getkey $tempfile".config" experiment=)
 
-
 	################################################################################
 	# PROCESS THE CONVERTED WORKSHEET ($tempfile.1)
-	# get the pulse duration
-	pulse_dur_ms=$(xe-getkey2 $tempfile".1" PULSE_DUR=)
-	if [  "$pulse_dur_ms" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: PULSE_DUR= undefined in $infile\n"$NC ;  exit; fi
-	# define date2 - check against config file
-	d=$(xe-getkey2 $tempfile".1" DATE=)
-	date2="" ; for z in 1 2 3 4 ; do date2=$(echo $d | xe-dateconv1 stdin -i $z); if [ "$date2" != "NAN" ]; then  break; fi; done
-	if [ "$date2" == "NAN" ] || [ "$date2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: invalid DATE= ($z) in $fileconfig \n"$NC ; exit; fi
-	if [ "$date2" != "$date1" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: date from worksheet ($date2) does not match start_date in config file ($date1) \n"$NC ; exit; fi
-	# determine the number of boxes - should be 4, depending on whether a subject_id is entered for the boxes in the worksheet
-	let nboxes=$(xe-getkey2 $tempfile".1" NBOXES=)
-	# make sure it matches the number of subjects from the config file
-	if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of active boxes in worksheet (NBOXES= $nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
-	# store CSV list of subject-ID's >0 and numeric-only
-	listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0 && $i ~ /^[0-9]+$/)print $i}' | paste -s | tr '\t' ',')
-	# make sure SUBJECT_IDs were found, were numeric>0 and match subjects in config
-	# - note that listsubjects2b is just for reporting purposes in the event of an error
-	listsubjects2b=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i!="") print $i}' | paste -s | tr '\t' ',')
-	let nsubjects2=$(echo $listsubjects2 | tr ',' ' ' | wc -w)
-	if [ "$listsubjects2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: no SUBJECT_IDs found in worksheet $infile \n"$NC ; exit; fi
-	if [ $nsubjects2 -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: remove zero or non-numeric subject ID's ($listsubjects2b) from worksheet $infile\n"$NC ; exit; fi
-
-	# store list of box-columns for subject-ID > 0
-	listcols2=$(grep NBOXES= $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print i}' | paste -s | tr '\t' ',')
-	# determine number of blocks of trials
-	pattern="BLOCK#"
-	listblocks=$(grep $pattern $tempfile".1" --color=never | awk '{print $1}' | tr '\n' ' ')
-	let nblocks=$(grep -c $pattern $tempfile".1")
+	if [ "$worktype" == "LDAS" ] ; then
+		# get the pulse duration
+		pulse_dur_ms=$(xe-getkey2 $tempfile".1" PULSE_DUR=)
+		if [  "$pulse_dur_ms" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: PULSE_DUR= undefined in $infile\n"$NC ;  exit; fi
+		# define date2 - check against config file
+		d=$(xe-getkey2 $tempfile".1" DATE=)
+		date2="" ; for z in 1 2 3 4 ; do date2=$(echo $d | xe-dateconv1 stdin -i $z); if [ "$date2" != "NAN" ]; then  break; fi; done
+		if [ "$date2" == "NAN" ] || [ "$date2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: invalid DATE= ($z) in $fileconfig \n"$NC ; exit; fi
+		if [ "$date2" != "$date1" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: date from worksheet ($date2) does not match start_date in config file ($date1) \n"$NC ; exit; fi
+		# determine the number of boxes - should be 4, depending on whether a subject_id is entered for the boxes in the worksheet
+		let nboxes=$(xe-getkey2 $tempfile".1" NBOXES=)
+		# make sure it matches the number of subjects from the config file
+		if [ $nboxes -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: number of active boxes in worksheet (NBOXES= $nboxes) doesn't match number of subjects in config file ($nsubjects1)\n"$NC ; exit; fi
+		# store CSV list of subject-ID's >0 and numeric-only
+		listsubjects2=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0 && $i ~ /^[0-9]+$/)print $i}' | paste -s | tr '\t' ',')
+		# make sure SUBJECT_IDs were found, were numeric>0 and match subjects in config
+		# - note that listsubjects2b is just for reporting purposes in the event of an error
+		listsubjects2b=$(grep SUBJECT_IDS $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i!="") print $i}' | paste -s | tr '\t' ',')
+		let nsubjects2=$(echo $listsubjects2 | tr ',' ' ' | wc -w)
+		if [ "$listsubjects2" == "" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: no SUBJECT_IDs found in worksheet $infile \n"$NC ; exit; fi
+		if [ $nsubjects2 -ne $nsubjects1 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: remove zero or non-numeric subject ID's ($listsubjects2b) from worksheet $infile\n"$NC ; exit; fi
+		# store list of box-columns for subject-ID > 0
+		listcols2=$(grep NBOXES= $tempfile".1" | awk -F '\t' '{for(i=3;i<=NF;i++) if($i>0)print i}' | paste -s | tr '\t' ',')
+		# determine number of blocks of trials
+		pattern="BLOCK#"
+		listblocks=$(grep $pattern $tempfile".1" --color=never | awk '{print $1}' | tr '\n' ' ')
+		let nblocks=$(grep -c $pattern $tempfile".1")
+	else
+		echo "NOT LDAS WORKSHEET"
+		pulse_dur_ms="4"
+		xs-strsubfile $tempfile".1"  "Sync pulse" "syncnum"
+		xs-strsubfile $tempfile".1"  "Stim strength" "stim"
+		xs-strsubfile $tempfile".1"  "Response" "response"
+		xs-strsubfile $tempfile".1"  "Stim location" "target"
+		xs-strsubfile $tempfile".1"  "Box number" "box"
+	fi
 
 	################################################################################
-	# BUILD THE TRIALS SECTION
+	# PROCESS BLOCKS OF DATA TO BUILD TRIAL LIST
+	# - the LDAS worksheets allow LDAs to do all the checks and conversions
+	# - non-LDAS worksheets assume the user has already done the hard work
 	################################################################################
-	echo -e "\t- analyzing blocks..."
-	# INITIALISE $trialtot
-	let trialtot=0
-	for code in $listblocks ; do
-		# DEFINE BLOCK AND STIM-STRENGTH
-		block=${code##*#}
-		stim=$(xe-cut2 $tempfile".1" $code -s1 1 | head -n 1 | xe-delimit stdin | tr '\t' ' ' | tr -s " " | xe-getkey stdin STIM=)
-		if [ "$stim" == "" ] ; then echo -e "\t\t- skipping block $block: no stim strength specified" ; continue ; fi
-		# BUILD A TEMP-FILE FOR THIS BLOCK ONLY
-		echo $listsubjects2 | tr ',' '\t' > $tempfile".2"
-		xe-cut2 $tempfile".1" $code -s3 tot: | tail -n +3 | cut -f $listcols2 | awk 'NF>0{print $0}' >> $tempfile".2"
-		rm -f $tempfile".3"
-		# NOW DO THE TRIAL ANALYSIS FOR THIS BLOCK - ONE LINE OUT PER STIM
-		cat $tempfile".2" |
-		awk -F '\t' '
-		BEGIN { n=0; trials=0; out1="'$tempfile'.3"; out2="'$outfile2'"	}
-		{
-			if(++n==1) { missing=0 ; for(i=1;i<=NF;i++) id[i]=$i }
-			else {
-				for(i=1;i<=NF;i++) {
-					output="" ; target="-" ; response="-" ; empty="0"
-					split($i, chars, "")
-					if(length($i)<1) continue
-					for (j=1;j<=length($i);j++) {
-						char=chars[j]
-						if(char=="") continue
-						else if(char=="x"||char=="X") {
+
+	################################################################################
+	# OPTION A: LDAS WORKSHEET
+	if [ "$worktype" == "LDAS" ] ; then
+		echo -e "\t- analyzing blocks..."
+		# INITIALISE $trialtot
+		let trialtot=0
+		for code in $listblocks ; do
+			# DEFINE BLOCK AND STIM-STRENGTH
+			block=${code##*#}
+			stim=$(xe-cut2 $tempfile".1" $code -s1 1 | head -n 1 | xe-delimit stdin | tr '\t' ' ' | tr -s " " | xe-getkey stdin STIM=)
+			if [ "$stim" == "" ] ; then echo -e "\t\t- skipping block $block: no stim strength specified" ; continue ; fi
+			# BUILD A TEMP-FILE FOR THIS BLOCK ONLY
+			echo $listsubjects2 | tr ',' '\t' > $tempfile".2"
+			xe-cut2 $tempfile".1" $code -s3 tot: | tail -n +3 | cut -f $listcols2 | awk 'NF>0{print $0}' >> $tempfile".2"
+			let z=$(cat  $tempfile".2"| wc -l)
+			if [ $z -lt 2 ] ; then  echo -e $GREEN"\t\t---Warning: skipping block $block: stim strength $stim specified but no trials"$NC ; continue ; fi
+
+			# NOW DO THE TRIAL ANALYSIS FOR THIS BLOCK - ONE LINE OUT PER STIM
+			rm -f $tempfile".3"
+			cat $tempfile".2" |
+			awk -F '\t' '
+			BEGIN { n=0; trials=0; out1="'$tempfile'.3"; out2="'$outfile2'"	}
+			{
+				if(++n==1) { missing=0 ; for(i=1;i<=NF;i++) id[i]=$i }
+				else {
+					for(i=1;i<=NF;i++) {
+						output="" ; target="-" ; response="-" ; empty="0"
+						split($i, chars, "")
+						if(length($i)<1) continue
+						for (j=1;j<=length($i);j++) {
+							char=chars[j]
+							if(char=="") continue
+							else if(char=="x"||char=="X") {
+								trials++
+								missing++
+								z= '$trialtot'+trials
+								output=i"\t"id[i]"\t'$block'\t"trials"\t"z"\t'$stim'\t"target"\t"response
+								print output >> out1
+								if(j==length($i)) empty="1"
+								continue
+							}
+						else if(char=="L") { target="BL" }
+						else if(char=="R") { target="BR" }
+							else if(char~/[0-9]/) { response=char }
+						}
+						if(empty=="0") {
 							trials++
-							missing++
 							z= '$trialtot'+trials
 							output=i"\t"id[i]"\t'$block'\t"trials"\t"z"\t'$stim'\t"target"\t"response
 							print output >> out1
-							if(j==length($i)) empty="1"
-							continue
-						}
-					else if(char=="L") { target="BL" }
-					else if(char=="R") { target="BR" }
-						else if(char~/[0-9]/) { response=char }
-					}
-					if(empty=="0") {
-						trials++
-						z= '$trialtot'+trials
-						output=i"\t"id[i]"\t'$block'\t"trials"\t"z"\t'$stim'\t"target"\t"response
-						print output >> out1
-		}}}}
-		END { print "'$batch'\t'$block'\t"trials"\t"missing >> out2 }
-		'
-		# UPDATE trialtot
-		let z=$(cat $tempfile".3" | wc -l)
-		let trialtot=$trialtot+$z
-		# APPEND THIS BLOCK TO THE TRIALS SECTION
-		cat $tempfile".3" >> $tempfile"_trials_all"
+			}}}}
+			END { print "'$batch'\t'$block'\t"trials"\t"missing >> out2 }
+			'
+			# UPDATE trialtot
+			let z=$(cat $tempfile".3" | wc -l)
+			let trialtot=$trialtot+$z
+			# APPEND THIS BLOCK TO THE TRIALS SECTION
+			cat $tempfile".3" >> $tempfile"_trials_all"
 
-	done # END OF LIST-BLOCKS LOOP - STILL ONSIDE OF WORKSHEET-LIST LOOP
+		done # END OF LIST-BLOCKS LOOP - STILL INSIDE WORKSHEET-LIST LOOP
+
+	################################################################################
+	# OPTION B:  NON-LDAS WORKSHEET - ASSUME BLOCK CHANGES WHEN STIM CHANGES
+	else
+		# build a table for matching subject to box number
+		xe-getkey $tempfile".config" subject= |
+			tr ',' '\n' |
+			awk 'BEGIN{n=0;print "box\tsubject"}{print ++n"\t"$1}' > $tempfile"_boxsub"
+
+		# define list of columns in non-LDAS worksheet
+		listcols2="box,syncnum,stim,target,response"
+		listcols3=$(echo $listcols2 | xe-strsub1 stdin ',' '\t')
+		echo -e $listcols3"\tblock\tb_trial" > $tempfile".2"
+
+		xe-cut1 $tempfile".1" $listcols2 -d "\t" -o 1 |
+			awk 'BEGIN{FS=OFS="\t"; block=0;blocktrial=0;prevstim="";}{
+				for(i=1;i<=NF;i++) {
+					if($i==""){$i="-"}
+					if($i=="X"){$i="-"}
+				}
+				stim=$3
+				if(stim!=prevstim) { block++ ; blocktrial=0 }
+				blocktrial++
+				print $0"\t"block"\t"blocktrial
+				prevstim=stim
+			}' >> $tempfile".2"
+		xe-dbmatch2 $tempfile".2" box $tempfile"_boxsub" subject -d '\t' |
+		xe-cut1 stdin box,subject,block,b_trial,syncnum,stim,target,response -d "\t" > $tempfile"_trials_all"
+
+		let trialtot=$(tail -n +2 $tempfile"_trials_all" | wc -l)
+	fi
 
 	################################################################################
 	# MAKE THE <TRIALS> SECTION FOR EACH .DAT FILE IN THE CONFIG
@@ -294,9 +353,9 @@ for infile in $listinfiles ; do
 
 
 		# build the temp trials file for this subject - including a new name field incorporating multiple datatypes
+		# - asuume SYNC_1 trials are "AUDIO"
 		# - for audio trials, convert subject to "ALL" for matching (all subjects receive audio stimulus)
 		# - first determine the column defining "stim" in the combined output
-
 		paste $tempfile"_sync_all" $tempfile"_trials_all" > $tempfile".4"
 		let subcol=$(xe-getkeycol $tempfile".4" subject)
 		let stimcol=$(xe-getkeycol $tempfile".4" stim)

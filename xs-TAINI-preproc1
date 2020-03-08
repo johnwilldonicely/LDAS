@@ -11,7 +11,7 @@ date0=$(date)
 
 setskip="-"
 setchantemplate="/opt/LDAS/docs/templates/table_channels_taini_2.txt"
-setdest="../../Data_Library/"
+setdest="./Data_Library/"
 setbinsf="1000"
 setdemean="100"
 setgood="0"
@@ -216,7 +216,7 @@ for filedat in $listdat0 ; do
 	# GET CONFIG SETTINGS USING xs-TAINI-tools
 	# - in the absence of a .yaml file, uses defaults and .dat file statistics
 	xs-TAINI-tools config --file $filedat > $tempfile".config1"
-	let z=$(grep Error $tempfile".config0" | wc -l)
+	let z=$(grep Error $tempfile".config1" | wc -l)
 	if [ $z -gt 0 ] ; then { echo -e "\n--- Error ["$thisprog"]:" ; cat $tempfile".config1" ; exit; } fi
 	filesync=$(echo $filedat | xe-strsub1 stdin .dat .sync)
 	fileconfig=$(xe-getkey $tempfile".config1" file_config=)
@@ -230,7 +230,6 @@ for filedat in $listdat0 ; do
 	session=$(grep --color=never "session= " $tempfile".config1" | awk '{print $2}')
 	subject=$(grep --color=never "subject= " $tempfile".config1" | awk '{print $2}')
 	base=$(grep --color=never "ldas_basename= " $tempfile".config1" | awk '{print $2}')
-
 	# BUILD THE DESTINATION
 	dest=$setdest"/"$base
 	mkdir -p $dest
