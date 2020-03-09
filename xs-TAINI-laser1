@@ -304,6 +304,7 @@ for infile in $listinfiles ; do
 				for(i=1;i<=NF;i++) {
 					if($i==""){$i="-"}
 					if($i=="X"){$i="-"}
+					if($i=="x"){$i="-"}
 				}
 				stim=$3
 				if(stim!=prevstim) { block++ ; blocktrial=0 }

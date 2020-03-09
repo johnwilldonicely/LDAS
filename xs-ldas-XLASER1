@@ -233,22 +233,43 @@ echo "BEHAVIOURAL ANALYSIS"
 
 # define list of columns-of-interest, output, and plot file
 listcols="trial,stim,target,response,name"
-out1=$progbase1"_BEHAV_summary.txt"
-plotfile=$(echo $out1 | sed -e 's/.txt/.ps/g')
+out1=$progbase1"_BEHAV_trials.txt"
+out2=$progbase1"_BEHAV_summary.txt"
+plotfile1=$(echo $out1 | sed -e 's/.txt/.ps/g')
+plotfile2=$(echo $out2 | sed -e 's/.txt/.ps/g')
 
 # save the trials with good responses, sorted on stim-strength (for plot group-colour assignement)
-xe-dbmatch1 $tempfile".notestrials" response "-" -m -2 | xe-cut1 stdin $listcols |sort -k2,2n -k1,1n > $tempfile
-# make a group-name table
-liststim=$(xe-cut1 $tempfile stim -s 1 -o 1 | sort -nu)
-# make a group-name table based on stim (including XX, blank-stim)
-echo $liststim | tr ' ' '\n' | sort -r | awk 'BEGIN{print "group\tname" }{print $1"\tstim_"$1}' > $tempfile".groupnames"
+xe-dbmatch1 $tempfile".notestrials" response "-" -m -2 |
+	xe-cut1 stdin $listcols |
+	xe-dbmatch1 stdin target L,R -m 1 -d "\t" |
+	sort -k2,2n -k1,1n > $out1
+# save the summary
+xe-cut1 $out1 stim,response |
+	xe-statsgrp1 stdin |
+	xe-cut1 stdin grp1,n,mean |
+	awk 'BEGIN{n=0}{ if(++n==1) print "stim\tn\tresponse" ; else print $0 }' > $out2
 
-# make the plot - xe-plottable1 will assign group-colours according to sorting, above
-xe-plottable1 $tempfile -cx 1 -cy 4 -cg 2 -ymin 0 -ymax 4 -yint 1 -title $setbase -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile
-sleep .5 # pause to make sure plot-writing is completed!
-xs-plotmod1 $plotfile --out 1 --legend $tempfile".groupnames"
+echo "- output sent to:
+	$out1
+	$out2"
+if [ "$setplot" == "1" ] ; then
+	# make a group-name table
+	liststim=$(xe-cut1 $out1 stim -s 1 -o 1 | sort -nu)
+	# make a group-name table based on stim (including XX, blank-stim)
+	echo $liststim | tr ' ' '\n' | sort -r | awk 'BEGIN{print "group\tname" }{print $1"\tstim_"$1}' > $tempfile".groupnames"
 
-echo "- output sent to $plotfile"
+	# make the plot - xe-plottable1 will assign group-colours according to sorting, above
+	xe-plottable1 $out1 -cx 1 -cy 4 -cg 2 -ymin 0 -ymax 4 -yint 1 -title $setbase -xlabel "Trial" -ylabel "Response" -legend 1 -out $plotfile1
+	sleep .5 # pause to make sure plot-writing is completed!
+	xs-plotmod1 $plotfile1 --out 1 --legend $tempfile".groupnames"
+
+	xs-plotmeans1 $out1 stim response -x "Stim (Joules)" -A "-pt box -bz 0 -xscale .45 -xpad .2" -o $plotfile2
+
+	echo "	$plotfile1"
+	echo "	$plotfile2"
+fi
+
+echo
 
 
 ################################################################################
@@ -264,7 +285,7 @@ newpost=$(echo "$setpost * $binrate" | bc | xe-math_round2 stdin)
 newprenorm=$(echo "$setprenorm * -1 * $binrate" | bc | xe-math_round2 stdin)
 
 optalign="-dt 8 -sf $binrate -low $setflo -high $setevhi -pre $newpre -post $newpost -norm 2 -pn $newprenorm -noise $setnoise -verb $setverb"
-optplot="-cx 1 -cy 2 -line 1 -ps 0 -xscale .4 -yscale .25 -vline 0 -xpad 0 -lb 2 -ew 0 -ebright 16 -lwe .1 -colour 1"
+optplot="-cx 1 -cy 2 -line 1 -ps 0 -font 8 -xscale .4 -yscale .12 -vline 0 -xpad 0 -lb 2 -ew 0 -ebright 16 -lwe .1 -colour 1"
 xl="Time (seconds)"
 yl="Amplitude"
 let count=0
@@ -318,7 +339,7 @@ for region in $listregions ; do
 	done
 
 	if [ "$setplot" == "1" ] ; then
-		xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -xinc 275 -yinc 200 -notrans 1
+		xe-plotmerge1 $plotlist1 -xo 100 -xmax 2 -ymax 7 -yo 725 -xinc 275 -yinc 115 -notrans 1
 		plotfile=$tempfile"_"$region".ps"
 		plotlist2=$plotlist2" "$plotfile
 		mv temp_xe-plotmerge1.001.ps $plotfile
@@ -327,11 +348,26 @@ for region in $listregions ; do
 done
 
 if [ "$setplot" == "1" ] ; then
-	xe-plotmerge2 $plotlist2 > $progbase1"_EVOKED_summary.ps"
-	echo "- output sent to "$progbase1"_EVOKED_summary.ps"
+	xe-plotmerge2 $plotlist2 > $progbase1"_EVOKED_aligned.ps"
+	echo "- output sent to "$progbase1"_EVOKED_aligned.ps"
 	rm -f $plotlist2
-fi
 
+	plotlist1=""
+	plotopts="-line 1 -ps 0 -cg 1 -cx 2 -cy 4 -xscale 1 -yscale .45 -legend 2 -colour 8 -vline 0"
+	xl="Time (seconds)"
+	yl="Amplitude"
+	for region in $listregions ; do
+		echo -e "\tplot REGION: "$region
+		plotfile=$tempfile"."$region".ps"
+		plotlist1=$plotlist1" "$plotfile
+		xe-dbmatch1 $progbase1"_EVOKED_average.txt" region $region |
+		xe-strsub1 stdin audio 0 |
+		xe-statsgrp2 stdin -cg1 2 -cg2 3 -cy 4 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title $region -out $plotfile
+	done
+	xe-plotmerge2 $plotlist1 > $progbase1"_EVOKED_average.ps"
+	echo "- output sent to "$progbase1"_EVOKED_average.ps"
+fi
 
 
 ################################################################################
