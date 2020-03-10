@@ -1,5 +1,5 @@
 #define thisprog "xe-plotmatrix1"
-#define TITLE_STRING thisprog" v 23: 1.January.2019 [JRH]"
+#define TITLE_STRING thisprog" v 23: 10.March.2020 [JRH]"
 #define MAXWORDLEN 1000
 
 #include <stdio.h>
@@ -15,6 +15,8 @@ TO DO:
 	???: incorporate simplified xtlaff/ytaloff definition and axis-functions-definitions as per xe-plottable1 (1.January.2019)
 	???: incoporate updated min/max/range calculation as per xe-plottable1 (24.November.2018, 30.September.2018)
 
+v 23: 10.March.2020 [JRH]
+	- update to allow setting colour-ranges which represent a percentile
 v 23: 1.January.2019 [JRH]
 	- correct mis-printing of tics due to floating-point imprecision
 		- for integers, use %ld format instead %.0f
