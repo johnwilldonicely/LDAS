@@ -277,17 +277,17 @@ plotopts="-xmin $xmin -xmax $xmax -xint 1 -yint -1"
 # RATES (ADJUSTED BY --adj)
 plotfile="plot_matrix_1.ps"
 plotlist=$plotlist" "$plotfile
-xe-plotmatrix1 $tempfile".matrix1" $plotopts -title "Rate (Hz)" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
+xe-plotmatrix1 $tempfile".matrix1" $plotopts -zmin 2.5% -zmax 97.5% -title "Rate (Hz)" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
 
 # %CHANGE FROM BASELINE
 plotfile="plot_matrix_2.ps"
 plotlist=$plotlist" "$plotfile
-xe-plotmatrix1 $tempfile".matrix2" $plotopts -title "%Change" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
+xe-plotmatrix1 $tempfile".matrix2" $plotopts -zmin 2.5% -zmax 97.5% -title "%Change" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
 
 # DIFFERENCE FROM BASELINE
 plotfile="plot_matrix_3.ps"
 plotlist=$plotlist" "$plotfile
-xe-plotmatrix1 $tempfile".matrix3" $plotopts -title "Rate-difference (Hz)" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
+xe-plotmatrix1 $tempfile".matrix3" $plotopts -zmin 2.5% -zmax 97.5% -title "Rate-difference (Hz)" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
 
 xe-plotmerge1 $plotlist -xo 100 -xmax 2 -xinc 280 -yinc 250
 mv "temp_xe-plotmerge1.001.ps" "plot_"$thisprog"_1.ps"
