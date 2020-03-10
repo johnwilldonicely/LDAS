@@ -12,8 +12,9 @@ startdir=$(pwd)
 starttime=$(date +'%s.%3N')
 date0=$(date)
 
-setverb="0"
+setverb="1"
 setclean="1"
+setwell="0"
 setnames=""
 setadj="0.01"
 sett1="0.001"
@@ -41,6 +42,7 @@ if [ $# -lt 1 ]; then
 	echo "	--adj: adjustment added to firing-rates to avoid ratio-extremes [$setadj]"
 	echo "	--names: file defining group-names [$setnames]"
 	echo "		- if unset, generated from baseline treatments"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
 	echo "	$thisprog \"*.csv\" --t1 0.5 --adj 0.1 "
@@ -65,7 +67,7 @@ shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:c:" ; vl="adj:,t1:,names:,verb:,clean:"
+vs="v:c:" ; vl="adj:,t1:,well:,names:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -75,12 +77,14 @@ while [ $# -gt 0 ] ; do
 		--t1 ) sett1=$2 ; shift ;;
 		--names ) setnames=$2 ; shift ;;
 		--clean ) setclean=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
 	shift
 done
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 
 if [ "$setclean" == "1" ] ; then
 	rm -f "out_"$thisprog""*
@@ -95,20 +99,29 @@ if [ "$setnames" != "" ] ; then
 	if [ ! -f "$setnames" ] ; then
 		echo -e "\n--- Error ["$thisprog"]: names-table file (--name $setnames) not found\n"
 		exit
-	else cp $setnames $tempfile"_groups"
+	else cp $setnames "out_"$thisprog"_groups.txt"
 	fi
 else
 	in1=$(echo $listinfiles | cut -f 1 -d ' ')
-	awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {if($i!="") print $i}}' $in1 |
-	sort -u |
-	awk 'BEGIN{grp=0; print "group\tname"}
-	{
-		a=tolower($1)
-		if(a=="vehicle" || a=="control") print 0"\t"$1
-		else print ++grp"\t"$1
-	}' > $tempfile"_groups"
+	xe-cut2 $in1 "Well Information" -s3 "Analysis" | 
+		awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {if($i!="") print $i}}' |
+		tr ' ' '_' > $tempfile
+	
+	# make two sorted lists, with vehicles or controls at the top 
+	grep -Ei 'vehicle|control' $tempfile | sort -u > $tempfile.1
+	grep -Eiv 'vehicle|control' $tempfile | sort -u > $tempfile.2
+	
+	cat $tempfile.1 $tempfile.2 |
+		awk 'BEGIN{grp=0; print "group\tname"}
+		{
+		print ++grp"\t"$1
+		}' > "out_"$thisprog"_groups.txt"
 fi
-
+if [ "$setverb" == "1" ] ; then 
+	echo -e "\n\tTreatment Groups:"
+	cat "out_"$thisprog"_groups.txt" | awk '{print "\t"$0}' ; 
+	echo 
+fi 
 
 ########################################################################################
 # PROCESS EACH INPUT FILE
@@ -116,14 +129,16 @@ fi
 let count=-1
 outlist=""
 for in1 in $listinfiles ; do
-	let count=$count+1
 
+	let count=$count+1
+	if [ "$setverb" == "1" ] ; then echo -e "\t"$in1 ; fi 
 	dos2unix -q $in1
 
 	# build wells file
-	echo -e "\t"$in1
+
 	awk -F , '$1=="Well"{for(i=2;i<=NF;i++) print $i}' $in1 > $tempfile.1
-	awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {x=$i; if(x=="") x="-"; print x}}' $in1 > $tempfile.2
+	awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {x=$i; if(x=="") x="-"; print x}}' $in1 |
+		tr ' ' '_' > $tempfile.2
 	echo -e "wellno\twell\ttreat" > $tempfile".wells"
 	paste $tempfile.1 $tempfile.2 | awk 'BEGIN{n=0}{print ++n"\t"$0}' >> $tempfile".wells"
 
@@ -134,6 +149,7 @@ for in1 in $listinfiles ; do
 	xe-cut2 $in1 Measurement -s3 "ISI Coefficient of Variation" |
 		tail -n 1 |
 		awk -F , '{for(i=2;i<=NF;i++) {x=$i; if(x=="") x="-"; print x}}' > $tempfile.2
+
 	echo -e "elno\twell\tel\trate" > $tempfile".electrodes"
 	paste $tempfile.1 $tempfile.2 | awk 'BEGIN{n=0}{print ++n"\t"$0}' >> $tempfile".electrodes"
 
@@ -169,10 +185,11 @@ paste $outlist |
 	}' |
 
 	# add group-numbers
-	xe-dbmatch2 stdin treat $tempfile"_groups" group -k name > $tempfile
+	xe-dbmatch2 stdin treat "out_"$thisprog"_groups.txt" group -k name > $tempfile
+
 
 # reorder columns for readability
-listcols1a="wel,el,wellno,elno,treat,group,good"
+listcols1a="well,el,wellno,elno,treat,group,good"
 listcols1b=$(head -n 1 $tempfile | tr '\t' '\n' | grep rate_ --color=never | paste -s | tr '\t' ',')
 xe-cut1 $tempfile $listcols1a","$listcols1b >  "out_"$thisprog"_1.txt"
 
@@ -240,7 +257,7 @@ done
 in1="out_"$thisprog"_2.txt"
 plotfile="plot_norm_1.ps"
 plotlist=$plotlist" "$plotfile
-xs-plotmeans3 $in1 trial group %change -x "Trial" --name2 $tempfile"_groups" --out $plotfile
+xs-plotmeans3 $in1 trial group %change -x "Trial" --name2 "out_"$thisprog"_groups.txt" --out $plotfile
 
 # PLOT RAW DATA
 in1="out_"$thisprog"_2.txt"
@@ -248,7 +265,7 @@ plotfile="plot_norm_2.ps"
 plotlist=$plotlist" "$plotfile
 plotopts="-cx 2 -cy 3 -cg 1 -xint 1 -pf 0 -ps 3 -lb 2  -line 1 -lwd .25 -hline 1"
 xe-plottable1 $in1 $plotopts -xlabel "Trial" -ylabel "%Change (+$setadj)" -legend 1 -out $plotfile
-xs-plotmod1 $plotfile --legend $tempfile"_groups" --out 1
+xs-plotmod1 $plotfile --legend "out_"$thisprog"_groups.txt" --out 1
 
 
 ################################################################################
@@ -272,7 +289,7 @@ plotfile="plot_matrix_3.ps"
 plotlist=$plotlist" "$plotfile
 xe-plotmatrix1 $tempfile".matrix3" $plotopts -title "Rate-difference (Hz)" -xlabel "Trial" -ylabel "Group x Base-rate" -out $plotfile
 
-xe-plotmerge1 $plotlist -xo 100 -xmax 2 -xinc 280 -yinc 225
+xe-plotmerge1 $plotlist -xo 100 -xmax 2 -xinc 280 -yinc 250
 mv "temp_xe-plotmerge1.001.ps" "plot_"$thisprog"_1.ps"
 echo -e "\toutput sent to: plot_"$thisprog"_1.ps"
 
