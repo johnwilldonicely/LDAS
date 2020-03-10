@@ -31,7 +31,6 @@ ARGUMENTS:
 	   result[8]  : 95th percentile
 	   result[9]  : 97.5th percentile
 	   result[10] : 99th percentile
-	char *message : string to hold error message on fail
 
 RETURN VALUE:
 	0  if successful, -1 if fail
@@ -49,9 +48,6 @@ SAMPLE CALL:
 int xf_compare1_d(const void *a, const void *b);
 
 int xf_percentile1_d(double *data, long nn, double *result) {
-
-	/* external compare function required by qsort - in this instance, comparing type double */
-	int xf_compare1_d(const void *a, const void *b);
 
 	long int ii,jj,kk,n2;
 	double aa,bb,cc, *temp=NULL;

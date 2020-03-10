@@ -59,12 +59,13 @@ int xf_compare1_d(const void *a, const void *b);
 int xf_precision_d(double number, int max);
 long xf_interp3_f(float *data, long ndata);
 int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
+double xf_percentile2_d(double *data, long nn, double setper, char *message);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
 
 	/* GENERAL VARIABLES */
-	char *line=NULL,*templine=NULL,*pline=NULL,*pcol=NULL;
+	char *line=NULL,*templine=NULL,*pline=NULL,*pcol=NULL,message[256];
 	long ii,jj,kk,nn,col;
 	int v,w,x,y,z;
 	float a,b,c,d,e;
@@ -73,7 +74,7 @@ int main (int argc, char *argv[]) {
 
 	/* PROGRAM-SPECIFIC VARIABLES */
 	char *xlabel=NULL,*ylabel=NULL,*plottitle=NULL,*bigtic=NULL;
-	int xticprecision,yticprecision,sizeofx,sizeofy,sizeofz,sizeofncols;
+	int xticprecision,yticprecision,sizeofx,sizeofy,sizeofz,sizeofncols,zminper=0,zmaxper=0;
 	long *index1=NULL,*index2=NULL,*ncols=NULL,nrows=0,colmax=0,maxlinelen=0,nhlines=0,nvlines=0;
 	float xlimit=500.0,ylimit=500.0; // this is the postscript plotting space, in pixels
 	float yticmaxchar;
@@ -103,7 +104,7 @@ int main (int argc, char *argv[]) {
 	float xscale=.3,yscale=.3,setticsize=-3,fontsize=10.0,setbg=-1.0,zx=-1,zy=-1;
 	float lwdata=1,lwaxes=1; // linewidth for drawing data and frame/tics
 	double setxminval=NAN,setxmaxval=NAN,setyminval=NAN,setymaxval=NAN,setxstep=NAN,setystep=NAN,setxint=0,setyint=0,xpad=0.0,ypad=0.0;
-	char *sethlines=NULL,*setvlines=NULL;
+	char *sethlines=NULL,*setvlines=NULL,*setzmintemp=NULL,*setzmaxtemp=NULL;
 	double *hlines=NULL,*vlines=NULL;
 	double setzmin=NAN,setzmax=NAN,setzmid=NAN;
 
@@ -136,7 +137,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-xlabel, -ylabel: axis labels (1 word, use \"_\" for spaces)\n");
 		fprintf(stderr,"	-title: plot title (enclose in quotes)\n");
 		fprintf(stderr,"	-xscale, yscale: scale plot in x [%g] and y [%g] dimensions\n",xscale,yscale);
-		fprintf(stderr,"	-zmin -zmax: colour-range (non-numeric=auto) [%g,%g]\n",setzmin,setzmax);
+		fprintf(stderr,"	-zmin -zmax: colour-range (NAN=auto) [%g,%g]\n",setzmin,setzmax);
+		fprintf(stderr,"		- add %% (eg 95%%) to set as a percentile of z-range\n");
 		fprintf(stderr,"	-zmid: set value for middle colour (non-numeric=auto) [%g]\n",setzmid);
 		fprintf(stderr,"		- attempts to equalize range around mid-point\n");
 		fprintf(stderr,"		- may override zmin,zmax or both\n");
@@ -152,8 +154,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-font: base font size [%g]\n",fontsize);
 		fprintf(stderr,"	-frame: draw frame at bottom(1) left(2) top(4) right(8) [%d]\n",framestyle);
 		fprintf(stderr,"	-tics: size of x- and y-tics (negative=outside frame) [%g]\n",setticsize);
-		fprintf(stderr,"	-hline: CSV list of positions for horizontal dashed lines [unset]\n");
-		fprintf(stderr,"	-vline: CSV list of positions for vertical dashed lines [unset]\n");
+		fprintf(stderr,"	-hline: CSV position-list for horizontal dashed lines [unset]\n");
+		fprintf(stderr,"	-vline: CSV position-list for vertical dashed lines [unset]\n");
 		fprintf(stderr,"	-uc: user-line colour (0 to -cn, or -1 =white|yellow ) [%d]\n",setulinecolour);
 		fprintf(stderr,"	-us: user-line style (0=dashed, 1=solid) [%d]\n",setulinestyle);
 		fprintf(stderr,"	-lwd: line width for data [%g]\n",lwdata);
@@ -186,8 +188,8 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-ymin")==0)    setyminval=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-xmax")==0)    setxmaxval=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-ymax")==0)    setymaxval=atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-zmin")==0)    setzmin= atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-zmax")==0)    setzmax= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-zmin")==0)    setzmintemp= argv[++ii];
+			else if(strcmp(argv[ii],"-zmax")==0)    setzmaxtemp= argv[++ii];
 			else if(strcmp(argv[ii],"-zmid")==0)    setzmid= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-xpad")==0)    { xpad=atof(argv[++ii]); setxpad=1;}
 			else if(strcmp(argv[ii],"-ypad")==0)    { ypad=atof(argv[++ii]); setypad=1;}
@@ -228,7 +230,6 @@ int main (int argc, char *argv[]) {
 	/* allocate memory for bigtic */
 	bigtic= realloc(bigtic,MAXWORDLEN*sizeof(*bigtic));
 	if(bigtic==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-
 
 	/********************************************************************************
 	STORE USER-LINES
@@ -347,6 +348,22 @@ int main (int argc, char *argv[]) {
 			if(zdata[ii]<zmin) zmin=zdata[ii];
 			if(zdata[ii]>zmax) zmax=zdata[ii];
 	}}
+
+	/* set overrides for zmin & zmax - percentiles if required */
+	if(setzmintemp!=NULL) {
+		setzmin= atof(setzmintemp);
+		if(strstr(setzmintemp,"%")!=NULL) {
+			setzmin= xf_percentile2_d(zdata,nn,setzmin,message);
+			if(!isfinite(setzmin)) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	}}
+	if(setzmaxtemp!=NULL) {
+		setzmax= atof(setzmaxtemp);
+		if(strstr(setzmaxtemp,"%")!=NULL) {
+			setzmax= xf_percentile2_d(zdata,nn,setzmax,message);
+			if(!isfinite(setzmax)) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	}}
+
+
 	/* if setzmin was set, override default zmin */
 	if(isfinite(setzmin)) {
 		if(setzclip==0) { for(ii=0;ii<nn;ii++) { if(zdata[ii]<setzmin) zdata[ii]=setzmin; }}
@@ -374,7 +391,6 @@ int main (int argc, char *argv[]) {
 		zmax+=aa;
 	}
 	zrange=zmax-zmin;
-
 
 	/* WARN IF PLOT IS TO BE EMPTY - MAKE SOME FAKE DATA BUT KEEP nn=0 */
 	if(nn<1) {
