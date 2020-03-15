@@ -2,7 +2,7 @@
 <TAGS>dt.matrix</TAGS>
 
 DESCRIPTION:
-	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
+	Rotate a 1-dimensional array of numbers meant to be interpreted as a 2-dimentional matrix
 
 USES:
 	- image or map rotation

@@ -22,6 +22,8 @@ char *xf_strcat1(char *string1,char *string2,char *delimiter) {
 
 	size_t s1,s2,s3,newsize;
 
+	//TEST:printf("---%s--- ---%s---\n",string1,string2);
+
 	/* delimiter must be defined */
 	if(delimiter!=NULL) s3=strlen(delimiter);
 	else return(NULL);
@@ -47,6 +49,7 @@ char *xf_strcat1(char *string1,char *string2,char *delimiter) {
 		strcpy(string1,string2);
 	}
 
+	//TEST: printf("\t---%s---\n",string1);
 	/* return a pointer to the new string1 */
 	return(string1);
 }
