@@ -143,17 +143,19 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1 && setverb != 999) { fprintf(stderr,"\n--- Error [%s]: invalid -verb [%d] must be 0,1, or 999\n\n",thisprog,setverb);exit(1);}
-
 	setcolx--;
 	setcoly--;
+
+/********************************************************************************/
+/* STORING DATA  */
+/********************************************************************************/
 
 	/********************************************************************************
 	STORE DATA - ASSUME WE DON'T KNOW THE LENGTH OF EACH INPUT LINE
 	********************************************************************************/
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
-	sizeofx= sizeof(*xdatf);
-	sizeofy= sizeof(*ydatf);
+	sizeofdata= sizeof(*data);
 	nn=mm=0;
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
@@ -167,29 +169,24 @@ int main (int argc, char *argv[]) {
 		}
 		strcpy(templine,line);
 		/* parse the line */
-//		iword= xf_lineparse1(line,&nwords);
-		iword= xf_lineparse2(line,"\t",&nwords);
+		// iword= xf_lineparse1(line,&nwords); // whitespace delimited, multiple delimiters treated as one
+		iword= xf_lineparse2(line,"\t",&nwords); // user-defined delimited
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
 		/* make sure required columns are present */
-		if(nwords<setcolx || nwords<setcoly) continue;
+		if(nwords<setcolx) continue;
 		/* make sure content in x- and y-columns is numeric */
 		if(sscanf(line+iword[setcolx],"%f",&a)!=1 || !isfinite(a)) continue;
-		if(sscanf(line+iword[setcoly],"%f",&b)!=1 || !isfinite(b)) continue;
 		/* dynamically allocate memory */
-		xdatf= realloc(xdatf,(nn+1)*sizeofx);  // if not using preallocated size, use sizeof(*xdatf)
-		ydatf= realloc(ydatf,(nn+1)*sizeofy); // if not using preallocated size, use sizeof(*ydatf)
-		if(xdatf==NULL || ydatf==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-		/* store values */
-		xdatf[nn]= a;
-		ydatf[nn]= b;
-		/* increment data-counter */
+		data1= realloc(data1,(nn+1)*sizeofdata);  // if not using preallocated size, use sizeof(*data1)
+		if(data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+		/* store the value */
+		data1[nn]= a;
+		/* increment the counter */
 		nn++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-
-//TEST
-for(ii=0;ii<nn;ii++) printf("%g\t%g\n",xdatf[ii],ydatf[ii]);
-goto END;
+	//TEST for(ii=0;ii<nn;ii++) printf("data[%ld]= %g\n",ii,data[ii]);
+	goto END;
 
 
 	/* STORE DATA METHOD 1a - newline-delimited single float */
@@ -319,89 +316,96 @@ exit(0);
 
 
 
-//	/* PARSE A COMMA-SEPARATED COMAND LINE LIST INTO AN ARRAY */
-//	iword= xf_lineparse2(setlist,",",&nwords);
-//	xdat=realloc(xdat,nwords*sizeof(float));
-//	if(xdat==NULL) {{fprintf(stderr,"\n--- Error[%s]: memory allocation error\n\n",thisprog);exit(1);}}
-//	for(ii=0;ii<nwords;ii++) xdat[ii]=atof(setlist+iword[ii]);
-//	for(ii=0;ii<nwords;ii++) printf("xdat[%ld]=%g\n",ii,xdat[ii]);
+	// // TEST MINIMUM-GOOD FILTER
+	// nn=20;
+	// short datas[100];
+	// for(ii=0;ii<nn;ii++) datas[ii]=999;
+	//
+	// jj=0; kk=3; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
+	// jj=7; kk=2; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
+	// jj=11; kk=4; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
+	// jj=18; kk=2; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
+	// for(ii=0;ii<nn;ii++) printf("%ld	%d\n",ii,datas[ii]);
+	// x= xf_filter_mingood2_s(datas,nn,1,3,999,message);
+	// printf("\n");
+	// for(ii=0;ii<nn;ii++) printf("%ld	%d\n",ii,datas[ii]);
+	// exit(0);
 
-	// TEST MINIMUM-GOOD FILTER
-// 	nn=20;
-// 	short datas[100];
-// 	for(ii=0;ii<nn;ii++) datas[ii]=999;
-//
-// 	jj=0; kk=3; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
-// 	jj=7; kk=2; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
-// 	jj=11; kk=4; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
-// 	jj=18; kk=2; for(ii=jj;ii<(jj+kk);ii++) datas[ii]=ii;
-// 	for(ii=0;ii<nn;ii++) printf("%ld	%d\n",ii,datas[ii]);
-// 	x= xf_filter_mingood2_s(datas,nn,1,3,999,message);
-// 	printf("\n");
-// 	for(ii=0;ii<nn;ii++) printf("%ld	%d\n",ii,datas[ii]);
-// 	exit(0);
+	// // TEST strkey1 AND strcat FOR FINDING A KEYWORD VALUE IN A FILE
+	// char *line1=NULL,line2[MAXLINELEN],line3[MAXLINELEN];
+	// if(strcmp(infile,"stdin")==0) fpin=stdin;
+	// else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
+	// while(fgets(line2,MAXLINELEN,fpin)!=NULL) {
+	// 	line1= xf_strcat1(line1,line2,"");
+	// }
+	// if(strcmp(infile,"stdin")!=0) fclose(fpin);
+	// printf("LINE1=\n%s[END]\n",line1);
+	//
+	// x= xf_strkey1(line1,"dark",-1,line3);
+	// printf("KEY-VALUE=%s\n",line3);
+	// free(line1);
+	// exit(0);
 
-	// TEST strkey1 AND strcat FOR FINDING A KEYWORD VALUE IN A FILE
-// 	char *line1=NULL,line2[MAXLINELEN],line3[MAXLINELEN];
-// 	if(strcmp(infile,"stdin")==0) fpin=stdin;
-// 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
-// 	while(fgets(line2,MAXLINELEN,fpin)!=NULL) {
-// 		line1= xf_strcat1(line1,line2,"");
-// 	}
-// 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-// 	printf("LINE1=\n%s[END]\n",line1);
-//
-// 	x= xf_strkey1(line1,"dark",-1,line3);
-// 	printf("KEY-VALUE=%s\n",line3);
-// 	free(line1);
-// 	exit(0);
+/********************************************************************************/
+/* MEMORY ALLOCATION  */
+/********************************************************************************/
+
+	// if((data= calloc(nn,sizeof(*data)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+	// if((data= realloc(data,nn*sizeof(*data)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+
+/********************************************************************************/
+/* STING OPERATIONS */
+/********************************************************************************/
+
+	// /* SIMPLE STRING CONCATENATION */
+	// line=xf_strcat1(line,"newword","\n");
+
+	// /* UNIQUE STRING CONCATENATION (EVERY WORD UNIQUE) - REPORTS WHICH WORD-IN-LINE MATCHED NEW WORD  */
+	// line= xf_strcat2(line,word,'\t',&match,message);
+
+	// /* PARSE A LINE INTO WORDS */
+	// iwords= xf_lineparse2(line,"\t ,",&nwords);
+
+	// /* PARSE A COMMA-SEPARATED COMAND LINE LIST INTO AN ARRAY */
+	// iword= xf_lineparse2(setlist,",",&nwords);
+	// xdat=realloc(xdat,nwords*sizeof(float));
+	// if(xdat==NULL) {{fprintf(stderr,"\n--- Error[%s]: memory allocation error\n\n",thisprog);exit(1);}}
+	// for(ii=0;ii<nwords;ii++) xdat[ii]=atof(setlist+iword[ii]);
+	// for(ii=0;ii<nwords;ii++) printf("xdat[%ld]=%g\n",ii,xdat[ii]);
+
+	// /* FIND (EXACT-MATCH) A WORD IN A LINE */
+	// match= xf_strstr2(haystack,needle,'\t');
+
+	// /* BUILD A LIST USING A SET OF INDIVIDUAL NUMBERS AND RANGES */
+ 	// list= xf_parselist1_l("1,21,30-40",",",min,max,&nn,message);
+
+	// /* REPORTING ERRORS USING THE MESSAGE STRING */
+	// if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+
+/********************************************************************************/
+/* MATHS OPERATIONS */
+/********************************************************************************/
+
+	// /* FIND THE NEAREST POWER OF TWO */
+	// printf("nearest power=%ld\n",log2f(atof(argv[1])));exit(1);
+
+	// /* MODULUS FUNCTION TEST */
+	// 	off_t aaa=15,bbb=4,ccc;
+	// 	if((aaa%bbb)!=0) fprintf(stderr,"ERROR: indivisible\n");
+	// 	else fprintf(stderr,"divisible\n");
 
 
+	// /* BUILDING TIMESTAMPS */
+ 	// // generate the initial timestamp
+ 	// t1 = time(NULL);
+ 	// // convert to local time and place into a structure
+	// tstruct1 = localtime(&t1);
+	// // create timestamp string
+	// strftime(timestring,sizeof(timestring),"%Y%m%d%H%M%S",tstruct1);
+	// fprintf(stderr,"\trecord %ld timestamp %s\n",ii,timestring);
+	// // increment the time by a number of seconds - next time localtime() is called it will correctly change minutes, hours etc
+	// t1+=200;
 
-
-	/*
-	BUILD A LABEL-STRING (IN THIS INSTANCE FROM ARGUMENTS) FOR LABELLING GROUPS
-	REQUIRES
-		char *words		- EFFICIENT STORAGE OF ALL THE WORDS TO BE USED AS LABELS
-		int lenwords	- LENGTH OF THE STORAGE STRING - REQUIRED DURING BUILDING OF THE STRING AND SETTING THE INDICES
-		int nwords 		- TOTAL NUMBER OF LABELS
-	 */
-// 	for(i=1;i<argc;i++) {
-// 		/* check to see if label already exists */
-// 		z=0; for(j=0;j<nwords;j++) if(strcmp( argv[i],(words+iword[j]))==0) z=1; if(z==0) {
-// 			/* allocate memory for expanded words and word-index */
-// 			x=strlen(argv[i]); // not including terminating NULL
-// 			words=(char *)realloc(words,((lenwords+x+4)*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-// 			iword=(long *)realloc(iword,(nwords+1)*sizeoflong); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-// 			/* set pointer to start position (currently, the end of the labels string) */
-// 			iword[nwords]=lenwords;
-// 			/* add new word to end of words, adding terminal NULL */
-// 			sprintf(words+lenwords,"%s",argv[i]);
-// 			/* update length, allowing for terminal NULL - serves as pointer to start of next word */
-// 			lenwords+=(x+1);
-// 			/* incriment nwords with check */
-// 			nwords++;
-// 	}}
-// 	for(i=0;i<nwords;i++) fprintf(stderr,"index %d:	%s\n",iword[i],words+iword[i]);
-
-
-	/* BUILDING TIMESTAMPS */
-// 	// generate the initial timestamp
-// 	t1 = time(NULL);
-// 	// convert to local time and place into a structure
-// 	tstruct1 = localtime(&t1);
-// 	// create timestamp string
-// 	strftime(timestring,sizeof(timestring),"%Y%m%d%H%M%S",tstruct1);
-// 	fprintf(stderr,"\trecord %ld timestamp %s\n",ii,timestring);
-// 	// increment the time by a number of seconds - next time localtime() is called it will correctly change minutes, hours etc
-// 	t1+=200;
-
-	/* PARSE A LIST OF COLUMN-NUMBERS */
-// 	sprintf(line,"1,2,3,4,15-10");
-// 	list= xf_parselist1_l(line,",",1,999,&nn,message);
-// 	if(list==NULL) {fprintf(stderr,"\b\n\t--- Error [%s] %s\n\n",thisprog,message); exit(1); }
-// 	for(i=0;i<nn;i++) fprintf(stderr,"%d	%ld\n",i,list[i]);
-// 	exit(1);
 
 
 
@@ -451,34 +455,6 @@ exit(0);
 // 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 // 	for(ii=0;ii<nn;ii++) printf("old: %ld\n",list[ii]);
 //
-// 	exit(0);
-
-
-	/* FIND THE NEAREST POWER OF TWO */
-//	printf("nearest power=%ld\n",log2f(atof(argv[1])));exit(1);
-
-
-	/* REPORTING ERRORS USING THE MESSAGE STRING */
-//	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
-
-
-	/* USING CALLOC */
-//	if((coherence=(float*)calloc((setnbuff+2),sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-
-
-	/* STRING CONCATENATION */
-// 	sprintf(line,"dogs");
-// 	sprintf(templine,"cats and all sort of stupid things blah blah blah ");
-// 	line=xf_strcat1(line,templine,"\n");
-// 	printf("%s\n",line);
-// 	exit(0);
-//
-
-
-	/* MODULUS FUNCTION TEST */
-// 	off_t aaa=15,bbb=4,ccc;
-// 	if((aaa%bbb)!=0) fprintf(stderr,"ERROR: indivisible\n");
-// 	else fprintf(stderr,"divisible\n");
 // 	exit(0);
 
 

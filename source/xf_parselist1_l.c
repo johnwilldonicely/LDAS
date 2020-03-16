@@ -12,7 +12,6 @@ DESCRIPTION:
 		1,3,5,7-20
 		10-1,11,14,20-25
 
-
 USES:
 	Build a list of columns to extract from a table
 
