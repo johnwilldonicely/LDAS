@@ -91,7 +91,7 @@ done
 echo "regaa2.0" > $tempfile
 echo "0" >> $tempfile		# prtypelo or prtypefl = ???
 echo "965" >> $tempfile		# cx= window width
-echo "1095" >> $tempfile	# cy= window height
+echo "1800" >> $tempfile	# cy= window height - original val 1095
 echo "30" >> $tempfile		# xs= ???
 echo "500" >> $tempfile		# ys= ???
 echo "10" >> $tempfile		# res= starting zoom (time)
@@ -99,7 +99,8 @@ echo "1" >> $tempfile		# ncol= fraction of data to show in time-axis
 echo $chancount >> $tempfile	# cnon= total channels to be displayed
 # define channel spacing
 let spacer=32*32/$chancount
-let offset=$(echo "scale=0; $spacer/2" |bc)
+let offset=$(echo "scale=0; $spacer/1" |bc)
+let offset=500
 # set gain
 if [ $chancount -gt 32 ] ; then gain="0.005";
 elif [ $chancount -gt 16 ] ; then gain="0.01";
@@ -118,11 +119,11 @@ done
 # end-of-file padding
 for i in $(seq 1 6) ; do echo "0" >> $tempfile ; done
 
+cat $tempfile
+
 ########################################################################
 # INVOKE REGAAMC8
 ########################################################################
-
-
 command=$execpath" "$infile" "$setnchans" "$sampintus" "$tempfile
 echo "	"$command ; echo
 $command

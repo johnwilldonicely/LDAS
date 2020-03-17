@@ -527,7 +527,7 @@ elif [ "$setmode" == "plot" ] ; then
 		band=$(grep band= $out1 | awk '{print $2}')
 		dev=$(grep device= $out1 | awk '{print $2}')
 		start_time=$(grep start_time= $out1 | awk '{print $2}')
-		start_date=$(grep start_time= $out1 | awk '{print $2}')
+		start_date=$(grep start_date= $out1 | awk '{print $2}')
 		sample_rate=$(grep sample_rate= $out1 | awk '{print $2}')
 		n_channels=$(grep n_channels= $out1 | awk '{print $2}')
 
@@ -548,7 +548,7 @@ elif [ "$setmode" == "plot" ] ; then
 		plotfile="plot_"$tempfile"_"$in1".ps"
 		plotlist=$plotlist" "$plotfile
 		title=$start_date"_"$start_time"_"$in1"_band:"$band"_device:"$dev
-		if [ "$setverb" == "1" ] ; then echo "xs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\"" ; fi
+		if [ "$setverb" == "1" ] ; then echo -e "\nxs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\"" ; fi
 		xs-ldas5-plotdata1 $in1 $opts1 -s $start -P "-yscale .25 -frame 15 -title $title -out $plotfile" &>/dev/null
 	done
 

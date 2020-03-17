@@ -54,7 +54,7 @@ if [ $# -lt 1 ]; then
 	echo "		- defines depth,goodness and name of each channel"
 	echo "		- if not set, channels are unamed and in order listed"
 	echo "...data properties..."
-	echo "	-f: sample-frequency (Hz) [.dat=$datrate .bin=$binrate]"
+	echo "	-f: sample-frequency override (Hz) []"
 	echo "...data alignment..."
 	echo "	-s: align to time (seconds) ["$setsecs"]"
 	echo "	-a: align to .dat-sample (overrides -s) ["$setsamp"]"
@@ -135,7 +135,6 @@ if [ -e "$filenotes" ] ; then
 	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then nchantot=$z ; else echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default" ; fi
 	key="bin_sample_rate="
 	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then binrate=$z ; else echo -e "--- Warning ["$thisprog"]: no keyword \"$key\" in $filenotes\n\t- using default" ; fi
-
 	key="bin_decimation="
 	z=$(xe-getkey $filenotes $key) ; if [ "$z" != "" ] ; then bindec=$z
 	else
@@ -144,15 +143,14 @@ if [ -e "$filenotes" ] ; then
 	fi
 else
 	echo -e "--- Warning ["$thisprog"]: no matching .notes file ('$filenotes')\n\t- using default sample-rate and channel count"
+	filenotes=""
 fi
-
 
 ########################################################################################
 # DETERMINE WHAT THE INPUT DATA SHOULD BE
 # - set the sample-frequency
 # - for single .bin files, also set the channel list (one channel, from file-name)
 ########################################################################################
-
 if [ "$ext" == "dat" ] ; then
 	echo "PLOT MULTI-CHANNEL .DAT FILE "
 	if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: .dat file $infile missing\n"; exit; } ; fi
@@ -181,6 +179,12 @@ else
 	echo -e "\n--- Error ["$thisprog"]: input file ("$infile") must be of type .dat .bin or .notes\n"
 	exit
 fi
+
+########################################################################################
+# APPLY OVERRIDES
+if [ "$setrate" != "" ] ; then samprate=$setrate ; fi
+
+
 
 ################################################################################
 # DETERMINE SOME VARIABLES FOR DEFINING THE DATA BLOCK

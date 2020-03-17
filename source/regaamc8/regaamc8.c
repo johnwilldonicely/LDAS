@@ -1,10 +1,70 @@
 /* JOZSEF CSICSVARI'S DAT/EEG  FILE VIEWER
-To compile:
+
+TO COMPILE:
 	gcc regaamc8.c xnsubs.c -o ./regaamc8 -lm -lX11 -L /usr/X11R6/lib -Wno-write-strings
-	also requires
+	also requires these files in the compile-directory
 		xnsubs.c
 		xnsubs.h
 		icon_bitmap
+
+DEPENDENCIES:
+	xorg-x11-fonts-misc.noarch
+
+Potential dependencies:
+	imlib.i686
+	imlib-devel.i686
+
+...or the 64-bit equivalents...
+	imlib.x86_64
+	imlib-devel.x86_64
+
+RUNNING THE PROGRAM:
+
+	regaamc8 [binaryfile] [nchans] [ms] [configfile]
+
+	- binaryfile: multi-channel binary timeseries, typically short-integers
+	- nchans: the number of interlaced channels (typically 16, 64, etc)
+	- ms: the sample-interval (1/samplrate) - eg 50 = 20KHz
+	- config: config file...
+
+# CONFIG FILE LAYOUT (COMMENTS MUST BE EXCLUDED FOR FILE TO WORK)
+# THIS EXAMPLE IS FOR A 16-CHANNEL RECORDING
+
+	regaa2.0
+	0			# prtypelo or prtypefl = ???
+	965			# cx= window width
+	1095			# cy= window height
+	30			# xs= ???
+	500			# ys= ???
+	10			# res= starting zoom (time)
+	1			# ncol= fraction of data to show in time-axis
+	16			# number of channels
+	0 0 64 0.02 1		# channel zero position gain colour
+	1 0 128 0.02 1
+	2 0 192 0.02 1
+	3 0 256 0.02 1
+	4 0 320 0.02 1
+	5 0 384 0.02 1
+	6 0 448 0.02 1
+	7 0 512 0.02 1
+	8 0 576 0.02 1
+	9 0 640 0.02 1
+	10 0 704 0.02 1
+	11 0 768 0.02 1
+	12 0 832 0.02 1
+	13 0 896 0.02 1
+	14 0 960 0.02 1
+	15 0 1024 0.02 1
+	0			# end of file padding
+	0
+	0
+	0
+	0
+	0
+
+
+
+
 
 */
 
@@ -85,8 +145,8 @@ int poipos=0;
 FILE *fpd;
 
 short *dbuff;
-short **minx,**maxx;
 long long startpos=0L;
+short **minx,**maxx;
 char redrfl;
 int detfl=0;
 int clufl=0;
