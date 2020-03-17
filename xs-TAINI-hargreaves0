@@ -311,6 +311,59 @@ exit
 ################################################################################
 
 #-------------------------------------------------------------------------------
+if [ "$setmode" == "setup" ] ; then
+	in1=$template_channels
+	if [ ! -e "$in1" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: missing file $in1$NC" ; echo ; exit; } ; fi
+	if [ "$setexpt" == "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: must define experiment (--expt) to make setup folder$NC"; echo; exit; } fi
+	dest=$mydate"_"$setexpt
+	echo "CREATING FOLDER $dest"
+	if [ -d "$dest" ]; then
+		tput bel
+		echo -en "$GREEN--- Warning: folder $dest exists$NC: " >&2
+		read -p  "- overwrite contents? [y/n] " answer
+		while true ; do case $answer in
+			[yY]* ) break ;;
+			*) exit ;;
+	esac ; done ; fi
+	mkdir -p $dest
+	if [ ! -d "$dest" ]; then { echo ; echo -e "$RED--- Error ["$thisprog"]: unable to create folder $dest $NC" ; echo ; exit; } ; fi
+	echo "COPYING CHANNELS TEMPLATE FROM"
+	echo "	- source: $in1"
+	cat $in1 > $dest/"table_channels_template.txt"
+	echo "BUILDING EMPTY PLAN:  $mydate.plan"
+	echo "	- destination: $mydate.plan"
+
+exit
+echo "
+date= $mydate
+experiment= $setexpt
+
+<NOTES>
+
+- freeform comments here
+
+</NOTES>
+
+<MAPPING>
+batch	box	session	subject	device	band	comments
+1	1	000	-	-	A	-
+1	2	000	-	-	B	-
+1	3	000	-	-	C	-
+1	4	000	-	-	D	-
+</MAPPING>
+
+<TRIALS>
+batch	box	time	comments
+1	1	-	-
+1	2	-	-
+1	3	-	-
+1	4	-	-
+</TRIALS>
+" #> $dest/$mydate.plan
+
+
+
+#-------------------------------------------------------------------------------
 if [ "$setmode" == "check" ] ; then
 	if [ "$fileplan" == "" ] ; then { echo ; echo "--- Error ["$thisprog"]: no file matching *.plan in this directory" ; echo ; exit; } ; fi
 	# make sure mapping section is present

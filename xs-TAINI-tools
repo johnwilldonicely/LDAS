@@ -13,7 +13,6 @@ progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 mydate=$(date +'%Y%m%d')
-template_plan="$progpath/docs/templates/template.plan"
 template_channels="$progpath/docs/templates/table_channels_taini_2.txt"
 RED='\033[0;31m'	# for errors
 PURPLE='\033[0;35m'	# for warnings
@@ -44,7 +43,6 @@ setverb="0"
 setclean="1"
 
 nboxes=4
-fileplan=$(ls *.plan 2>/dev/null)
 filenotes=$(ls *.notes 2>/dev/null | head -n 1)
 fileconfig=$(ls *configuration.yaml 2>/dev/null)
 fileplot="plot_traces_"$thisprog".ps"
@@ -56,16 +54,16 @@ if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": run TAINI scripts for data setup, acquisition and testing"
-	echo "	- some modes require a .plan file with MAPPING and TRIALS sections"
+	echo "	- some modes require a .yaml config file"
 	echo "	- TAINI sync-records typically begin with a \"blank\" sync-0"
 	echo ""
 	echo "USAGE: $thisprog [mode] [options]"
 	echo ""
 	echo "VALID MODES (followed by options starting with --):"
 	echo "	setup"
-	echo "		Create an experimental folder for data-acquisition directory (requires --expt)"
-	echo "		Creates a [date]_[expt] directory"
-	echo "		Adds a [date].plan file"
+	echo "		Setup TAINI recording experiment (1) or session (2)"
+	echo "		Option (1): whole experiment folder "
+	echo "		Option (2): today's recording folder"
 	echo "		Copies channel-table template $template_channels"
 	echo "		--expt: name of experiment [$setexpt]"
 	echo "	fft"
@@ -98,7 +96,6 @@ if [ $# -lt 1 ]; then
 	echo "		.yaml files required"
 	echo ""
 	echo "EXTRA OPTIONS (defaults in []):"
-	echo "	--plan: specify a plan file (if there is more than one in the folder) [$setplan]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo ""
 	echo "EXAMPLES: "
@@ -117,7 +114,7 @@ setmode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,plan:,key:,verb:,clean:"
+vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,key:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -132,7 +129,6 @@ while [ $# -gt 0 ] ; do
 		--pre ) setpre=$2 ; shift ;;
 		--seq ) setseq0=$2 ; shift ;;
 		--blank ) setblank0=$2 ; shift ;;
-		--plan ) setplan=$2 ; shift ;;
 		--key ) setkey=$2 ; shift ;;
 		--append ) setappend=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -146,10 +142,6 @@ if [ "$setcount" != "0" ] && [ "$setcount" != "1" ] ; then { echo ; echo "--- Er
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setinput" != "ab" ] && [ "$setinput" != "cd" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --input ($setinput) -  must be ab or cd" ; echo ; exit; } ; fi
 if [ "$setfile" != "" ]  && [ ! -e "$setfile" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --file $setfile$NC\n"; exit; } fi
-if [ "$setplan" != "" ] ; then
-	fileplan=$setplan
-	if [ ! -e "$fileplan" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --plan $setplan$NC\n"; exit; } fi
-fi
 
 if [ "$setkey" != "" ] ; then
 	let z=0
@@ -211,7 +203,7 @@ if [ "$fileyaml" != "" ] ; then
 	if [ "$colmonth" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (m) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colday" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (d) undefined in $fileyaml $NC\n"; exit ; }  fi
 	if [ "$colinc" == "" ] ; then { echo -e $RED"\n--- Error: filename_template (INC) undefined in $fileyaml $NC\n"; exit ; }  fi
-else
+elif [ "$setmode" != "setup" ] ; then
 	echo -e "$PURPLE--- Warning [$thisprog]: missing configuration.yaml file to define filename fields\n\t - using defaults instead$NC" >&2
 fi
 
@@ -245,58 +237,63 @@ fi
 ########################################################################################
 # OPERATING MODES
 ########################################################################################
-
 #-------------------------------------------------------------------------------
 if [ "$setmode" == "setup" ] ; then
+
+	if [ "$setexpt" == "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: must define experiment (--expt) to make setup folder$NC"; echo; exit; } fi
+
+	# SELECT MODE: 1= FULL EXPERIMENT FOLDER WITH DATA_ACQUIRED AND DATA_LIBRARY SUB-FOLDERS
+	echo -e $GREEN ; read -p  "Whole experiment (1) or daily acquisition (2) ? " mode ; echo -e $NC
+	while true ; do
+		case $mode in
+		[12]*)  break ;;
+		*) echo ; echo -e "$RED--- Error: invalid choice ($mode) - choose 1 or 2"$NC ; echo ; exit ;;
+		esac
+	done
+
+	# DETERMINE MASTER CHANNEL TEMPLATE
 	in1=$template_channels
 	if [ ! -e "$in1" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: missing file $in1$NC" ; echo ; exit; } ; fi
-	if [ "$setexpt" == "" ] ; then { echo ; echo -e "$RED--- Error ["$thisprog"]: must define experiment (--expt) to make setup folder$NC"; echo; exit; } fi
+
+	# MAKE THE FOLDER
 	dest=$mydate"_"$setexpt
-	echo "CREATING FOLDER $dest"
+	echo -e "\nCREATING FOLDER $dest"
 	if [ -d "$dest" ]; then
 		tput bel
-		echo -en "$GREEN--- Warning: folder $dest exists$NC: " >&2
-		read -p  "- overwrite contents? [y/n] " answer
+		echo -e $PURPLE"--- Warning: folder $dest exists" >&2
+		echo -e $GREEN ; read -p  "- overwrite contents? [y/n] " answer ; echo -e $NC
 		while true ; do case $answer in
 			[yY]* ) break ;;
 			*) exit ;;
-	esac ; done ; fi
+		esac ; done
+	fi
 	mkdir -p $dest
 	if [ ! -d "$dest" ]; then { echo ; echo -e "$RED--- Error ["$thisprog"]: unable to create folder $dest $NC" ; echo ; exit; } ; fi
-	echo "COPYING CHANNELS TEMPLATE FROM"
-	echo "	- source: $in1"
-	cat $in1 > $dest/"table_channels_template.txt"
-	echo "BUILDING EMPTY PLAN:  $mydate.plan"
-	echo "	- destination: $mydate.plan"
 
-exit
-echo "
-date= $mydate
-experiment= $setexpt
+	cd $dest
 
-<NOTES>
+	if [ "$mode" == "1" ] ; then
+		echo -e "\t- generating Data_Acquired folder"
+		echo -e "\t- generating Data_Library folder"
+		echo -e "\t- initializing README.txt file"
+		echo -e "\t- copying channels template"
+		echo -e "\t- source: $template_channels"
+		d=$(date +'%d %b %Y')
+		mkdir -p "Data_Acquired"
+		mkdir -p "Data_Library"
+		echo "# NOTES ON EXPERIMENT $setexpt ($d)" > README.txt
+		cat $in1 > ./"table_channels_template.txt"
+	else
+		in2=$(ls ./*table*channels*txt 2>/dev/null | head -n 1)
+		if  [ "$in2" == "" ] ; then in2=$(ls ../*table*channels*txt 2>/dev/null | head -n 1) ; fi
+		if  [ "$in2" == "" ] ; then in2=$(ls ../../*table*channels*txt 2>/dev/null | head -n 1) ; fi
+		if [ "$in2" == "" ] ; then in2=$in1 ; fi
+		echo -e "\t- copying channels template"
+		echo -e "\t- source: $in2"
+		cat $in2 > ./"table_channels_template.txt"
+	fi
 
-- freeform comments here
-
-</NOTES>
-
-<MAPPING>
-batch	box	session	subject	device	band	comments
-1	1	000	-	-	A	-
-1	2	000	-	-	B	-
-1	3	000	-	-	C	-
-1	4	000	-	-	D	-
-</MAPPING>
-
-<TRIALS>
-batch	box	time	comments
-1	1	-	-
-1	2	-	-
-1	3	-	-
-1	4	-	-
-</TRIALS>
-" > $dest/$mydate.plan
-
+	echo
 
 
 #-------------------------------------------------------------------------------
@@ -522,13 +519,17 @@ elif [ "$setmode" == "plot" ] ; then
 	list=$(ls *.dat)
 	plotlist=""
 	for in1 in $list ; do
-		echo
-		# DETERMINE FILE-NAME TYPE FOR THIS FILE- TAINI OR LDAS
-		if [ "$filename" == "taini" ] ; then
-			subject=$(echo $in1 | cut -f 1 -d '-' | cut -f 3 -d '_')
-		else
-			subject=$(echo $in1 | cut -f 2 -d '_' | cut -f 1 -d '.')
-		fi
+
+		out1="out_"$tempfile".config" # can't be tempfile, because xs-TAINI-tools will delete!
+		xs-TAINI-tools config --file $in1 > $out1
+
+		subject=$(grep subject= $out1 | awk '{print $2}')
+		band=$(grep band= $out1 | awk '{print $2}')
+		dev=$(grep device= $out1 | awk '{print $2}')
+		start_time=$(grep start_time= $out1 | awk '{print $2}')
+		start_date=$(grep start_time= $out1 | awk '{print $2}')
+		sample_rate=$(grep sample_rate= $out1 | awk '{print $2}')
+		n_channels=$(grep n_channels= $out1 | awk '{print $2}')
 
 		# DETERMINE WHAT TO USE AS THE CHANNEL-TABLE
 		x="table_channels_"$subject".txt"
@@ -540,22 +541,17 @@ elif [ "$setmode" == "plot" ] ; then
 		fi
 		echo "plotting using channel-table: $table"
 
-		# DETERMINE START-TIME: 2 SECONDS BEFORE THE END OF THE FILE
+		# DETERMINE START-TIME: 5 SECONDS BEFORE THE END OF THE FILE
 		opts1="-c good -f $sample_rate -l 10 -h 0 -w 1 -m 0 -v 0 -d 1000 -t $table"
-		start=$(xe-filesize1 $in1 -sf $sample_rate -dt 2 -nch $n_channels | xe-getkey2 stdin nseconds= | awk '{a=$1-2.0; if(a<0.0) a=0; print a}')
-		if [ "$fileplan" != "" ] ; then
-			box=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc box -o 1    2>/dev/null)
-			band=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc band -o 1  2>/dev/null)
-			dev=$(xe-dbmatch1 $fileplan subject $subject -xml MAPPING -oc device -o 1 2>/dev/null)
-			title=$in1"_box:"$box"_band:"$band"_device:"$dev"_start:"$start
-		else
-			title=$in1"_start:"$start
-		fi
-		plotfile=$tempfile"_"$in1".ps"
+		start=$(xe-filesize1 $in1 -sf $sample_rate -dt 2 -nch $n_channels | xe-getkey2 stdin nseconds= | awk '{a=$1-5.0; if(a<0.0) a=0; print a}')
+
+		plotfile="plot_"$tempfile"_"$in1".ps"
 		plotlist=$plotlist" "$plotfile
-		echo "xs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\""
+		title=$start_date"_"$start_time"_"$in1"_band:"$band"_device:"$dev
+		if [ "$setverb" == "1" ] ; then echo "xs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\"" ; fi
 		xs-ldas5-plotdata1 $in1 $opts1 -s $start -P "-yscale .25 -frame 15 -title $title -out $plotfile" &>/dev/null
 	done
+
 	xe-plotmerge1 -xmax 1 -ymax 4 $plotlist
 	rm -f $plotlist
 	xe-plotmerge2 temp_xe-plotmerge1.*.ps > $fileplot
@@ -563,96 +559,96 @@ elif [ "$setmode" == "plot" ] ; then
 	evince $fileplot &
 
 
-	#-------------------------------------------------------------------------------
-	elif [ "$setmode" == "unrename" ] ; then
+#-------------------------------------------------------------------------------
+elif [ "$setmode" == "unrename" ] ; then
 
-		listyaml=$(ls *configuration.yaml 2> /dev/null)
-		if [ "$listyaml" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml files - cannot restore filenames$NC\n" ; exit ; fi
+	listyaml=$(ls *configuration.yaml 2> /dev/null)
+	if [ "$listyaml" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml files - cannot restore filenames$NC\n" ; exit ; fi
 
-		# REPAIR THE YAML FILES IF THEY HAVE BEEN MODIFIED
-		for in1 in $listyaml ; do
+	# REPAIR THE YAML FILES IF THEY HAVE BEEN MODIFIED
+	for in1 in $listyaml ; do
 
-			# fix the filename template - note - assumes the correct format is TAINI_$ID_$ALIAS-%Y_%m_%d-$INC.dat
-			oldtemplate=$(grep filename_template: $in1 | awk '{print $2}')
-			newtemplate='TAINI_$ID_$ALIAS-%Y_%m_%d-$INC'
-			xe-cut2 $in1 "recording:" > $tempfile".0"
-			xe-strsub1 $tempfile".0" $oldtemplate $newtemplate > $tempfile".x"
-			let z=$(cat $tempfile".x" | wc -l)
-			if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: \"recording:\" section in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
+		# fix the filename template - note - assumes the correct format is TAINI_$ID_$ALIAS-%Y_%m_%d-$INC.dat
+		oldtemplate=$(grep filename_template: $in1 | awk '{print $2}')
+		newtemplate='TAINI_$ID_$ALIAS-%Y_%m_%d-$INC'
+		xe-cut2 $in1 "recording:" > $tempfile".0"
+		xe-strsub1 $tempfile".0" $oldtemplate $newtemplate > $tempfile".x"
+		let z=$(cat $tempfile".x" | wc -l)
+		if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: \"recording:\" section in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
 
-			# initialize the temporary yaml output
-			echo "transmitters:" > $tempfile".yaml"
-			# repair the name for each device
-			date1=$(grep " start_datetime:" $in1 --color=never | awk '{print $2}' | tr '-' '_')
-			listdevid=$(grep -- "- id:" $in1 | awk '{print $3}')
+		# initialize the temporary yaml output
+		echo "transmitters:" > $tempfile".yaml"
+		# repair the name for each device
+		date1=$(grep " start_datetime:" $in1 --color=never | awk '{print $2}' | tr '-' '_')
+		listdevid=$(grep -- "- id:" $in1 | awk '{print $3}')
 
-			for devid in $listdevid ; do
-				xe-cut2 $in1 "- id: $devid" -s4 1 > $tempfile.$devid
-				let z=$(cat $tempfile.$devid | wc -l)
-				if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: device section \"- id: dev$devid\" in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
+		for devid in $listdevid ; do
+			xe-cut2 $in1 "- id: $devid" -s4 1 > $tempfile.$devid
+			let z=$(cat $tempfile.$devid | wc -l)
+			if [ $z -lt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: device section \"- id: dev$devid\" in $in1 is empty - cannot proceed $NC\n" ; exit ; fi
 
-				oldname=$(grep output_destination: $tempfile.$devid | awk -F / '{print $NF}')
-				# DETERMINE CORRECT $INC VALUE _ SHOULD BE 4-DIGITS
-				# depends on if filename in yaml is ldas or taini format
-				let z=$(echo $oldname | grep TAINI | wc -l)
-				if [ $z -eq 1 ] ; then
-					inc=$(echo $oldname | awk -F [-_.] '{x=$(NF-1) ; printf("%04d",x)}')
-				else
-					inc=$(echo $oldname | awk -F [-_.] '{x=$2 ; printf("%04d",x)}')
-				fi
-				# DETERMINE CORRECT DEVICE-NAME, ALIAS AND DATE
-				dev=$(grep   " id:" $tempfile.$devid --color=never | rev | cut -c 1 | awk '{printf("D%03d",$1)}')
-				alias=$(grep " alias:" $tempfile.$devid --color=never | awk '{print $2}')
-				newname="TAINI_"$dev"_"$alias"-"$date1"-"$inc".dat"
-				xe-strsub1 $tempfile.$devid $oldname $newname >> $tempfile".yaml"
-			done
-		done
-		# add the bottom, with repaired filename template
-		cat $tempfile".x" >> $tempfile".yaml"
-		# replace the original yaml
-		mv $tempfile".yaml" $in1
-
-		# UN-RENAME THE .YAML FILES
-		for in1 in $listyaml ; do
-			# pull out first output dat-file referred to the yaml - this will have ben the file name template for the original yaml
-			out1=$(grep --color=never  output_destination: $in1 -m 1 | awk -F / '{print $NF}' | cut -f 1 -d . | awk '{print $1"_configuration.yaml"}')
-			if [ "$out1" != "" ] ; then
-				if [ $in1 != $out1 ] ; then mv $in1 $out1 -iv ; fi
+			oldname=$(grep output_destination: $tempfile.$devid | awk -F / '{print $NF}')
+			# DETERMINE CORRECT $INC VALUE _ SHOULD BE 4-DIGITS
+			# depends on if filename in yaml is ldas or taini format
+			let z=$(echo $oldname | grep TAINI | wc -l)
+			if [ $z -eq 1 ] ; then
+				inc=$(echo $oldname | awk -F [-_.] '{x=$(NF-1) ; printf("%04d",x)}')
 			else
-				echo -e "\n$RED--- Error ["$thisprog"]: no output entries in $in1 $NC\n" ; exit
+				inc=$(echo $oldname | awk -F [-_.] '{x=$2 ; printf("%04d",x)}')
 			fi
+			# DETERMINE CORRECT DEVICE-NAME, ALIAS AND DATE
+			dev=$(grep   " id:" $tempfile.$devid --color=never | rev | cut -c 1 | awk '{printf("D%03d",$1)}')
+			alias=$(grep " alias:" $tempfile.$devid --color=never | awk '{print $2}')
+			newname="TAINI_"$dev"_"$alias"-"$date1"-"$inc".dat"
+			xe-strsub1 $tempfile.$devid $oldname $newname >> $tempfile".yaml"
 		done
+	done
+	# add the bottom, with repaired filename template
+	cat $tempfile".x" >> $tempfile".yaml"
+	# replace the original yaml
+	mv $tempfile".yaml" $in1
 
-		# UN-RENAME THE .DAT AND .SYNC FILES
-		listin1=$(ls 20??????-*_*.dat 2>/dev/null)
-		if [ "$listin1" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no LDAS-format .dat files - perhaps the files were not yet renamed$NC\n" ; exit ; fi
-		rm -f $tempfile".1"
-		rm -f $tempfile".2"
-		for in1 in $listin1 ; do
-			date1=$(xs-ldas-parsename $in1 date -f)
-			session1=$(xs-ldas-parsename $in1 session -f)
-			subject1=$(xs-ldas-parsename $in1 subject -f)
-			year1=$(echo $date1 | cut -c 1-4)
-			month1=$(echo $date1 | cut -c 5-6)
-			day1=$(echo $date1 | cut -c 7-8)
-			date2=$year1"_"$month1"_"$day1
-			# output filename is the .yaml entry matching on date, session and subject
-			out1=$(grep "output_destination:" *configuration.yaml | awk -F / '{print $NF}' | tr -d ' ' | grep -- "_"$subject1 | grep -- "-"$date2 | grep -- "-"$session1)
-			let z=$(echo $out1 | wc -w)
-			if [ $z -eq 0 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml entries matching $in1 $NC\n" ; exit ; fi
-			if [ $z -gt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: more than one .yaml entry matching $in1 $NC\n" ; exit ; fi
-			# build the rename pairs
-			echo $in1 >> $tempfile".1"
-			echo $out1 >> $tempfile".2"
-		done
-		# build old/new filnemae list - generate matching .sync file names on the fly
-		paste $tempfile".1" $tempfile".2" |
-			while read in1 out1 ; do
-				in2=$(echo $in1 | xe-strsub1 stdin .dat .sync)
-				out2=$(echo $out1 | xe-strsub1 stdin .dat .sync)
-				mv $in1 $out1 -iv
-				mv $in2 $out2 -iv
-		done
+	# UN-RENAME THE .YAML FILES
+	for in1 in $listyaml ; do
+		# pull out first output dat-file referred to the yaml - this will have ben the file name template for the original yaml
+		out1=$(grep --color=never  output_destination: $in1 -m 1 | awk -F / '{print $NF}' | cut -f 1 -d . | awk '{print $1"_configuration.yaml"}')
+		if [ "$out1" != "" ] ; then
+			if [ $in1 != $out1 ] ; then mv $in1 $out1 -iv ; fi
+		else
+			echo -e "\n$RED--- Error ["$thisprog"]: no output entries in $in1 $NC\n" ; exit
+		fi
+	done
+
+	# UN-RENAME THE .DAT AND .SYNC FILES
+	listin1=$(ls 20??????-*_*.dat 2>/dev/null)
+	if [ "$listin1" == "" ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no LDAS-format .dat files - perhaps the files were not yet renamed$NC\n" ; exit ; fi
+	rm -f $tempfile".1"
+	rm -f $tempfile".2"
+	for in1 in $listin1 ; do
+		date1=$(xs-ldas-parsename $in1 date -f)
+		session1=$(xs-ldas-parsename $in1 session -f)
+		subject1=$(xs-ldas-parsename $in1 subject -f)
+		year1=$(echo $date1 | cut -c 1-4)
+		month1=$(echo $date1 | cut -c 5-6)
+		day1=$(echo $date1 | cut -c 7-8)
+		date2=$year1"_"$month1"_"$day1
+		# output filename is the .yaml entry matching on date, session and subject
+		out1=$(grep "output_destination:" *configuration.yaml | awk -F / '{print $NF}' | tr -d ' ' | grep -- "_"$subject1 | grep -- "-"$date2 | grep -- "-"$session1)
+		let z=$(echo $out1 | wc -w)
+		if [ $z -eq 0 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: no .yaml entries matching $in1 $NC\n" ; exit ; fi
+		if [ $z -gt 1 ] ; then echo -e "\n$RED--- Error ["$thisprog"]: more than one .yaml entry matching $in1 $NC\n" ; exit ; fi
+		# build the rename pairs
+		echo $in1 >> $tempfile".1"
+		echo $out1 >> $tempfile".2"
+	done
+	# build old/new filnemae list - generate matching .sync file names on the fly
+	paste $tempfile".1" $tempfile".2" |
+		while read in1 out1 ; do
+			in2=$(echo $in1 | xe-strsub1 stdin .dat .sync)
+			out2=$(echo $out1 | xe-strsub1 stdin .dat .sync)
+			mv $in1 $out1 -iv
+			mv $in2 $out2 -iv
+	done
 
 
 #-------------------------------------------------------------------------------
