@@ -1,36 +1,129 @@
 #!/bin/bash
+# <TAGS> R </TAGS>
 
-if [ ! $3 ] ; then 
-echo 
-echo "Perform ANCOVA using R"
-echo "Determine effect of factor A on Y, controlling for correlation between X and Y"
-echo "Format: xr_ancova [filename] [y column] [x column] [A column]"
-echo 
-echo "Assumptions: X and Y are continuous variables, while A is integers" 
-echo 
-exit
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+datafile=$tempfile".txt"
+scriptfile=$tempfile".R"
+setplot="1"
+setclean="1"
+plotfile="plot_"$thisprog".pdf"
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -ne 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "- Perform ANCOVA using R"
+	echo "	- effect of factor A on Y, controlling for correlation between X and Y"
+	echo "	- predictors can be numeric or alpha-numeric"
+	echo "	- assumes X and Y are continuous variables, while A is categorical"
+	echo ""
+	echo "USAGE: "
+	echo "	$thisprog [file] [y] [x] [A]"
+	echo ""
+	echo "	[file]:  input file with headered columns"
+	echo "	[y]: name of the column containing the dependent variable"
+	echo "	[x]: name of the column containing the covariate"
+	echo "	[A]: name of the column containing the predictor"
+	echo "	[opt]: options (see below)"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--plot: create a .pdf plot for the ANOVA (0=NO 1=YES) [$setplot]"
+	echo "		- output sent to $plotfile"
+	echo "		- NOTE: currently only implemented for 1- or 2-way ANOVAs"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo ""
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt  height  age,sex,income"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
 fi
 
-infile=$1; ycol=$2; xcol=$3; grpcol=$4;
-datafile="temp_xr_ancova.txt"
-awk '$0!~/#/&&$dvcol~/[0-9]/{print $0}' $infile > $datafile
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1; shift
+ydata=$1; shift
+xdata=$1; shift
+predictor=$1; shift
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="c:" ; vl="clean:,plot:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--clean ) setclean=$2 ; shift ;;
+		--plot )  setplot=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+########################################################################################
+# CREATE A DATAFILE WITH INVALID OR NON-FINITE NUMBERS RENAMED
+########################################################################################
+xe-cut1 $infile $ydata,$xdata,$predictor -s 1 > $tempfile
+head -n 1 $tempfile > $datafile
+xe-checkisnum2 $tempfile -f 1 -t 2 -c 1 -m "-" |
+	xe-strsub1 stdin "-" "NA" |
+	xe-strsub1 stdin "NAN" "NA" |
+	xe-strsub1 stdin "NaN" "NA" |
+	xe-strsub1 stdin "Nan" "NA" |
+	xe-strsub1 stdin "nan" "NA" >> $datafile
 
 
+########################################################################################
+# CREATE AN R-SCRIPT FILE
+########################################################################################
+# READ THE DATA
+echo -e "df <- read.table('"$datafile"', header = TRUE)" > $scriptfile
+# SPECIFY THAT PREDICTORS ARE CATEGORICAL FACTORS
+echo -e "df\$$predictor = as.factor(df\$$predictor)" >> $scriptfile
+# ATTACH THE DATAFRAME
+echo "attach(df)" >> $scriptfile
 
-echo "----------------------------------------------------------------"
+# RUN THE ANCOVA
 echo "
-datamatrix <- read.table('"$datafile"', header = FALSE)
-attach(datamatrix)
-X<-(V"$xcol")
-Y<-(V"$ycol")
-group<-factor(V"$grpcol")
+summary(aov($ydata ~ $xdata * $predictor))
+summary(aov($ydata ~ $xdata + $predictor))
+"  >> $scriptfile
 
-lm(Y ~ X)
-summary(aov(Y ~ X + group))
+# PLOT IF REQUIRED
+if [ "$setplot==1" ] ; then
+echo -e "
+require(ggpubr)
+myplot= ggscatter(df,x=\"$xdata\",y=\"$ydata\",color=\"$predictor\", add=\"reg.line\") +stat_regline_equation(aes(label= paste(..eq.label..,..rr.label..,sep =\"~~~~\"),color=$predictor))
+ggsave(\"$plotfile\")
+" >> $scriptfile
+fi
 
-" | R -q --no-save --slave 
 
-echo
+########################################################################################
+# RUN THE ANALYSIS - SAVE TO FILE
+########################################################################################
+cat $scriptfile | R -q --no-save --slave > $tempfile
 
 
-
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

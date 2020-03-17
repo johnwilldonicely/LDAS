@@ -1,5 +1,4 @@
 #!/bin/bash
-#  make a batch file for ANOVA using R
 # <TAGS> R </TAGS>
 
 ################################################################################
@@ -16,7 +15,7 @@ plotfile="plot_"$thisprog".pdf"
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
 ################################################################################
-if [ ! $3 ] ; then
+if [ $# -lt 3 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo "- Perform ANOVA using R"
@@ -27,7 +26,7 @@ if [ ! $3 ] ; then
 	echo "USAGE: "
 	echo "	$thisprog [file] [y] [list] [opt]"
 	echo ""
-	echo "	[file]filename:  input file with headered columns"
+	echo "	[file]:  input file with headered columns"
 	echo "	[y]: name of the column containing the dependent variable"
 	echo "	[list]: CSV list of column-names for predictors"
 	echo "	[opt]: options (see below)"
@@ -51,17 +50,17 @@ fi
 infile=$1; shift
 data=$1; shift
 predictors=$1; shift
-
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="c:" ; vl="clean:"
+vs="c:" ; vl="clean:,plot:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
-		-c | --clean ) setclean=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--plot )  setplot=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -69,13 +68,12 @@ while [ $# -gt 0 ] ; do
 done
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n" ;  exit; } ; fi
-
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
 fi
 
 ########################################################################################
-# CREATE A DATAFILE WITH INVALID OR NON-FINITE NUMBERS REMOVED
+# CREATE A DATAFILE WITH INVALID OR NON-FINITE NUMBERS RENAMED
 ########################################################################################
 xe-cut1 $infile $data,$predictors -s 1 > $tempfile
 head -n 1 $tempfile > $datafile
