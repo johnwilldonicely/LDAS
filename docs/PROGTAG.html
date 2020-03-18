@@ -172,6 +172,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-wavestats1">xe-ldas5-wavestats1</a><br>
 <a href="#code-xe-ldas-invalidcmt1">xe-ldas-invalidcmt1</a><br>
 <a href="#code-xe-template">xe-template</a><br>
+<a href="#code-xe-template_minimal">xe-template_minimal</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_template">xf_template</a><br>
 </td></table></tr>
@@ -247,6 +248,7 @@ of scripts, programs, and functions.
 <h3 id="tag-R"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: R</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-R_ancova">xs-R_ancova</a><br>
 <a href="#code-xs-R_anova">xs-R_anova</a><br>
 </td></table></tr>
 <h3 id="tag-SCORE"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: SCORE</font></h3>
@@ -391,6 +393,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_matrixrotate1_d">xf_matrixrotate1_d</a><br>
 <a href="#code-xf_matrixrotate1_f">xf_matrixrotate1_f</a><br>
 <a href="#code-xf_matrixrotate2_d">xf_matrixrotate2_d</a><br>
+<a href="#code-xf_matrixrotate2_f">xf_matrixrotate2_f</a><br>
 <a href="#code-xf_matrixtrans1_d">xf_matrixtrans1_d</a><br>
 <a href="#code-xf_mullerize_d10">xf_mullerize_d10</a><br>
 <a href="#code-xf_placeinfo1_l">xf_placeinfo1_l</a><br>
@@ -1066,6 +1069,8 @@ of scripts, programs, and functions.
 <a href="#code-xf_outlier2_f">xf_outlier2_f</a><br>
 <a href="#code-xf_percentile1_d">xf_percentile1_d</a><br>
 <a href="#code-xf_percentile1_f">xf_percentile1_f</a><br>
+<a href="#code-xf_percentile2_d">xf_percentile2_d</a><br>
+<a href="#code-xf_percentile2_f">xf_percentile2_f</a><br>
 <a href="#code-xf_placeinfo1_l">xf_placeinfo1_l</a><br>
 <a href="#code-xf_placestats1_d">xf_placestats1_d</a><br>
 <a href="#code-xf_power_goertzel1_d">xf_power_goertzel1_d</a><br>
@@ -1136,11 +1141,13 @@ of scripts, programs, and functions.
 <a href="#code-xf_lineread1">xf_lineread1</a><br>
 <a href="#code-xf_parselist1_l">xf_parselist1_l</a><br>
 <a href="#code-xf_strcat1">xf_strcat1</a><br>
+<a href="#code-xf_strcat2">xf_strcat2</a><br>
 <a href="#code-xf_strcut1">xf_strcut1</a><br>
 <a href="#code-xf_strescape1">xf_strescape1</a><br>
 <a href="#code-xf_strkey1">xf_strkey1</a><br>
 <a href="#code-xf_strncat1">xf_strncat1</a><br>
 <a href="#code-xf_strstr1">xf_strstr1</a><br>
+<a href="#code-xf_strstr2">xf_strstr2</a><br>
 <a href="#code-xf_strsub1">xf_strsub1</a><br>
 <a href="#code-xf_strtod1">xf_strtod1</a><br>
 </td></table></tr>
@@ -1374,6 +1381,7 @@ key variables defined by reading the .notes file in the data directory
 xs-dat2bin: downsample an interlaced .dat file
 	- uses xe-ldas5-readdat2 to interpolate, filter(anti-alias), and decimate
 	- outputs multiple 1-channel .bin files (binary 32-bit float)
+		- can also optionally output .binshort (binary 16-bit short)
 	- basename is everything before the last dot in the input file name
 USAGE: xs-dat2bin [infile] [nchans] [srin]
 	[infile]: interlaced multi-channel binary file (16-bit short-integer)
@@ -1385,6 +1393,9 @@ VALID OPTIONS (defaults in []):
 	--mean: window size (seconds) for de-meaning data (0=SKIP) [0]
 	--srout: output sample-rate (Hz) [1000]
 	--bad: invalid value (0,-1, or 1=SHRT_MAX) [1]
+	--float: convert data from short-int to float (0=NO 1=YES) [1]
+		- for output to be a true .bin file, float=1
+		- if float==0, output will have extension ".binshort"
 	--verb: verbose output (0=NO 1=YES) [1]
 	--clean: remove temporary files (0=NO 1=YES) [1]
 EXAMPLE: 
@@ -1940,7 +1951,7 @@ VALID OPTIONS, defaults in []:
 		- defines depth,goodness and name of each channel
 		- if not set, channels are unamed and in order listed
 ...data properties...
-	-f: sample-frequency (Hz) [.dat=19531.25 .bin=1000]
+	-f: sample-frequency override (Hz) []
 ...data alignment...
 	-s: align to time (seconds) [.5]
 	-a: align to .dat-sample (overrides -s) []
@@ -4031,6 +4042,7 @@ VALID OPTIONS (defaults in []):
 	--adj: adjustment added to firing-rates to avoid ratio-extremes [0.01]
 	--names: file defining group-names []
 		- if unset, generated from baseline treatments
+	--verb: verbose output (0=NO 1=YES) [1]
 	--clean: remove temporary files (0=NO 1=YES) [1]
 EXAMPLE: 
 	xs-MAESTRO_e1 "*.csv" --t1 0.5 --adj 0.1 
@@ -4977,7 +4989,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200305.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200318.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5061,7 +5073,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2020_03_05
+		log_xs-O2-makex6b_2020_03_18
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -6092,12 +6104,32 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_ancova"><a href="#CODE">&#8679</a> xs-R_ancova</h3></font>
+[<a href="#tag-R">R</a>]<br>
 <blockquote><pre>
-Perform ANCOVA using R
-Determine effect of factor A on Y, controlling for correlation between X and Y
-Format: xr_ancova [filename] [y column] [x column] [A column]
+--------------------------------------------------------------------------------
+- Perform ANCOVA using R
+	- effect of factor A on Y, controlling for correlation between X and Y
+	- predictors can be numeric or alpha-numeric
+	- assumes X and Y are continuous variables, while A is categorical
 
-Assumptions: X and Y are continuous variables, while A is integers
+USAGE: 
+	xs-R_ancova [file] [y] [x] [A]
+
+	[file]:  input file with headered columns
+	[y]: name of the column containing the dependent variable
+	[x]: name of the column containing the covariate
+	[A]: name of the column containing the predictor
+	[opt]: options (see below)
+
+VALID OPTIONS (defaults in []):
+	--plot: create a .pdf plot for the ANOVA (0=NO 1=YES) [1]
+		- output sent to plot_xs-R_ancova.pdf
+		- NOTE: currently only implemented for 1- or 2-way ANOVAs
+	--clean: remove temporary files (0=NO 1=YES) [1]
+
+EXAMPLE: 
+	xs-R_ancova data.txt  height  age,sex,income
+--------------------------------------------------------------------------------
 
 </blockquote></pre>
 
@@ -6113,7 +6145,7 @@ Assumptions: X and Y are continuous variables, while A is integers
 USAGE: 
 	xs-R_anova [file] [y] [list] [opt]
 
-	[file]filename:  input file with headered columns
+	[file]:  input file with headered columns
 	[y]: name of the column containing the dependent variable
 	[list]: CSV list of column-names for predictors
 	[opt]: options (see below)
@@ -6424,8 +6456,7 @@ EXAMPLE:
 [<a href="#tag-LASER">LASER</a>]<br>
 <blockquote><pre>
 --------------------------------------------------------------------------------
-xs-TAINI-laser1: 
-- creates .notes &#60TRIALS&#62 sections for a laser-ERP expt.
+xs-TAINI-laser1:  create a .notes &#60TRIALS&#62 sections for a laser-ERP expt.
 - requires an xml worksheet for each recording session
 	- see /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
 - uses the config file (.yaml) for extracting parameters
@@ -6437,7 +6468,7 @@ USAGE: xs-TAINI-laser1 [worksheet] [options]
 	- this can be multiple files, or wildcards - if in quotes
 
 VALID OPTIONS...
-	--dest: destination output [../../Data_Library]
+	--dest: destination output [./Data_Library]
 		- seeks [base] sub-directories at this location
 		- each [base] sub-directory should contain a .notes file
 	--verb: verbose output (0=NO 1=YES) [0]
@@ -6594,7 +6625,7 @@ xs-TAINI-preproc1: Process a Taini-Live ephys recording session
 USAGE: xs-TAINI-preproc1 [dat] [options]
 	[dat]: quoted list of .dat files (wildcards allowed)
 VALID OPTIONS:
-	--dest: base-destination output [../../Data_Library/]
+	--dest: base-destination output [./Data_Library/]
 		- will create sub-directories for each .dat file
 	--batch: batch-run on this CSV list of directories []
 	--expt: name of experiment, for .notes file  [0]
@@ -6621,16 +6652,16 @@ EXAMPLE:
 <blockquote><pre>
 --------------------------------------------------------------------------------
 xs-TAINI-tools: run TAINI scripts for data setup, acquisition and testing
-	- some modes require a .plan file with MAPPING and TRIALS sections
+	- some modes require a .yaml config file
 	- TAINI sync-records typically begin with a "blank" sync-0
 
 USAGE: xs-TAINI-tools [mode] [options]
 
 VALID MODES (followed by options starting with --):
 	setup
-		Set up an acquisition directory (requires --expt)
-		Creates a [date]_[expt] directory
-		Adds a [date].plan file
+		Setup TAINI recording experiment (1) or session (2)
+		Option (1): whole experiment folder 
+		Option (2): today's recording folder
 		Copies channel-table template /opt/LDAS/docs/templates/table_channels_taini_2.txt
 		--expt: name of experiment []
 	fft
@@ -6646,15 +6677,6 @@ VALID MODES (followed by options starting with --):
 		--blank: required sync-record which is not output [0]
 		--count: use timestamps to count trials in blocks (0=NO 1=YES) [0]
 			- uses mean interval + 5 s.d. as threshold
-	trials
-		List .plan TRIALS matched to MAPPING subject & session
-		--batch: .plan MAPPING batch to check (#, or "all") [all]
-		--append: CSV list MAPPING columns to append to trials []
-		--file: add sync-file records to trials - see "sync" above
-	check
-		Compare batch trial-counts with subject sync-records
-		--seq: [see above]
-		--batch: [see above]
 	config
 		Output configuration settings (from .yaml)
 		--file: you MUST specify a .dat or .yaml file
@@ -6663,19 +6685,15 @@ VALID MODES (followed by options starting with --):
 		Parse a TAINI filename to extract a keyword
 		--file: the file whose name you want to parse
 		--key: the value of interest: id alias year month day date1 date2 inc
-	rename
-		Rename files from TaiNi default to LDAS format
-		TaiNi default: TAINI_[dev]_[alias]-[date]-[session].dat
-		LDAS standard: [yyyymmdd]-[session]_[alias].dat
-	unrename
-		As above, but restore original TAINI filenames
-		.yaml files required
 	plot
 		Generate a 1-second trace-plot for all .dat files
 		Looks for table_channels_[subject].txt
+	unrename
+		Attempt to restore original TAINI filenames
+		Assumes files have been renamed to the LDAS standard
+		.yaml files required
 
 EXTRA OPTIONS (defaults in []):
-	--plan: specify a plan file (if there is more than one in the folder) []
 	--verb: verbose output (0=NO 1=YES) [0]
 
 EXAMPLES: 
@@ -7445,33 +7463,7 @@ EXAMPLES:
 
 <font color="Black"><h3 id="code-xe-dbmatch2"><a href="#CODE">&#8679</a> xe-dbmatch2</h3></font>
 [<a href="#tag-database">database</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-dbmatch2 4.May.2019 [JRH]
-----------------------------------------------------------------------
-Read an input and append the matching value from a keyfile
-- match is performed on a column from the input and the keyfile
-- the appended value is in a specified column in the keyfile
-- if there is no matching key, a "-" will be appended instead
-- matches are case-sensitive and must be exact (eg. 3 does not equal 03)
-USAGE:
-	xe-dbmatch2 [input] [col] [keyfile] [val]  [options]
-	[input]: file name or "stdin" with key-column to be matched
-	[col]: input column to match with key
-	[keyfile]: file with key- and value-columns
-	[val]: column in keyfile containing values to append
-VALID OPTIONS:
-	[-k]: key-column to match in keyfile [ default=[col] ]
-	[-d]: characters to use as column-delimiters ["\t"]
-		- max 16 characters permitted
-		- any delimiter in the input marks a new column
-		- the first delimiter is used for the output
-EXAMPLES: add group-names to a file with only group-no. specified
-	xe-dbmatch2 data.txt group names.txt name -d ","
-OUTPUT:
-	input + matching values from keyfile appended on each line
-----------------------------------------------------------------------
-
+<blockquote><pre>/opt/LDAS/xs-progtag: line 420: xe-dbmatch2: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-decimate1"><a href="#CODE">&#8679</a> xe-decimate1</h3></font>
@@ -11256,7 +11248,7 @@ OUTPUT:
 [<a href="#tag-plot">plot</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-plotmatrix1 v 23: 1.January.2019 [JRH]
+xe-plotmatrix1 v 23: 10.March.2020 [JRH]
 ----------------------------------------------------------------------
 Produces a postscript "heat-map" plot of a matrix of data
 If some rows of input have fewer values, the blocks on that row will 
@@ -11278,7 +11270,8 @@ VALID OPTIONS (default in [])...
 	-xlabel, -ylabel: axis labels (1 word, use "_" for spaces)
 	-title: plot title (enclose in quotes)
 	-xscale, yscale: scale plot in x [0.3] and y [0.3] dimensions
-	-zmin -zmax: colour-range (non-numeric=auto) [nan,nan]
+	-zmin -zmax: colour-range (NAN=auto) [nan,nan]
+		- add % (eg 95%) to set as a percentile of z-range
 	-zmid: set value for middle colour (non-numeric=auto) [nan]
 		- attempts to equalize range around mid-point
 		- may override zmin,zmax or both
@@ -11294,8 +11287,8 @@ VALID OPTIONS (default in [])...
 	-font: base font size [10]
 	-frame: draw frame at bottom(1) left(2) top(4) right(8) [15]
 	-tics: size of x- and y-tics (negative=outside frame) [-3]
-	-hline: CSV list of positions for horizontal dashed lines [unset]
-	-vline: CSV list of positions for vertical dashed lines [unset]
+	-hline: CSV position-list for horizontal dashed lines [unset]
+	-vline: CSV position-list for vertical dashed lines [unset]
 	-uc: user-line colour (0 to -cn, or -1 =white|yellow ) [-1]
 	-us: user-line style (0=dashed, 1=solid) [0]
 	-lwd: line width for data [1]
@@ -12258,29 +12251,25 @@ OUTPUT:
 
 <font color="Black"><h3 id="code-xe-template"><a href="#CODE">&#8679</a> xe-template</h3></font>
 [<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>/opt/LDAS/xs-progtag: line 420: xe-template: command not found
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xe-template_minimal"><a href="#CODE">&#8679</a> xe-template_minimal</h3></font>
+[<a href="#tag-LDAS">LDAS</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-template v 1: 14.April.2014 [JRH]
+xe-template DAY.MONTH.2020 [JRH]
 ----------------------------------------------------------------------
 Template program source-code
-Assumes one valid numeric value per input line
-Non-numeric values will be ignored
-USAGE: xe-template [infile] [options]
-	[input]: file name or "stdin"
+USAGE: xe-template [in] [options]
+	[in]: file name or "stdin"
 VALID OPTIONS: defaults in []
-	-t(ype): 1(counts) 2(range 0-1) or 3(probability)
-	-list: comma-separated list of numbers
 	-verb: verbose output (0=NO 1=YES 999=DEBUG) [0]
 EXAMPLES:
-	xe-template data.txt -t 1
-	cat temp.txt | xe-template stdin -t 3
+	xe-template data.txt
 OUTPUT:
-	1st column: lower limit of each bin
-	2nd column: value (eg. counts) in that bin
+	- 
 ----------------------------------------------------------------------
-
-
-*** xe-template [ERROR: this is the error message]
 
 </blockquote></pre>
 
@@ -16932,7 +16921,7 @@ TEST PROGRAM :
 <font color="Black"><h3 id="code-xf_matrixrotate1_f"><a href="#CODE">&#8679</a> xf_matrixrotate1_f</h3></font>
 [<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>DESCRIPTION:
-	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
+	Rotate a 1-dimensional array of numbers meant to be interpreted as a 2-dimentional matrix
 
 USES:
 	- image or map rotation
@@ -16998,6 +16987,32 @@ DEPENDENCIES:
 
 ARGUMENTS:
 	double *data1 : input, pointer to array of numbers representing the original matrix
+	long *nx1     : input/output - width of the matrix, to be modified depending on rotation
+	long *ny1     : input/output- height of the matrix, to be modified depending on rotation
+	int r         : input - rotation (90,180,270,-90,-180,-270)
+
+RETURN VALUE:
+	0 on success
+	-1 for invalid arguments
+	-2 for memory allocation error
+	NOTE: nx1 and ny1 will be also modified according to the rotation
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_matrixrotate2_f"><a href="#CODE">&#8679</a> xf_matrixrotate2_f</h3></font>
+[<a href="#tag-dt.matrix">dt.matrix</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
+	- unlike xf_matrixrotate1_f, makes an internal copy of data and modifies the original
+	- therefore, safer for memory management and nested functions, but has a heavier computational load
+USES:
+	- image or map rotation
+	- matrix algebra
+
+DEPENDENCIES:
+	None
+
+ARGUMENTS:
+	float *data1  : input, pointer to array of numbers representing the original matrix
 	long *nx1     : input/output - width of the matrix, to be modified depending on rotation
 	long *ny1     : input/output- height of the matrix, to be modified depending on rotation
 	int r         : input - rotation (90,180,270,-90,-180,-270)
@@ -17773,7 +17788,6 @@ SAMPLE CALL:
 		1,3,5,7-20
 		10-1,11,14,20-25
 
-
 USES:
 	Build a list of columns to extract from a table
 
@@ -17837,7 +17851,6 @@ ARGUMENTS:
 	   result[8]  : 95th percentile
 	   result[9]  : 97.5th percentile
 	   result[10] : 99th percentile
-	char *message : string to hold error message on fail
 
 RETURN VALUE:
 	0  if successful, -1 if fail
@@ -17873,7 +17886,6 @@ ARGUMENTS:
 	   result[8]  : 95th percentile
 	   result[9]  : 97.5th percentile
 	   result[10] : 99th percentile
-	char *message : string to hold error message on fail
 
 RETURN VALUE:
 	0  if successful, -1 if fail
@@ -17881,8 +17893,58 @@ RETURN VALUE:
 SAMPLE CALL:
 	if ( xf_percentile1_d(data,n,result) &#62=0) median=result[5];
 	else {
-	 fprintf(stderr,"--- Error: Memory allocation error\n"); exit(1); 
+	 fprintf(stderr,"--- Error: Memory allocation error\n"); exit(1);
  	}
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_percentile2_d"><a href="#CODE">&#8679</a> xf_percentile2_d</h3></font>
+[<a href="#tag-stats">stats</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	Calculate a percentile cutoff for an array of double-precision float values
+
+USES:
+	Getting the median, finding outliers in a distribution
+
+DEPENDENCIES:
+	xf_compare1_d
+
+ARGUMENTS:
+	double *data  : array holding the input data
+	long nn       : number of elements in the array
+	double setper : the percentile cutoff desired (0-1)
+	char *message : pre-allocated array to hold error message
+
+RETURN VALUE:
+	0  if successful, -1 if fail
+
+SAMPLE CALL:
+	if ( xf_percentile1_d(data,n,result) &#62=0) median=result[5];
+	else { fprintf(stderr,"** Memory allocation error\n"); exit(1); }
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_percentile2_f"><a href="#CODE">&#8679</a> xf_percentile2_f</h3></font>
+[<a href="#tag-stats">stats</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	Calculate a percentile cutoff for an array of float values
+
+USES:
+	Getting the median, finding outliers in a distribution
+
+DEPENDENCIES:
+	xf_compare1_f
+
+ARGUMENTS:
+	float *data  : array holding the input data
+	long nn       : number of elements in the array
+	double setper : the percentile cutoff desired (0-1)
+	char *message : pre-allocated array to hold error message
+
+RETURN VALUE:
+	0  if successful, -1 if fail
+
+SAMPLE CALL:
+	if ( xf_percentile1_d(data,n,result) &#62=0) median=result[5];
+	else { fprintf(stderr,"** Memory allocation error\n"); exit(1); }
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_placeinfo1_l"><a href="#CODE">&#8679</a> xf_placeinfo1_l</h3></font>
@@ -20503,6 +20565,31 @@ RETURN VALUE:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xf_strcat2"><a href="#CODE">&#8679</a> xf_strcat2</h3></font>
+[<a href="#tag-string">string</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	- concatenate string2 to string1, if it is not already in string1
+	- this is similar to xf_strcat1, except:
+		- requires string2 to be unique
+		- delimiter must be a single character
+
+ARGUMENTS:
+	char *string1   : first input string - the one to be lengthened - can be NULL
+	char *string2   : second input string - to be added to string1
+	char delimiter  : single-character delimiter to put between them
+	long *wmatch	: the word (from zero) in string1 matching string2
+				- pass address to variable - will be updated
+
+DEPENDENCIES:
+	xf_strstr2
+
+RETURN VALUE:
+	Success:
+		- pointer to the lengthened string1, or NULL on failure
+		- wmatch is updated with the word that string2 matches in string1
+	Fail: NULL
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xf_strcut1"><a href="#CODE">&#8679</a> xf_strcut1</h3></font>
 [<a href="#tag-string">string</a>]<br>
 <blockquote><pre>DESCRIPTION:
@@ -20639,6 +20726,34 @@ RETURN VALUE:
 Modified Feb.10 2010: removed reference to external function hux_error : direct error handling instead
 Modified August 9 2011: remove text reporting, rename to xf_, add error return values
 Modified May 21 2016: return long, not int
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_strstr2"><a href="#CODE">&#8679</a> xf_strstr2</h3></font>
+[<a href="#tag-string">string</a>]<br>
+<blockquote><pre>DESCRIPTION: 16 March 2020
+	Find an exact word (needle) in a delimited line (haystack)
+
+ARGUMENTS:
+	char *haystack : string in which to find needle
+	char *needle   : string to be found in haystack
+	char delimiter : delimiter separating words in haystack
+			- a single character, typically char delim='\t'
+
+RETURN VALUE:
+	The word-number in haystack matching needle (zero = first word)
+	-1 if needle not found
+	-2 if haystack is an empty string
+	-3 if needle is an empty string
+
+EXAMPLE: find "pig" at word 3 (counting from zero) in a CSV list...
+
+	char haystack[]="dog,cat,pig,cow\0", needle[]="pig", delim=',';
+	long word= xf_strstr2(haystack,needle,delim);
+	if(word&#62=0) printf("found \"%s\" in \"%s\" at word %ld\n",needle,haystack,word);
+	else if(word==-1) printf("Not found!\n");
+	else if(word==-2) printf("Bad haystack!\n");
+	else if(word==-3) printf("Bad needle!\n");
 
 </blockquote></pre>
 

@@ -61,18 +61,18 @@ function func_os () {
 		KERNEL=`uname -r`
 		if [ -f /etc/os-release ] ; then
 			DIST=`cat /etc/os-release | tr -d '"' | awk -F = '$1=="NAME"{print $2}'`
-			PSUEDONAME=`cat /etc/os-release | awk -F = '$1=="PRETTY_NAME"{print $2}'`
+			PSEUDONAME=`cat /etc/os-release | awk -F = '$1=="PRETTY_NAME"{print $2}'`
 			REV=`cat /etc/os-release | tr -d '"' | awk -F = '$1=="VERSION_ID"{print $2}'`
 		elif [ -f /etc/redhat-release ] ; then
 			DIST=`cat /etc/redhat-release | tr "\n" ' '| sed s/VERSION.*//`
-			PSUEDONAME=`cat /etc/redhat-release | sed s/.*\(// | sed s/\)//`
+			PSEUDONAME=`cat /etc/redhat-release | sed s/.*\(// | sed s/\)//`
 			REV=`cat /etc/redhat-release | sed s/.*release\ // | sed s/\ .*//`
 		elif [ -f /etc/SuSE-release ] ; then
 			DIST=`cat /etc/SuSE-release | tr "\n" ' '| sed s/VERSION.*//`
 			REV=`cat /etc/SuSE-release | tr "\n" ' ' | sed s/.*=\ //`
 		elif [ -f /etc/mandrake-release ] ; then
 			DIST='Mandrake'
-			PSUEDONAME=`cat /etc/mandrake-release | sed s/.*\(// | sed s/\)//`
+			PSEUDONAME=`cat /etc/mandrake-release | sed s/.*\(// | sed s/\)//`
 			REV=`cat /etc/mandrake-release | sed s/.*release\ // | sed s/\ .*//`
 		elif [ -f /etc/debian_version ] ; then
 			DIST="Debian `cat /etc/debian_version`"
@@ -82,8 +82,8 @@ function func_os () {
 		if [ -f /etc/UnitedLinux-release ] ; then
 		        DIST="${DIST}[`cat /etc/UnitedLinux-release | tr "\n" ' ' | sed s/VERSION.*//`]"
 		fi
-	
-		OSSTR="${OS} ${DIST} ${REV} (${PSUEDONAME} ${KERNEL} ${MACH})"
+
+		OSSTR="${OS}#${DIST}#${REV}#${PSEUDONAME}#${KERNEL}#${MACH}"
 	fi
 
 	echo ${OSSTR}
@@ -142,22 +142,26 @@ function func_permission () {
 if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
-	echo $thisprog": LDAS installation script"
-	echo "	- full install from GitHub (default) or a .zip archive"
-	echo "	- checks operating system & permissions"
-	echo "	- checks dependencies"
-	echo "	- compiles the C source-code"
-	echo "	- updates the \$PATH variable"
-	echo "	- updates manuals and PROGTAG.html"
+	echo $thisprog": LDAS installation/update  script"
+	echo "	- full install or update, from GitHub (default) or a .zip archive"
+	echo "		install: "
+	echo "			- checks operating system & permissions"
+	echo "			- checks dependencies"
+	echo "			- updates the \$PATH variable"
+	echo "			- extracts & compiles the C source-code"
+	echo "			- updates manuals and PROGTAG.html"
+	echo "		update: "
+	echo "			- extracts & compiles the C source-code"
+	echo "			- updates manuals and PROGTAG.html"
 	echo ""
-	echo "USAGE: $thisprog [scope] [options]"
-	echo "	[scope]: local (current user) or global (all users)"
+	echo "USAGE: $thisprog [mode] [options]"
+	echo ""
+	echo "	[mode]: local,global, or update"
+	echo "		- local:  install, current user only (local scope)"
+	echo "		- global: install, all users (global scope)"
+	echo "		- update: update existing LDAS"
 	echo ""
 	echo "VALID OPTIONS (defaults in []):"
-	echo "	--update: update existing LDAS rather than full install (0=NO 1=YES) [$setupdate]"
-	echo "		: can be run using installed version of $thisprog"
-	echo "		: no dependency checks or dependency installation"
-	echo "		: no configuration of \$PATH variable or nanorc"
 	echo "	--zip: install/update  LDAS from this zip-file [$setfilezip]"
 	echo "		- if unset, use \"git clone\" to get the latest repo from GitHub"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
@@ -176,19 +180,20 @@ echo -e "#######################################################################
 ########################################################################################
 # ARGUMENT HANDLING
 ########################################################################################
-setscope=$1 ; shift
-if [ "$setscope" != "local" ] && [ "$setscope" != "global" ] ; then
-	echo -e "$RED\n--- Error ["$thisprog"]: invalid --scope ($setscope) -  must be \"local\" or \"global\"\n$NC" ;  exit;
-fi
+setmode=$1 ; shift
+
+if [ "$setmode" == "local" ] ; then setscope="local" ; setupdate="0" ;
+elif [ "$setmode" == "global" ] ; then setscope="global" ; setupdate="0"
+elif [ "$setmode" == "update" ] ; then setupdate="1"
+else echo -e "$RED\n--- Error ["$thisprog"]: invalid mode ($setmode) -  must be \"local\" or \"global\" or \"update\"\n$NC" ; exit ; fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:" ; vl="update:,zip:,verb:,clean:"
+vs="v:c:" ; vl="zip:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
-		--update ) setupdate=$2 ; shift ;;
 		--zip ) setfilezip=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
@@ -197,39 +202,28 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
-if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+
 
 ################################################################################
 # PRELIMINARY SETUP AND ERROR CHECKS
 ################################################################################
 # DETERMINE LINUX VERSION AND REPORT
 z=$(func_os)
-if [ "$z" != "" ] ; then 
-	distro=$(echo $z | awk '{print $2}')
-	version=$(echo $z | awk '{print $3}')
+if [ "$z" != "" ] ; then
+	distro=$(echo $z | awk -F '#' '{print $2}')
+	version=$(echo $z | awk -F '#' '{print $3}')
+	pseudoname=$(echo $z | awk -F '#' '{print $4}')
 fi
 
-# DETERMINE DESTINATION, PATH-DEFINITION, & NANORC OPTIONS, DEPENDING ON SELECTED SCOPE
-# local= current user only, global= all users
-if [ "$setscope" == "local" ] ; then
-	setdest="/home/$USER/bin"
-	setrc="/home/$USER/.bashrc"
-	setnano="/home/$USER/.nanorc"
-	mkdir -p $setdest
-elif [ "$setscope" == "global" ] ; then
-	setdest="/opt"
-	setrc="/etc/profile"
-	setnano="/etc/nanorc"
-fi
 
 # CHECK IF LDAS IS ALREADY INSTALLED - CHECK PATH
 prevdest=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 if [ "$prevdest" == "" ] ; then {
 	# if not installed, update cannot be performed
 	if [ "$setupdate" == "1" ] ; then
-		echo -e "$RED\n--- Error ["$thisprog"]: LDAS not installed, can't use \"--update 1\" option\n\tPerform full install instead\n$NC" ; exit
+		echo -e "$RED\n--- Error ["$thisprog"]: LDAS not installed, can't use \"update\" mode\n\tPerform full install instead\n$NC" ; exit
 	fi
 }
 # determine previous-install scope - make sure path is valid
@@ -245,11 +239,29 @@ else
 	echo -e "$RED\n--- Error ["$thisprog"]: LDAS previously installed in invalid location\n\t- path: $prevdest\n\t- manually remove and retry\n$NC" ; exit
 fi
 
-# FOR UPDATE, MAKE SURE SCOPE MATCHES
-if [ "$setupdate" == "1" ] ; then
-	if [ "$prevscope" != "$setscope" ] ; then
-		echo -e "$RED\n--- Error ["$thisprog"]: update scope ($setscope) mismatches current ($prevscope)\n\t- to change the scope, do a full install\n$NC" ; exit
-	fi
+# for updates, use the existing scope
+if [ "$setupdate" == "1" ] ; then setscope=$prevscope ; fi
+
+# DETERMINE DESTINATION, PATH-DEFINITION, & NANORC OPTIONS, DEPENDING ON SELECTED SCOPE
+# local= current user only, global= all users
+if [ "$setscope" == "local" ] ; then
+	setdest="/home/$USER/bin"
+	setrc="/home/$USER/.bashrc"
+	setnano="/home/$USER/.nanorc"
+	mkdir -p $setdest
+elif [ "$setscope" == "global" ] ; then
+	setdest="/opt"
+	setrc="/etc/profile"
+	setnano="/etc/nanorc"
+fi
+
+# REPORT ON SYSTEM AND CURRENT INSTALL
+echo -e "- Linux distro: $pseudoname"
+if [ "$setupdate" == 0 ] ; then
+	if [ "$prevdest" != "" ]  ; then echo -e "- previous install path: $prevdest" ; fi
+	echo -e "- proposed install path: $setdest/LDAS"
+else
+	echo -e "- proposed update to LDAS: $setdest/LDAS"
 fi
 
 # CHECK WHETHER PROGRAM IS BEING RUN IN DEST OR TEMP DIRECTORY
@@ -316,13 +328,6 @@ if [ "$setupdate" == "0" ] ; then
 		echo -e "\t... or, run this script as superuser\n"$NC
 	fi
 fi
-
-################################################################################
-# REPORT ON SYSTEM AND CURRENT INSTALL
-################################################################################
-echo -e "- Linux distro: $distro $release"
-echo -e "- proposed install path: $setdest/LDAS"
-echo -e "- previous install path: $prevdest"
 
 ################################################################################
 # CHECK TO PROCEED AND BACKUP EXISTING INSTALL
@@ -468,7 +473,7 @@ if [ "$prevdest" != "" ] ; then
 fi
 
 ################################################################################
-# PROCEED WITH INSTALL 
+# PROCEED WITH INSTALL
 ################################################################################
 
 echo -e "\n--------------------------------------------------------------------------------"
