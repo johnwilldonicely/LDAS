@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# PANDOC MAY ALSO REQUIRE LATEX DEPENDENCIES? - SEE IF THERE IS A NO-LATEX MD-to-PDF CONVERSION
-
 # <TAGS>programming ldas</TAGS>
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog
