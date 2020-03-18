@@ -650,6 +650,17 @@ These are some basic filetypes used by LDAS.
 
 	- timestamps are usually in seeconds for O2 experiments
 
+## [base].xyd  
+- binary file: 32-bit float triplet
+- records x,y and direction information 
+- found in the Data_Library/[base]/ folders
+
+## [base].xydt  
+- binary file: 64-bit long integer  
+- records timestamps (samples) for the similarly named .xyd file  
+- found in the Data_Library/[base]/ folders  
+
+
 ## [base].notes
 - plain text file
 - experimental meta-data for the current [base]
@@ -659,7 +670,7 @@ These are some basic filetypes used by LDAS.
 	- XML section *CHANNELS* describing each channel
 		- derived from the table_channels_[subject].txt files
 	- XML section *TRIALS* describing each trial
-		- derived from the [dat].plan file in Data_Acquired/[date] directories
+		- derived using experiment-specific scripts  
 		- includes trial number & name
 		- includes start- & stop- samples (relative to .dat file)
 - found in the Data_Library/[base]/ folders
