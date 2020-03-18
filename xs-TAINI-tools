@@ -36,7 +36,7 @@ setseq0="2,0"
 setkey=""
 listkeys="id alias year month day date1 date2 inc"
 setblank0="0"
-setcount="0"
+setblock="0"
 setappend=""
 
 setverb="0"
@@ -71,13 +71,13 @@ if [ $# -lt 1 ]; then
 	echo "		--input: receiver input to show (ab or cd) [$setinput]"
 	echo "	live"
 	echo "		Run TainiLive"
-	echo "	sync"
-	echo "		Check a sync-file and extract start-stop pairs"
-	echo "		--file: sync file to check & extract [$setfile]"
+	echo "	trials"
+	echo "		Extract sync-sequence-defined trials from a sync file"
+	echo "		--file: sync file to use [$setfile]"
 	echo "		--pre: the sync-record prefix [$setpre]"
-	echo "		--seq: CSV list of valid sync-number sequence [$setseq]"
-	echo "		--blank: required sync-record which is not output [$setblank0]"
-	echo "		--count: use timestamps to count trials in blocks (0=NO 1=YES) [$setcount]"
+	echo "		--seq: CSV list, required sync-channel sequence [$setseq]"
+	echo "		--blank: required sync-channel which is not output [$setblank0]"
+	echo "		--block: use timestamps to count trials in blocks (0=NO 1=YES) [$setblock]"
 	echo "			- uses mean interval + 5 s.d. as threshold"
 	echo "	config"
 	echo "		Output configuration settings (from .yaml)"
@@ -114,7 +114,7 @@ setmode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,count:,append:,blank:,key:,verb:,clean:"
+vs="v:" ; vl="expt:,input:,batch:,file:,pre:,seq:,block:,append:,blank:,key:,verb:,clean:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -122,7 +122,7 @@ while [ $# -gt 0 ] ; do
 	case $1 in
 		--expt )  setexpt=$2 ; shift ;;
 		--batch ) setbatch=$2 ; shift ;;
-		--count ) setcount=$2 ; shift ;;
+		--block ) setblock=$2 ; shift ;;
 		--verb )  setverb=$2 ; shift ;;
 		--input ) setinput=$2 ; shift ;;
 		--file )  setfile=$2 ; shift ;;
@@ -138,7 +138,7 @@ while [ $# -gt 0 ] ; do
 done
 
 # PERFORM CHECKS ON OPTIONS
-if [ "$setcount" != "0" ] && [ "$setcount" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --count ($setcount) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setblock" != "0" ] && [ "$setblock" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --block ($setblock) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setinput" != "ab" ] && [ "$setinput" != "cd" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --input ($setinput) -  must be ab or cd" ; echo ; exit; } ; fi
 if [ "$setfile" != "" ]  && [ ! -e "$setfile" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --file $setfile$NC\n"; exit; } fi
@@ -353,51 +353,55 @@ elif [ "$setmode" == "sync" ] ; then
 	z=$(head -n 1 $tempfile.1 | awk '{print $2}' )
 	if [ "$z" == $setblank ] ; then tail -n +2 $tempfile.1 > $tempfile.2 ; else cp $tempfile.1 $tempfile.2 ; fi
 	# save the header
-	echo $seq3 | xe-delimit stdin > $tempfile.3
+	echo "subject,trial,"$seq3 | xe-delimit stdin > $tempfile.3
 	# extract the sequences - assumes the timestamp is in column-1
-	xe-getsequence1 $tempfile.2 2 exact $seq2 | awk 'NF>0&&$0!~/^#/{print $0}' | grep -v $setblank | cut -f 1 | awk 'ORS=NR%'$nseq3'?"\t":"\n" {print $0}' >> $tempfile.3
+	xe-getsequence1 $tempfile.2 2 exact $seq2 |
+		awk 'NF>0&&$0!~/^#/{print $0}' |
+		grep -v $setblank |
+		cut -f 1 |
+		awk 'ORS=NR%'$nseq3'?"\t":"\n" {print $0}' |
+		awk 'BEGIN{n=0}{print "'$subject'\t"++nn"\t"$0}' >> $tempfile.3
 
 	# CHECK IF THERE ARE NO SEQUENCES OR BAD SEQUENCES
 	let w=$(tail -n +1 $tempfile.3 | wc -l)   # sequences in the file, header line omitted
-	let x=$(cat $tempfile.2 | wc -l)          # all 2-column lines in sync file containing $setpre, minus a permissable starting-blank
-	let y=$(tail -n +2 $tempfile.3 | wc -l)	  # total sequence-sets (trials)
-	let z=$(echo $y*$nseq2 | bc)              # sequence-sets times the number of items in the sync-sequence
 	if [ $w -lt 1 ] ; then
 		echo -e $RED"\n--- Error: no valid sequences ($setseq) in $setfile $NC\n"
 		if [ "$setclean" == "1" ] && [ "$tempfile" != "" ] ; then rm -f $tempfile.* ; fi
 		exit
-	elif [ $x -ne $z ] ; then
-		echo -e "$GREEN--- Warning: additional, different sequences in $setfile" >&2
-		echo -e "	- is that ok?" >&2
-		echo -e "	- is --seq ($setseq) correctly defined?" >&2
-		echo -e "	- is --blank ($setblank0) correctly defined?\n$NC" >&2
 	fi
 
-	if [ "$setcount" == "0" ] ; then cat $tempfile.3
+	if [ "$setblock" == "0" ] ; then
+		cat $tempfile.3
 	else {
-		tail -n +2 $tempfile.3 > $tempfile.4
-		# save the intervals
-		xe-getdelta1 $tempfile.4 -t 1 > $tempfile.5
-		# get the stats
-		stats=$(xe-statsd1 $tempfile.5)
+		stats=$(cut -f 3 $tempfile.3 | tail -n +2 | xe-getdelta1 stdin -t 1 | xe-statsd1 stdin)
 		mean=$(echo $stats | xe-getkey2 stdin MEAN)
 		stddev=$(echo $stats | xe-getkey2 stdin STDDEV)
-		# define the interval threshold
 		thresh=$(echo "5 * $stddev + $mean" | bc | xe-math_round1 stdin -b 1)
-		# count syncs by block
-		paste $tempfile.4 $tempfile.5 |
+		cat $tempfile.3 |
 			awk '
-			BEGIN{ tot=0; m=0; block=1 ; thresh="'$thresh'"+0 ; print "TIME\tINT\tSYNC\tTOT"}
+			BEGIN{ nn=-1; block=1 ; count=1; thresh="'$thresh'"+0 }
 			{
-				b=$2+0
-				if(b>thresh) {block++ ; sync=0; print "" }
-				sync++ ; tot++;
-				print $1"\t"b"\t"sync"\t"tot
-
-			}
-			END {print "\nBLOCKS: "block}'
+			if(++nn==0) print "block\tcount\t"$0
+			else if(nn==1) { print block"\t"count"\t"$0 ; prev= $3+0; }
+			else {
+				delta= $3-prev;
+				if(delta>thresh) { block++; count=1; print ""}
+				print block"\t"count"\t"$0
+				prev= $3+0
+				count++
+			}}'
 	}
-fi
+	fi
+
+	let x=$(cat $tempfile.2 | wc -l)          # all 2-column lines in sync file containing $setpre, minus a permissable starting-blank
+	let y=$(tail -n +2 $tempfile.3 | wc -l)	  # total sequence-sets (trials)
+	let z=$(echo $y*$nseq2 | bc)              # sequence-sets times the number of items in the sync-sequence
+	if [ $x -ne $z ] ; then
+		echo -e $GREEN"\n--- Warning: additional, different sequences in $setfile" >&2
+		echo -e "	- is that ok?" >&2
+		echo -e "	- is --seq ($setseq) correctly defined?" >&2
+		echo -e "	- is --blank ($setblank0) correctly defined?\n"$NC >&2
+	fi
 
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "config" ] ; then
