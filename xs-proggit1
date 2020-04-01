@@ -8,7 +8,7 @@ tempfile="temp_"$thisprog #"."$$"."
 start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
 
-setmessage="update"
+setmessage=""
 
 if [ $# -lt 1 ]; then
 	echo
@@ -51,6 +51,7 @@ done
 if [ ! $lastarg ] ; then lastarg=0; fi
 for i in $(seq 1 $lastarg); do shift ; done
 
+if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
 
 if [ $mode == "status" ] ; then
 	echo "
