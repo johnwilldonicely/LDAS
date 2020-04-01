@@ -89,7 +89,7 @@ if [ $# -lt 1 ]; then
 	echo "OPTIONS FOR xs-ldas-pow1/coh1 FOR ALTERING START-STOP PAIRS:"
 	echo "	--trials: CSV list of trial-names to use (or \"all\" or \"no\") [$settrials]"
 	echo "	--noise: exclude trials based on ajusted-Z (-1=SKIP) [$setnoise] "
-	echo "		- based on media-absolute deviation from median trace"
+	echo "		- based on median-absolute deviation from median trace"
 	echo "		- at present, applies only to evoked responses"
 	echo "	--align: redefine start & stop as one or the other (start|stop) [$setalign]"
 	echo "		NOTE: if set, use --pre or --post to make non-zero-length trials"
