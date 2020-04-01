@@ -1,8 +1,11 @@
 #!/usr/local/bin/python3
 
-
 # script for reading HDF5 output from MultiChannelSystems recordings - combined timestamps and waveforms for detected events
 # EXAMPLES
+
+#	NOTE!!! - the above pathmight be incorrect depending on the machine
+# 	THEREFORE, consider running each command as follows: python3 xp-hdf5_parse1.py  ...
+
 #	xp-hdf5_parse1.py count infile.h5		- get the max-channel-number (number of channels minus one)
 # 	xp-hdf5_parse1.py export 2 infile.h5	- export timestamps and waveforms for channel 2
 #	xp-hdf5_parse1.py metadata infile.h5	- print metadata to screen
@@ -18,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 def get(args):
-    h5 = h5py.File(args.filename)
+    h5 = h5py.File(args.filename,'r')
     prefix = Path(args.filename).name
     path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}'
     timestamp_grp = h5[path.format(recording=args.recording, stream=args.stream, type="TimeStamp")]
@@ -34,7 +37,7 @@ def get(args):
  #   data.tofile("{}.{}.f32.dat".format(prefix,args.entity_no))
 
 def count(args):
-    h5 = h5py.File(args.filename)
+    h5 = h5py.File(args.filename,'r')
     recording = 0 if args.recording is None else args.recording
     path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}'
     timestamp_grp = h5[path.format(recording=recording, stream=args.stream, type="TimeStamp")]
@@ -55,7 +58,7 @@ def display_structure(h5):
     return output
 
 def shape(args):
-    h5 = h5py.File(args.filename)
+    h5 = h5py.File(args.filename,'r')
     recording = 0 if args.recording is None else args.recording
     path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}'
     data_grp= h5[path.format(recording=recording, stream=args.stream, type="Segment")]
@@ -63,12 +66,12 @@ def shape(args):
     print(data.shape)
 
 def display_structure_cmd(args):
-    print(display_structure(h5py.File(args.filename)))
+    print(display_structure(h5py.File(args.filename,'r')))
 
 
 import sys
 def get_meta(args):
-    h5 = h5py.File(args.filename)
+    h5 = h5py.File(args.filename,'r')
     path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}/SourceInfoChannel'
     recording = 0 if args.recording is None else args.recording
     info_dataset = h5[path.format(recording=recording, stream=args.stream, type="Segment")]
@@ -92,7 +95,7 @@ def get_meta(args):
 
 
 def get_attr(args):
-    h5 = h5py.File(args.filename)
+    h5 = h5py.File(args.filename,'r')
     if args.recording is None:
         path = "Data"
     else:

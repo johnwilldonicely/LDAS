@@ -4,10 +4,11 @@
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
 ################################################################################
-# for most scripts...
 thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+pypath=$(which python3)
+
 allopts=$@
 tempfile="temp_"$thisprog #"."$$"."
 startdir=$(pwd)
@@ -17,6 +18,13 @@ setverb="0"
 setclean="1"
 sample_rate="1000000" # default sample-rate for spike records - based on timestamps in microseconds
 bindecimation="1000" # based on the assumption that .bin files are 1KHz, = sample_rate/1000
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
 
 # GENERATE THE BASE-NAME FROM THE CURRENT FOLDER NAME
 outbase=$(echo $startdir | rev | cut -f 1 -d "/" | rev)
@@ -52,10 +60,21 @@ if [ $# -lt 1 ]; then
 	echo "OUTPUT: "
 	echo "	output.clubt (timestamps, as samples, 64-bit integer)"
 	echo "	output.club (channel-number, 16-bit integer)"
+	if [ "$pypath" == "" ] ; then
+		echo -e $RED"\n--- Error ["$thisprog"]: required software (python3) not found\n"$NC
+	fi
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
 fi
+
+
+if [ "$pypath" == "" ] ; then
+	echo -e $RED"\n--- Error ["$thisprog"]: required software (python3) not found\n"$NC
+	exit
+fi
+
+
 
 ################################################################################
 # REQUIRED ARGUMENT HANDLING
@@ -99,6 +118,8 @@ if [ $nfiles -eq 0 ] ;  then { echo ; echo "--- Error ["$thisprog"]: no files ma
 ################################################################################
 # CYCLE THROUGH THE FILES, EXTRACTING AND MERGING
 ################################################################################
+pycommand="python3 $progpath/xp-hdf5_parse1.py"
+
 echo "--------------------------------------------------------------------------------"
 echo "Merging files:"
 let count=0
@@ -110,12 +131,12 @@ for in1 in $listfiles ; do
 	###############################################################################
 	# GET THE ATTRIBUTES AND METADATA
 	echo -e "\t...extracting the attributes and metadata:"
-	echo -e "\t\txp-hdf5_parse1.py metadata $in1 ..."
-	echo -e "\t\txp-hdf5_parse1.py --recording 0 attributes $in1 ..."
 
-	xp-hdf5_parse1.py --recording 0 attributes $in1 > $outbase".attributes"
+	echo -e "\t\t$pycommand --recording 0 attributes $in1 ..."
+	$pycommand --recording 0 attributes $in1 > $outbase".attributes"
 
-	xp-hdf5_parse1.py metadata $in1 |
+	echo -e "\t\t$pycommand metadata $in1 ..."
+	$pycommand metadata $in1 |
 		head -n 1 |
 		sed -e 's/ChannelID/chan/g' |
 		sed -e 's/GroupID/grpid/g' |
@@ -134,7 +155,7 @@ for in1 in $listfiles ; do
 		sed -e 's/LowPassFilterType/lptype/g' |
 		sed -e 's/LowPassFilterCutOffFrequency/lpcut/g' |
 		sed -e 's/LowPassFilterOrder/lpord/g' > $outbase".meta"
-	xp-hdf5_parse1.py metadata $in1 | tail -n +2 >> $outbase".meta"
+	$pycommand metadata $in1 | tail -n +2 >> $outbase".meta"
 
 	################################################################################
 	# DETERMINE THE NUMBER OF CHANNELS AND THE LAYOUT
@@ -210,7 +231,7 @@ for in1 in $listfiles ; do
 		rm -f $tempfile".timestamps"
 		for chan in $listchans ; do
 			if [ "$setverb" == "1" ] ; then echo "channel: "$chan ; fi
-			xp-hdf5_parse1.py --recording 0 export $chan $in1 2>/dev/null
+			$pycommand --recording 0 export $chan $in1 2>/dev/null
 			outfile=$in1"."$chan".i64.timestamp.dat"
 			if [ -e $outfile ] ; then
 				xe-readbinary1 $outfile -dt 7 | tail -n 1 >> $tempfile".timestamps"
@@ -239,7 +260,7 @@ for in1 in $listfiles ; do
 	for chan in $listchans ; do
 		map=$(xe-dbmatch1 $outbase".meta" chan $chan -oc map -o 1)
 		if [ "$setverb" == "1" ] ; then echo -e "\t\tchannel: "$chan"\tmap: $map" ; fi
-		xp-hdf5_parse1.py --recording 0 export $chan $in1 2>/dev/null
+		$pycommand --recording 0 export $chan $in1 2>/dev/null
 
 		outfile=$in1"."$chan".i64.timestamp.dat"
 		if [ -e $outfile ] ; then
