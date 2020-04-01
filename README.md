@@ -98,7 +98,7 @@ Hopefully there will be none! But as they are reported, potential install-errors
 After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed. 
 
 ### 6. [optional] - delete the INSTALLER
-You might want to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
+You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 
 ## Dependencies
@@ -147,38 +147,15 @@ LDAS will not install or will fail to run properly without these programs, but t
 
 - python3 + hdf5 support (required for some of the MEA scripts)
 ```
-		$ sudo yum install -y libffi-devel
+		$ sudo yum install python3-y libffi-devel
 		$ sudo yum install -y openssl-devel
- 		$ v=$(lsb_release -a | grep Release: | awk '{print $2}' | cut -f 1 -d .)
-		$ if [ $v == "7" ] ; then p="3.7.3" ; else p="3.5.7" ; fi
-		$ wget https://www.python.org/ftp/python/$p/Python-$p.tgz
-		$ tar -xvf Python-$p.tgz
-		$ cd Python-$p/
-		$ ./configure
-		$ make
-		$ make install 
-		$ python3 -m pip install h5py numpy pandas requests
-		$ python3 -m pip install mne
-		$ python3 -m pip install matplotlib
+		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user 
 ```
 
 - R - for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
 	... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
-		$ sudo yum install -y zvbi-fonts-0.2.35-1.el7.noarch.rpm
-		$ sudo yum install -y tre-common-0.8.0-18.20140228gitc2f5d13.el7.noarch.rpm
-		$ sudo yum install -y tre-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		$ sudo yum install -y tre-devel-0.8.0-18.20140228gitc2f5d13.el7.x86_64.rpm
-		$ sudo yum install -y libRmath-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y libRmath-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y openblas-Rblas-0.3.3-2.el7.x86_64.rpm
-
-		$ sudo yum install -y R-core-3.5.2-2.el7.x86_64.rpm
-		
-		$ sudo yum install -y R-core-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-java-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-java-devel-3.5.2-2.el7.x86_64.rpm
-		$ sudo yum install -y R-devel-3.5.2-2.el7.x86_64.rpm
+		$ sudo yum install -y R
 ```
 
 - libreoffice - for some scripts, required to convert Excell spreadsheets to CSV files
@@ -189,9 +166,8 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ tarname=$rpmname".tar.gz"
 		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
 		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
-		$ tar zxvf $tarname
-		$ cd $rpmname
-		$ cd RPMS
+		$ tar -zxvf $tarname
+		$ cd $rpmname/RPMS
 		$ sudo yum install *.rpm
 ```
 

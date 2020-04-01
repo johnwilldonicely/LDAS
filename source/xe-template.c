@@ -60,8 +60,8 @@ int main (int argc, char *argv[]) {
 	int lenwords=0,*count,grp,bin,bintot,setrange=0,colx=1,coly=2;
 	long nwords=0,*iword=NULL,*start=NULL,*start1=NULL,*stop1=NULL,*list=NULL;
 	long *matrix=NULL;
-	off_t datasize,startbyte,ntoread,nread,bytestoread,parameters[8];
-	float *data_f=NULL;
+	off_t sizeofdata,datasize,startbyte,ntoread,nread,bytestoread,parameters[8];
+	float *data1=NULL;
 	float *xdatf=NULL,*ydatf=NULL;
 	double *xdat=NULL,*ydat=NULL;
 	char timestring[32];
@@ -155,7 +155,7 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
-	sizeofdata= sizeof(*data);
+	sizeofdata= sizeof(*data1);
 	nn=mm=0;
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
@@ -197,12 +197,12 @@ int main (int argc, char *argv[]) {
 // 	n=nbad=0;
 // 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 // 		if(sscanf(line,"%f",&a)!=1 || !isfinite(a)) { a=NAN; nbad++;}
-// 		if((data_f=(float *)realloc(data_f,(n+1)*sizeoffloat))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-// 		data_f[n++]=a;
+// 		if((data1=(float *)realloc(data1,(n+1)*sizeoffloat))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+// 		data1[n++]=a;
 // 	}
 // 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 // 	/* interpolate if some data is bad */
-// 	if(nbad>0) i= xf_interp3_f(data_f,n);
+// 	if(nbad>0) i= xf_interp3_f(data1,n);
 // 	if(i<0) {fprintf(stderr,"\n--- Error[%s]: input \"%s\" contains no finite numbers\n\n",thisprog,infile);exit(1);};
 //  	fprintf(stderr,"STOP\n");
 // 	exit(0);
@@ -280,9 +280,9 @@ int main (int argc, char *argv[]) {
 // 		parameters[2]= 0; /* numbers to skip */
 // 		parameters[3]= 0; /* numbers to read (zero = read all) */
 //
-// 		data_f= xf_readbin2_f(infile,parameters,message);
+// 		data1= xf_readbin2_f(infile,parameters,message);
 //
-// 		if(data_f!=NULL) n=parameters[3];
+// 		if(data1!=NULL) n=parameters[3];
 // 		else { fprintf(stderr,"\b\n\t--- Error[%s]: %s\n\n",thisprog,message); exit(1); }
 // 	}
 //  	fprintf(stderr,"STOP\n");
@@ -298,19 +298,19 @@ ntoread=240000; // datatpoints to read
 parameters[0]=3; // set input datattype to short int
 parameters[1]=ntoread; // set number of values to read
 parameters[2]=0; // pre-fill number of bytes read (not necessary actually - function does this)
-if((data_f=(float *)realloc(data_f,ntoread*sizeof(float)))==NULL) { fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog); exit(1); }
+if((data1=(float *)realloc(data1,ntoread*sizeof(float)))==NULL) { fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog); exit(1); }
 sprintf(infile,"%s",argv[1]);
 if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
 while(1) {
-	x= xf_readbin1_f(fpin,parameters,data_f,message);
+	x= xf_readbin1_f(fpin,parameters,data1,message);
 	nread=parameters[2];
 	//TEST:fprintf(stdout,"x=%d\n",x);
 	if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 	else if(nread==0)break;
-	else for(ii=0;ii<nread;ii++) printf("%g\n",data_f[ii]);
+	else for(ii=0;ii<nread;ii++) printf("%g\n",data1[ii]);
 }
 fclose(fpin);
-free(data_f);
+free(data1);
 exit(0);
 */
 
@@ -461,12 +461,12 @@ exit(0);
 
 	/* CIRCULAR BUFFER ROLL TEST */
 // 	// fill the buffer
-// 	for(ii=0;ii<ntoread;ii++) data_f[ii]=(float)ii;
+// 	for(ii=0;ii<ntoread;ii++) data1[ii]=(float)ii;
 // 	// roll the buffer three places
-// 	x= xf_rollbuffer1_f(data_f,ntoread,3,1,message);
+// 	x= xf_rollbuffer1_f(data1,ntoread,3,1,message);
 // 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 // 	// print the rolled buffer
-// 	for(ii=0;ii<10;ii++) printf("%ld	%g\n",ii,data_f[ii]);
+// 	for(ii=0;ii<10;ii++) printf("%ld	%g\n",ii,data1[ii]);
 // 	exit(0);
 
 	/* MATRIX DENSITY TEST - NEEDS "STORE DATA METHOD 2" */
@@ -486,7 +486,7 @@ goto END;
 /********************************************************************************/
 END:
 	if(matrix!=NULL) free(matrix);
-	if(data_f!=NULL) free(data_f);
+	if(data1!=NULL) free(data1);
 	if(xdat!=NULL) free(xdat);
 	if(ydat!=NULL) free(ydat);
 	if(xdatf!=NULL) free(xdatf);
