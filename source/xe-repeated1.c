@@ -79,7 +79,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-low: low frequency limit, 0=SKIP [%g]\n",setlow);
 		fprintf(stderr,"	-high: high frequency limit, 0=SKIP [%g]\n",sethigh);
 		fprintf(stderr,"normalization options:\n");
-		fprintf(stderr,"	-norm: normalization type (0=SKIP, see xe-norm3): [%d]\n",setnorm);
+		fprintf(stderr,"	-norm: normalization type (-1=SKIP, see xe-norm3): [%d]\n",setnorm);
 		fprintf(stderr,"	-n1: normalization zone (rep units) [%g]\n",setn1);
 		fprintf(stderr,"	-n2: end of normalization zone (rep units) [%g]\n",setn2);
 		fprintf(stderr,"binning options:\n");
