@@ -98,7 +98,7 @@ Hopefully there will be none! But as they are reported, potential install-errors
 After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed. 
 
 ### 6. [optional] - delete the INSTALLER
-You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
+You might want to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 
 ## Dependencies
