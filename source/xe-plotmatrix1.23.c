@@ -1,5 +1,5 @@
 #define thisprog "xe-plotmatrix1"
-#define TITLE_STRING thisprog" v 23: 10.March.2020 [JRH]"
+#define TITLE_STRING thisprog" v 23: 2.April.2020 [JRH]"
 #define MAXWORDLEN 1000
 
 #include <stdio.h>
@@ -15,6 +15,8 @@ TO DO:
 	???: incorporate simplified xtlaff/ytaloff definition and axis-functions-definitions as per xe-plottable1 (1.January.2019)
 	???: incoporate updated min/max/range calculation as per xe-plottable1 (24.November.2018, 30.September.2018)
 
+v 23: 2.April.2020 [JRH]
+	- use new palette-generating function xf_palette7 to create colour scales and to add additional palettes from the viridis collection (viridis,plasma,magma,inferno)
 v 23: 10.March.2020 [JRH]
 	- update to allow setting colour-ranges which represent a percentile
 v 23: 1.January.2019 [JRH]
@@ -60,8 +62,8 @@ char* xf_strsub1 (char *source, char *str1, char *str2);
 int xf_compare1_d(const void *a, const void *b);
 int xf_precision_d(double number, int max);
 long xf_interp3_f(float *data, long ndata);
-int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
 double xf_percentile2_d(double *data, long nn, double setper, char *message);
+int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -86,19 +88,11 @@ int main (int argc, char *argv[]) {
 
 	/* colour-map variables - 7-point colour pallette */
 	int setrgbpal=1;
-	long rgbstart0,rgbstart1,rgbstart2,rgbstart3,rgbstart4,rgbstart5,rgbstart6;
 	float *red=NULL,*green=NULL,*blue=NULL;
-	float red0,green0,blue0; // lowest colour (deep blue)
-	float red1,green1,blue1; // mid-colour 1 (blue)
-	float red2,green2,blue2; // mid-colour 2 (cyan)
-	float red3,green3,blue3; // mid-colour 3 (green)
-	float red4,green4,blue4; // mid-colour 4 (yellow)
-	float red5,green5,blue5; // mid-colour 5 (red)
-	float red6,green6,blue6; // highest colour (deep red)
 
 	/* ARGUMENTS */
 	char *infile=NULL,outfile[MAXWORDLEN];
-	int setgauss=1,setxpad=0,setypad=0,setytrim=3;
+	int setxpad=0,setypad=0,setytrim=3;
 	int framestyle=15, f1=0,f2=0,f3=0,f4=0;
 	int setzclip=0,setyflip=0;
 	int setblockwidth=1,setulinecolour=-1,setulinestyle=0;
@@ -131,27 +125,32 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-bw: block-width fixed (0) or adaptive (1) [%d]\n",setblockwidth);
 		fprintf(stderr,"		0 reduces file-size, 1 stretches blocks to fill rows\n");
 		fprintf(stderr,"	-cp: colour palette (0=grey/black, 1=blue/cyan/yellow/red) [%d]\n",setrgbpal);
-		fprintf(stderr,"		0=grey/black, white=minimum value, red=NAN\n");
-		fprintf(stderr,"		1=blue/cyan/green/yellow/red, black=minimum value, white=NAN\n");
+		fprintf(stderr,"		0= grey/black, white=min, red=NAN\n");
+		fprintf(stderr,"		1=  rainbow blue-gren-red, black=min, white=NAN\n");
+		fprintf(stderr,"		2-5=  viridis palettest, black=min, white=NAN\n");
+		fprintf(stderr,"			2= viridis default, blue-green-yellow\n");
+		fprintf(stderr,"			3= viridis plasma, blue-purple-yellow\n");
+		fprintf(stderr,"			4= viridis magma, black-purple-cream\n");
+		fprintf(stderr,"			5= viridis inferno, blue-purple-paleyellow\n");
 		fprintf(stderr,"	-cn: number of colours to use [%ld]\n",setrgbn);
 		fprintf(stderr,"	-bg: NAN/INF background for colour plots [%g]\n",setbg);
 		fprintf(stderr,"		0-1 (0=black, 1=white) or -1 (none)\n");
-		fprintf(stderr,"	-xlabel, -ylabel: axis labels (1 word, use \"_\" for spaces)\n");
+		fprintf(stderr,"	-xstep -ystep: set interval between matrix values [%g,%g]\n",setxstep,setystep);
+		fprintf(stderr,"		- an alternative methods for data range-setting\n");
+		fprintf(stderr,"		- if \"nan\", uses -x/ymin and -x/ymax instead\n");
+		fprintf(stderr,"		- NOTE: works with -x/ymin, but overrides -x/ymax\n");
 		fprintf(stderr,"	-title: plot title (enclose in quotes)\n");
-		fprintf(stderr,"	-xscale, yscale: scale plot in x [%g] and y [%g] dimensions\n",xscale,yscale);
+		fprintf(stderr,"	-xlabel -ylabel: axis labels (1 word, use \"_\" for spaces)\n");
+		fprintf(stderr,"	-xpad -ypad: pad between data range and plot axes\n");
+		fprintf(stderr,"	-xint -yint: intervals for x[%g] and y[%g] tics (0=AUTO -1=OMIT)\n",setxint,setyint);
+		fprintf(stderr,"	-xscale -yscale: scale plot in x [%g] and y [%g] dimensions\n",xscale,yscale);
+		fprintf(stderr,"	-xmin -xmax -ymin -ymax: manually set data range\n");
 		fprintf(stderr,"	-zmin -zmax: colour-range (NAN=auto) [%g,%g]\n",setzmin,setzmax);
 		fprintf(stderr,"		- add %% (eg 95%%) to set as a percentile of z-range\n");
 		fprintf(stderr,"	-zmid: set value for middle colour (non-numeric=auto) [%g]\n",setzmid);
 		fprintf(stderr,"		- attempts to equalize range around mid-point\n");
 		fprintf(stderr,"		- may override zmin,zmax or both\n");
-		fprintf(stderr,"	-zclip: ccompress (0) or clip (1) out-of-range values [%d]\n",setzclip);
-		fprintf(stderr,"	-xmin -xmax -ymin -ymax: manually set data range\n");
-		fprintf(stderr,"	-xstep -ystep: set interval between matrix values [%g,%g]\n",setxstep,setystep);
-		fprintf(stderr,"		- an alternative methods for data range-setting\n");
-		fprintf(stderr,"		- if \"nan\", uses -x/ymin and -x/ymax instead\n");
-		fprintf(stderr,"		- NOTE: works with -x/ymin, but overrides -x/ymax\n");
-		fprintf(stderr,"	-xpad -ypad: pad between data range and plot axes\n");
-		fprintf(stderr,"	-xint -yint: tic-intervals for x [%g] and y [%g] axes (0=AUTO -1=OMIT)\n",setxint,setyint);
+		fprintf(stderr,"	-zclip: compress (0) or clip (1) out-of-range values [%d]\n",setzclip);
 		fprintf(stderr,"	-yflip: flip matrix on y-axis (0=NO, 1=YES) [%d]\n",setyflip);
 		fprintf(stderr,"	-font: base font size [%g]\n",fontsize);
 		fprintf(stderr,"	-frame: draw frame at bottom(1) left(2) top(4) right(8) [%d]\n",framestyle);
@@ -161,7 +160,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-uc: user-line colour (0 to -cn, or -1 =white|yellow ) [%d]\n",setulinecolour);
 		fprintf(stderr,"	-us: user-line style (0=dashed, 1=solid) [%d]\n",setulinestyle);
 		fprintf(stderr,"	-lwd: line width for data [%g]\n",lwdata);
-		fprintf(stderr,"	-zx, -zy: page offset of the plot (-1 = default A4 top-left) [%g,%g]\n",zx,zy);
+		fprintf(stderr,"	-zx -zy: page offset (-1= default A4 top-left) [%g,%g]\n",zx,zy);
 		fprintf(stderr,"	-out: output file name [%s]\n",outfile);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"OUTPUT: postscript file\n");
@@ -222,7 +221,7 @@ int main (int argc, char *argv[]) {
 	if(setbg!=-1 && (setbg<0||setbg>1)) {fprintf(stderr,"\n\a--- Error[%s]: illegal -bg (%g), should be either -1 or between 0 and 1\n\n",thisprog,setbg);exit(1);}
 	if(setulinecolour<-1 || setulinecolour>setrgbn) {fprintf(stderr,"\n\a--- Error[%s]: illegal -uc (%d), should be between -1 and %ld\n\n",thisprog,setulinecolour,setrgbn);exit(1);}
 	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), should be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
-	if(setrgbpal!=0 && setrgbpal!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -cp (%d), should be 0 or 1\n\n",thisprog,setrgbpal);exit(1);}
+	if(setrgbpal<0 || setrgbpal>5) {fprintf(stderr,"\n\a--- Error[%s]: illegal -cp (%d), should be 0-5\n\n",thisprog,setrgbpal);exit(1);}
 	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -cn (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
 
 	if(xlabel==NULL) xlabel="\0";
@@ -491,47 +490,27 @@ int main (int argc, char *argv[]) {
 	for(ii=0;ii<setrgbn;ii++) red[ii]=green[ii]=blue[ii]=NAN;
 	/* define the greyscale colour palette */
 	if(setrgbpal==0) {
-		ii=0;
-		jj=setrgbn-1;
-		red[ii]=green[ii]=blue[ii]=0.9;
-		red[jj]=green[jj]=blue[jj]=0.0;
-		xf_interp3_f(red,setrgbn);
-		xf_interp3_f(green,setrgbn);
-		xf_interp3_f(blue,setrgbn);
+		x= xf_palette7(red,green,blue,setrgbn,"grey");
 	}
 	/* define the blue-red colour palette */
 	if(setrgbpal==1) {
-		red0=0.0,green0=0.0,blue0=0.3; // lowest colour (deep blue)
-		red1=0.0,green1=0.3,blue1=1.0; // mid-colour 1 (blue)
-		red2=0.2,green2=0.8,blue2=0.8; // mid-colour 2 (cyan)
-		red3=0.5,green3=1.0,blue3=0.0; // mid-colour 3 (green)
-		red4=1.0,green4=1.0,blue4=0.0; // mid-colour 4 (yellow)
-		red5=1.0,green5=0.3,blue5=0.0; // mid-colour 5 (red)
-		red6=0.7,green6=0.0,blue6=0.0; // highest colour (deep red)
-		/* define the start-points for each colour */
-		rgbstart0=(long)(setrgbn*.00); // dark blue
-		rgbstart1=(long)(setrgbn*.17); // blue
-		rgbstart2=(long)(setrgbn*.34); // cyan
-		rgbstart3=(long)(setrgbn*.51); // green
-		rgbstart4=(long)(setrgbn*.68); // yellow
-		rgbstart5=(long)(setrgbn*.85); // red
-		rgbstart6=(long)(setrgbn-1); // dark red
-		/* fill the red array - using anchor-values and linear interpolation */
-		red[rgbstart0]=red0; green[rgbstart0]=green0; blue[rgbstart0]=blue0;
-		red[rgbstart1]=red1; green[rgbstart1]=green1; blue[rgbstart1]=blue1;
-		red[rgbstart2]=red2; green[rgbstart2]=green2; blue[rgbstart2]=blue2;
-		red[rgbstart3]=red3; green[rgbstart3]=green3; blue[rgbstart3]=blue3;
-		red[rgbstart4]=red4; green[rgbstart4]=green4; blue[rgbstart4]=blue4;
-		red[rgbstart5]=red5; green[rgbstart5]=green5; blue[rgbstart5]=blue5;
-		red[rgbstart6]=red6; green[rgbstart6]=green6; blue[rgbstart6]=blue6;
-		xf_interp3_f(red,setrgbn);
-		xf_interp3_f(green,setrgbn);
-		xf_interp3_f(blue,setrgbn);
+		x= xf_palette7(red,green,blue,setrgbn,"rainbow");
 	}
-	if(setgauss==1) {
-		xf_smoothgauss1_f(red,setrgbn,(int)(setrgbn/10.0));
-		xf_smoothgauss1_f(green,setrgbn,(int)(setrgbn/10.0));
-		xf_smoothgauss1_f(blue,setrgbn,(int)(setrgbn/10.0));
+	/* define the viridis palette */
+	if(setrgbpal==2) {
+		x= xf_palette7(red,green,blue,setrgbn,"viridis");
+	}
+	/* define the viridis-plasma palette */
+	if(setrgbpal==3) {
+		x= xf_palette7(red,green,blue,setrgbn,"plasma");
+	}
+	/* define the viridis-magma palette */
+	if(setrgbpal==4) {
+		x= xf_palette7(red,green,blue,setrgbn,"magma");
+	}
+	/* define the viridis-inferno palette */
+	if(setrgbpal==5) {
+		x= xf_palette7(red,green,blue,setrgbn,"inferno");
 	}
 	// TEST RGB COLOUR MODEL: for(ii=0;ii<setrgbn;ii++) { printf("1	%d	%g\n",i,red[ii]);	printf("2	%d	%g\n",i,green[ii]); 	printf("3	%d	%g\n",i,blue[ii]); }
 

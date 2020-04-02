@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
+#define N 20
 /*
 <TAGS> LDAS </TAGS>
 
@@ -24,6 +24,7 @@ int main (int argc, char *argv[]) {
 
 	/* general variables */
 	char *line=NULL,message[MAXLINELEN];
+	int vector[] = {1,2,3,4,5,6,7};
 	long ii,jj,kk,nn,maxlinelen=0;
 	float a,b,c;
 	double aa,bb,cc;

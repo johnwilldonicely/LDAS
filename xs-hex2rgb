@@ -1,0 +1,27 @@
+#!/bin/bash
+# <TAGS>programming plotLDAS</TAGS>
+
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+if [ $# -lt 1 ]; then
+	echo -e "\n--------------------------------------------------------------------------------"
+	echo -e $thisprog": convert a hex colour value to an RGB triplet (0-1 range)"
+	echo -e "USAGE: $thisprog [hex]"
+	echo -e "	[in]: hex colour, eg 11001A"
+	echo -e "--------------------------------------------------------------------------------\n"
+	exit
+fi
+
+# strip quotes and has-symbols from the string if they are present
+hex=$(echo $1| tr -d '#' | tr -d '"')
+
+# convert to decimal and divide by 255 to scale from 0-1
+echo $hex |
+	awk '{
+		a= substr($0,1,2)
+		red=   strtonum("0x" substr($0,1,2))/255;
+		green= strtonum("0x" substr($0,3,2))/255;
+		blue=  strtonum("0x" substr($0,5,2))/255;
+		printf("%.2f\t%.2f\t%.2f\n",red,green,blue)
+	}'
+
+exit

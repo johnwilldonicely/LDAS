@@ -47,6 +47,7 @@ int main (int argc, char *argv[]) {
 	char outfile[256],*line=NULL,*templine=NULL,word[256],*pline,*pcol,message[MAXLINELEN];
 	long int ii,jj,kk,ll,mm,nn,nbad,nchars=0,maxlinelen=0,prevlinelen=0;
 	int v,w,x,y,z,col,colmatch;
+	int vector[] = {1,2,3,4,5,6,7};
 	float a,b,c,d,result_f[64];
 	double aa,bb,cc,dd,ee, result_d[64];
 	FILE *fpin,*fpout;
