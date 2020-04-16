@@ -86,8 +86,9 @@ int main (int argc, char *argv[]) {
 	double xmin=0.0,xmax=1.0,ymin=0.0,ymax=1.0,xrange,yrange,xfactor,yfactor,xint,yint;
 	double blockwidth,blockheight,zmin,zmax,zmid,zrange;
 
-	/* colour-map variables - 7-point colour pallette */
-	int setrgbpal=1;
+	/* colour-palette variables */
+	char *setrgbpal=NULL;
+	long setrgbn=99;
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* ARGUMENTS */
@@ -96,7 +97,6 @@ int main (int argc, char *argv[]) {
 	int framestyle=15, f1=0,f2=0,f3=0,f4=0;
 	int setzclip=0,setyflip=0;
 	int setblockwidth=1,setulinecolour=-1,setulinestyle=0;
-	long setrgbn=99;
 	float xscale=.3,yscale=.3,setticsize=-3,fontsize=10.0,setbg=-1.0,zx=-1,zy=-1;
 	float lwdata=1,lwaxes=1; // linewidth for drawing data and frame/tics
 	double setxminval=NAN,setxmaxval=NAN,setyminval=NAN,setymaxval=NAN,setxstep=NAN,setystep=NAN,setxint=0,setyint=0,xpad=0.0,ypad=0.0;
@@ -117,24 +117,21 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"Produces a postscript \"heat-map\" plot of a matrix of data\n");
 		fprintf(stderr,"If some rows of input have fewer values, the blocks on that row will \n");
 		fprintf(stderr,"	be stretched to span the entire matrix\n");
-		fprintf(stderr,"Non-numeric values will result in a blank (white) square in the plot\n");
+		fprintf(stderr,"Non-numeric values will be red for greyscale plots, white otherwise\n");
 		fprintf(stderr,"USAGE:\n");
 		fprintf(stderr,"	%s [filename] [options]\n\n",thisprog);
 		fprintf(stderr,"VALID OPTIONS (default in [])...\n");
 		fprintf(stderr,"	[filename]: file name or \"stdin\"\n");
 		fprintf(stderr,"	-bw: block-width fixed (0) or adaptive (1) [%d]\n",setblockwidth);
 		fprintf(stderr,"		0 reduces file-size, 1 stretches blocks to fill rows\n");
-		fprintf(stderr,"	-cp: colour palette (0=grey/black, 1=blue/cyan/yellow/red) [%d]\n",setrgbpal);
-		fprintf(stderr,"		0= grey/black, white=min, red=NAN\n");
-		fprintf(stderr,"		1=  rainbow blue-gren-red, black=min, white=NAN\n");
-		fprintf(stderr,"		2-5=  viridis palettest, black=min, white=NAN\n");
-		fprintf(stderr,"			2= viridis default, blue-green-yellow\n");
-		fprintf(stderr,"			3= viridis plasma, blue-purple-yellow\n");
-		fprintf(stderr,"			4= viridis magma, black-purple-cream\n");
-		fprintf(stderr,"			5= viridis inferno, blue-purple-paleyellow\n");
-		fprintf(stderr,"	-cn: number of colours to use [%ld]\n",setrgbn);
-		fprintf(stderr,"	-bg: NAN/INF background for colour plots [%g]\n",setbg);
-		fprintf(stderr,"		0-1 (0=black, 1=white) or -1 (none)\n");
+		fprintf(stderr,"	-pal: colour palette (black=min, white=NAN): \n");
+		fprintf(stderr,"		grey: darkgrey-lightgrey\n");
+		fprintf(stderr,"		rainbow: blue-green-red\n");
+		fprintf(stderr,"		viridis: purple-green-yellow\n");
+		fprintf(stderr,"		plasma: blue-purple-yellow\n");
+		fprintf(stderr,"		magma: black-purple-cream\n");
+		fprintf(stderr,"		inferno: black-purple-orange-paleyellow\n");
+		fprintf(stderr,"	-paln: number of colours in the palette [%ld]\n",setrgbn);
 		fprintf(stderr,"	-xstep -ystep: set interval between matrix values [%g,%g]\n",setxstep,setystep);
 		fprintf(stderr,"		- an alternative methods for data range-setting\n");
 		fprintf(stderr,"		- if \"nan\", uses -x/ymin and -x/ymax instead\n");
@@ -157,7 +154,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-tics: size of x- and y-tics (negative=outside frame) [%g]\n",setticsize);
 		fprintf(stderr,"	-hline: CSV position-list for horizontal dashed lines [unset]\n");
 		fprintf(stderr,"	-vline: CSV position-list for vertical dashed lines [unset]\n");
-		fprintf(stderr,"	-uc: user-line colour (0 to -cn, or -1 =white|yellow ) [%d]\n",setulinecolour);
+		fprintf(stderr,"	-uc: user-line colour (0 to -paln, or -1 =white|yellow ) [%d]\n",setulinecolour);
 		fprintf(stderr,"	-us: user-line style (0=dashed, 1=solid) [%d]\n",setulinestyle);
 		fprintf(stderr,"	-lwd: line width for data [%g]\n",lwdata);
 		fprintf(stderr,"	-zx -zy: page offset (-1= default A4 top-left) [%g,%g]\n",zx,zy);
@@ -208,9 +205,8 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-tics")==0)    setticsize= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-zx")==0)      zx= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-zy")==0)      zy= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-bg")==0)      setbg= atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-cp")==0)      setrgbpal= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-cn")==0)      setrgbn= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-pal")==0)      setrgbpal= argv[++ii];
+			else if(strcmp(argv[ii],"-paln")==0)      setrgbn= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-bw")==0)      setblockwidth= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n\a--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
@@ -218,11 +214,18 @@ int main (int argc, char *argv[]) {
 	if(setblockwidth!=0 && setblockwidth!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -bw (%d), should be 0 or 1\n\n",thisprog,setblockwidth);exit(1);}
 	if(setzclip!=0 && setzclip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -zclip (%d), should be either 0 or 1\n\n",thisprog,setzclip);exit(1);}
 	if(setyflip!=0 && setyflip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -yflip (%d), should be either 0 or 1\n\n",thisprog,setyflip);exit(1);}
-	if(setbg!=-1 && (setbg<0||setbg>1)) {fprintf(stderr,"\n\a--- Error[%s]: illegal -bg (%g), should be either -1 or between 0 and 1\n\n",thisprog,setbg);exit(1);}
 	if(setulinecolour<-1 || setulinecolour>setrgbn) {fprintf(stderr,"\n\a--- Error[%s]: illegal -uc (%d), should be between -1 and %ld\n\n",thisprog,setulinecolour,setrgbn);exit(1);}
 	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), should be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
-	if(setrgbpal<0 || setrgbpal>5) {fprintf(stderr,"\n\a--- Error[%s]: illegal -cp (%d), should be 0-5\n\n",thisprog,setrgbpal);exit(1);}
-	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -cn (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
+	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -paln (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
+	if(setrgbpal==NULL) setrgbpal="rainbow";
+	if(
+		strcmp(setrgbpal,"grey")!=0
+		&& strcmp(setrgbpal,"rainbow")!=0
+		&& strcmp(setrgbpal,"viridis")!=0
+		&& strcmp(setrgbpal,"plasma")!=0
+		&& strcmp(setrgbpal,"magma")!=0
+		&& strcmp(setrgbpal,"inferno")!=0
+	) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setrgbpal);exit(1);}
 
 	if(xlabel==NULL) xlabel="\0";
 	if(ylabel==NULL) ylabel="\0";
@@ -487,34 +490,7 @@ int main (int argc, char *argv[]) {
 	red= realloc(red,setrgbn*sizeof(*red));
 	green= realloc(green,setrgbn*sizeof(*green));
 	blue= realloc(blue,setrgbn*sizeof(*blue));
-	for(ii=0;ii<setrgbn;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-	/* define the greyscale colour palette */
-	if(setrgbpal==0) {
-		x= xf_palette7(red,green,blue,setrgbn,"grey");
-	}
-	/* define the blue-red colour palette */
-	if(setrgbpal==1) {
-		x= xf_palette7(red,green,blue,setrgbn,"rainbow");
-	}
-	/* define the viridis palette */
-	if(setrgbpal==2) {
-		x= xf_palette7(red,green,blue,setrgbn,"viridis");
-	}
-	/* define the viridis-plasma palette */
-	if(setrgbpal==3) {
-		x= xf_palette7(red,green,blue,setrgbn,"plasma");
-	}
-	/* define the viridis-magma palette */
-	if(setrgbpal==4) {
-		x= xf_palette7(red,green,blue,setrgbn,"magma");
-	}
-	/* define the viridis-inferno palette */
-	if(setrgbpal==5) {
-		x= xf_palette7(red,green,blue,setrgbn,"inferno");
-	}
-	// TEST RGB COLOUR MODEL: for(ii=0;ii<setrgbn;ii++) { printf("1	%d	%g\n",i,red[ii]);	printf("2	%d	%g\n",i,green[ii]); 	printf("3	%d	%g\n",i,blue[ii]); }
-
-
+	if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 
 	/*************************************************************************/
 	/*************************************************************************/
@@ -534,21 +510,20 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"%%%%BoundingBox: 0 0 595 842\n"); // this assumes an A4 page
 	fprintf(fpout,"/Helvetica findfont 12.00 scalefont setfont\n");
 
+	/* DEFINE THE COLOURS */
 	fprintf(fpout,"\n%% DEFINE_COLOUR_SET  DESCRIPTION	GROUP-LABEL\n");
-	/* set title colour (grey) */
 	fprintf(fpout,"/ct {.5 .5 .5} def   %% title colour\n");
-	/* set frame colour (black) */
-	fprintf(fpout,"/cf {.0 .0 .0} def\n");
-	/* set invalid colour - yellow for greyscale, otherwise white */
-	if(setrgbpal==0) fprintf(fpout,"/cx {.75 .0 .0} def\n");
-	else if(setbg==-1) fprintf(fpout,"/cx {1. 1. 1.} def\n");
-	else fprintf(fpout,"/cx {%g %g %g} def\n",setbg,setbg,setbg);
-
-	/* set the bottom colour scale */
-	if(setrgbpal==0) fprintf(fpout,"/c0 {1.0 1.0 1.0} def\n");
-	else fprintf(fpout,"/c0 {.0 .0 .0} def\n");
-	/* fill in the rest of the colours */
+	fprintf(fpout,"/cf {.0 .0 .0} def   %% frame colour\n");
+	/* invalid (NAN) colour  */
+	fprintf(fpout,"/cx {1. 1. 1.} def   %% invalid NAN colour\n");
+	/* lowest-value colour */
+	fprintf(fpout,"/c0 {.0 .0 .0} def   %% lowest-value colour\n");
+	/* the data palette */
+	for(ii=0;ii<setrgbn;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+	x= xf_palette7(red,green,blue,setrgbn,setrgbpal);
 	for(ii=0;ii<setrgbn;ii++) fprintf(fpout,"/c%ld {%.14g %.14g %.14g} def\n",(ii+1),red[ii],green[ii],blue[ii]);
+		// TEST RGB COLOUR MODEL: for(ii=0;ii<setrgbn;ii++) { printf("1	%d	%g\n",i,red[ii]);	printf("2	%d	%g\n",i,green[ii]); 	printf("3	%d	%g\n",i,blue[ii]); }
+
 
 	/* DEFINE AXIS-LABELLING FUNCTIONS - SHOULD BE THE SAME FOR ALL PLOTS ON A PAGE */
 	/* ...EXCEPT Y-AXIS LABEL OFFSET (YALOFF) - THIS IS RE-DEFINED AT PLOT-TIME */
@@ -655,7 +630,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"/blockheight { %g } def \n",blockheight*yfactor);
 
 	/********************************************************************************/
-	/* PLOT DATA - note that if setgroupcol==-1, group for all data should turn out to be 1 */
+	/* PLOT DATA */
 	/********************************************************************************/
 	fprintf(fpout,"\n%% PLOT_DATA\n");
 	fprintf(fpout,"\n%% PLOT_POINTS\n");
@@ -672,9 +647,7 @@ int main (int argc, char *argv[]) {
 					z=0+(int)(a+(setrgbn*(zdata[kk]-zmin)/zrange));
 					fprintf(fpout,"c%d\tA\n",z);
 				}
-				else if(setbg!=-1) {
-					fprintf(fpout,"cx\tA\n");
-				}
+				else fprintf(fpout,"cx\tA\n");
 				kk++;
 			}
 			fprintf(fpout,"C\n");
@@ -689,7 +662,7 @@ int main (int argc, char *argv[]) {
 				z=0+(int)(a+(setrgbn*(zdata[ii]-zmin)/zrange));
 				fprintf(fpout,"%g\t%g\t%g\tc%d\tB\n",wdata[ii],xdata[ii],ydata[ii],z);
 			}
-			else if(setbg!=-1) {
+			else {
 				fprintf(fpout,"%g\t%g\t%g\tcx\tB\n",wdata[ii],xdata[ii],ydata[ii]);
 	}}}
 	fprintf(fpout,"stroke\n");
