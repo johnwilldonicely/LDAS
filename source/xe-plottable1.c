@@ -807,43 +807,41 @@ int main (int argc, char *argv[]) {
 		// fprintf(fpout,"/c32 {.9 .9 .9} def     %% 10%%_black   %s\n",words+iword[32]);
 
 		fprintf(fpout,"/c0 {.0 .0 .0} def   %% black        %s\n",words+iword[0]);
-		fprintf(fpout,"/c1 {.5 .25 .0} def  %% dark_orange  %s\n",words+iword[7]);
-		fprintf(fpout,"/c2 {.6 .1 .2} def   %% dark_red     %s\n",words+iword[1]);
-		fprintf(fpout,"/c3 {.5 .25 .5} def  %% dark_magenta %s\n",words+iword[2]);
-		fprintf(fpout,"/c4 {.0 .25 .6} def  %% dark_blue    %s\n",words+iword[3]);
-		fprintf(fpout,"/c5 {.2 .5 .1} def   %% dark_green   %s\n",words+iword[4]);
-		fprintf(fpout,"/c6 {.2 .7 .7} def   %% dark_cyan    %s\n",words+iword[5]);
-		fprintf(fpout,"/c7 {.8 .8 .2} def   %% dark_yellow  %s\n",words+iword[6]);
+		fprintf(fpout,"/c1 {.6 .1 .2} def   %% dark_red     %s\n",words+iword[1]);
+		fprintf(fpout,"/c2 {.5 .25 .5} def  %% dark_magenta %s\n",words+iword[2]);
+		fprintf(fpout,"/c3 {.0 .25 .6} def  %% dark_blue    %s\n",words+iword[3]);
+		fprintf(fpout,"/c4 {.2 .5 .1} def   %% dark_green   %s\n",words+iword[4]);
+		fprintf(fpout,"/c5 {.2 .7 .7} def   %% dark_cyan    %s\n",words+iword[5]);
+		fprintf(fpout,"/c6 {.8 .8 .2} def   %% dark_yellow  %s\n",words+iword[6]);
+		fprintf(fpout,"/c7 {.5 .25 .0} def  %% dark_orange  %s\n",words+iword[7]);
 
 		fprintf(fpout,"/c8 {.3 .3 .3} def   %% 70%%_black    %s\n",words+iword[8]);
-		fprintf(fpout,"/c9 {1. .4 .1} def  %% orange       %s\n",words+iword[15]);
-		fprintf(fpout,"/c10 {1. .0 .0} def   %% red          %s\n",words+iword[9]);
-		fprintf(fpout,"/c11 {1. .0 1.} def  %% magenta      %s\n",words+iword[10]);
-		fprintf(fpout,"/c12 {.0 .0 1.} def  %% blue         %s\n",words+iword[11]);
-		fprintf(fpout,"/c13 {.0 1. 1.} def  %% cyan         %s\n",words+iword[12]);
-		fprintf(fpout,"/c14 {.0 1. .0} def  %% green        %s\n",words+iword[13]);
-		fprintf(fpout,"/c15 {1. 1. .0} def  %% yellow       %s\n",words+iword[14]);
+		fprintf(fpout,"/c0 {1. .0 .0} def   %% red          %s\n",words+iword[9]);
+		fprintf(fpout,"/c10 {1. .0 1.} def  %% magenta      %s\n",words+iword[10]);
+		fprintf(fpout,"/c11 {.0 .0 1.} def  %% blue         %s\n",words+iword[11]);
+		fprintf(fpout,"/c12 {.0 1. 1.} def  %% cyan         %s\n",words+iword[12]);
+		fprintf(fpout,"/c13 {.0 1. .0} def  %% green        %s\n",words+iword[13]);
+		fprintf(fpout,"/c14 {1. 1. .0} def  %% yellow       %s\n",words+iword[14]);
+		fprintf(fpout,"/c15 {1. .4 .1} def  %% orange       %s\n",words+iword[15]);
 
 		fprintf(fpout,"/c16 {.5 .5 .5} def  %% 50%%_black    %s\n",words+iword[16]);
-		fprintf(fpout,"/c17 {1. .7 .3} def  %% soft_orange  %s\n",words+iword[22]);
-		fprintf(fpout,"/c18 {1. .5 .5} def  %% pink         %s\n",words+iword[17]);
-		fprintf(fpout,"/c19 {1. .5 1.} def  %% soft_magenta %s\n",words+iword[20]);
-		fprintf(fpout,"/c20 {.5 .6 1.} def  %% soft_blue    %s\n",words+iword[19]);
-		fprintf(fpout,"/c21 {.5 1. 1.} def  %% soft_cyan    %s\n",words+iword[21]);
-		fprintf(fpout,"/c22 {.5 1. .5} def  %% soft_green   %s\n",words+iword[18]);
-		fprintf(fpout,"/c23 {1. 1. .5} def  %% soft-yellow  %s\n",words+iword[23]);
+		fprintf(fpout,"/c17 {1. .5 .5} def  %% pink         %s\n",words+iword[17]);
+		fprintf(fpout,"/c18 {1. .5 1.} def  %% soft_magenta %s\n",words+iword[18]);
+		fprintf(fpout,"/c19 {.5 .6 1.} def  %% soft_blue    %s\n",words+iword[19]);
+		fprintf(fpout,"/c20 {.5 1. 1.} def  %% soft_cyan    %s\n",words+iword[19]);
+		fprintf(fpout,"/c21 {.5 1. .5} def  %% soft_green   %s\n",words+iword[20]);
+		fprintf(fpout,"/c22 {1. 1. .5} def  %% soft-yellow  %s\n",words+iword[21]);
+		fprintf(fpout,"/c23 {1. .7 .3} def  %% soft_orange  %s\n",words+iword[22]);
 
-		fprintf(fpout,"/c24 {.75 .75 .75} def  %% 25%%_black   %s\n",words+iword[24]);
-		fprintf(fpout,"/c25 {1. .75 .6} def    %% pale_orange  %s\n",words+iword[30]);
-		fprintf(fpout,"/c26 {1. .75 .75} def   %% pale_pink    %s\n",words+iword[25]);
-		fprintf(fpout,"/c27 {1. .75 1.} def    %% pale_magenta %s\n",words+iword[28]);
-		fprintf(fpout,"/c28 {.75 .8 1.} def    %% pale_blue    %s\n",words+iword[27]);
-		fprintf(fpout,"/c29 {.75 1. 1.} def    %% pale_cyan    %s\n",words+iword[29]);
-		fprintf(fpout,"/c30 {.75 1. .75} def   %% pale_green   %s\n",words+iword[26]);
-		fprintf(fpout,"/c31 {1. 1. .75} def    %% pale_yellow  %s\n",words+iword[31]);
-		fprintf(fpout,"/c32 {.9 .9 .9} def     %% 10%%_black   %s\n",words+iword[32]);
-
-
+		fprintf(fpout,"/c24 {.75 .75 .75} def  %% 25%%_black   %s\n",words+iword[23]);
+		fprintf(fpout,"/c25 {1. .75 .75} def   %% pale_pink    %s\n",words+iword[24]);
+		fprintf(fpout,"/c26 {1. .75 1.} def    %% pale_magenta %s\n",words+iword[25]);
+		fprintf(fpout,"/c27 {.75 .8 1.} def    %% pale_blue    %s\n",words+iword[26]);
+		fprintf(fpout,"/c28 {.75 1. 1.} def    %% pale_cyan    %s\n",words+iword[27]);
+		fprintf(fpout,"/c29 {.75 1. .75} def   %% pale_green   %s\n",words+iword[28]);
+		fprintf(fpout,"/c30 {1. 1. .75} def    %% pale_yellow  %s\n",words+iword[29]);
+		fprintf(fpout,"/c31 {.9 .9 .9} def     %% 10%%_black   %s\n",words+iword[30]);
+		fprintf(fpout,"/c31 {1. .75 .6} def    %% pale_orange  %s\n",words+iword[31]);
 	}
 	fprintf(fpout,"/cw {1. 1. 1.} def   %% open_points_fill\n");
 	fprintf(fpout,"/cf {.0 .0 .0} def   %% frame_colour\n");
