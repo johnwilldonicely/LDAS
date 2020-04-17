@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" v 75: 1.January.2019 [JRH]"
+#define TITLE_STRING thisprog" v 75: 17.April.2020 [JRH]"
 #define MAXLINELEN 10000
 #define MAXGROUPS 32
 #define MAXUSERLINES 256
@@ -116,6 +116,7 @@ int xf_precision_d(double number, int max);
 double *xf_unique_d(double *data, long *nn, char *message);
 double *xf_jitter1_d(double *yval, long nn, double centre, double limit, char *message);
 double xf_rand1_d(double setmax);
+long xf_scale1_l(long old, long min, long max);
 int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
 long xf_interp3_f(float *data, long ndata);
 /* external functions end */
@@ -137,7 +138,7 @@ int main (int argc, char *argv[]) {
 	int *group=NULL, *linebreak=NULL,*temp_linebreak=NULL,lb,grp,groupfound;
 	int xticprecision,yticprecision;
 	int grpc[MAXGROUPS];
-	long n1,linecount;
+	long n1,linecount,ncolours=33;
 	long *tempindex=NULL;
 	float xlimit=500.0,ylimit=500.0; // the postscript plotting space (pixels)- should be square and smaller than an A4 sheet (591 x 841)
 	float psxmin,psxmax,psymin,psymax; // currently unused - defines bounding box, i.e. plot area including labels (currently assume A4 page instead)
@@ -406,8 +407,8 @@ int main (int argc, char *argv[]) {
 			/* convert NAN or INF values to zero - except x-values, which MUST be defined */
 			if(!isfinite(aa)) continue;
 			if(!isfinite(bb)) continue;
-			if(setecol>0 && !isfinite(cc)) cc=0.0;
-			if(setfcol>0 && !isfinite(dd)) dd=0.0;
+			if(setecol>0 && !isfinite(cc)) cc= 0.0;
+			if(setfcol>0 && !isfinite(dd)) dd= 0.0;
 			/* determine group ID from words or numbers in the group-column (-cg) */
 			if(groupfound==1) {
 				/* check to see if a group-word already exists... */
@@ -415,14 +416,14 @@ int main (int argc, char *argv[]) {
 				/* ...if not, add it to a list of words */
 				if(z<0) {
 					/* allocate memory for expanded words and word-index */
-					x=strlen(tempword); // not including terminating NULL
-					words=(char *)realloc(words,((lengroups+x+4)*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
+					x= strlen(tempword); // not including terminating NULL
+					words= (char *)realloc(words,((lengroups+x+4)*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
 					iword[ngroups]=lengroups; /* set pointer to start position (currently, the end of the labels string) */
 					sprintf(words+lengroups,"%s",tempword); /* add new word to end of words, adding terminal NULL */
-					lengroups+=(x+1); /* update length, allowing for terminal NULL - serves as pointer to start of next word */
-					z=ngroups; /* set the group label index */
-					ngroups++; /* incriment ngroups with check */
-					if(ngroups>(MAXGROUPS+1)) {fprintf(stderr,"\n\a--- Error[%s]: categories in group-column (-cg %d) exceeds maximum allowed (%d)\n\n",thisprog,setgcol,MAXGROUPS);exit(1); }
+					lengroups+= (x+1); /* update length, allowing for terminal NULL - serves as pointer to start of next word */
+					z= ngroups; /* set the group label index */
+					ngroups++; /* increment ngroups with check */
+					if(ngroups>(MAXGROUPS)) {fprintf(stderr,"\n\a--- Error[%s]: categories in group-column (-cg %d) exceeds maximum allowed (%d)\n\n",thisprog,setgcol,MAXGROUPS);exit(1); }
 				}
 			}
 			else z=0;
@@ -469,7 +470,8 @@ int main (int argc, char *argv[]) {
 		else lb=0; /* otherwise for the next line the lb signal is zero (no break) */
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	//TEST:	for(ii=0;ii<n1;ii++) printf("%g	%g\n",xdata[ii],ydata[ii]); exit(0);
+	//TEST:	for(ii=0;ii<n1;ii++) printf("group %d : %g %g\n",group[ii],xdata[ii],ydata[ii]); exit(0);
+	//TEST:	for(ii=0;ii<n1;ii++) printf("group %d : %g %g\n",group[ii],xdata[ii],ydata[ii]); exit(0);
 
 	/* ALOCATE MEMORY FOR TEMPORARY ARRAYS - THESE ARE USED DURING PLOTTING TO SPLIT THE DATA INTO GROUPS */
 	temp_xdata= realloc(temp_xdata,(n1+1)*sizeofdouble);
@@ -484,8 +486,6 @@ int main (int argc, char *argv[]) {
 	}
 	temp_linebreak=(int *)realloc(temp_linebreak,(n1+1)*sizeofint);
 	if(temp_xdata==NULL||temp_ydata==NULL||temp_linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-
-
 
 	/* IF GROUP COLUMN WAS UNDEFINED, MAKE A DUMMY GROUP LABEL ARRAY */
 	if(setgcol<0) {
@@ -752,96 +752,68 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"/ticsize {%g} def\n",setticsize);
 
 	/* DEFINE COLOUR SET */
-	fprintf(fpout,"\n%% DEFINE_COLOUR      DESCRIPTION    GROUP-LABEL\n");
+	fprintf(fpout,"\n%% DEFINE_COLOUR\tGROUP-LABEL\n");
 	/* ...if a colour-palette is defined... */
+
 	if(setrgbpal!=NULL) {
-		setdatacolour=0;
-		setebright=0;
-		kk= ngroups;
-		/* adjust number of colours slightly for scales where top is close to white */
-		if(strcmp(setrgbpal,"magma")==0||strcmp(setrgbpal,"inferno")==0) kk++;
-		red= realloc(red,kk*sizeof(*red));
-		green= realloc(green,kk*sizeof(*green));
-		blue= realloc(blue,kk*sizeof(*blue));
+		setdatacolour= 0;
+		setebright= 0;
+		ncolours= ngroups;
+		/* adjust number of colours slightly for palettes where the top is close to white */
+		if(strcmp(setrgbpal,"magma")==0||strcmp(setrgbpal,"inferno")==0) ncolours= ncolours+1;
+		red= realloc(red,ncolours*sizeof(*red));
+		green= realloc(green,ncolours*sizeof(*green));
+		blue= realloc(blue,ncolours*sizeof(*blue));
 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,kk,setrgbpal);
-		for(ii=0;ii<ngroups;ii++) fprintf(fpout,"/c%ld {%.14g %.14g %.14g} def\n",ii,red[ii],green[ii],blue[ii]);
+		for(ii=0;ii<ncolours;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+		x= xf_palette7(red,green,blue,ncolours,setrgbpal);
+		for(ii=0;ii<ngroups;ii++) fprintf(fpout,"/c%ld {%.4f %.4f %.4f} def\t%% %s\n",ii,red[ii],green[ii],blue[ii],words+iword[ii]);
 	}
 	else {
-		// fprintf(fpout,"/c0 {.0 .0 .0} def   %% black        %s\n",words+iword[0]);
-		// fprintf(fpout,"/c1 {.6 .1 .2} def   %% dark_red     %s\n",words+iword[1]);
-		// fprintf(fpout,"/c2 {.2 .5 .1} def   %% dark_green   %s\n",words+iword[2]);
-		// fprintf(fpout,"/c3 {.0 .25 .6} def  %% dark_blue    %s\n",words+iword[3]);
-		// fprintf(fpout,"/c4 {.5 .25 .5} def  %% dark_magenta %s\n",words+iword[4]);
-		// fprintf(fpout,"/c5 {.2 .7 .7} def   %% dark_cyan    %s\n",words+iword[5]);
-		// fprintf(fpout,"/c6 {.5 .25 .0} def  %% brown        %s\n",words+iword[6]);
-		// fprintf(fpout,"/c7 {.8 .8 .2} def   %% dark_yellow  %s\n",words+iword[7]);
-		//
-		// fprintf(fpout,"/c8 {.3 .3 .3} def   %% 70%%_black    %s\n",words+iword[8]);
-		// fprintf(fpout,"/c9 {1. .0 .0} def   %% red          %s\n",words+iword[9]);
-		// fprintf(fpout,"/c10 {.0 1. .0} def  %% green        %s\n",words+iword[10]);
-		// fprintf(fpout,"/c11 {.0 .0 1.} def  %% blue         %s\n",words+iword[11]);
-		// fprintf(fpout,"/c12 {1. .0 1.} def  %% magenta      %s\n",words+iword[12]);
-		// fprintf(fpout,"/c13 {.0 1. 1.} def  %% cyan         %s\n",words+iword[13]);
-		// fprintf(fpout,"/c14 {1. .4 .1} def  %% orange       %s\n",words+iword[14]);
-		// fprintf(fpout,"/c15 {1. 1. .0} def  %% yellow       %s\n",words+iword[15]);
-		//
-		// fprintf(fpout,"/c16 {.5 .5 .5} def  %% 50%%_black    %s\n",words+iword[16]);
-		// fprintf(fpout,"/c17 {1. .5 .5} def  %% pink         %s\n",words+iword[17]);
-		// fprintf(fpout,"/c18 {.5 1. .5} def  %% soft_green   %s\n",words+iword[18]);
-		// fprintf(fpout,"/c19 {.5 .6 1.} def  %% soft_blue    %s\n",words+iword[19]);
-		// fprintf(fpout,"/c20 {1. .5 1.} def  %% soft_magenta %s\n",words+iword[20]);
-		// fprintf(fpout,"/c21 {.5 1. 1.} def  %% soft_cyan    %s\n",words+iword[21]);
-		// fprintf(fpout,"/c22 {1. .7 .3} def  %% soft_orange  %s\n",words+iword[22]);
-		// fprintf(fpout,"/c23 {1. 1. .5} def  %% soft-yellow  %s\n",words+iword[23]);
-		//
-		// fprintf(fpout,"/c24 {.75 .75 .75} def  %% 25%%_black   %s\n",words+iword[24]);
-		// fprintf(fpout,"/c25 {1. .75 .75} def   %% pale_pink    %s\n",words+iword[25]);
-		// fprintf(fpout,"/c26 {.75 1. .75} def   %% pale_green   %s\n",words+iword[26]);
-		// fprintf(fpout,"/c27 {.75 .8 1.} def    %% pale_blue    %s\n",words+iword[27]);
-		// fprintf(fpout,"/c28 {1. .75 1.} def    %% pale_magenta %s\n",words+iword[28]);
-		// fprintf(fpout,"/c29 {.75 1. 1.} def    %% pale_cyan    %s\n",words+iword[29]);
-		// fprintf(fpout,"/c30 {1. .75 .6} def    %% pale_orange  %s\n",words+iword[30]);
-		// fprintf(fpout,"/c31 {1. 1. .75} def    %% pale_yellow  %s\n",words+iword[31]);
-		// fprintf(fpout,"/c32 {.9 .9 .9} def     %% 10%%_black   %s\n",words+iword[32]);
+		ncolours= 32;
+		red= realloc(red,ncolours*sizeof(*red));
+		green= realloc(green,ncolours*sizeof(*green));
+		blue= realloc(blue,ncolours*sizeof(*blue));
+		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		red[0]=.00; green[0]=.00; blue[0]=.00;
+		red[1]=.60; green[1]=.10; blue[1]=.20;
+		red[2]=.50; green[2]=.25; blue[2]=.50;
+		red[3]=.00; green[3]=.25; blue[3]=.60;
+		red[4]=.20; green[4]=.70; blue[4]=.70;
+		red[5]=.20; green[5]=.50; blue[5]=.10;
+		red[6]=.80; green[6]=.80; blue[6]=.20;
+		red[7]=.50; green[7]=.25; blue[7]=.00;
 
-		fprintf(fpout,"/c0 {.0 .0 .0} def   %% black        %s\n",words+iword[0]);
-		fprintf(fpout,"/c1 {.6 .1 .2} def   %% dark_red     %s\n",words+iword[1]);
-		fprintf(fpout,"/c2 {.5 .25 .5} def  %% dark_magenta %s\n",words+iword[2]);
-		fprintf(fpout,"/c3 {.0 .25 .6} def  %% dark_blue    %s\n",words+iword[3]);
-		fprintf(fpout,"/c4 {.2 .5 .1} def   %% dark_green   %s\n",words+iword[4]);
-		fprintf(fpout,"/c5 {.2 .7 .7} def   %% dark_cyan    %s\n",words+iword[5]);
-		fprintf(fpout,"/c6 {.8 .8 .2} def   %% dark_yellow  %s\n",words+iword[6]);
-		fprintf(fpout,"/c7 {.5 .25 .0} def  %% dark_orange  %s\n",words+iword[7]);
+		red[8]=.30; green[8]=.30; blue[8]=.30;
+		red[9]=1.0; green[9]=.00; blue[9]=.00;
+		red[10]=1.0; green[10]=.00; blue[10]=1.0;
+		red[11]=.00; green[11]=.00; blue[11]=1.0;
+		red[12]=.00; green[12]=1.0; blue[12]=1.0;
+		red[13]=.00; green[13]=1.0; blue[13]=.00;
+		red[14]=1.0; green[14]=1.0; blue[14]=.00;
+		red[15]=1.0; green[15]=.40; blue[15]=.10;
 
-		fprintf(fpout,"/c8 {.3 .3 .3} def   %% 70%%_black    %s\n",words+iword[8]);
-		fprintf(fpout,"/c0 {1. .0 .0} def   %% red          %s\n",words+iword[9]);
-		fprintf(fpout,"/c10 {1. .0 1.} def  %% magenta      %s\n",words+iword[10]);
-		fprintf(fpout,"/c11 {.0 .0 1.} def  %% blue         %s\n",words+iword[11]);
-		fprintf(fpout,"/c12 {.0 1. 1.} def  %% cyan         %s\n",words+iword[12]);
-		fprintf(fpout,"/c13 {.0 1. .0} def  %% green        %s\n",words+iword[13]);
-		fprintf(fpout,"/c14 {1. 1. .0} def  %% yellow       %s\n",words+iword[14]);
-		fprintf(fpout,"/c15 {1. .4 .1} def  %% orange       %s\n",words+iword[15]);
+		red[16]=.50; green[16]=.50; blue[16]=.50;
+		red[17]=1.0; green[17]=.50; blue[17]=.50;
+		red[18]=1.0; green[18]=.50; blue[18]=1.0;
+		red[19]=.50; green[19]=.60; blue[19]=1.0;
+		red[20]=.50; green[20]=1.0; blue[20]=1.0;
+		red[21]=.50; green[21]=1.0; blue[21]=.50;
+		red[22]=1.0; green[22]=1.0; blue[22]=.50;
+		red[23]=1.0; green[23]=.70; blue[23]=.30;
 
-		fprintf(fpout,"/c16 {.5 .5 .5} def  %% 50%%_black    %s\n",words+iword[16]);
-		fprintf(fpout,"/c17 {1. .5 .5} def  %% pink         %s\n",words+iword[17]);
-		fprintf(fpout,"/c18 {1. .5 1.} def  %% soft_magenta %s\n",words+iword[18]);
-		fprintf(fpout,"/c19 {.5 .6 1.} def  %% soft_blue    %s\n",words+iword[19]);
-		fprintf(fpout,"/c20 {.5 1. 1.} def  %% soft_cyan    %s\n",words+iword[19]);
-		fprintf(fpout,"/c21 {.5 1. .5} def  %% soft_green   %s\n",words+iword[20]);
-		fprintf(fpout,"/c22 {1. 1. .5} def  %% soft-yellow  %s\n",words+iword[21]);
-		fprintf(fpout,"/c23 {1. .7 .3} def  %% soft_orange  %s\n",words+iword[22]);
+		red[24]=.75; green[24]=.75; blue[24]=.75;
+		red[25]=1.0; green[25]=.75; blue[25]=.75;
+		red[26]=1.0; green[26]=.75; blue[26]=1.0;
+		red[27]=.75; green[27]=.80; blue[27]=1.0;
+		red[28]=.75; green[28]=1.0; blue[28]=1.0;
+		red[29]=.75; green[29]=1.0; blue[29]=.75;
+		red[30]=1.0; green[30]=1.0; blue[30]=.75;
+		red[31]=.90; green[31]=.90; blue[31]=.90;
 
-		fprintf(fpout,"/c24 {.75 .75 .75} def  %% 25%%_black   %s\n",words+iword[23]);
-		fprintf(fpout,"/c25 {1. .75 .75} def   %% pale_pink    %s\n",words+iword[24]);
-		fprintf(fpout,"/c26 {1. .75 1.} def    %% pale_magenta %s\n",words+iword[25]);
-		fprintf(fpout,"/c27 {.75 .8 1.} def    %% pale_blue    %s\n",words+iword[26]);
-		fprintf(fpout,"/c28 {.75 1. 1.} def    %% pale_cyan    %s\n",words+iword[27]);
-		fprintf(fpout,"/c29 {.75 1. .75} def   %% pale_green   %s\n",words+iword[28]);
-		fprintf(fpout,"/c30 {1. 1. .75} def    %% pale_yellow  %s\n",words+iword[29]);
-		fprintf(fpout,"/c31 {.9 .9 .9} def     %% 10%%_black   %s\n",words+iword[30]);
-		fprintf(fpout,"/c31 {1. .75 .6} def    %% pale_orange  %s\n",words+iword[31]);
+		for(ii=0;ii<ncolours;ii++) {
+			fprintf(fpout,"/c%ld {%.4f %.4f %.4f} def\t%% %s\n",ii,red[ii],green[ii],blue[ii],words+iword[ii]);
+		}
 	}
 	fprintf(fpout,"/cw {1. 1. 1.} def   %% open_points_fill\n");
 	fprintf(fpout,"/cf {.0 .0 .0} def   %% frame_colour\n");
@@ -1064,12 +1036,19 @@ int main (int argc, char *argv[]) {
 	/* PLOT DATA - note that if setgroupcol==-1, group for all data should turn out to be 1 */
 	/********************************************************************************/
 	jj= setdatacolour;
-	for(ii=0;ii<MAXGROUPS;ii++) { grpc[ii]=jj; jj++; if(jj>MAXGROUPS) jj=setdatacolour; }
+	for(grp=0;grp<MAXGROUPS;grp++) {
+		if(grpcount[grp]<1) continue;
+		grpc[grp]=jj;
+		jj++; if(jj>MAXGROUPS) jj=setdatacolour;
+		//TEST:	printf("grpc[%d]=%d	index=%ld\n",grp,grpc[grp],groupindex[grp]);
+	}
+	long tempcolour=0;
 
 	/* FOR EACH GROUP */
-	for(grp=0;grp<=MAXGROUPS;grp++) {
-
+	for(grp=0;grp<MAXGROUPS;grp++) {
 		if(grpcount[grp]<1) continue;
+
+
 		fprintf(fpout,"\n%% PLOT_VALUES_GROUP_%d\n",grp);
 		/* make a temporary copy of x,y,z and group variables */
 		nn=0;for(ii=0;ii<n1;ii++) {
@@ -1084,14 +1063,13 @@ int main (int argc, char *argv[]) {
 				nn++;
 		}}
 
-		/* set colour for error-bars - adjust to brighter if required */
-		if(grpc[grp]>=0) z=grpc[grp] ; else z=0;
-		if(setebright>0) z+=setebright;
-		if(z>MAXGROUPS)  z-=setebright-8;
-		fprintf(fpout,"\tc%d setrgbcolor\n",z);
-
 		fprintf(fpout,"\t%% PLOT_Y-ERRORBARS\n");
 		if(setecol>0) {
+			/* set colour for error-bars - adjust to brighter if required */
+			if(grpc[grp]>=0) z=grpc[grp] ; else z=0;
+			if(setebright>0) z+=setebright;
+			if(z>=MAXGROUPS)  z-=setebright-8;
+			fprintf(fpout,"\tc%d setrgbcolor\n",z);
 			fprintf(fpout,"	linewidth_error setlinewidth\n");
 			fprintf(fpout,"	newpath\n");
 			// first go to first in-range data point
@@ -1103,6 +1081,11 @@ int main (int argc, char *argv[]) {
 		}
 		fprintf(fpout,"\t%% PLOT_X-ERRORBARS\n");
 		if(setfcol>0) {
+			/* set colour for error-bars - adjust to brighter if required */
+			if(grpc[grp]>=0) z=grpc[grp] ; else z=0;
+			if(setebright>0) z+=setebright;
+			if(z>=MAXGROUPS)  z-=setebright-8;
+			fprintf(fpout,"\tc%d setrgbcolor\n",z);
 			fprintf(fpout,"	linewidth_error setlinewidth\n");
 			fprintf(fpout,"	newpath\n");
 			// first go to first in-range data point
