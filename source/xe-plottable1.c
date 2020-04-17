@@ -119,6 +119,8 @@ double xf_rand1_d(double setmax);
 long xf_scale1_l(long old, long min, long max);
 int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
 long xf_interp3_f(float *data, long ndata);
+int xf_compare1_i(const void *a, const void *b);
+void xf_qsortindex1_i(int *data, long *index,long nn);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -134,10 +136,11 @@ int main (int argc, char *argv[]) {
 
 	/* program-specific variables */
 	char xlabel[256],ylabel[256],plottitle[256],*tempword=NULL;
-	int grpcount[(MAXGROUPS+1)],grpcount2[(MAXGROUPS+1)],groupindex[(MAXGROUPS+1)],iword[(MAXGROUPS+1)],iword2[(MAXGROUPS+1)];
+	int grpcount[(MAXGROUPS+1)],grpcount2[(MAXGROUPS+1)],iword[(MAXGROUPS+1)],iword2[(MAXGROUPS+1)];
 	int *group=NULL, *linebreak=NULL,*temp_linebreak=NULL,lb,grp,groupfound;
-	int xticprecision,yticprecision;
+	int xticprecision,yticprecision,groupsareints;
 	int grpc[MAXGROUPS];
+	long groupindex[(MAXGROUPS+1)];
 	long n1,linecount,ncolours=33;
 	long *tempindex=NULL;
 	float xlimit=500.0,ylimit=500.0; // the postscript plotting space (pixels)- should be square and smaller than an A4 sheet (591 x 841)
@@ -410,6 +413,7 @@ int main (int argc, char *argv[]) {
 			if(setecol>0 && !isfinite(cc)) cc= 0.0;
 			if(setfcol>0 && !isfinite(dd)) dd= 0.0;
 			/* determine group ID from words or numbers in the group-column (-cg) */
+			z=0; // z is the unique group index
 			if(groupfound==1) {
 				/* check to see if a group-word already exists... */
 				z=-1; for(jj=0;jj<ngroups;jj++) if(strcmp(tempword,(words+iword[jj]))==0) z=jj;
@@ -427,8 +431,8 @@ int main (int argc, char *argv[]) {
 				}
 			}
 			else z=0;
-			linecount++;
 
+			linecount++;
 			/* only include data falling within the user-specified x-range */
 			if((setxmin==0 || aa>=setxminval) && (setxmax==0 || aa<=setxmaxval)) {
 				/* adjust y-values and error bars to fit within user-specified range */
@@ -451,10 +455,12 @@ int main (int argc, char *argv[]) {
 					fdata= realloc(fdata,(n1+1)*sizeofdouble);
 					if(fdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 				}
+
 				group= realloc(group,(n1+1)*sizeofint);
 				linebreak= realloc(linebreak,(n1+1)*sizeofint);
 				if(xdata==NULL||ydata==NULL||group==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-				group[n1]=z;
+
+				group[n1]=z; // the unique group-index, zero-offset - the value is stored in "words"
 				grpcount[z]++;
 				xdata[n1]=aa;
 				ydata[n1]=bb;
@@ -470,8 +476,9 @@ int main (int argc, char *argv[]) {
 		else lb=0; /* otherwise for the next line the lb signal is zero (no break) */
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	//TEST:	for(ii=0;ii<n1;ii++) printf("group %d : %g %g\n",group[ii],xdata[ii],ydata[ii]); exit(0);
-	//TEST:	for(ii=0;ii<n1;ii++) printf("group %d : %g %g\n",group[ii],xdata[ii],ydata[ii]); exit(0);
+
+	/* create the original group-index array - ??? not sure how useful this is...*/
+	w=0; for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]>0) groupindex[ii]= w++; // w=number of valid groups
 
 	/* ALOCATE MEMORY FOR TEMPORARY ARRAYS - THESE ARE USED DURING PLOTTING TO SPLIT THE DATA INTO GROUPS */
 	temp_xdata= realloc(temp_xdata,(n1+1)*sizeofdouble);
@@ -518,25 +525,33 @@ int main (int argc, char *argv[]) {
 		words=(char *)realloc(words,(1*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
 		words[0]= '\0';
 	}
+	//TEST:	for(ii=0;ii<n1;ii++) printf("group[%ld]=%d label=%s	%g %g\n",ii,group[ii],(words+iword[group[ii]]),xdata[ii],ydata[ii]);
+	//TEST: for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\n",grp,words+iword[grp]);}
 
 	/* MAKE SURE WORD INDICES FOR EMPTY GROUPS POINT TO THE END OF THE WORD LIST */
 	w=strlen(words); for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]<1) iword[ii]=w;
 
-	/* IF ALL GROUP LABELS WERE INTEGERS >= 0 and <= MAXGROUPS, USE THE ABSOLUTE NUMERICAL VALUE AS THE LABEL */
-	/* THIS ALLOWS USERS TO ENSURE A GIVEN GROUP (NUMBER) WILL HAVE A GIVEN COLOUR IN THEIR PLOTS */
-	z=0;for(ii=0;ii<ngroups;ii++) {
-		tempword=words+iword[ii];
+	/* ASSIGN COLOURS TO THE GROUPS */
+	/* first check if all the group-labels are integers  */
+	groupsareints=1;
+	for(ii=0;ii<ngroups;ii++) {
+		tempword= words+iword[ii];
 		kk=strlen(tempword);
-		for(jj=0;jj<kk;jj++) if(!isdigit(tempword[jj])) {z=1; break; }
-		sscanf(tempword,"%d",&x);
-		if(x>MAXGROUPS) {z=1; break; }
+		for(jj=0;jj<kk;jj++) if(!isdigit(tempword[jj])) {groupsareints=0; break; }
 	}
-	if(z==0) {
-		w=strlen(words);
-		for(ii=0;ii<=MAXGROUPS;ii++) { iword2[ii]=iword[ii];iword[ii]=w; grpcount2[ii]=grpcount[ii];grpcount[ii]=0; } // copy iword indices
-		for(ii=0;ii<=MAXGROUPS;ii++) { if(grpcount2[ii]>0) { x=atoi(words+iword2[ii]); iword[x]=iword2[ii]; grpcount[x]=grpcount2[ii]; }} // determine new group and copy information back
-		for(ii=0;ii<n1;ii++) { x=atoi(words+iword2[group[ii]]); group[ii]=x; grpcount[x]++; } // reassign group numbers to each datum
+	/* if all group labels were integers >= 0 and <= maxgroups, use the absolute numerical value as the label */
+	/* this allows users to ensure a given group (number) will have a given colour in their plots */
+	if(groupsareints==1) {
+		int *tempint= malloc(ngroups*sizeof(int));
+		for(grp=0;grp<ngroups;grp++) tempint[grp]= atoi(words+iword[grp]);
+		xf_qsortindex1_i(tempint,groupindex,(long)ngroups);
+		for(grp=0;grp<ngroups;grp++) grpc[grp]= groupindex[grp];
 	}
+	/* otherwise, use the original order in which the groups appeared in the data  */
+	else {
+		for(grp=0;grp<ngroups;grp++) { grpc[grp]=grp; }
+	}
+	//TEST:for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\tindex=%ld\tcolour=%d\n",grp,words+iword[grp],groupindex[grp],grpc[grp]);}
 
 	/* CHECK FOR DISCONTIGUOUS X-VALUES IF SETLINEBREAK==2 */
 	if(setlinebreak==2) for(ii=1;ii<n1;ii++) if(xdata[(ii-1)]>xdata[ii]) linebreak[ii]=1;
@@ -693,14 +708,12 @@ int main (int argc, char *argv[]) {
 
 	// DETERMINE X-SHIFTS FOR PLOT TO ALLOW SIDE-BY SIDE PLOTTING OF GROUP DATA, IF REQUIRED
 	for(ii=0;ii<=MAXGROUPS;ii++) groupshift[ii]=0.0;
-	w=0;
-	for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]>0) groupindex[ii]=w++; // w=number of valid groups
 	if(setgshift==1) {
- 		x=(int)((float)w/2.0); // number of shifts
- 		a=(float)xint/(float)(w+1); // shift between each group
- 		b=0; if((w%2)==0) b=a/2.0; // shift value for smallest group-id
-		for(jj=0;jj<w;jj++) {groupshift[jj]=b; b+=a; } // set initial shift values for each group index
-		for(ii=0;ii<x;ii++) for(jj=0;jj<w;jj++) {groupshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
+ 		x=(int)((float)ngroups/2.0); // number of shifts
+ 		a=(float)xint/(float)(ngroups+1); // shift between each group
+ 		b=0; if((ngroups%2)==0) b=a/2.0; // shift value for smallest group-id
+		for(jj=0;jj<ngroups;jj++) {groupshift[jj]=b; b+=a; } // set initial shift values for each group index
+		for(ii=0;ii<x;ii++) for(jj=0;jj<ngroups;jj++) {groupshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
  	}
 
 
@@ -1035,19 +1048,9 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	/* PLOT DATA - note that if setgroupcol==-1, group for all data should turn out to be 1 */
 	/********************************************************************************/
-	jj= setdatacolour;
-	for(grp=0;grp<MAXGROUPS;grp++) {
-		if(grpcount[grp]<1) continue;
-		grpc[grp]=jj;
-		jj++; if(jj>MAXGROUPS) jj=setdatacolour;
-		//TEST:	printf("grpc[%d]=%d	index=%ld\n",grp,grpc[grp],groupindex[grp]);
-	}
-	long tempcolour=0;
-
 	/* FOR EACH GROUP */
 	for(grp=0;grp<MAXGROUPS;grp++) {
 		if(grpcount[grp]<1) continue;
-
 
 		fprintf(fpout,"\n%% PLOT_VALUES_GROUP_%d\n",grp);
 		/* make a temporary copy of x,y,z and group variables */

@@ -40,7 +40,7 @@ long xf_strstr2(char *haystack, char *needle, char delim) {
 
 	for(ii=0;ii<len1;ii++) {
 		/* for every delimiter found before a match, increment the word-counter */
-		if(haystack[ii]==delim) word++;
+		if(haystack[ii]==delim) {word++;jj=0;}
 		if(haystack[ii]==needle[jj]) {
 			jj++;
 			/* make sure the match is preceded by a delimiter if this is the first matching character and we're not at the start of haystack */
