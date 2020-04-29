@@ -6,13 +6,13 @@
 #	NOTE!!! - the above pathmight be incorrect depending on the machine
 # 	THEREFORE, consider running each command as follows: python3 xp-hdf5_parse1.py  ...
 
-#	xp-hdf5_parse1.py count infile.h5		- get the max-channel-number (number of channels minus one)
-# 	xp-hdf5_parse1.py export 2 infile.h5	- export timestamps and waveforms for channel 2
-#	xp-hdf5_parse1.py metadata infile.h5	- print metadata to screen
-#	xp-hdf5_parse1.py shape infile.h5		-
-#   xp-hdf5_parse1.py --recording 1 attributes - print the attributes for recording 1
-#   xp-hdf5_parse1.py attributes            - print the file attributes
-#   xp-hdf5_parse.py -h                     - displays the help information
+#	xp-hdf5_parse1.py count infile.h5                   - get the max-channel-number (number of channels minus one)
+# 	xp-hdf5_parse1.py --recordin 0 export 15 infile.h5	- export timestamps and waveforms for channel 15
+#	xp-hdf5_parse1.py metadata infile.h5	            - print metadata to screen
+#	xp-hdf5_parse1.py shape infile.h5		            - shape of the waveform matrix (samplesperspike,spikes)
+#   xp-hdf5_parse1.py --recording 0 attributes          - recording-0 attributes - duration, recording-ID etc
+#   xp-hdf5_parse1.py attributes                        - file attributes - date, program-version, etc
+#   xp-hdf5_parse.py -h                                 - displays the help information
 
 
 import h5py
@@ -26,15 +26,22 @@ def get(args):
     path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}'
     timestamp_grp = h5[path.format(recording=args.recording, stream=args.stream, type="TimeStamp")]
     timestamp = timestamp_grp['TimeStampEntity_{}'.format(args.entity_no)].value.astype(np.int64)
-
     data_grp= h5[path.format(recording=args.recording, stream=args.stream, type="Segment")]
     data = data_grp['SegmentData_{}'.format(args.entity_no)].value.astype(np.float32)
-
     # output the timestamps
     timestamp.tofile("{}.{}.i64.timestamp.dat".format(prefix,args.entity_no))
+
+def wave(args):
+    h5 = h5py.File(args.filename,'r')
+    prefix = Path(args.filename).name
+    path = 'Data/Recording_{recording}/{type}Stream/Stream_{stream}'
+    timestamp_grp = h5[path.format(recording=args.recording, stream=args.stream, type="TimeStamp")]
+    timestamp = timestamp_grp['TimeStampEntity_{}'.format(args.entity_no)].value.astype(np.int64)
+    data_grp= h5[path.format(recording=args.recording, stream=args.stream, type="Segment")]
+    data = data_grp['SegmentData_{}'.format(args.entity_no)].value.astype(np.float32)
     # output the waveforms, transposed
- #   data = data.T
- #   data.tofile("{}.{}.f32.dat".format(prefix,args.entity_no))
+    data = data.T
+    data.tofile("{}.{}.f32.dat".format(prefix,args.entity_no))
 
 def count(args):
     h5 = h5py.File(args.filename,'r')
@@ -121,16 +128,19 @@ def get_attr(args):
 
 # COMMAND LINE INTERFACE
 
-
 parser = argparse.ArgumentParser(description='Read Spike data file')
 parser.add_argument('--recording', type=int, help='The recording number', default=None)
 parser.add_argument('--stream', type=int, help="The stream number", default=0)
 subparser = parser.add_subparsers()
 parser.add_argument('filename', type=str)
 
-get_parser = subparser.add_parser("export", help="Export the data into seperate dat files")
+get_parser = subparser.add_parser("export", help="Export the timestamp data into seperate dat files")
 get_parser.add_argument("entity_no", type=int)
 get_parser.set_defaults(func=get)
+
+get_parser = subparser.add_parser("wave", help="Export the waveform data into seperate dat files")
+get_parser.add_argument("entity_no", type=int)
+get_parser.set_defaults(func=wave)
 
 count_parser = subparser.add_parser("count", help="Count the number of events to stdout")
 count_parser.set_defaults(func=count)
