@@ -867,9 +867,17 @@ int main (int argc, char *argv[]) {
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g %g moveto\n",xlimit,ylimit);
 	fprintf(fpout,"\tbasefontsize mul -1 mul rmoveto\n");
-	fprintf(fpout,"\t0 pointsize rlineto\n");
-	fprintf(fpout,"\tpointsize 0 rlineto\n");
-	fprintf(fpout,"\t0 pointsize neg rlineto\n");
+	if(strcmp(plottype,"tri")==0) {
+		fprintf(fpout,"\tpointsize 2 div neg pointsize 4 div neg rmoveto\n");
+		fprintf(fpout,"\tpointsize 2 div pointsize rlineto\n");
+		fprintf(fpout,"\tpointsize 2 div pointsize neg rlineto\n");
+	}
+	else {
+		fprintf(fpout,"\t0 pointsize rlineto\n");
+		fprintf(fpout,"\tpointsize 0 rlineto\n");
+		fprintf(fpout,"\t0 pointsize neg rlineto\n");
+	}
+
 	fprintf(fpout,"\tpointdraw\n");
 	fprintf(fpout,"\n");
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
@@ -1259,9 +1267,11 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"\n%% DRAW_PLOT_LEGEND\n");
 	if(setlegend>0) {
 		fprintf(fpout,"/Helvetica-Bold findfont basefontsize 0.75 mul scalefont setfont\n");
-		for(z=grp=0;grp<=MAXGROUPS;grp++) {
-			if(grpcount[grp]<1) continue;
-			fprintf(fpout,"(%s) 0 %d c%d f_plotlegend\n",(words+iword[grp]),++z,tempcolour1);
+		for(grp=0;grp<ngroups;grp++) {
+			/* determine colours for data & lines (tempcolour1) and errorbars (tempcolour2) */
+			kk= grpc[grp]+setdatacolour;
+			tempcolour1= xf_scale1_l(kk,0,maxcolour); // ensure colours stay within range, even if modified by -colour
+			fprintf(fpout,"(%s) 0 %d c%ld f_plotlegend\n",(words+iword[grp]),grp,tempcolour1);
 	}}
 
 	/* DRAW USER-DEFINED HORIZONTAL LINES, IF REQUIRED */
