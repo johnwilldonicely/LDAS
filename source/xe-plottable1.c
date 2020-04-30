@@ -1261,7 +1261,7 @@ int main (int argc, char *argv[]) {
 		fprintf(fpout,"/Helvetica-Bold findfont basefontsize 0.75 mul scalefont setfont\n");
 		for(z=grp=0;grp<=MAXGROUPS;grp++) {
 			if(grpcount[grp]<1) continue;
-			fprintf(fpout,"(%s) 0 %d c%d f_plotlegend\n",(words+iword[grp]),++z,grpc[grp]);
+			fprintf(fpout,"(%s) 0 %d c%d f_plotlegend\n",(words+iword[grp]),++z,tempcolour1);
 	}}
 
 	/* DRAW USER-DEFINED HORIZONTAL LINES, IF REQUIRED */
