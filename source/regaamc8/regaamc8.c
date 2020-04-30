@@ -10,16 +10,15 @@ TO COMPILE:
 DEPENDENCIES:
 	xorg-x11-fonts-misc.noarch
 
-Potential dependencies:
-	imlib.i686
-	imlib-devel.i686
+	Potential dependencies:
+		imlib.i686
+		imlib-devel.i686
 
-...or the 64-bit equivalents...
-	imlib.x86_64
-	imlib-devel.x86_64
+		...or the 64-bit equivalents...
+		imlib.x86_64
+		imlib-devel.x86_64
 
 RUNNING THE PROGRAM:
-
 	regaamc8 [binaryfile] [nchans] [ms] [configfile]
 
 	- binaryfile: multi-channel binary timeseries, typically short-integers
@@ -29,7 +28,6 @@ RUNNING THE PROGRAM:
 
 # CONFIG FILE LAYOUT (COMMENTS MUST BE EXCLUDED FOR FILE TO WORK)
 # THIS EXAMPLE IS FOR A 16-CHANNEL RECORDING
-
 	regaa2.0
 	0			# prtypelo or prtypefl = ???
 	965			# cx= window width
@@ -62,9 +60,48 @@ RUNNING THE PROGRAM:
 	0
 	0
 
+KEYBOARD SHORTCUTS"
+	[Esc]: quit "
+	[left] [right]: navigate"
+	[left mouse]: select and move trace"
+	< >: increase decrease timescale"
+	i d: increase devcrease y-axis"
+	g: graph at bottom of screen"
+	a: ? add new column
+	A: ? add new quarter-column
+	s: ? swap channel
 
+	m: activate pointer mode"
+		c: centre screen on pointer"
+		l: align screen left to pointer"
+		r: align screen right to pointer"
+		s: ?
+		x: leave pointer axis on he screen
 
+	F8: save configuration"
+	F9: load configuration"
 
+	P: print to file: regaamcplot eps to produces ouput called \"jj.eps\""
+	p: write a pointer file
+
+	T: open spike-time file
+	t: ? similar to above, no prompt?
+
+	C: open cluster-ID file
+	c: open a .clu file - no prompt
+
+	H: open whl file
+	h: ? similar to above, no prompt?
+
+	R: ? raster file?
+	r: as above?
+	
+	x,X: ? extract to file
+	b: open bookmark file
+
+	Note: when using bookmark files...
+		- time values in the file will have to be divided by 16 for .eeg and .eegh files
+		- divide by 4 for .fex files.
 
 */
 
