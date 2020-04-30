@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" v 75: 17.April.2020 [JRH]"
+#define TITLE_STRING thisprog" v 75: 30.April.2020 [JRH]"
 #define MAXLINELEN 10000
 #define MAXGROUPS 32
 #define MAXUSERLINES 256
@@ -13,6 +13,10 @@
 
 /*
 <TAGS>plot</TAGS>
+
+v 75: 30.April.2020 [JRH]
+	- restore "-colour" option functionalty lost in last revision, and use xf_scale_l to wrap colours
+
 v 75: 18.April.2020 [JRH]
 	- allow colour-gradient palette option (-pal) to have group-id determine the colour
 
@@ -143,6 +147,7 @@ int main (int argc, char *argv[]) {
 	long groupindex[(MAXGROUPS+1)];
 	long n1,linecount,ncolours=33;
 	long *tempindex=NULL;
+	long tempcolour1,tempcolour2,maxcolour;
 	float xlimit=500.0,ylimit=500.0; // the postscript plotting space (pixels)- should be square and smaller than an A4 sheet (591 x 841)
 	float psxmin,psxmax,psymin,psymax; // currently unused - defines bounding box, i.e. plot area including labels (currently assume A4 page instead)
 	float zx=-1,zy=-1; // zero-coordinates for plot - readjust zy if scale is reset
@@ -1046,11 +1051,20 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
-	/* PLOT DATA - note that if setgroupcol==-1, group for all data should turn out to be 1 */
+	/* PLOT DATA */
 	/********************************************************************************/
+	if(setrgbpal!=NULL) maxcolour= ngroups-1;
+	else maxcolour= 32-1;
+
 	/* FOR EACH GROUP */
 	for(grp=0;grp<MAXGROUPS;grp++) {
 		if(grpcount[grp]<1) continue;
+
+		/* determine colours for data & lines (tempcolour1) and errorbars (tempcolour2) */
+		kk= grpc[grp]+setdatacolour;
+		tempcolour1= xf_scale1_l(kk,0,maxcolour); // ensure colours stay within range, even if modified by -colour
+		tempcolour2= tempcolour1+setebright;
+		if(tempcolour2>maxcolour)  tempcolour2-=setebright-8;
 
 		fprintf(fpout,"\n%% PLOT_VALUES_GROUP_%d\n",grp);
 		/* make a temporary copy of x,y,z and group variables */
@@ -1069,10 +1083,7 @@ int main (int argc, char *argv[]) {
 		fprintf(fpout,"\t%% PLOT_Y-ERRORBARS\n");
 		if(setecol>0) {
 			/* set colour for error-bars - adjust to brighter if required */
-			if(grpc[grp]>=0) z=grpc[grp] ; else z=0;
-			if(setebright>0) z+=setebright;
-			if(z>=MAXGROUPS)  z-=setebright-8;
-			fprintf(fpout,"\tc%d setrgbcolor\n",z);
+			fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour2);
 			fprintf(fpout,"	linewidth_error setlinewidth\n");
 			fprintf(fpout,"	newpath\n");
 			// first go to first in-range data point
@@ -1085,10 +1096,7 @@ int main (int argc, char *argv[]) {
 		fprintf(fpout,"\t%% PLOT_X-ERRORBARS\n");
 		if(setfcol>0) {
 			/* set colour for error-bars - adjust to brighter if required */
-			if(grpc[grp]>=0) z=grpc[grp] ; else z=0;
-			if(setebright>0) z+=setebright;
-			if(z>=MAXGROUPS)  z-=setebright-8;
-			fprintf(fpout,"\tc%d setrgbcolor\n",z);
+			fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour2);
 			fprintf(fpout,"	linewidth_error setlinewidth\n");
 			fprintf(fpout,"	newpath\n");
 			// first go to first in-range data point
@@ -1101,8 +1109,7 @@ int main (int argc, char *argv[]) {
 
 		fprintf(fpout,"\t%% PLOT_LINES\n");
 		/* set colour for data */
-		if(grpc[grp]>=0) fprintf(fpout,"\tc%d setrgbcolor\n",grpc[grp]);
-		else fprintf(fpout,"\tc0 setrgbcolor\n");
+		fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour1);
 		if(setline>0) {
 			fprintf(fpout,"\tlinewidth_data setlinewidth\n");
 			fprintf(fpout,"\tnewpath\n");
@@ -1125,8 +1132,7 @@ int main (int argc, char *argv[]) {
 
 		fprintf(fpout,"	%% PLOT_POINTS\n");
 		/* set colour for data */
-		if(grpc[grp]>=0) fprintf(fpout,"\tc%d setrgbcolor\n",grpc[grp]);
-		else fprintf(fpout,"\tc0 setrgbcolor\n");
+		fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour1);
 		if(pointsize>0) {
 			fprintf(fpout,"	linewidth_data setlinewidth\n");
 			fprintf(fpout,"	newpath\n");
