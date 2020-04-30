@@ -503,7 +503,7 @@ if [ "$setupdate" == "0" ] ; then
 		fi
 	fi
 
-	# update $PATH by sourecing rc-file, regardless of whether $PATH already referred to LDAS
+	# update $PATH by sourceing rc-file, regardless of whether $PATH already referred to LDAS
 	# this helps prevent errors due to a previous failed install that wasn't followed by a re-login
 	source $setrc
 
@@ -531,6 +531,11 @@ if [ ! -d "$outpath" ] ; then sudo mkdir -p $outpath ; fi
 rm -f $outpath/xe-*
 cd $inpath
 xs-progcompile "xe-*.c" --warn 0
+
+inpath=$setdest"/LDAS/source/regaamc"
+cd $inpath
+gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
+
 
 
 echo -e "\n--------------------------------------------------------------------------------"

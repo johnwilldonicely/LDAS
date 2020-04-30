@@ -1,7 +1,7 @@
 /* JOZSEF CSICSVARI'S DAT/EEG  FILE VIEWER
 
 TO COMPILE:
-	gcc regaamc8.c xnsubs.c -o ./regaamc8 -lm -lX11 -L /usr/X11R6/lib -Wno-write-strings
+	gcc regaamc8.c xnsubs.c -o ./regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 	also requires these files in the compile-directory
 		xnsubs.c
 		xnsubs.h
@@ -95,7 +95,7 @@ KEYBOARD SHORTCUTS"
 
 	R: ? raster file?
 	r: as above?
-	
+
 	x,X: ? extract to file
 	b: open bookmark file
 
