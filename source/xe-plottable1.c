@@ -1,7 +1,7 @@
 #define thisprog "xe-plottable1"
 #define TITLE_STRING thisprog" v 75: 30.April.2020 [JRH]"
 #define MAXLINELEN 10000
-#define MAXGROUPS 32
+#define MAXGRPS 32
 #define MAXUSERLINES 256
 
 #include <stdio.h>
@@ -14,88 +14,8 @@
 /*
 <TAGS>plot</TAGS>
 
-v 75: 30.April.2020 [JRH]
-	- restore "-colour" option functionalty lost in last revision, and use xf_scale_l to wrap colours
+[ ] legend y-offset needs to be the group-rank, NOT the group value,
 
-v 75: 18.April.2020 [JRH]
-	- allow colour-gradient palette option (-pal) to have group-id determine the colour
-
-v 75: 9.November.2019 [JRH]
-	- bugfix tic-drawing - set min and max x/y tics to prevent printing outside of actual data range
-
-v 75: 28.September.2019 [JRH]
-	- add option to automatically jitter x-values to improve visability of dense points
-	- fix auto-range and tics when there is no variability in X or Y - previously failed for negative X or Y values
-
-v 75: 16.July.2019 [JRH]
-	- drop conversion of NANs to zero - simply don't consider invalid x/y values
-	- this could have had unpredictable effects on calculating ranges, or give false results
-	- note that NAN or INF error-bars will be converted to zero
-
-v 75: 29.April.2019 [JRH]
-	- renamed from plotpost to plottable1
-
-v 75: 1.January.2019 [JRH]
-	- correct mis-printing of tics due to floating-point imprecision
-		- for integers, use %ld format instead %.0f
-	- simplify and improve definition of tic-label-offsets
-	- update variable names
-
-v 75: 24.November.2018 [JRH]
-	- bugfix padding settings and remove unnecessary variables - just keep setxpad & setypad
-
-v 75: 30.September.2018 [JRH]
-	- bugfix: linecount (for estimating x-value when there is no x-column) now only increments AFTER checking for comments and blank lines
-	- bugfix: finally resolved issues of automatic range and interval setting
-	- add verbose output option
-
-v 75: 30.August.2018 [JRH]
-	- expand palette to 32 colours
-
-v 75: 2.June.2018 [JRH]
-	- added x-error-bar option
-	- made memory reservation for error-bars dependent on whether they are defined
-	- some variable renaming
-
-v 75: 20.March.2018 [JRH]
-	- move pointfill definition close to this block: "% DEFINE_DATA_RELATED_VALUE"
-		- allows combination of plots while preserving point types
-
-v 75: 20.April.2017 [JRH]
-	- bugfix: definition of setxint/setyint is now double to allow fractional settings
-
-v 75: 31.March.2017 [JRH]
-	- allow omission of xtics and ytics (set xint or yint to -1)
-
-v 75: 9.January.2017 [JRH]
-	- bugfix decimal precision calculation by xf_precision_d
-		- needed to allow max decimal precision due to issues precisely representing floating-point numbers
-
-v 75: 3.November.2016 [JRH]
-	- add new point-type "bar"
-
-v 75: 1.November.2016 [JRH]
-	- add auto-set min/max values to zero if they are < 1/10th the range on that axis
-
-v 75: 22.October.2016 [JRH]
-	- add redefinition of xtloff (x-axis-label offset) at plot-time to facilitate modification if tics are adjusted
-
-v 75: 21.October.2016 [JRH]
-	- as with lines and points, replace "errorbar" definition with "E"
-
-v 75: 6.September.2016 [JRH]
-	- add control of tic size
-
-v 75: 5.September.2016 [JRH]
-	- simplify line and point definintions to L and P
-	- define pointdraw directly (no indirect reference to fill or open functions
-	- bugfix: white-fill usage
-
-TO DOs
-	- some pecular axis/tic positioning with some settings - especially with padding turned off
-	- with box-plots solve why is last box to the right sometimes wider than others
-	- tic size should be function of plot size, or user-set
-	- add control for trim to digits on x/y-axes
 
 GENERAL NOTES
 - After translation step, the x/y axes represent postscript coordinates 0/0
@@ -131,9 +51,9 @@ void xf_qsortindex1_d(double *data, long *index,long nn);
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char *infile=NULL,outfile[256],line[256],newline[256],*pline,*pcol,*words=NULL,message[256];
+	char *infile=NULL,outfile[256],line[256],newline[256],*pline,*pcol,*gwords=NULL,message[256];
 	long ii,jj,kk,nn,mm;
-	int w,x,y,z,col,colsmissing=2,ngroups=0,lengroups=0;
+	int w,x,y,z,col,colsmissing=2;
 	int  sizeofchar=sizeof(char),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double),sizeoflong=sizeof(long);
 	float a,b,c,d,e;
 	double aa,bb,cc,dd,ee,ff,gg;
@@ -141,26 +61,30 @@ int main (int argc, char *argv[]) {
 
 	/* program-specific variables */
 	char xlabel[256],ylabel[256],plottitle[256],*tempword=NULL;
-	int grpcount[(MAXGROUPS+1)],grpcount2[(MAXGROUPS+1)],iword[(MAXGROUPS+1)],iword2[(MAXGROUPS+1)];
-	int *group=NULL, *linebreak=NULL,*temp_linebreak=NULL,lb,grp,groupfound;
-	int xticprecision,yticprecision,groupsareints,groupsarenums;
-	int grpc[MAXGROUPS];
-	long groupindex[(MAXGROUPS+1)];
-	long n1,linecount,ncolours=33;
-	long *tempindex=NULL;
-	long tempcolour1,tempcolour2,maxcolour;
+	int *linebreak=NULL,*temp_linebreak=NULL,*tempint=NULL,lb;
+	int xticprecision,yticprecision;
+	long n1,linecount;
 	float xlimit=500.0,ylimit=500.0; // the postscript plotting space (pixels)- should be square and smaller than an A4 sheet (591 x 841)
 	float psxmin,psxmax,psymin,psymax; // currently unused - defines bounding box, i.e. plot area including labels (currently assume A4 page instead)
 	float zx=-1,zy=-1; // zero-coordinates for plot - readjust zy if scale is reset
 	double xfactor,yfactor; // variables scaled by data range + padding to transform the data to x/y coordinates
-	float groupshift[MAXGROUPS+1],yticmaxchar;
+	float yticmaxchar;
 	double *xdata=NULL,*ydata=NULL,*edata=NULL,*fdata=NULL;
 	double *temp_xdata=NULL,*temp_ydata=NULL,*temp_edata=NULL,*temp_fdata=NULL,*temp_xunique=NULL,*tempjit=NULL;
 	double xmin,xmax,ymin,ymax,xrange,yrange,newx,newy,xticmin,xticmax,yticmin,yticmax;
 	double winwidth=0.0;
 
+	/* group/colour variables */
+	int *gdata=NULL,grp,gfound,gints,gnums,ngrps=0,templen=0;
+	int igword[(MAXGRPS+1)];
+	long grprank[(MAXGRPS+1)],*temprank=NULL;
+	long ncolours,gindex;
+	float grpshift[MAXGRPS+1];
+	long *tempindex=NULL;
+	long tempcolour1,tempcolour2,maxcolour;
+	double *tempdouble=NULL;
 	/* colour-palette variables */
-	char *setrgbpal=NULL;
+	char *setpal=NULL;
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* arguments */
@@ -207,7 +131,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-ce: y-error estimate column [%d]\n",setecol);
 		fprintf(stderr,"	-cf: x-error estimate column [%d]\n",setfcol);
 		fprintf(stderr,"	-cg: group ID column [%d]\n",setgcol);
-		fprintf(stderr,"		- can be numerical or text (no spaces)%d\n",MAXGROUPS);
+		fprintf(stderr,"		- can be numerical or text (no spaces)%d\n",MAXGRPS);
 		fprintf(stderr,"		- if text, group-colour assigned by order of appearance\n");
 		fprintf(stderr,"	-xmin -xmax -ymin -ymax: manually set data range\n");
 		fprintf(stderr,"	-xpad -ypad: pad between data range and plot axes (-1=auto)\n");
@@ -218,7 +142,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-pt: plot type (squ cir tri box bar histo) [%s]\n",plottype);
 		fprintf(stderr,"	-ps: point size (zero to omit) [%g]\n",pointsize);
 		fprintf(stderr,"	-pf: point fill (0=no, -1=white, 1=datacolour) [%d]\n",pointfill);
-		fprintf(stderr,"	-colour: colour for lowest group (-1 to %d) [%d]\n",MAXGROUPS,setdatacolour);
+		fprintf(stderr,"	-colour: colour for lowest group (-1 to %d) [%d]\n",MAXGRPS,setdatacolour);
 		fprintf(stderr,"	-ebright: adjust error-bar colours up (typically 8,16,24) [%d]\n",setebright);
 		fprintf(stderr,"	-pal: colour palette (black=min, white=NAN): \n");
 		fprintf(stderr,"	    NOTE: do not use with -colour or -ebright\n");
@@ -277,7 +201,7 @@ int main (int argc, char *argv[]) {
 			if(ii>=argc) break;
 			if((ii+1)>=argc) {fprintf(stderr,"\n\a--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1); }
 			else if(strcmp(argv[ii],"-colour")==0) 	{ setdatacolour=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-pal")==0)     { setrgbpal= argv[++ii]; }
+			else if(strcmp(argv[ii],"-pal")==0)     { setpal= argv[++ii]; }
 			else if(strcmp(argv[ii],"-ebright")==0) { setebright=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-cx")==0) 	{ setxcol=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-cy")==0) 	{ setycol=atoi(argv[++ii]); }
@@ -338,20 +262,20 @@ int main (int argc, char *argv[]) {
 	if(setlegend<0||setlegend>2) {fprintf(stderr,"\n\a--- Error[%s]: invalid -legend (%d) - should be either 0 1 or 2\n\n",thisprog,setlegend);exit(1); }
 	if(setyzeroline!=0&&setyzeroline!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -yzero (%d) - should be either 0 or 1\n\n",thisprog,setyzeroline);exit(1); }
 	if(setverb!=0&&setverb!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -verb (%d) - should be either 0 or 1\n\n",thisprog,setverb);exit(1); }
-	if(setebright<0||setebright>(MAXGROUPS-1)) {fprintf(stderr,"\n\a--- Error[%s]: invalid -ebright (%d) - should be 0-%d\n\n",thisprog,setebright,(MAXGROUPS-1));exit(1); }
+	if(setebright<0||setebright>(MAXGRPS-1)) {fprintf(stderr,"\n\a--- Error[%s]: invalid -ebright (%d) - should be 0-%d\n\n",thisprog,setebright,(MAXGRPS-1));exit(1); }
 	if(pointfill<0 && (strcmp(plottype,"histo")==0 || strcmp(plottype,"bar")==0)) {fprintf(stderr,"\n\a--- Error[%s]: white-fill (-pf -1) cannnot be used with histograms (-pt histo) or bars (-pt bar) \n\n",thisprog);exit(1); }
 	// automatically determine error-bar width and line width if required
 	if(setewidth==0) ewidth=0.5*boxwidth;
 	if(setelwidth==0) lwerror=0.5*lwdata;
-	if(setrgbpal!=NULL) {
+	if(setpal!=NULL) {
 		if(
-		strcmp(setrgbpal,"grey")!=0
-		&& strcmp(setrgbpal,"rainbow")!=0
-		&& strcmp(setrgbpal,"viridis")!=0
-		&& strcmp(setrgbpal,"plasma")!=0
-		&& strcmp(setrgbpal,"magma")!=0
-		&& strcmp(setrgbpal,"inferno")!=0
-		) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setrgbpal);exit(1);}
+		strcmp(setpal,"grey")!=0
+		&& strcmp(setpal,"rainbow")!=0
+		&& strcmp(setpal,"viridis")!=0
+		&& strcmp(setpal,"plasma")!=0
+		&& strcmp(setpal,"magma")!=0
+		&& strcmp(setpal,"inferno")!=0
+		) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setpal);exit(1);}
 	}
 
 	// build the list of horizontal lines
@@ -388,20 +312,19 @@ int main (int argc, char *argv[]) {
 	if(setfcol>0) colsmissing++;	// need to detect one extra column
 	if(setgcol>0) colsmissing++;	// need to detect one extra column
 	if(setxcol==-1) colsmissing--;	// decrease detected columns by one if "x" is inferred from sample-number
-	for(ii=0;ii<=MAXGROUPS;ii++) grpcount[ii]=0;
 
 	/* NOW READ THE FILE AND STORE THE DATA */
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n\a--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1); }
 	linecount= 0;
 	lb= 0;
-	groupsarenums=1; // assume group-IDs are numbers
-	groupsareints=1; // assume group-IDs are integers
+	gnums=1; // assume group-IDs are numbers
+	gints=1; // assume group-IDs are integers
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 		if(line[0]=='#') continue;
 		aa= bb= cc= 0.0;
 		w= colsmissing;
-		groupfound= 0;
+		gfound= 0;
 		pline= line;
 		for(col=1;(pcol=strtok(pline," ,\t\n"))!=NULL;col++)	{
 			pline=NULL;
@@ -409,43 +332,41 @@ int main (int argc, char *argv[]) {
 			if(col==setycol) {z=sscanf(pcol,"%lf",&bb); if(z==1) w--; }  // temporarily store y-data
 			if(col==setecol) {z=sscanf(pcol,"%lf",&cc); if(z==1) w--; }  // temporarily store y-error-data
 			if(col==setfcol) {z=sscanf(pcol,"%lf",&dd); if(z==1) w--; }  // temporarily store x-error-data
-			if(col==setgcol) {
-				/* temporarily store group-label */
-				tempword=pcol; groupfound=1; w--;
-				/* try to store group-ID as a number to see if all groups are numeric */
-				z=sscanf(pcol,"%lf",&gg);
-				if(z==0 || !isfinite(gg)) groupsarenums=groupsareints= 0;
-				else if(gg!=(long)(gg)) groupsareints= 0;
-			}
+			if(col==setgcol) {tempword=pcol; gfound=1; w--; } /* temporarily store group-label - dont fully process until all columns found */
 		}
 		/* if all columns found, store data and indicate this line is not a line-break */
 		if(w==0) {
-			/* for valid lines only, if cx is "-1" then derive x-value from line-count */
-			if(setxcol==-1) aa=(double)linecount; /* sets x to sample-number */
+			if(setxcol==-1) aa=(double)linecount; /* -f -cx is "-1", sets x to sample-number */
 			/* convert NAN or INF values to zero - except x-values, which MUST be defined */
 			if(!isfinite(aa)) continue;
 			if(!isfinite(bb)) continue;
 			if(setecol>0 && !isfinite(cc)) cc= 0.0;
 			if(setfcol>0 && !isfinite(dd)) dd= 0.0;
-			/* determine group ID from words or numbers in the group-column (-cg) */
-			z=0; // z is the unique group index
-			if(groupfound==1) {
+
+			/* determine group ID from gwords or numbers in the group-column (-cg) */
+			gindex=0; // the unique group index
+			if(gfound==1) {
+				/* try to store group-ID as a number to see if all groups are numeric */
+				z=sscanf(tempword,"%lf",&gg);
+				if(z==0 || !isfinite(gg)) gnums=gints= 0;
+				else if(gg!=(long)(gg)) gints= 0;
+
 				/* check to see if a group-word already exists... */
-				z=-1; for(jj=0;jj<ngroups;jj++) if(strcmp(tempword,(words+iword[jj]))==0) z=jj;
-				/* ...if not, add it to a list of words */
-				if(z<0) {
-					/* allocate memory for expanded words and word-index */
+				gindex=-1; for(jj=0;jj<ngrps;jj++) if(strcmp(tempword,(gwords+igword[jj]))==0) gindex=jj;
+				/* ...if not, add it to a list of gwords */
+				if(gindex<0) {
+					/* allocate memory for expanded gwords and word-index */
 					x= strlen(tempword); // not including terminating NULL
-					words= (char *)realloc(words,((lengroups+x+4)*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
-					iword[ngroups]=lengroups; /* set pointer to start position (currently, the end of the labels string) */
-					sprintf(words+lengroups,"%s",tempword); /* add new word to end of words, adding terminal NULL */
-					lengroups+= (x+1); /* update length, allowing for terminal NULL - serves as pointer to start of next word */
-					z= ngroups; /* set the group label index */
-					ngroups++; /* increment ngroups with check */
-					if(ngroups>(MAXGROUPS)) {fprintf(stderr,"\n\a--- Error[%s]: categories in group-column (-cg %d) exceeds maximum allowed (%d)\n\n",thisprog,setgcol,MAXGROUPS);exit(1); }
+					gwords= (char *)realloc(gwords,((templen+x+4)*sizeofchar)); if(gwords==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
+					igword[ngrps]=templen; /* set pointer to start position (currently, the end of the labels string) */
+					sprintf(gwords+templen,"%s",tempword); /* add new word to end of gwords, adding terminal NULL */
+					templen+= (x+1); /* update length, allowing for terminal NULL - serves as pointer to start of next word */
+					gindex= ngrps; /* set the group label index */
+					ngrps++; /* increment ngrps with check */
+					if(ngrps>(MAXGRPS)) {fprintf(stderr,"\n\a--- Error[%s]: categories in group-column (-cg %d) exceeds maximum allowed (%d)\n\n",thisprog,setgcol,MAXGRPS);exit(1); }
 				}
 			}
-			else z=0;
+			else gindex=0;
 
 			linecount++;
 			/* only include data falling within the user-specified x-range */
@@ -459,9 +380,13 @@ int main (int argc, char *argv[]) {
 					if(bb>setymaxval) { bb=setymaxval; cc=0.0; }
 					else if((bb+cc)>setymaxval) { cc=setymaxval-bb; }
 				}
-				/* allocate memory */
+				/* allocate memory (note that x,y,group and linebreak are always defined )*/
 				xdata= realloc(xdata,(n1+1)*sizeofdouble);
 				ydata= realloc(ydata,(n1+1)*sizeofdouble);
+				gdata= realloc(gdata,(n1+1)*sizeofint);
+				linebreak= realloc(linebreak,(n1+1)*sizeofint);
+				if(xdata==NULL||ydata==NULL||gdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+				if(xdata==NULL||ydata==NULL||gdata==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 				if(setecol>0) {
 					edata= realloc(edata,(n1+1)*sizeofdouble);
 					if(edata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
@@ -471,14 +396,9 @@ int main (int argc, char *argv[]) {
 					if(fdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 				}
 
-				group= realloc(group,(n1+1)*sizeofint);
-				linebreak= realloc(linebreak,(n1+1)*sizeofint);
-				if(xdata==NULL||ydata==NULL||group==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-
-				group[n1]=z; // the unique group-index, zero-offset - the value is stored in "words"
-				grpcount[z]++;
-				xdata[n1]=aa;
-				ydata[n1]=bb;
+				xdata[n1]= aa;
+				ydata[n1]= bb;
+				gdata[n1]= gindex; // the unique group-index (order of appearance, zero-offset) - the value is stored in "gwords"
 				if(setecol>0) edata[n1]=cc;
 				if(setfcol>0) fdata[n1]=dd;
 				linebreak[n1]=lb;
@@ -492,10 +412,55 @@ int main (int argc, char *argv[]) {
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 
-	/* create the original group-index array - ??? not sure how useful this is...*/
-	w=0; for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]>0) groupindex[ii]= w++; // w=number of valid groups
 
+
+
+	/******************************************************************************/
+	/******************************************************************************/
+	/* MAKE FAKE DATA AND FAKE GROUP-LABELS IF REQUIRED */
+	/******************************************************************************/
+	/******************************************************************************/
+	/* IF GROUP COLUMN WAS UNDEFINED, MAKE A DUMMY GROUP LABEL ARRAY */
+	if(setgcol<0) {
+		gwords=(char *)realloc(gwords,(4*sizeofchar));
+		if(gwords==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		sprintf(gwords,"0");
+		ngrps=1;
+		igword[0]=0;
+	}
+	/* WARN IF PLOT IS TO BE EMPTY - MAKE SOME FAKE DATA BUT KEEP n1=0 */
+	if(n1<1) {
+		fprintf(stderr,"\n\a--- Warning[%s]: no data! Check input columns and whether input is non-numeric\n\n",thisprog);
+		xdata= realloc(xdata,(1)*sizeofdouble);
+		ydata= realloc(ydata,(1)*sizeofdouble);
+		if(setecol>0) {
+			edata= realloc(edata,sizeofdouble);
+			if(edata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+			edata[0]=0.0;
+		}
+		if(setfcol>0) {
+			fdata= realloc(fdata,sizeofdouble);
+			if(fdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+			fdata[0]=0.0;
+		}
+		gdata=(int *)realloc(gdata,sizeofint);
+		linebreak=(int *)realloc(linebreak,sizeofint);
+		if(xdata==NULL||ydata==NULL||gdata==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		xdata[0]=0.0;
+		ydata[0]=0.0;
+		gwords=(char *)realloc(gwords,(1*sizeofchar)); if(gwords==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
+		gwords[0]= '\0';
+	}
+	//TEST:	for(ii=0;ii<n1;ii++) printf("group[%ld]=%d label=%s	%g %g\n",ii,group[ii],(gwords+igword[group[ii]]),xdata[ii],ydata[ii]);
+	//TEST: for(grp=0;grp<ngrps;grp++) {printf("label[%d]=%s\n",grp,gwords+igword[grp]);}
+
+
+
+	/******************************************************************************/
+	/******************************************************************************/
 	/* ALOCATE MEMORY FOR TEMPORARY ARRAYS - THESE ARE USED DURING PLOTTING TO SPLIT THE DATA INTO GROUPS */
+	/******************************************************************************/
+	/******************************************************************************/
 	temp_xdata= realloc(temp_xdata,(n1+1)*sizeofdouble);
 	temp_ydata= realloc(temp_ydata,(n1+1)*sizeofdouble);
 	if(setecol>0) {
@@ -509,75 +474,93 @@ int main (int argc, char *argv[]) {
 	temp_linebreak=(int *)realloc(temp_linebreak,(n1+1)*sizeofint);
 	if(temp_xdata==NULL||temp_ydata==NULL||temp_linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 
-	/* IF GROUP COLUMN WAS UNDEFINED, MAKE A DUMMY GROUP LABEL ARRAY */
-	if(setgcol<0) {
-		words=(char *)realloc(words,(4*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-		sprintf(words,"0");
-		ngroups=1;
-		iword[0]=0;
-	}
 
-	/* WARN IF PLOT IS TO BE EMPTY - MAKE SOME FAKE DATA BUT KEEP n1=0 */
-	if(n1<1) {
-		fprintf(stderr,"\n\a--- Warning[%s]: no data! Check input columns and whether input is non-numeric\n\n",thisprog);
-		xdata= realloc(xdata,(1)*sizeofdouble);
-		ydata= realloc(ydata,(1)*sizeofdouble);
-		if(setecol>0) {
-			edata= realloc(edata,(1)*sizeofdouble);
-			if(edata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-			edata[0]=0.0;
-		}
-		if(setfcol>0) {
-			fdata= realloc(fdata,(1)*sizeofdouble);
-			if(fdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-			fdata[0]=0.0;
-		}
-		group=(int *)realloc(group,(1)*sizeofint);
-		linebreak=(int *)realloc(linebreak,(1)*sizeofint);
-		if(xdata==NULL||ydata==NULL||group==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
-		xdata[0]=0.0;
-		ydata[0]=0.0;
-		words=(char *)realloc(words,(1*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); };
-		words[0]= '\0';
-	}
-	//TEST:	for(ii=0;ii<n1;ii++) printf("group[%ld]=%d label=%s	%g %g\n",ii,group[ii],(words+iword[group[ii]]),xdata[ii],ydata[ii]);
-	//TEST: for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\n",grp,words+iword[grp]);}
 
-	/* MAKE SURE WORD INDICES FOR EMPTY GROUPS POINT TO THE END OF THE WORD LIST */
-	w=strlen(words); for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]<1) iword[ii]=w;
 
-	/* ASSIGN COLOURS TO THE GROUPS */
-	/* if all group labels were integers...*/
-	if(groupsareints==1) {
-		/* for the default palette only, the group ID itself specifies the colour exactly - it will be wrapped later if necessary */
-		if(setrgbpal==NULL){
-			for(grp=0;grp<ngroups;grp++) grpc[grp]= atoi(words+iword[grp]);
-		}
-		/* for other palettes, colour is the rank of the group-ID  */
-		else {
-			int *tempint= malloc(ngroups*sizeof(int));
-			for(grp=0;grp<ngroups;grp++) tempint[grp]= atoi(words+iword[grp]);
-			//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]); printf("\n");
-			xf_qsortindex1_i(tempint,groupindex,(long)ngroups);
-			//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]);
-			for(grp=0;grp<ngroups;grp++) grpc[groupindex[grp]]= grp;
-			free(tempint);
-		}
+	/******************************************************************************/
+	/******************************************************************************/
+	// CREATE RGB COLOUR PALETTE
+	/******************************************************************************/
+	/******************************************************************************/
+	/* ...if a colour-palette is defined... */
+	if(setpal!=NULL) {
+		setdatacolour= 0;
+		setebright= 0;
+		ncolours= ngrps;
+		/* adjust number of colours slightly for palettes where the top is close to white */
+		if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) ncolours= ncolours+1;
+		red= realloc(red,ncolours*sizeof(*red));
+		green= realloc(green,ncolours*sizeof(*green));
+		blue= realloc(blue,ncolours*sizeof(*blue));
+		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		for(ii=0;ii<ncolours;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+		x= xf_palette7(red,green,blue,ncolours,setpal);
 	}
-	/* if groups are floats/doubles, colours are the rank of the group-ID */
-	else if(groupsarenums==1) {
-		double *tempdouble= malloc(ngroups*sizeof(tempdouble));
-		for(grp=0;grp<ngroups;grp++) tempdouble[grp]= atof(words+iword[grp]);
-		//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]); printf("\n");
-		xf_qsortindex1_d(tempdouble,groupindex,(long)ngroups);
-		//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]);
-		for(grp=0;grp<ngroups;grp++) grpc[groupindex[grp]]= grp;
-		free(tempdouble);
-	}
-	/* otherwise, use the original order in which the groups appeared in the data  */
 	else {
-		for(grp=0;grp<ngroups;grp++) { grpc[grp]=grp; }
+		ncolours= 32;
+		red= realloc(red,ncolours*sizeof(*red));
+		green= realloc(green,ncolours*sizeof(*green));
+		blue= realloc(blue,ncolours*sizeof(*blue));
+		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		red[0]=.00; green[0]=.00; blue[0]=.00;
+		red[1]=.75; green[1]=.10; blue[1]=.20;
+		red[2]=.50; green[2]=.25; blue[2]=.50;
+		red[3]=.00; green[3]=.25; blue[3]=.60;
+		red[4]=.20; green[4]=.70; blue[4]=.70;
+		red[5]=.20; green[5]=.50; blue[5]=.10;
+		red[6]=.85; green[6]=.85; blue[6]=.10;
+		red[7]=.70; green[7]=.30; blue[7]=.00;
+
+		red[8]=.30; green[8]=.30; blue[8]=.30;
+		red[9]=1.0; green[9]=.00; blue[9]=.00;
+		red[10]=1.0; green[10]=.00; blue[10]=1.0;
+		red[11]=.00; green[11]=.00; blue[11]=1.0;
+		red[12]=.00; green[12]=1.0; blue[12]=1.0;
+		red[13]=.00; green[13]=1.0; blue[13]=.00;
+		red[14]=1.0; green[14]=1.0; blue[14]=.00;
+		red[15]=1.0; green[15]=.50; blue[15]=.00;
+
+		red[16]=.50; green[16]=.50; blue[16]=.50;
+		red[17]=1.0; green[17]=.50; blue[17]=.50;
+		red[18]=1.0; green[18]=.50; blue[18]=1.0;
+		red[19]=.50; green[19]=.60; blue[19]=1.0;
+		red[20]=.50; green[20]=1.0; blue[20]=1.0;
+		red[21]=.50; green[21]=1.0; blue[21]=.50;
+		red[22]=1.0; green[22]=1.0; blue[22]=.50;
+		red[23]=1.0; green[23]=.70; blue[23]=.30;
+
+		red[24]=.75; green[24]=.75; blue[24]=.75;
+		red[25]=1.0; green[25]=.75; blue[25]=.75;
+		red[26]=1.0; green[26]=.75; blue[26]=1.0;
+		red[27]=.75; green[27]=.80; blue[27]=1.0;
+		red[28]=.75; green[28]=1.0; blue[28]=1.0;
+		red[29]=.75; green[29]=1.0; blue[29]=.75;
+		red[30]=1.0; green[30]=1.0; blue[30]=.75;
+		red[31]=1.0; green[31]=.90; blue[31]=.50;
 	}
+
+
+	/******************************************************************************/
+	/******************************************************************************/
+	// DETERMINE GROUP-RANKS, FOR COLOURS AND STACKED-PLOT POSITIONING
+	// -  at this point we have define gdata[], gwords[], igword[], ngrps
+	// - calculate the rank for each group
+	/******************************************************************************/
+	/******************************************************************************/
+	for(ii=0;ii<ngrps;ii++) grprank[ii]= ii;
+	if(gnums==1) {
+		tempdouble= malloc(ngrps*sizeof(double));
+		temprank= malloc(ngrps*sizeof(long));
+		if(temprank==NULL||tempdouble==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		for(ii=0;ii<ngrps;ii++) temprank[ii]= ii;
+		for(ii=0;ii<ngrps;ii++) tempdouble[ii]= atof(gwords+igword[ii]);
+		xf_qsortindex1_d(tempdouble,temprank,(long)ngrps);
+		for(ii=0;ii<ngrps;ii++) grprank[temprank[ii]]=ii;
+		free(tempdouble);
+		free(temprank);
+	}
+	//TEST:for(ii=0;ii<ngrps;ii++) printf("grp=%ld\tvalue=%f\tgrprank=%ld\n",ii,atof(gwords+igword[ii]),grprank[ii]);
+
 
 	/* CHECK FOR DISCONTIGUOUS X-VALUES IF SETLINEBREAK==2 */
 	if(setlinebreak==2) for(ii=1;ii<n1;ii++) if(xdata[(ii-1)]>xdata[ii]) linebreak[ii]=1;
@@ -614,7 +597,6 @@ int main (int argc, char *argv[]) {
 		free(temp_xunique);
 	}
 	//TEST: for(jj=0;jj<n1;jj++) printf("%g\t%g\n",xdata[jj],ydata[jj]);
-
 
 	/* DETERMINE XMIN,XMAX,YMIN,YMAX, INCLUDING X/Y-ERRORBARS */
 	xmin=xmax=xdata[0];
@@ -733,13 +715,14 @@ int main (int argc, char *argv[]) {
 	psymax=zy+ylimit+fontsize*2.0;
 
 	// DETERMINE X-SHIFTS FOR PLOT TO ALLOW SIDE-BY SIDE PLOTTING OF GROUP DATA, IF REQUIRED
-	for(ii=0;ii<=MAXGROUPS;ii++) groupshift[ii]=0.0;
+// ??? this needs updating
+	for(ii=0;ii<=MAXGRPS;ii++) grpshift[ii]=0.0;
 	if(setgshift==1) {
- 		x=(int)((float)ngroups/2.0); // number of shifts
- 		a=(float)xint/(float)(ngroups+1); // shift between each group
- 		b=0; if((ngroups%2)==0) b=a/2.0; // shift value for smallest group-id
-		for(jj=0;jj<ngroups;jj++) {groupshift[jj]=b; b+=a; } // set initial shift values for each group index
-		for(ii=0;ii<x;ii++) for(jj=0;jj<ngroups;jj++) {groupshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
+ 		x=(int)((float)ngrps/2.0); // number of shifts
+ 		a=(float)xint/(float)(ngrps+1); // shift between each group
+ 		b=0; if((ngrps%2)==0) b=a/2.0; // shift value for smallest group-id
+		for(jj=0;jj<ngrps;jj++) {grpshift[jj]=b; b+=a; } // set initial shift values for each group index
+		for(ii=0;ii<x;ii++) for(jj=0;jj<ngrps;jj++) {grpshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
  	}
 
 
@@ -768,7 +751,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"psymin= %f\n",psymin);
 		fprintf(stderr,"psymax= %f\n",psymax);
 		fprintf(stderr,"\n");
-		if(setverb>0) for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\tindex=%ld\tcolour=%d\n",grp,words+iword[grp],groupindex[grp],grpc[grp]);}
+		for(ii=0;ii<ngrps;ii++) printf("label[%ld]=%s\trank=%ld\n",ii,(gwords+igword[ii]),grprank[ii]);
 		fprintf(stderr,"--------------------------------------------------------------------------------\n");
 	}
 
@@ -794,67 +777,8 @@ int main (int argc, char *argv[]) {
 
 	/* DEFINE COLOUR SET */
 	fprintf(fpout,"\n%% DEFINE_COLOUR\tGROUP-LABEL\n");
-	/* ...if a colour-palette is defined... */
-
-	if(setrgbpal!=NULL) {
-		setdatacolour= 0;
-		setebright= 0;
-		ncolours= ngroups;
-		/* adjust number of colours slightly for palettes where the top is close to white */
-		if(strcmp(setrgbpal,"magma")==0||strcmp(setrgbpal,"inferno")==0) ncolours= ncolours+1;
-		red= realloc(red,ncolours*sizeof(*red));
-		green= realloc(green,ncolours*sizeof(*green));
-		blue= realloc(blue,ncolours*sizeof(*blue));
-		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(ii=0;ii<ncolours;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,ncolours,setrgbpal);
-		for(ii=0;ii<ngroups;ii++) fprintf(fpout,"/c%ld {%.4f %.4f %.4f} def\t%% %s\n",ii,red[ii],green[ii],blue[ii],words+iword[ii]);
-	}
-	else {
-		ncolours= 32;
-		red= realloc(red,ncolours*sizeof(*red));
-		green= realloc(green,ncolours*sizeof(*green));
-		blue= realloc(blue,ncolours*sizeof(*blue));
-		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		red[0]=.00; green[0]=.00; blue[0]=.00;
-		red[1]=.60; green[1]=.10; blue[1]=.20;
-		red[2]=.50; green[2]=.25; blue[2]=.50;
-		red[3]=.00; green[3]=.25; blue[3]=.60;
-		red[4]=.20; green[4]=.70; blue[4]=.70;
-		red[5]=.20; green[5]=.50; blue[5]=.10;
-		red[6]=.80; green[6]=.80; blue[6]=.20;
-		red[7]=.50; green[7]=.25; blue[7]=.00;
-
-		red[8]=.30; green[8]=.30; blue[8]=.30;
-		red[9]=1.0; green[9]=.00; blue[9]=.00;
-		red[10]=1.0; green[10]=.00; blue[10]=1.0;
-		red[11]=.00; green[11]=.00; blue[11]=1.0;
-		red[12]=.00; green[12]=1.0; blue[12]=1.0;
-		red[13]=.00; green[13]=1.0; blue[13]=.00;
-		red[14]=1.0; green[14]=1.0; blue[14]=.00;
-		red[15]=1.0; green[15]=.40; blue[15]=.10;
-
-		red[16]=.50; green[16]=.50; blue[16]=.50;
-		red[17]=1.0; green[17]=.50; blue[17]=.50;
-		red[18]=1.0; green[18]=.50; blue[18]=1.0;
-		red[19]=.50; green[19]=.60; blue[19]=1.0;
-		red[20]=.50; green[20]=1.0; blue[20]=1.0;
-		red[21]=.50; green[21]=1.0; blue[21]=.50;
-		red[22]=1.0; green[22]=1.0; blue[22]=.50;
-		red[23]=1.0; green[23]=.70; blue[23]=.30;
-
-		red[24]=.75; green[24]=.75; blue[24]=.75;
-		red[25]=1.0; green[25]=.75; blue[25]=.75;
-		red[26]=1.0; green[26]=.75; blue[26]=1.0;
-		red[27]=.75; green[27]=.80; blue[27]=1.0;
-		red[28]=.75; green[28]=1.0; blue[28]=1.0;
-		red[29]=.75; green[29]=1.0; blue[29]=.75;
-		red[30]=1.0; green[30]=1.0; blue[30]=.75;
-		red[31]=.90; green[31]=.90; blue[31]=.90;
-
-		for(ii=0;ii<ncolours;ii++) {
-			fprintf(fpout,"/c%ld {%.4f %.4f %.4f} def\t%% %s\n",ii,red[ii],green[ii],blue[ii],words+iword[ii]);
-		}
+	for(ii=0;ii<ncolours;ii++) {
+		fprintf(fpout,"/c%ld {%.4f %.4f %.4f} def\t%% %s\n",ii,red[ii],green[ii],blue[ii],gwords+igword[ii]);
 	}
 	fprintf(fpout,"/cw {1. 1. 1.} def   %% open_points_fill\n");
 	fprintf(fpout,"/cf {.0 .0 .0} def   %% frame_colour\n");
@@ -888,7 +812,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"\n");
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
-	if(setlegend==2) fprintf(fpout,"\t%g %g moveto\n",xlimit,ylimit);
+	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"\tbasefontsize mul -1 mul rmoveto\n");
 	if(strcmp(plottype,"tri")==0) {
 		fprintf(fpout,"\tpointsize 2 div neg pointsize 4 div neg rmoveto\n");
@@ -905,7 +829,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"\n");
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
-	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add %g moveto\n",xlimit,ylimit);
+	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"	basefontsize mul -1 mul rmoveto\n");
 	fprintf(fpout,"	show\n");
 	fprintf(fpout,"	cf setrgbcolor\n");
@@ -1084,26 +1008,24 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	/* PLOT DATA */
 	/********************************************************************************/
-	if(setrgbpal!=NULL) maxcolour= ngroups-1;
-	else maxcolour= 32-1;
-
 	/* FOR EACH GROUP */
-	for(grp=0;grp<MAXGROUPS;grp++) {
-		if(grpcount[grp]<1) continue;
+	for(grp=0;grp<ngrps;grp++) {
 
-		/* determine colours for data & lines (tempcolour1) and errorbars (tempcolour2) */
-		kk= grpc[grp]+setdatacolour;
-		tempcolour1= xf_scale1_l(kk,0,maxcolour); // ensure colours stay within range, even if modified by -colour
-		tempcolour2= tempcolour1+setebright;
-		if(tempcolour2>maxcolour)  tempcolour2-=setebright-8;
+		/* determine colours for data & lines (tempcolour1) */
+		if(setpal==NULL && gints==1) jj= atol((gwords+igword[grp]))+setdatacolour; //
+		else jj= grprank[grp]+setdatacolour;
+		tempcolour1= xf_scale1_l(jj,0,(ncolours-1)); // ensure colours stay within range
+ 		/* determine colours for errorbars (tempcolour2) */
+		kk= jj+setebright;
+		tempcolour2= xf_scale1_l(kk,0,(ncolours-1)); // ensure colours stay within range
 
 		fprintf(fpout,"\n%% PLOT_VALUES_GROUP_%d\n",grp);
 		/* make a temporary copy of x,y,z and group variables */
 		nn=0;for(ii=0;ii<n1;ii++) {
 			aa=xdata[ii];
 			bb=ydata[ii];
-			if(group[ii]==grp) {
-				temp_xdata[nn]=aa+groupshift[groupindex[grp]];
+			if(gdata[ii]==grp) {
+				temp_xdata[nn]=aa+grpshift[grprank[grp]];
 				temp_ydata[nn]=bb;
 				if(setecol>0) temp_edata[nn]= edata[ii];
 				if(setfcol>0) temp_fdata[nn]= fdata[ii];
@@ -1290,12 +1212,12 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"\n%% DRAW_PLOT_LEGEND\n");
 	if(setlegend>0) {
 		fprintf(fpout,"/Helvetica-Bold findfont basefontsize 0.75 mul scalefont setfont\n");
-		for(grp=0;grp<ngroups;grp++) {
+		for(grp=0;grp<ngrps;grp++) {
 			/* determine colours for data & lines (tempcolour1) and errorbars (tempcolour2) */
-			kk= grpc[grp]+setdatacolour;
-			tempcolour1= xf_scale1_l(kk,0,maxcolour); // ensure colours stay within range, even if modified by -colour
-
-			fprintf(fpout,"(%s) 0 %d c%ld f_plotlegend\n",(words+iword[grp]),grpc[grp],tempcolour1);
+			if(setpal==NULL && gints==1) jj= atol((gwords+igword[grp]))+setdatacolour; //
+			else jj= grprank[grp]+setdatacolour;
+			tempcolour1= xf_scale1_l(jj,0,(ncolours-1)); // ensure colours stay within range, even if modified by -colour
+			fprintf(fpout,"(%s) 0 %ld c%ld f_plotlegend\n",(gwords+igword[grp]),grprank[grp],tempcolour1);
 	}}
 
 	/* DRAW USER-DEFINED HORIZONTAL LINES, IF REQUIRED */
@@ -1339,14 +1261,14 @@ int main (int argc, char *argv[]) {
 	free(ydata);
 	free(edata);
 	free(fdata);
-	free(group);
+	free(gdata);
 	free(temp_xdata);
 	free(temp_ydata);
 	free(temp_edata);
 	free(temp_fdata);
 	free(linebreak);
 	free(temp_linebreak);
-	free(words);
+	free(gwords);
 	free(hlineword);
 	free(vlineword);
 
