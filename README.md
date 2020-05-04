@@ -1,11 +1,11 @@
 ![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
 
 # Contents
-[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types)
+[* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* PLOTS ](#plots)
 
 # Introduction
 * There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
-	* coded in C for very high-speed processing 
+	* coded in C for very high-speed processing
 	* minimal dependencies for quick and easy installation
 	* modular design allows custom scripting for complex tasks
 
@@ -18,7 +18,7 @@
 	* large-scale automated batch-processing for entire experiments
 
 	...and more.
-	
+
 ![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots.png)
 
 
@@ -45,7 +45,7 @@ LDAS is intended for use on Linux systems, and should run equally well on Ubuntu
 	* existing programs will be removed first
 	* dependencies will not be checked
 	* $PATH variable is not altered
-	
+
 #### Installation source: git or zip
 
 By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this:
@@ -88,14 +88,14 @@ Examples:
 	$ ./LDAS_INSTALL.sh update
 ```
 
-### 4. Check for Warnings and Errors 
+### 4. Check for Warnings and Errors
 Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considerig if the install failed...
 * Are you using the most up-to-date installer?
 * Do you have sudo priviledges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
 
 ### 5. Log out and back in again
-After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed. 
+After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed.
 
 ### 6. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
@@ -143,13 +143,13 @@ LDAS will not install or will fail to run properly without these programs, but t
 	- for pandoc to generate PDF output, addtional dependencies may be required:
 		- texlive-latex-base
 		- texlive-fonts-recommended
-		
+
 
 - python3 + hdf5 support (required for some of the MEA scripts)
 ```
 		$ sudo yum install python3-y libffi-devel
 		$ sudo yum install -y openssl-devel
-		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user 
+		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
 - R - for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
@@ -226,13 +226,13 @@ $ cut -f 2 temp_xs-makesignal1 |
 ![plotmatrix](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/sample_plotmatrix.jpg)
 
 ################################################################################
-# USE GUIDELINES 
+# USE GUIDELINES
 
 This sections covers the ground-rules for using LDAS. A lot of this is simply good-practice when working in a Linux environment, but may not be obvious if you are used to working in Windows. This dsection does not cover manuals for individual components of LDAS (se the MANUALS section).
 
 ## File-names: no spaces, please!
 
-File and directory (folder) names should **never** contain spaces. If you feel tempted, use an underscore or a hyphen instead. If you copy files from another system which have spaces in them, rename them using **xs-rename**. 
+File and directory (folder) names should **never** contain spaces. If you feel tempted, use an underscore or a hyphen instead. If you copy files from another system which have spaces in them, rename them using **xs-rename**.
 
 Point-and-click operating systems like Windows have relaxed rules about spaces, but it's a disaster when trying to type commands - don't do it!
 
@@ -249,7 +249,7 @@ In LDAS, the typical format for a command is:
 
 		[program] [input] [otions]  
 
-Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options require a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type: 
+Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options require a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type:
 ```
 	$ xe-plottable1 temp.dat -title "MyPlot"
 ```
@@ -260,7 +260,7 @@ Here, the input will be the name of the file you want the program to work on, an
 
 ## Interrupting commands
 
-When you type a command and press [ENTER] to execute it, normally control of the terminal passes to the program you're running until it finishes. If the proram finishes quickly you may not even notice! However if a program takes a long time to run, anything you type will be ignored until the command prompt ($) returns. 
+When you type a command and press [ENTER] to execute it, normally control of the terminal passes to the program you're running until it finishes. If the proram finishes quickly you may not even notice! However if a program takes a long time to run, anything you type will be ignored until the command prompt ($) returns.
 
 To stop a program before it finishes to regain control of the terminal:
 ```
@@ -275,16 +275,16 @@ To get control back without stopping the current command, use this sequence:
 Here "bg" tells the system to keep running the last command in the background,
 
 
-To run a program in the background from the outset, so you don't **have** to interrupt it, type the command and add "&" before pressing [ENTER]. For example: 
+To run a program in the background from the outset, so you don't **have** to interrupt it, type the command and add "&" before pressing [ENTER]. For example:
 ```
 	$ xe-plottable1 temp.dat &
 ```
 
 ## Running programs for long periods
 
-***NOTE***: if you log-out of the Linux workstation, any jobs you have running will, ordinarily, be terminated. This is not a **recommended** way of stopping a program, but one that people often use accidentally. 
+***NOTE***: if you log-out of the Linux workstation, any jobs you have running will, ordinarily, be terminated. This is not a **recommended** way of stopping a program, but one that people often use accidentally.
 
-If you are running a very long job, and don't want to sit and wait for it to finish, use "&" in combination with **nohup**. This will allow you to log-out and go home for the evening - your work will continue so long as an administraotr doesn't terminate it, and so long as the machine is not shut down. For example, our plot command, run using nohup, looks like this: 
+If you are running a very long job, and don't want to sit and wait for it to finish, use "&" in combination with **nohup**. This will allow you to log-out and go home for the evening - your work will continue so long as an administraotr doesn't terminate it, and so long as the machine is not shut down. For example, our plot command, run using nohup, looks like this:
 
 ```
 	$ nohup xe-plottable1 temp.dat &
@@ -292,25 +292,25 @@ If you are running a very long job, and don't want to sit and wait for it to fin
 
 ## File-name versus "stdin"
 
-You tell an LDAS program to work on a file either by specifying the name, or, if you are **piping** the data to the program, you substitute the filename for "stdin". Both of the commands below achieve the same thing. 
-``` 
-	$ xe-plottable mydata.txt
-	$ cat mydata.txt | xe-plottable1 stdin 
+You tell an LDAS program to work on a file either by specifying the name, or, if you are **piping** the data to the program, you substitute the filename for "stdin". Both of the commands below achieve the same thing.
 ```
-For LDAS programs only, "stdin" is a special file-name for **piped** data. If you don't know what the **pipe** is in Linux, read this: 
+	$ xe-plottable mydata.txt
+	$ cat mydata.txt | xe-plottable1 stdin
+```
+For LDAS programs only, "stdin" is a special file-name for **piped** data. If you don't know what the **pipe** is in Linux, read this:
 
 * https://opensource.com/article/18/8/introduction-pipes-linux
 
 
 ## Types of data LDAS works on
 
-LDAS programs usually read one of two types of files: 
+LDAS programs usually read one of two types of files:
 
-* plain text 
+* plain text
 * binary
 
-### Plain text files 
-Plain text files are readable by any text editor, and LDAS typically accepts one of the following types: 
+### Plain text files
+Plain text files are readable by any text editor, and LDAS typically accepts one of the following types:
 	* table - with our without headers
 	* matrix - a 2D array of numbers
 
@@ -331,21 +331,21 @@ Your data sould look instead like this:
 	2	5
 	2	6
 ```
-The second, "correct" format is what is refrred to as a data-frame in the R statistical programming language, and this is the format LDAs expects. 
+The second, "correct" format is what is refrred to as a data-frame in the R statistical programming language, and this is the format LDAs expects.
 
-***NOTE***: Windows programs use a different sequence of invisible characters for the end of each line in text files. This can cause Linux programs (including LDAs) to fail to read them properly. If you are working with files that were edited in Windows, always run **dos2unix** on the file before trying to work with it. 
+***NOTE***: Windows programs use a different sequence of invisible characters for the end of each line in text files. This can cause Linux programs (including LDAs) to fail to read them properly. If you are working with files that were edited in Windows, always run **dos2unix** on the file before trying to work with it.
 
 ### Binary data files
 
-Binary data is **NOT** readable in text-editors, so you have to know the format before you process it. Binary files are usually used for large datasets because they are much more compact and much faster to read and write. 
+Binary data is **NOT** readable in text-editors, so you have to know the format before you process it. Binary files are usually used for large datasets because they are much more compact and much faster to read and write.
 
 #### Simple is best!
-In LDAS, the philosophy is that simpler = better. Binary file formats created by LDAS are presumed to contain a stream of numbers, all of a single type. There is no file header, no hidden text in the files, and no mixing of data types. 
+In LDAS, the philosophy is that simpler = better. Binary file formats created by LDAS are presumed to contain a stream of numbers, all of a single type. There is no file header, no hidden text in the files, and no mixing of data types.
 
 There are components in LDAS to read more complex binary files like HDF5, but the general strategy is to convert these to a more simple file structure, and to use a **.notes** file to describe the contents in a standard way.
 
 #### Single-channel is fastest!
-While data acquisition systems often interlace data from multiple channels, which may be necessary for efficient data writing at the time of capture, multi-channel files are never as efficient to read as a single-channel file, if you are only looking at one channel at a time. 
+While data acquisition systems often interlace data from multiple channels, which may be necessary for efficient data writing at the time of capture, multi-channel files are never as efficient to read as a single-channel file, if you are only looking at one channel at a time.
 
 For this reason, LDAS happily accepts ".dat" files, which we define as an interlaced file containing multiple channels of **the same type of data**, acquired in parallel. However, for the most efficient processing, LDAS prefers to break the data down into a separate file for each channel for later processing. The storage space on-disk is identical, but the gain in speed is significant.
 
@@ -360,8 +360,8 @@ For this reason, LDAS happily accepts ".dat" files, which we define as an interl
 
 3. More general instructions, including this document - can displayed at any time using **xs-manual**. Run **xs-manual** with no arguments for a guide on use.
 
-4. Linux built-in commands like "ls" and "pwd" usually have manuals which you can access by typing "man" followed by the name of the command. For example: 
-``` 
+4. Linux built-in commands like "ls" and "pwd" usually have manuals which you can access by typing "man" followed by the name of the command. For example:
+```
 	$ man ls
 ```
 
@@ -371,7 +371,7 @@ For this reason, LDAS happily accepts ".dat" files, which we define as an interl
 	* xe- : executable C-programs
 	* xs- : executable shell-scripts written in native Bash
 	* xf_ : C-functions which form components of xe- programs
-	
+
 The code for LDAS programs and scripts usually has an XML "tag" section defining the category to which the program belongs. Tags are lowercase by default. You can use the **xs-progtag** script to find or list programs scripts or functions with a particular tag. For example...
 ```
 		$ xs-ldas-progtag find "plot"
@@ -489,7 +489,7 @@ Sample listing from 14 Dec. 2018, session 0, subject 31229:
 
 ```
 	$ ls Data_Working/20181214-000_31229/
-	
+
 	20181214-000_31229-000.bin  20181214-000_31229-010.bin
 	20181214-000_31229-001.bin  20181214-000_31229-011.bin
 	20181214-000_31229-002.bin  20181214-000_31229-012.bin
@@ -628,7 +628,7 @@ These are some basic filetypes used by LDAS.
 
 ## [base].xyd  
 - binary file: 32-bit float triplet
-- records x,y and direction information 
+- records x,y and direction information
 - found in the Data_Library/[base]/ folders
 
 ## [base].xydt  
@@ -716,7 +716,56 @@ These are some basic filetypes used by LDAS.
 	../Data_Working/20181214-000_31234	1
 	</PATHS>
 ```
+
+################################################################################
+# PLOTS
+
+## XE-PLOTTABLE
+- this is LDAS's base plotting tool for table (or data-frame) input, where the each column represents a different variable and each row is a case to be plotted.
+
+### Colour palettes
+#### The default colour palette
+The default palette is a 32-colour repeating scale with 8 colours in each repeat - black-red-magenta-blue-cyan-green-yellow-orange.
+- There are 4 repeats in this scale, with colours becoming lighter in each repeat
+- colours 0-7 are dark grey(black) to dark orange (brown)
+- colours 8-15 are the primary colours (8=dark grey)
+- colours 16-23 are lighter
+- colours 24-31 are pastel
+
+#### The grey palette (-pal grey)
+- for groups 0-max, this ranges from very dark to very light grey
+
+#### The rainbow palette (-pal rainbow)
+- this is the default LDAS palette for heat-maps, where low values are "cool" colours and high values are "hot"
+- most colours except purple are represented
+- for groups 0-max, colours range from blue-cyan-green-yellow-orange-red
+
+#### The Viridis palettes (-pal viridis, plasma, magma or inferno)
+- [Link to source](https://www.thinkingondata.com/something-about-viridis-library/)
+- these are palettes specially designed to be perceived as a continuous scale based on luminance
+- viridis: purple-blue-green-yellow
+- plasma: blue-purple-yellow
+- magma: black-purple-cream
+- plasma: black-purple-yellow
+
+### How colours are assigned
+Colours are assigned based on the group for each case, which is determined by the user-defined group-column (option -cg). If no group-column is defined, the group for all data is taken as "zero", and the colour for the data is typically black. When the data contains multiple groups, colour definition depends on the palette.
+
+1. for the default palette, colours are constrained to the 0-31 range as follows, depending on what the groups *are*:
+
+	a. all integers: colour= exactly the group-ID  
+	b. all numbers: colour= the group-ID rank  
+	c. everything else: colour= order of appearance in the data  
+
+> NOTE: the -colour option can be used to shift the starting point in the default palette. for example, "-colour 1" will make group 0=red, group 1-purple and so on.
+
+ 2. for all other palettes, assignment is as per b or c, above. The -colour option is disabled.
+
+
+
+
+
+
+
 ...
 [END]
-
-

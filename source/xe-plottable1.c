@@ -125,6 +125,7 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
 long xf_interp3_f(float *data, long ndata);
 int xf_compare1_i(const void *a, const void *b);
 void xf_qsortindex1_i(int *data, long *index,long nn);
+void xf_qsortindex1_d(double *data, long *index,long nn);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -135,14 +136,14 @@ int main (int argc, char *argv[]) {
 	int w,x,y,z,col,colsmissing=2,ngroups=0,lengroups=0;
 	int  sizeofchar=sizeof(char),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double),sizeoflong=sizeof(long);
 	float a,b,c,d,e;
-	double aa,bb,cc,dd,ee,ff;
+	double aa,bb,cc,dd,ee,ff,gg;
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
 	char xlabel[256],ylabel[256],plottitle[256],*tempword=NULL;
 	int grpcount[(MAXGROUPS+1)],grpcount2[(MAXGROUPS+1)],iword[(MAXGROUPS+1)],iword2[(MAXGROUPS+1)];
 	int *group=NULL, *linebreak=NULL,*temp_linebreak=NULL,lb,grp,groupfound;
-	int xticprecision,yticprecision,groupsareints;
+	int xticprecision,yticprecision,groupsareints,groupsarenums;
 	int grpc[MAXGROUPS];
 	long groupindex[(MAXGROUPS+1)];
 	long n1,linecount,ncolours=33;
@@ -394,6 +395,8 @@ int main (int argc, char *argv[]) {
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n\a--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1); }
 	linecount= 0;
 	lb= 0;
+	groupsarenums=1; // assume group-IDs are numbers
+	groupsareints=1; // assume group-IDs are integers
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 		if(line[0]=='#') continue;
 		aa= bb= cc= 0.0;
@@ -404,9 +407,16 @@ int main (int argc, char *argv[]) {
 			pline=NULL;
 			if(col==setxcol) {z=sscanf(pcol,"%lf",&aa); if(z==1) w--; }  // temporarily store x-data
 			if(col==setycol) {z=sscanf(pcol,"%lf",&bb); if(z==1) w--; }  // temporarily store y-data
-			if(col==setecol) {z=sscanf(pcol,"%lf",&cc); if(z==1) w--; }  // temporarily store error-data
-			if(col==setfcol) {z=sscanf(pcol,"%lf",&dd); if(z==1) w--; }  // temporarily store error-data
-			if(col==setgcol) {tempword=pcol; groupfound=1; w--; }        // temporarily store group-label
+			if(col==setecol) {z=sscanf(pcol,"%lf",&cc); if(z==1) w--; }  // temporarily store y-error-data
+			if(col==setfcol) {z=sscanf(pcol,"%lf",&dd); if(z==1) w--; }  // temporarily store x-error-data
+			if(col==setgcol) {
+				/* temporarily store group-label */
+				tempword=pcol; groupfound=1; w--;
+				/* try to store group-ID as a number to see if all groups are numeric */
+				z=sscanf(pcol,"%lf",&gg);
+				if(z==0 || !isfinite(gg)) groupsarenums=groupsareints= 0;
+				else if(gg!=(long)(gg)) groupsareints= 0;
+			}
 		}
 		/* if all columns found, store data and indicate this line is not a line-break */
 		if(w==0) {
@@ -537,26 +547,37 @@ int main (int argc, char *argv[]) {
 	w=strlen(words); for(ii=0;ii<=MAXGROUPS;ii++) if(grpcount[ii]<1) iword[ii]=w;
 
 	/* ASSIGN COLOURS TO THE GROUPS */
-	/* first check if all the group-labels are integers  */
-	groupsareints=1;
-	for(ii=0;ii<ngroups;ii++) {
-		tempword= words+iword[ii];
-		kk=strlen(tempword);
-		for(jj=0;jj<kk;jj++) if(!isdigit(tempword[jj])) {groupsareints=0; break; }
-	}
-	/* if all group labels were integers >= 0 and <= maxgroups, use the absolute numerical value as the label */
-	/* this allows users to ensure a given group (number) will have a given colour in their plots */
+	/* if all group labels were integers...*/
 	if(groupsareints==1) {
-		int *tempint= malloc(ngroups*sizeof(int));
-		for(grp=0;grp<ngroups;grp++) tempint[grp]= atoi(words+iword[grp]);
-		xf_qsortindex1_i(tempint,groupindex,(long)ngroups);
-		for(grp=0;grp<ngroups;grp++) grpc[grp]= groupindex[grp];
+		/* for the default palette only, the group ID itself specifies the colour exactly - it will be wrapped later if necessary */
+		if(setrgbpal==NULL){
+			for(grp=0;grp<ngroups;grp++) grpc[grp]= atoi(words+iword[grp]);
+		}
+		/* for other palettes, colour is the rank of the group-ID  */
+		else {
+			int *tempint= malloc(ngroups*sizeof(int));
+			for(grp=0;grp<ngroups;grp++) tempint[grp]= atoi(words+iword[grp]);
+			//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]); printf("\n");
+			xf_qsortindex1_i(tempint,groupindex,(long)ngroups);
+			//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]);
+			for(grp=0;grp<ngroups;grp++) grpc[groupindex[grp]]= grp;
+			free(tempint);
+		}
+	}
+	/* if groups are floats/doubles, colours are the rank of the group-ID */
+	else if(groupsarenums==1) {
+		double *tempdouble= malloc(ngroups*sizeof(tempdouble));
+		for(grp=0;grp<ngroups;grp++) tempdouble[grp]= atof(words+iword[grp]);
+		//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]); printf("\n");
+		xf_qsortindex1_d(tempdouble,groupindex,(long)ngroups);
+		//TEST: for(grp=0;grp<ngroups;grp++) printf("grp=%d	tempint=%d	index=%ld\n",grp,tempint[grp],groupindex[grp]);
+		for(grp=0;grp<ngroups;grp++) grpc[groupindex[grp]]= grp;
+		free(tempdouble);
 	}
 	/* otherwise, use the original order in which the groups appeared in the data  */
 	else {
 		for(grp=0;grp<ngroups;grp++) { grpc[grp]=grp; }
 	}
-	//TEST:for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\tindex=%ld\tcolour=%d\n",grp,words+iword[grp],groupindex[grp],grpc[grp]);}
 
 	/* CHECK FOR DISCONTIGUOUS X-VALUES IF SETLINEBREAK==2 */
 	if(setlinebreak==2) for(ii=1;ii<n1;ii++) if(xdata[(ii-1)]>xdata[ii]) linebreak[ii]=1;
@@ -746,6 +767,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"zy= %f\n",zy);
 		fprintf(stderr,"psymin= %f\n",psymin);
 		fprintf(stderr,"psymax= %f\n",psymax);
+		fprintf(stderr,"\n");
+		if(setverb>0) for(grp=0;grp<ngroups;grp++) {printf("label[%d]=%s\tindex=%ld\tcolour=%d\n",grp,words+iword[grp],groupindex[grp],grpc[grp]);}
 		fprintf(stderr,"--------------------------------------------------------------------------------\n");
 	}
 
@@ -1271,7 +1294,8 @@ int main (int argc, char *argv[]) {
 			/* determine colours for data & lines (tempcolour1) and errorbars (tempcolour2) */
 			kk= grpc[grp]+setdatacolour;
 			tempcolour1= xf_scale1_l(kk,0,maxcolour); // ensure colours stay within range, even if modified by -colour
-			fprintf(fpout,"(%s) 0 %d c%ld f_plotlegend\n",(words+iword[grp]),grp,tempcolour1);
+
+			fprintf(fpout,"(%s) 0 %d c%ld f_plotlegend\n",(words+iword[grp]),grpc[grp],tempcolour1);
 	}}
 
 	/* DRAW USER-DEFINED HORIZONTAL LINES, IF REQUIRED */
