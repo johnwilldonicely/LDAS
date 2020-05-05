@@ -202,6 +202,16 @@ cd LDAS
 - fix most recent commit message
 	$ git commit --amend
 
+
+- fix a "HEAD detached from origin/master" problem 
+	https://www.loekvandenouweland.com/content/head-detached-from-origin-master.html
+	1. git status
+	- note the hash: eg. 597e7d1
+	2. git branch "fix-head-detatched" 597e7d1
+	3. git checkout -B master "fix-head-detatched"
+	4. git push origin master
+
+
 ## restoring the remote master to a previous commit using a local repository
 
 1. show most recent commits
