@@ -3,6 +3,8 @@
 # Contents
 [* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* PLOTS ](#plots)
 
+![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
+
 # Introduction
 * There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
 	* coded in C for very high-speed processing
@@ -18,8 +20,6 @@
 	* large-scale automated batch-processing for entire experiments
 
 	...and more.
-
-![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots.png)
 
 
 ################################################################################
