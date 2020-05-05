@@ -314,7 +314,9 @@ Plain text files are readable by any text editor, and LDAS typically accepts one
 	* table - with our without headers
 	* matrix - a 2D array of numbers
 
-Note that with tables, if (say) your data is from two groups, **do not** put the data int two columns. Instead, you need a second column which defines the group on each row. For example, rather than this:
+Note that with tables, if (say) your data is from two groups, **do not** put the data int two columns. Instead, you need a second column which defines the group on each row.  
+
+For example, rather than this:
 ```
 	g1	g2
 	1	4
@@ -331,7 +333,7 @@ Your data sould look instead like this:
 	2	5
 	2	6
 ```
-The second, "correct" format is what is refrred to as a data-frame in the R statistical programming language, and this is the format LDAs expects.
+The second, "correct" format is what is refrred to as a data-frame in the R statistical programming language, and this is the format LDAS expects.
 
 ***NOTE***: Windows programs use a different sequence of invisible characters for the end of each line in text files. This can cause Linux programs (including LDAs) to fail to read them properly. If you are working with files that were edited in Windows, always run **dos2unix** on the file before trying to work with it.
 
