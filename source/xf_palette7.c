@@ -1,6 +1,6 @@
 /*
 DESCRIPTION:
-	Generate an RGB colour-palette (0-1 range)
+	Generate a 7-anchor RGB colour-palette (0-1 range)
 
 DEPENDENCIES:
 	xf_interp3_f
@@ -56,7 +56,7 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette) {
 		ct[15]= 0.7; ct[16]= 0.7; ct[17]= 0.7;
 		ct[18]= 0.8; ct[19]= 0.8; ct[20]= 0.8; // very light grey
 	}
-	if(strcmp(palette,"black2grey")==0) { 
+	else if(strcmp(palette,"black2grey")==0) {
 		ct[0]=  0.00; ct[1]=  0.00; ct[2]= 0.00; // black
 		ct[3]=  0.13; ct[4]=  0.13; ct[5]= 0.13;
 		ct[6]=  0.26; ct[7]=  0.26; ct[8]= 0.26;

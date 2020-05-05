@@ -126,6 +126,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		0 reduces file-size, 1 stretches blocks to fill rows\n");
 		fprintf(stderr,"	-pal: colour palette (black=min, white=NAN): \n");
 		fprintf(stderr,"		grey: darkgrey-lightgrey\n");
+		fprintf(stderr,"		black2grey: black-lightgrey\n");
 		fprintf(stderr,"		rainbow: blue-green-red\n");
 		fprintf(stderr,"		viridis: purple-green-yellow\n");
 		fprintf(stderr,"		plasma: blue-purple-yellow\n");
@@ -218,8 +219,9 @@ int main (int argc, char *argv[]) {
 	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), should be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
 	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -paln (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
 	if(setrgbpal==NULL) setrgbpal="rainbow";
-	if(
+	else if(
 		strcmp(setrgbpal,"grey")!=0
+		&& strcmp(setrgbpal,"black2grey")!=0
 		&& strcmp(setrgbpal,"rainbow")!=0
 		&& strcmp(setrgbpal,"viridis")!=0
 		&& strcmp(setrgbpal,"plasma")!=0
@@ -518,12 +520,12 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"/cx {1. 1. 1.} def   %% invalid NAN colour\n");
 	/* lowest-value colour */
 	fprintf(fpout,"/c0 {.0 .0 .0} def   %% lowest-value colour\n");
-	/* the data palette */
+	/* build the colour palette */
 	for(ii=0;ii<setrgbn;ii++) red[ii]=green[ii]=blue[ii]=NAN;
 	x= xf_palette7(red,green,blue,setrgbn,setrgbpal);
 	for(ii=0;ii<setrgbn;ii++) fprintf(fpout,"/c%ld {%.14g %.14g %.14g} def\n",(ii+1),red[ii],green[ii],blue[ii]);
-		// TEST RGB COLOUR MODEL: for(ii=0;ii<setrgbn;ii++) { printf("1	%d	%g\n",i,red[ii]);	printf("2	%d	%g\n",i,green[ii]); 	printf("3	%d	%g\n",i,blue[ii]); }
 
+	// TEST RGB COLOUR PALETTE: printf("RGBPAL=%s\n",setrgbpal); for(ii=0;ii<setrgbn;ii++) printf("%ld\t%g\t%g\t%g\n",ii,red[ii],green[ii],blue[ii]);
 
 	/* DEFINE AXIS-LABELLING FUNCTIONS - SHOULD BE THE SAME FOR ALL PLOTS ON A PAGE */
 	/* ...EXCEPT Y-AXIS LABEL OFFSET (YALOFF) - THIS IS RE-DEFINED AT PLOT-TIME */
