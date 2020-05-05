@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" v 75: 30.April.2020 [JRH]"
+#define TITLE_STRING thisprog" 5.May.2020 [JRH]"
 #define MAXLINELEN 10000
 #define MAXUSERLINES 256
 
@@ -13,8 +13,15 @@
 /*
 <TAGS>plot</TAGS>
 
-[ ] legend y-offset needs to be the group-rank, NOT the group value,
+5.May.2020 [JRH] - major reworking of group-colour handlings
+	- no limit on number of colours for non-default palette
+	- if groups are all integers, for the default palette the value determines the colour
+	- if the goups include text, colour= order of appearance
+	- if the groups include non-integers, colour= rank of the value
 
+	- also updated how the legend is shown
+		- text is always black
+		- points are alsways shown, proportional to the size of the text
 
 GENERAL NOTES
 - After translation step, the x/y axes represent postscript coordinates 0/0
