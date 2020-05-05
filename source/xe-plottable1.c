@@ -143,7 +143,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	    NOTE: -colour and -ebright only work with default palette\n");
 		fprintf(stderr,"	-pal: colour palette (default)\n");
 		fprintf(stderr,"	        default: blk-red-magenta-blue-cyan-green-yel-orange\n");
-		fprintf(stderr,"	        grey: darkgrey-lightgrey\n");
+		fprintf(stderr,"	        black2grey: black-lightgrey\n");
 		fprintf(stderr,"	        rainbow: blue-green-red\n");
 		fprintf(stderr,"	        viridis: purple-green-yellow\n");
 		fprintf(stderr,"	        plasma: blue-purple-yellow\n");
@@ -266,7 +266,7 @@ int main (int argc, char *argv[]) {
 	if(setpal!=NULL) {
 		if(
 		strcmp(setpal,"default")!=0
-		&& strcmp(setpal,"grey")!=0
+		&& strcmp(setpal,"black2grey")!=0
 		&& strcmp(setpal,"rainbow")!=0
 		&& strcmp(setpal,"viridis")!=0
 		&& strcmp(setpal,"plasma")!=0

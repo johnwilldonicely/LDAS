@@ -48,13 +48,22 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette) {
 
 	/* DEFINE THE TRIPLETS FOR THE CHOSEN PALETTE */
 	if(strcmp(palette,"grey")==0) {
-		ct[0]=  0.2; ct[1]=  0.2; ct[2]=  0.2; // black
+		ct[0]=  0.2; ct[1]=  0.2; ct[2]=  0.2; // very dark grey
 		ct[3]=  0.3; ct[4]=  0.3; ct[5]=  0.3;
 		ct[6]=  0.4; ct[7]=  0.4; ct[8]=  0.4;
 		ct[9]=  0.5; ct[10]= 0.5; ct[11]= 0.5; // medium
 		ct[12]= 0.6; ct[13]= 0.6; ct[14]= 0.6;
 		ct[15]= 0.7; ct[16]= 0.7; ct[17]= 0.7;
 		ct[18]= 0.8; ct[19]= 0.8; ct[20]= 0.8; // very light grey
+	}
+	if(strcmp(palette,"black2grey")==0) { 
+		ct[0]=  0.00; ct[1]=  0.00; ct[2]= 0.00; // black
+		ct[3]=  0.13; ct[4]=  0.13; ct[5]= 0.13;
+		ct[6]=  0.26; ct[7]=  0.26; ct[8]= 0.26;
+		ct[9]=  0.40; ct[10]= 0.40; ct[11]= 0.40; // medium
+		ct[12]= 0.53; ct[13]= 0.53; ct[14]= 0.53;
+		ct[15]= 0.66; ct[16]= 0.66; ct[17]= 0.66;
+		ct[18]= 0.80; ct[19]= 0.80; ct[20]= 0.80; // very light grey
 	}
 	else if(strcmp(palette,"rainbow")==0) {
 		ct[0]=  0.0; ct[1]=  0.0; ct[2]=  0.3; // deep blue
