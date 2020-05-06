@@ -89,7 +89,7 @@ Examples:
 ```
 
 ### 4. Check for Warnings and Errors
-Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considerig if the install failed...
+Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considering if the install failed...
 * Are you using the most up-to-date installer?
 * Do you have sudo priviledges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
