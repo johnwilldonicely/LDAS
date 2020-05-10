@@ -743,7 +743,7 @@ The default palette is a 32-colour repeating scale with 8 colours in each repeat
 - for groups 0-max, colours range from blue-cyan-green-yellow-orange-red
 
 #### The Viridis palettes (-pal viridis, plasma, magma or inferno)
-- [Link to source](https://www.thinkingondata.com/something-about-viridis-library/)
+- [Link to source](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html)
 - these are palettes specially designed to be perceived as a continuous scale based on luminance
 - viridis: purple-blue-green-yellow
 - plasma: blue-purple-yellow
