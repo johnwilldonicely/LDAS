@@ -513,13 +513,13 @@ if [ "$setupdate" == "0" ] ; then
 	z=$(grep -s LDAS /etc/nanorc | head -n 1)
 	if [ "$z" == "" ] ; then
 		y=$setdest"/LDAS/docs/templates"
-		echo -e "## LDAS markdown definitions for nano: to append to ~/.nanorc or /etc/nanorc"
-		echo -e "include $y/nano_md.nanorc"
-		echo -e "include $y/nano_ldas.nanorc"
+		echo -e "## LDAS markdown definitions for nano: to append to ~/.nanorc or /etc/nanorc" > $tempfile
+		echo -e "include $y/nano_md.nanorc" >> $tempfile
+		echo -e "include $y/nano_ldas.nanorc">> $tempfile
 		if [ $setscope == "local" ] ; then
-			cat $template >> $setnano
+			cat $tempfile >> $setnano
 		else
-			sudo sh -c "cat $template >> $setnano"
+			sudo sh -c "cat $tempfile >> $setnano"
 		fi
 	# ??? should add test here for whether LDAS is defined in the other (LOCAL or GLOBAL) location!
 	fi
