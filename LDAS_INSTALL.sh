@@ -253,6 +253,7 @@ elif [ "$setscope" == "global" ] ; then
 	setnano="/etc/nanorc"
 fi
 
+
 # REPORT ON SYSTEM AND CURRENT INSTALL
 echo -e "- Linux distro: $pseudoname"
 if [ "$setupdate" == 0 ] ; then
@@ -511,7 +512,11 @@ if [ "$setupdate" == "0" ] ; then
 	echo -e "CONFIGURING NANO SYNTAX-HIGHLIGHTING FOR MARKDOWN FILES ($setnano)..."
 	z=$(grep -s LDAS /etc/nanorc | head -n 1)
 	if [ "$z" == "" ] ; then
-		template=$setdest"/LDAS/docs/templates/ldas_nanorc.txt"
+		y=$setdest"/LDAS/docs/templates"
+		echo -e "## LDAS markdown definitions for nano: to append to ~/.nanorc or /etc/nanorc"
+		echo -e "include $y/nano_md.nanorc"
+		echo -e "include $y/nano_ldas.nanorc"
+
 		if [ $setscope == "local" ] ; then
 			cat $template >> $setnano
 		else
