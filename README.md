@@ -51,7 +51,7 @@ From this point, installation is the same as for any Linux workstation or dual-b
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
 ``` 
 	Ubuntu:        $ sudo apt-get update
-	               $ sudo sudo apt-get install git
+	               $ sudo apt-get install git
 		   
 	Other distros: $ sudo yum update -y
 	               $ sudo yum install git
