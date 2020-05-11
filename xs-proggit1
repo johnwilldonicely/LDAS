@@ -7,8 +7,11 @@ tempfile="temp_"$thisprog #"."$$"."
 
 start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
+basepath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 
 setmessage=""
+setupdate="0";
+
 
 if [ $# -lt 1 ]; then
 	echo
@@ -24,6 +27,7 @@ if [ $# -lt 1 ]; then
 	echo "		push: add changes, commit (with -m message), and push to remote master"
 	echo "ADDITIONAL ARGUMENTS (defaults in []):"
 	echo "	-m: message for push ["$setmessage"]"
+	echo "	-u: update option for pull (0=NO,1=YES) [$setupdate]"
 	echo "EXAMPLE: "
 	echo "	"$thisprog" data.txt"
 	echo "--------------------------------------------------------------------------------"
@@ -40,18 +44,24 @@ mode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-while getopts  ":m:" flag ; do
- 	case $flag in
-		m) setmessage=$OPTARG;;
-		t) top=$OPTARG;;
-		\?) { echo ; echo "--- Error ["$thisprog"]: invalid option -$OPTARG" ; echo ; exit; }
+vs="m:u:" ; vl="verb:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-m ) setmessage=$2 ; shift ;;
+		-u ) setupdate=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
 	esac
-	let lastarg=$OPTIND-1
+	shift
 done
-if [ ! $lastarg ] ; then lastarg=0; fi
-for i in $(seq 1 $lastarg); do shift ; done
 
 if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
+if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
+
 
 if [ $mode == "status" ] ; then
 	echo "
@@ -78,9 +88,21 @@ if [ $mode == "push" ] ; then
 	git push -u origin master
 fi
 if [ $mode == "pull" ] ; then
+	if [ $setupdate == "1" ] ; then
+		git remote update > $tempfile
+		list=$(git diff origin/master --name-only | grep -- 'xe-' | grep '.c' --color=never | cut -f 2 -d /)
+	fi 
+
 	echo "
 	git pull origin master
 	"
 	git pull origin master
+	
+	if [ "$setupdate" == "1" ] && [ "$list" != "" ] ; then
+		cd $basepath"/source"
+		xs-progcompile "$list" --warn 1
+		cd $startdir
+	fi 
+	
 fi
 exit
