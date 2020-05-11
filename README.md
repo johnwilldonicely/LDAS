@@ -22,64 +22,57 @@
 	...and more.
 
 
+
 ################################################################################
 # INSTALLATION
 
-## Preamble
-LDAS is intended for use on Linux systems, and should run equally well on Ubuntu or Redhat/Fedora distributions. LDAS should also run on Unix and OS-X systems, although this has not been tested.
+## Installation on Windows
+While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now also configure any Windows 10 machine to run a Linux "subsystem". Setting up your PC or laptop to do this is easy and **should only take about 15 minutes**. Complete instructions can be found here: 
+	* https://docs.microsoft.com/en-us/windows/wsl/install-win10
 
-#### Installation mode: local, global, update
+1. Enable the Windows Subsystem for Linux (WSL) : https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-the-windows-subsystem-for-linux
+2. Install the free Ubuntu distribution from Microsoft Store: https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-your-linux-distribution-of-choice
+3. Initialise the distribution: https://docs.microsoft.com/en-us/windows/wsl/initialize-distro
 
-* local: installation for the **current user only**:
-	* any user can install
-	* LDAS installed in /home/$USER/bin/LDAS
-	* $PATH variable updated in /home/$USER/.bashrc
+A few Notes: 
+* Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
+* You will need the free ghostscript and GS-View tools to view LDAS graphical reports:
+	* http://www.ghostscript.com/download/gsdnld.html
+	* http://www.ghostgum.com.au/software/gsview.htm
+* Running LDAS in the Windows Subsystem for Linux might not give you quite the same speed as a Linux workstation, but all functionality is preserved aside from automatic display of HTML/PDF manuals.  
 
-* global: installation for **all users**:
-	* sudo or super-user priviledges required during installation
-	* LDAS installed in /opt/LDAS/
-	* $PATH variable updated in /etc/profile
 
-* update: updates existing installation, regardless of installation scope:
-	* for gloabl installs, sudo or super-user priviledges required
-	* existing programs will be removed first
-	* dependencies will not be checked
-	* $PATH variable is not altered
+*You should be ready to go!*  
+From this point, installation is the same as for any Linux workstation or dual-boot machine. Continue reading below....
 
-#### Installation source: git or zip
 
-By default, the installation script provided with LDAS installs by using the program "git" to clone the repository. This is fast and ensures you have the latest version of LDAS. If you do not have git installed on your machine, you can install it like this:
-
-* for Ubuntu
+## Installation on Linux
+### 1. Make sure your Linux distribution is updated and git is installed
+It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
+``` 
+	Ubuntu:        $ sudo apt-get update
+	               $ sudo sudo apt-get install git
+		   
+	Other distros: $ sudo yum update -y
+	               $ sudo yum install git
 ```
-	$ sudo apt-get install git
-```
-
-* for other flavours of Linux:
-```
-	$ sudo yum install git
-```
-
-Alternatively, you can install LDAS using a previously downloaded zip-archive. This does not require git, and is also a way of keeping backup copies of LDAS, should you want to roll-back the installation. Download the latest zip-archive here:
-
-https://github.com/johnwilldonicely/LDAS/archive/master.zip
-
-
-## Steps to install LDAS
-
-### 1. Download the install script:
-This should be performed in your home or download directory
+### 2. Download the install script: *do this in your home directory*:
 ```
  	$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ```
-
 ### 2. Make the script executable:
 ```
 	$ chmod a+x LDAS_INSTALL.sh
 ```
+### 3. Run the install script
 
-### 3. Run the script, specifying the operating mode (local, global or update).
-Examples:
+You will need to specify the operating mode:  
+
+* local: for the current user only  
+* global: for all users, superuser priviledges will be required  
+* update: for an existing installation  
+	
+Example install commands:
 ```
 	$ ./LDAS_INSTALL.sh local
 	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
@@ -87,6 +80,8 @@ Examples:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 	$ ./LDAS_INSTALL.sh update
 ```
+Note that the latest version of LDAS will be downloaded, but you do also have the option to install from a previously-saved zip archive. This can be useful if an update ever causes a problem and you need to "roll back" to a previous version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
+
 
 ### 4. Check for Warnings and Errors
 Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considering if the install failed...
@@ -99,6 +94,25 @@ After installation is complete, LDAS commands may still not be found until you l
 
 ### 6. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
+
+
+## Extra notes on installation : 
+
+* local: installation is for the **current user only**:
+	* any user can install
+	* LDAS installed in /home/$USER/bin/LDAS
+	* $PATH variable updated in /home/$USER/.bashrc
+
+* global: installation is for **all users**:
+	* sudo or super-user priviledges required during installation
+	* LDAS installed in /opt/LDAS/
+	* $PATH variable updated in /etc/profile
+
+* update: updates existing installation, regardless of installation scope:
+	* for gloabl installs, sudo or super-user priviledges required
+	* existing programs will be removed first
+	* dependencies will not be checked
+	* $PATH variable is not altered
 
 
 ## Dependencies
@@ -125,11 +139,6 @@ LDAS will not install or will fail to run properly without these programs, but t
 - nano - simple text editor - used for showing manuals
 
 #### Optional (most functionality does not require these)
-
-- git - Useful for install-management of LDAS
-```
-		$ sudo yum install -y git
-```
 
 - pandoc - document converter, used for creating manuals
 	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
