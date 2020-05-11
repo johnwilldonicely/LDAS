@@ -28,6 +28,7 @@ if [ $# -lt 1 ]; then
 	echo "ADDITIONAL ARGUMENTS (defaults in []):"
 	echo "	-m: message for push ["$setmessage"]"
 	echo "	-u: update option for pull (0=NO,1=YES) [$setupdate]"
+	echo "		- changed source-code (xe-*.c) will be recompiled"
 	echo "EXAMPLE: "
 	echo "	"$thisprog" data.txt"
 	echo "--------------------------------------------------------------------------------"
