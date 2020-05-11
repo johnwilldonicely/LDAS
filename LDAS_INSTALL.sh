@@ -516,7 +516,6 @@ if [ "$setupdate" == "0" ] ; then
 		echo -e "## LDAS markdown definitions for nano: to append to ~/.nanorc or /etc/nanorc"
 		echo -e "include $y/nano_md.nanorc"
 		echo -e "include $y/nano_ldas.nanorc"
-
 		if [ $setscope == "local" ] ; then
 			cat $template >> $setnano
 		else
