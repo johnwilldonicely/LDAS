@@ -24,7 +24,7 @@ ct2="Black"
 ct3="Black"
 
 setverb="1"
-setpath="/opt/LDAS/"
+setpath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 setmode="list"
 settags=""
 outfile=$(which $thisprog | rev | cut -f 2- -d / | rev)"/docs/PROGTAG.html"
