@@ -62,6 +62,7 @@ done
 if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
 if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
 
+cd $basepath
 
 if [ $mode == "status" ] ; then
 	echo "
@@ -91,18 +92,15 @@ if [ $mode == "pull" ] ; then
 	if [ $setupdate == "1" ] ; then
 		git remote update > $tempfile
 		list=$(git diff origin/master --name-only | grep -- 'xe-' | grep '.c' --color=never | cut -f 2 -d /)
-	fi 
+	fi
 
-	echo "
+	echo -e "\ngit pull origin master"
 	git pull origin master
-	"
-	git pull origin master
-	
+
 	if [ "$setupdate" == "1" ] && [ "$list" != "" ] ; then
-		cd $basepath"/source"
 		xs-progcompile "$list" --warn 1
-		cd $startdir
-	fi 
-	
+	fi
 fi
+
+cd $start_dir
 exit
