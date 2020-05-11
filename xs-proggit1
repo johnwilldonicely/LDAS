@@ -59,8 +59,6 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
-
-if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
 if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
 
 cd $basepath
@@ -80,6 +78,7 @@ if [ $mode == "diff" ] ; then
 	git diff --summary FETCH_HEAD
 fi
 if [ $mode == "push" ] ; then
+	if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
 	echo "
 	git add --all .
 	git commit -a -m \"$setmessage\"
