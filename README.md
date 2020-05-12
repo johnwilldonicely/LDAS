@@ -257,14 +257,14 @@ Point-and-click operating systems like Windows have relaxed rules about spaces, 
 
 Every command you type in Linux begins with the name of the program you want to run. Many Linux built-in programs like "ls" will run just by typing their name and pressing [ENTER].  
 
-Most programs also have otions, often called **arguments**, which come after the program name, separated by a space. The name of the option will begin with a single or double-hyphen (- or --) - it's important to know which. For example, to list all of the contents of a directory in date-order, type:
+Most programs also have options, often called **arguments**, which come after the program name, separated by a space. The name of the option will begin with a single or double-hyphen (- or --) - it's important to know which. For example, to list all of the contents of a directory in date-order, type:
 ```
 	$ ls -t
 ```
 
 In LDAS, the typical format for a command is:  
 
-		[program] [input] [otions]  
+		[program] [input] [options]  
 
 Here, the input will be the name of the file you want the program to work on, and the options come in name-value pairs. This means the options require a value to be set. For example, to make a scatterplot of a file called "temp.dat", adding the title "MyPlot", you would type:
 ```
