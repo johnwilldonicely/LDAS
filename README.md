@@ -55,6 +55,7 @@ A few Notes:
 
 
 ## Installation on Linux
+
 ### 1. Make sure your Linux distribution is updated and git is installed
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
 ``` 
@@ -64,18 +65,18 @@ It's always a good idea to make sure your Linux components are up to date before
 	Other distros: $ sudo yum update -y
 	               $ sudo yum install git
 ```
+
 ### 2. Download the install script: *do this in your home directory*:
 ```
  	$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ```
-### 2. Make the script executable:
+
+### 3. Make the script executable:
 ```
 	$ chmod a+x LDAS_INSTALL.sh
 ```
-### 3. Run the install script
 
-You will need to specify the operating mode:  
-
+### 4. Run the install script, specifying operating mode
 * local: for the current user only  
 * global: for all users, superuser priviledges will be required  
 * update: for an existing installation  
@@ -88,19 +89,28 @@ Example install commands:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 	$ ./LDAS_INSTALL.sh update
 ```
-Note that the latest version of LDAS will be downloaded, but you do also have the option to install from a previously-saved zip archive. This can be useful if an update ever causes a problem and you need to "roll back" to a previous version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
-
+Note that in two of the examples you do have the option to install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
 ### 4. Check for Warnings and Errors
-Hopefully there will be none! But as they are reported, potential install-errors will be reported here. There are a few issues worth considering if the install failed...
 * Are you using the most up-to-date installer?
 * Do you have sudo priviledges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
 
 ### 5. Log out and back in again
-After installation is complete, LDAS commands may still not be found until you log out and back in again. Restarting the computer is not necessary, but logging back in will update the $PATH variable which tells Linux where LDAS is installed.
+- updates the $PATH variable so the system can find LDAS programs
 
-### 6. [optional] - delete the INSTALLER
+### 6. [Windows installation only] - configure display for handling by Xming
+- if you want graphical output to be displayed in windows, you will need to install an X-windows server like Xming (see **Installation on Windows** section), and run the following commands once:
+```
+	$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
+	$ dbus-launch --exit-with-x11 s
+```
+...and if you get a D-bus library error/warning...
+```
+	$sudo dbus-uuidgen --ensure 
+```
+
+### 7. [optional] - delete the INSTALLER
 You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
 
 
