@@ -31,10 +31,13 @@ While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can 
 	* https://docs.microsoft.com/en-us/windows/wsl/install-win10
 
 
-1. Enable the Windows Subsystem for Linux (WSL) : https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-the-windows-subsystem-for-linux
-2. Install the free Ubuntu distribution from Microsoft Store: https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-your-linux-distribution-of-choice
-3. Initialise the distribution: https://docs.microsoft.com/en-us/windows/wsl/initialize-distro
-4. Now proceed with the **Installation on Linux**  instructions below. 
+### 1. Enable the Windows Subsystem for Linux (WSL)
+https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-the-windows-subsystem-for-linux
+### 2. Install the free Ubuntu distribution from Microsoft Store 
+https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-your-linux-distribution-of-choice
+### 3. Initialise the distribution
+https://docs.microsoft.com/en-us/windows/wsl/initialize-distro
+### 4. Now proceed with the **Installation on Linux**  instructions below. 
 
 
 A few Notes: 
