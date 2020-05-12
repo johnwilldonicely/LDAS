@@ -1518,10 +1518,10 @@ EXAMPLE:
 	xs-MEA-merge1 .raw
 
 OUTPUT: (note base-name is derived from folder name)
-	LDAS.dat
-	LDAS.ssp
-	LDAS-[channel].bin
-	LDAS.notes
+	source.dat
+	source.ssp
+	source-[channel].bin
+	source.notes
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -2258,7 +2258,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /home/john/bin/LDAS/log_xs-O2-makex5b_200511.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200511.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -2572,7 +2572,7 @@ NOTE: proper planned comparisons require specifying orthogonal
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_multregression_example"><a href="#CODE">&#8679</a> xs-R_multregression_example</h3></font>
-<blockquote><pre>/home/john/bin/LDAS/xs-progtag: line 411: xs-R_multregression_example: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_multregression_example: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_regress"><a href="#CODE">&#8679</a> xs-R_regress</h3></font>
@@ -2585,11 +2585,11 @@ Format:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_sample_contrasts"><a href="#CODE">&#8679</a> xs-R_sample_contrasts</h3></font>
-<blockquote><pre>/home/john/bin/LDAS/xs-progtag: line 411: xs-R_sample_contrasts: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_sample_contrasts: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_sample_data"><a href="#CODE">&#8679</a> xs-R_sample_data</h3></font>
-<blockquote><pre>/home/john/bin/LDAS/xs-progtag: line 411: xs-R_sample_data: command not found
+<blockquote><pre>/opt/LDAS/xs-progtag: line 411: xs-R_sample_data: command not found
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-R_ttest"><a href="#CODE">&#8679</a> xs-R_ttest</h3></font>
@@ -2702,7 +2702,7 @@ EXAMPLE:
 --------------------------------------------------------------------------------
 xs-TAINI-laser1:  create a .notes &#60TRIALS&#62 sections for a laser-ERP expt.
 - requires an xml worksheet for each recording session
-	- see /home/john/bin/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
+	- see /opt/LDAS/docs/templates/template_taini_worksheet_laser.xlsx
 - uses the config file (.yaml) for extracting parameters
 - assumes sync-pair for laser-stim is SYNC_2,SYNC_0
 - assumes sync-pair for audio-stim is SYNC_1,SYNC_0
@@ -2911,7 +2911,7 @@ VALID MODES (followed by options starting with --):
 		Setup TAINI recording experiment (1) or session (2)
 		Option (1): whole experiment folder 
 		Option (2): today's recording folder
-		Copies channel-table template /home/john/bin/LDAS/docs/templates/table_channels_taini_2.txt
+		Copies channel-table template /opt/LDAS/docs/templates/table_channels_taini_2.txt
 		--expt: name of experiment []
 	fft
 		Run spectrum viewer
@@ -3083,7 +3083,7 @@ key variables defined by reading the .notes file in the data directory
 	total number of channels
 	eeg (theta) channel
 - USAGE: xs-crunch2 [basename] [CRUNCH arguments]
-- EXAMPLE: xs-crunch2 jh001-091231_01 -maptype 1/home/john/bin/LDAS/xs-crunch2: line 26: /home/john/bin/LDAS/bin/CRUNCH: No such file or directory
+- EXAMPLE: xs-crunch2 jh001-091231_01 -maptype 1/opt/LDAS/xs-crunch2: line 26: /opt/LDAS/bin/CRUNCH: No such file or directory
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-dat2bin"><a href="#CODE">&#8679</a> xs-dat2bin</h3></font>
@@ -3329,7 +3329,7 @@ ANALYSES:
 	- behavioural latencies
 		- looks for TRIAL "latency" column in the .notes file
 		- if present, this is used to re-define "start" for each trial
-/home/john/bin/LDAS/xs-ldas-XLASER1: line 76: ECHO: command not found
+/opt/LDAS/xs-ldas-XLASER1: line 76: ECHO: command not found
 USAGE: xs-ldas-XLASER1 [base] [options]
 	[base]: [yyyymmdd]-[session]_[subject]
 
@@ -4990,12 +4990,12 @@ key variables defined by reading the .notes file in the data directory
 	total number of channels
 	eeg (theta) channel
 EXECUTABLE PATH: 
-	/home/john/bin/LDAS/bin/CRUNCH
+	/opt/LDAS/bin/CRUNCH
 USAGE:
 	xs-ldas5-crunch2 [basename] [CRUNCH arguments]
 EXAMPLE:
 	xs-ldas5-crunch2 jh001-091231_01 -maptype 1
-/home/john/bin/LDAS/xs-ldas5-crunch2: line 28: /home/john/bin/LDAS/bin/CRUNCH: No such file or directory
+/opt/LDAS/xs-ldas5-crunch2: line 28: /opt/LDAS/bin/CRUNCH: No such file or directory
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-ldas5-getbase1"><a href="#CODE">&#8679</a> xs-ldas5-getbase1</h3></font>
@@ -5434,7 +5434,7 @@ Invoke regaamc8 for .dat (16-channel) or .bin (1-channel)
 	- CRACK-IT version
 	- assumes sampling frequency = 19531.25 Hz (.dat) or 1000Hz (.bin)
 EXECUTABLE PATH: 
-	/home/john/bin/LDAS/bin/regaamc8
+	/opt/LDAS/bin/regaamc8
 USAGE:
 	xs-ldas5-rega2 [filename] 
 		[filename]: a binary .dat or .bin file
@@ -5848,6 +5848,7 @@ USAGE: xs-manual [manual] [options]
 		git
 		hargreaves
 		laser
+		ldas
 		mea
 		taini
 VALID OPTIONS (defaults in []):
@@ -6413,6 +6414,7 @@ USAGE:
 		push: add changes, commit (with -m message), and push to remote master
 ADDITIONAL ARGUMENTS (defaults in []):
 	-m: message for push []
+	-u: update option for pull (0=NO,1=YES) [0]
 EXAMPLE: 
 	xs-proggit1 data.txt
 --------------------------------------------------------------------------------
@@ -6595,7 +6597,7 @@ USAGE: xs-progtag [mode] [options]
 	find [tags]: find code matching a CSV list of tags
 	replace [old] [new]: find and replace particular tags (exact match)
 	html [file]: build web-page summarising all tagged code
-		default output file = /home/john/bin/LDAS/docs/PROGTAG.html
+		default output file = /opt/LDAS/docs/PROGTAG.html
 
 VALID OPTIONS (defaults in []):
 	--verb: verbose output (0=NO 1=YES) [1]
@@ -6629,7 +6631,7 @@ Script for invoking regaamc8 for 64-channel recordings
 --------------------------------------------------------------------------------
 Invoke regaamc8 to view multi-channel binary files (16-bit short-integers)
 	- 
-EXECUTABLE PATH: /home/john/bin/LDAS/bin/regaamc8
+EXECUTABLE PATH: /opt/LDAS/bin/regaamc8
 USAGE: xs-rega2 [in] [nch] [sf]
 	[in]: a binary .dat file (16-bit short integer)
 	[nch]: number of interlaced channels
@@ -8253,7 +8255,7 @@ Produces one column of filtered output
 USAGE:	xe-fftfilt1 [input] [options] 
 	[input]: provide a filename or "stdin" to receive piped data
 VALID OPTIONS (defaults in [])
-	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [6.9205e-310]
+	-asc: is input/output ASCII? (1=YES, 0=NO, BINX binary input is assumed) [6.91844e-310]
 	-sf: sampling frequency (Hz) of the input [1]
 	-min: lowest frequency to output [default= 2/nsamples]
 	-max: highest frequency to output [default= sr/2]
@@ -9704,7 +9706,7 @@ VALID OPTIONS:
 	-con: number of contiguous bins required to keep a bin [0]
 	-vrate: video sample rate (samples/s) [25]
 	-vrange: 4-item CSV list defining xmin,ymin,xmax,ymax [unset]
-	-binsize : size of map-pixels (cm) [-110030640]
+	-binsize : size of map-pixels (cm) [-43055664]
 	-sx : 2D gaussian smoothing (bins) applied to rate matrix [0]
 	-sy : 2D gaussian smoothing (bins) applied to matrix [0]
 	-st : smoothing type (0,1 or 2) [2]

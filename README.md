@@ -27,23 +27,28 @@
 # INSTALLATION
 
 ## Installation on Windows
-While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now also configure any Windows 10 machine to run a Linux "subsystem". Setting up your PC or laptop to do this is easy and **should only take about 15 minutes**. Complete instructions can be found here: 
+While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". Setting this up is easy and **should only take about 15 minutes**. Complete instructions can be found here: 
 	* https://docs.microsoft.com/en-us/windows/wsl/install-win10
+
 
 1. Enable the Windows Subsystem for Linux (WSL) : https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-the-windows-subsystem-for-linux
 2. Install the free Ubuntu distribution from Microsoft Store: https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-your-linux-distribution-of-choice
 3. Initialise the distribution: https://docs.microsoft.com/en-us/windows/wsl/initialize-distro
+4. Now proceed with the **Installation on Linux**  instructions below. 
+
 
 A few Notes: 
+
 * Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
-* You will need the free ghostscript and GS-View tools to view LDAS graphical reports:
+
+* To enable graphical tools like the evince document-viewer and gedit text-editor, install the free Xming server using the default options: http://www.straightrunning.com/XmingNotes/
+
+* To view LDAS plots on Windows you will need the free ghostscript and GS-View tools
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
-* Running LDAS in the Windows Subsystem for Linux might not give you quite the same speed as a Linux workstation, but all functionality is preserved aside from automatic display of HTML/PDF manuals.  
 
+* Running LDAS in the Windows Subsystem for Linux might be slower than running on a Linux workstation
 
-*You should be ready to go!*  
-From this point, installation is the same as for any Linux workstation or dual-boot machine. Continue reading below....
 
 
 ## Installation on Linux
