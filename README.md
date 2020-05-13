@@ -77,7 +77,7 @@ A few extra notes:
 
 ## Installation on Linux
 
-### 1. Make sure your Linux distribution is updated and git is installed
+### 1. Make sure your Linux distribution is updated
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
 ``` 
 	For Ubuntu:    $ sudo apt-get update
