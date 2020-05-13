@@ -346,7 +346,8 @@ fi
 # CHECK DEPENDENCIES - FULL INSTALL ONLY
 ########################################################################################
 if [ "$setupdate" == "0" ] ; then
-	# DEFINE THE INSTALL COMMAND 
+
+	# define the install command
 	if [ "$distro" == "Ubuntu" ] ; then
 		command="apt-get -y install"
 	else
@@ -355,13 +356,13 @@ if [ "$setupdate" == "0" ] ; then
 
 echo "command= "$command
 
-	# make a list of missing dependencies 
+	# make a list of missing dependencies
 	rm -f $tempfile".2"
 	for x in  $listdep ; do
 		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
 	done
-	
-	# if the file is not empty, report and attempt to install 
+
+	# if the file is not empty, report and attempt to install
 	if [ -e $tempfile".2" ] ; then
 		echo -e $GREEN
 		echo -e "\n--------------------------------------------------------------------------------"
@@ -372,7 +373,7 @@ echo "command= "$command
 		echo -e "\t... or, ask your superuser to install the dependencies"
 		echo -e $NC"\n"
 
-		for dep in $(cat $tempfile".2") ; do 
+		for dep in $(cat $tempfile".2") ; do
 			echo -e $GREEN"\t\t - attempting to install $dep..."$NC
 			sudo $command $dep
 		done
