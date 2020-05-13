@@ -273,7 +273,7 @@ case $x in *$y*) echo -e $RED"\n--- Error ["$thisprog"]: do not run installer in
 
 # FOR FULL-INSTALL, CHECK WHETHER INSTALLER BEING USED IS FROM THE PREVPATH
 # because really a fresh install should use the latest installer
-if [ $prevdest != "" ] && [ "$setupdate" == "0" ] ; then
+if [ "$prevdest" != "" ] && [ "$setupdate" == "0" ] ; then
 	x=$(which $0)
 	y=$prevdest
 	case $x in *$y*)
@@ -354,8 +354,6 @@ if [ "$setupdate" == "0" ] ; then
 		command="yum -y install"
 	fi
 
-echo "command= "$command
-
 	# make a list of missing dependencies
 	rm -f $tempfile".2"
 	for x in  $listdep ; do
@@ -366,9 +364,9 @@ echo "command= "$command
 	if [ -e $tempfile".2" ] ; then
 		echo -e $GREEN
 		echo -e "\n--------------------------------------------------------------------------------"
-		echo -e "--- Warning ["$thisprog"]: missing dependencies:"
+		echo -e "--- Warning ["$thisprog"]: missing dependencies:"$NC
 		cat $tempfile".2" | awk '{print "\t\t"$0}'
-		echo -e "\tWill attempt to install these using $NC $command <program>"$GREEN
+		echo -e $GREEN"\tWill attempt to install these using $NC $command <program>"$GREEN
 		echo -e "\t... or, run this script as superuser\n"
 		echo -e "\t... or, ask your superuser to install the dependencies"
 		echo -e $NC"\n"
