@@ -63,13 +63,12 @@ A few extra notes:
 
 * Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
 
-* To enable graphical tools like the evince document-viewer and gedit text-editor, install the free Xming server using the default options: http://www.straightrunning.com/XmingNotes/
-
 * To view LDAS plots on Windows you will need the free ghostscript and GS-View tools
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
-* Running LDAS in the Windows Subsystem for Linux might be slower than running on a Linux workstation
+* Running LDAS in the Windows Subsystem for Linux might be slower than running on a Linux workstation. These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10.
+
 
 
 
