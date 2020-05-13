@@ -370,7 +370,7 @@ if [ "$setupdate" == "0" ] ; then
 		for dep in $(cat $tempfile".2") ; do 
 			echo -e $GREEN"\t\t - attempting to install $dep..."$NC
 			sudo $command $dep
-		fi
+		done
 	fi
 fi
 
