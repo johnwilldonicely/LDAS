@@ -26,8 +26,11 @@
 ################################################################################
 # INSTALLATION
 
-## Installation on Windows (estimated: 15 minutes)
-**This section explains how to set up Windows 10 to run Linux in the Windows Subsystem for Linux. Once you complete this, proceed to the "Installation on Linux" section**. While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". 
+## Installation on Windows 10 (estimated: 15 minutes)
+**This section explains how to set up your Windows computer to run Linux in the Windows Subsystem for Linux.  
+Once you complete this, proceed to the "Installation on Linux" section**. 
+
+While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". 
 
 ### 1. Enable the Windows Subsystem for Linux (WSL-1)
 Open Windows Powershell as Administrator and  run this command:
