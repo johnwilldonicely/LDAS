@@ -26,6 +26,7 @@
 ################################################################################
 # INSTALLATION
 
+--------------------------------------------------------------------------------
 ## Installation on Windows 10 (estimated: 15 minutes)
 **This section explains how to set up your Windows computer to run Linux in the Windows Subsystem for Linux.  
 Once you complete this, proceed to the "Installation on Linux" section**. 
@@ -74,11 +75,11 @@ A few extra notes:
 
 
 
-
+--------------------------------------------------------------------------------
 ## Installation on Linux
 
 ### 1. Make sure your Linux distribution is updated
-It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
+It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux.
 ``` 
 	For Ubuntu:    $ sudo apt-get update
 	Other distros: $ sudo yum update -y
@@ -96,13 +97,12 @@ It's always a good idea to make sure your Linux components are up to date before
 
 ### 4. Run the install script, specifying operating mode
 * local: for the current user only  
-* global: for all users, superuser priviledges will be required  
+* global: for all users, superuser privileges will be required  
 * update: for an existing installation  
 	
 Example install commands:
 ```
 	$ ./LDAS_INSTALL.sh local
-	$ ./LDAS_INSTALL.sh local --zip LDAS-master.zip
 	$ ./LDAS_INSTALL.sh global
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 	$ ./LDAS_INSTALL.sh update
@@ -111,43 +111,42 @@ Note that in two of the examples you do have the option to install from a previo
 
 ### 4. Check for Warnings and Errors
 * Are you using the most up-to-date installer?
-* Do you have sudo priviledges (required for GLOBAL installs and for installing missing dependencies)
+* Do you have sudo privileges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
 
 ### 5. Log out and back in again
 - updates the $PATH variable so the system can find LDAS programs
 - if the install ws sucessful, you may want to delete the installer in your home directory, as a new version will now be in the install location
 
-
-## Extra notes on installation : 
+--------------------------------------------------------------------------------
+## Extra notes on installation (all platforms): 
 * local: installation is for the **current user only**:
 	* any user can install
 	* LDAS installed in /home/$USER/bin/LDAS
 	* $PATH variable updated in /home/$USER/.bashrc
 
 * global: installation is for **all users**:
-	* sudo or super-user priviledges required during installation
+	* sudo or super-user privileges required during installation
 	* LDAS installed in /opt/LDAS/
 	* $PATH variable updated in /etc/profile
 
 * update: updates existing installation, regardless of installation scope:
-	* for gloabl installs, sudo or super-user priviledges required
+	* for global installs, sudo or super-user privileges required
 	* existing programs will be removed first
 	* dependencies will not be checked
 	* $PATH variable is not altered
 
-#### Dependencies
+
+#### Essential dependencies
 * Most LDAS dependencies will come with your Linux distribution.
 * If not, the LDAS_INSTALLER.sh script will have attempted to install them 
 * Otherwise, they can be installed by the superuser or users with sudo-access.
-	* Before installing LDAS, install dependencies with the appropriate command:
 ```
 	Fedora/Redhat: $ sudo yum install -y [program]
-	Ubuntu: 	   $ sudo apt install -y [program]
+	Ubuntu:        $ sudo apt install -y [program]
 ```
 
-### Essential
-LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
+LDAS will not install or will fail to run properly without these programs.
 
 - wget - for downloading the installer
 - zip - for zipping archives
@@ -158,9 +157,9 @@ LDAS will not install or will fail to run properly without these programs, but t
 - nano - simple text editor - used for showing manuals
 - evince - for viewing LDAS postscript reports
 
-### Optional (most functionality does not require these)
+#### Optional dependencies
 
-#### pandoc
+##### pandoc
 	- document converter, used for creating manuals
 	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
 ```
@@ -179,7 +178,7 @@ LDAS will not install or will fail to run properly without these programs, but t
 		- texlive-fonts-recommended
 
 
-#### python3 + hdf5 support 
+##### python3 + hdf5 support 
 	- required for some of the MEA scripts
 ```
 		$ sudo yum install python3-y libffi-devel
@@ -187,15 +186,15 @@ LDAS will not install or will fail to run properly without these programs, but t
 		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
-#### R statistical package
+##### R statistical package
 	- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
 	- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
 		$ sudo yum install -y R
 ```
 
-#### libreoffice 
-	- for some scripts, required to convert Excell spreadsheets to CSV files
+##### libreoffice 
+	- for some scripts, required to convert Excel spreadsheets to CSV files
 ```
 	Ubuntu: 
 		$ sudo apt install libreoffice-common
