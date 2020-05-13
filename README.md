@@ -39,16 +39,17 @@ Open Windows Powershell as Administrator and  run this command:
 **Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better fperformance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
-This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly undwer Windows 10. When installation cometes you'll see an Ubuntu icon in the Start Menu (recently added section) .
+This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
 
 https://www.microsoft.com/store/apps/9N9TNGVNDL3Q
 
 ### 3. Initialise the distribution
-Basically, click on the Ubuntu icon to launch, and follow these steps to set up your username and password.
+Click on the Ubuntu icon in the Start menu to launch, and follow these steps to set up your username and password.
 https://docs.microsoft.com/en-us/windows/wsl/user-support
 
 ### 4. [optional] Configure display for handling by Xming
-- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like Xming (see **Installation on Windows** section), and run the following commands once:
+- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](http://www.straightrunning.com/XmingNotes/), and run the following commands once:
+
 ```
 		$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
 		$ dbus-launch --exit-with-x11 s
