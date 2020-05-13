@@ -28,6 +28,7 @@ let previnstall=0
 
 setsource="https://github.com/johnwilldonicely/LDAS/"
 setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
+listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc"
 
 setscope="local"
 setdest="/home/$USER/bin/"
@@ -313,20 +314,6 @@ if [ -e $tempfile".1" ] ; then
 	echo -e "\t... or, run this script as superuser\n"$NC
 fi
 
-# CHECK FOR MISSING DEPENDENCIES - FULL INSTALL ONLY
-if [ "$setupdate" == "0" ] ; then
-	rm -f $tempfile".2"
-	for x in  zip unzip wget gcc git gs dos2unix nano pandoc ; do
-		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
-	done
-	if [ -e $tempfile".2" ] ; then
-		echo -e $GREEN"--- Warning ["$thisprog"]: missing dependencies:"$NC
-		cat $tempfile".2" | awk '{print "\t\t"$0}'
-		echo -e $GREEN"\tWill attempt to install these as sudo"
-		echo -e "\t... or, ask your superuser to install the dependencies"
-		echo -e "\t... or, run this script as superuser\n"$NC
-	fi
-fi
 
 ################################################################################
 # CHECK TO PROCEED AND BACKUP EXISTING INSTALL
@@ -359,45 +346,31 @@ fi
 # CHECK DEPENDENCIES - FULL INSTALL ONLY
 ########################################################################################
 if [ "$setupdate" == "0" ] ; then
-	# CHECK IF DEPENDENCIES ARE INSTALLED
-
+	# DEFINE THE INSTALL COMMAND 
 	if [ "$distro" == "Ubuntu" ] ; then
 		command="apt-get -y install"
 	else
 		command="yum -y install"
 	fi
 
-	echo -e "\n--------------------------------------------------------------------------------"
-	echo -e "CHECKING DEPENDENCIES..."
-	dep="gcc" ; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- code compilation will fail"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
-	fi
-	dep="git" ; if [ "$(command -v $dep)" == "" ] && [ "$setfilezip" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- cannot install using git clone"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
-	fi
-	dep="gs" ; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- graphics handling might fail"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
-	fi
-	dep="dos2unix"; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- some scripts might fail"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
-	fi
-	dep="nano" ; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning:$GREEN$dep$NC not installed- manuals might not be viewable"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
-	fi
-	dep="pandoc" ; if [ "$(command -v $dep)" == "" ] ; then
-		echo -e "\t--- Warning: $GREEN$dep$NC not installed- some manuals might not be rendered"
-		echo -e "\t\t - attempting to install $dep as sudo..."
-		sudo $command $dep
+	rm -f $tempfile".2"
+	for x in  $listdep ; do
+		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
+	done
+	if [ -e $tempfile".2" ] ; then
+		echo -e $GREEN
+		echo -e "\n--------------------------------------------------------------------------------"
+		echo -e "--- Warning ["$thisprog"]: missing dependencies:"
+		cat $tempfile".2" | awk '{print "\t\t"$0}'
+		echo -e "\tWill attempt to install these using $NC $command <program>"$GREEN
+		echo -e "\t... or, run this script as superuser\n"
+		echo -e "\t... or, ask your superuser to install the dependencies"
+		echo -e $NC"\n"
+
+		for dep in $(cat $tempfile".2") ; do 
+			echo -e $GREEN"\t\t - attempting to install $dep..."$NC
+			sudo $command $dep
+		fi
 	fi
 fi
 

@@ -26,21 +26,39 @@
 ################################################################################
 # INSTALLATION
 
-## Installation on Windows
-While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". Setting this up is easy and **should only take about 15 minutes**. Complete instructions can be found here: 
-	* https://docs.microsoft.com/en-us/windows/wsl/install-win10
+## Installation on Windows (estimated: 15 minutes)
+**This section explains how to set up Windows 10 to run Linux in the Windows Subsystem for Linux. Once you complete this, proceed to the "Installation on Linux" section**. While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". 
 
+### 1. Enable the Windows Subsystem for Linux (WSL-1)
+Open Windows Powershell as Administrator and  run this command:
+```
+	dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+```
+...then restart your PC.  
 
-### 1. Enable the Windows Subsystem for Linux (WSL)
-https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-the-windows-subsystem-for-linux
+**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better fperformance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
+
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
-https://docs.microsoft.com/en-us/windows/wsl/install-win10#install-your-linux-distribution-of-choice
+This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly undwer Windows 10. When installation cometes you'll see an Ubuntu icon in the Start Menu (recently added section) .
+
+https://www.microsoft.com/store/apps/9N9TNGVNDL3Q
+
 ### 3. Initialise the distribution
-https://docs.microsoft.com/en-us/windows/wsl/initialize-distro
-### 4. Now proceed with the **Installation on Linux**  instructions below. 
+Basically, click on the Ubuntu icon to launch, and follow these steps to set up your username and password.
+https://docs.microsoft.com/en-us/windows/wsl/user-support
+
+### 4. [optional] Configure display for handling by Xming
+- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like Xming (see **Installation on Windows** section), and run the following commands once:
+```
+		$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
+		$ dbus-launch --exit-with-x11 s
+		$ sudo dbus-uuidgen --ensure 
+```
+
+### 5. Now proceed with the **Installation on Linux**  instructions below. 
 
 
-A few Notes: 
+A few extra notes:  
 
 * Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
 
@@ -59,11 +77,8 @@ A few Notes:
 ### 1. Make sure your Linux distribution is updated and git is installed
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux. Git should come with Linux, but if not...
 ``` 
-	Ubuntu:        $ sudo apt-get update
-	               $ sudo apt-get install git
-		   
+	For Ubuntu:    $ sudo apt-get update
 	Other distros: $ sudo yum update -y
-	               $ sudo yum install git
 ```
 
 ### 2. Download the install script: *do this in your home directory*:
@@ -98,24 +113,10 @@ Note that in two of the examples you do have the option to install from a previo
 
 ### 5. Log out and back in again
 - updates the $PATH variable so the system can find LDAS programs
-
-### 6. [Windows installation only] - configure display for handling by Xming
-- if you want graphical output to be displayed in windows, you will need to install an X-windows server like Xming (see **Installation on Windows** section), and run the following commands once:
-```
-	$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
-	$ dbus-launch --exit-with-x11 s
-```
-...and if you get a D-bus library error/warning...
-```
-	$sudo dbus-uuidgen --ensure 
-```
-
-### 7. [optional] - delete the INSTALLER
-You might wnat to keep the installer if the installation was not successful. But once it is, a new copy of INSTALL_LDAS.sh will be in the installation directory and accessible from anywhere on the system.
+- if the install ws sucessful, you may want to delete the installer in your home directory, as a new version will now be in the install location
 
 
 ## Extra notes on installation : 
-
 * local: installation is for the **current user only**:
 	* any user can install
 	* LDAS installed in /home/$USER/bin/LDAS
@@ -132,20 +133,17 @@ You might wnat to keep the installer if the installation was not successful. But
 	* dependencies will not be checked
 	* $PATH variable is not altered
 
-
-## Dependencies
+#### Dependencies
 * Most LDAS dependencies will come with your Linux distribution.
-* If not, they can be installed by the superuser or users with sudo-access.
-* Before installing LDAS, install dependencies with the appropriate command:
+* If not, the LDAS_INSTALLER.sh script will have attempted to install them 
+* Otherwise, they can be installed by the superuser or users with sudo-access.
+	* Before installing LDAS, install dependencies with the appropriate command:
 ```
-	Fedora/Redhat: 	$ sudo yum install -y [program]
-	Ubuntu: 	$ sudo apt-get install -y [program]
+	Fedora/Redhat: $ sudo yum install -y [program]
+	Ubuntu: 	   $ sudo apt install -y [program]
 ```
 
-Most of the examples below describe a Fedora/Redhat installation. You may have to look online for specific install instructions for different versions of Linux
-
-
-#### Essential
+### Essential
 LDAS will not install or will fail to run properly without these programs, but they should come with your Linux distribution. If not, use the appropriate install command.
 
 - wget - for downloading the installer
@@ -155,12 +153,18 @@ LDAS will not install or will fail to run properly without these programs, but t
 - dos2unix - required for correcting DOS-style line-breaks
 - gs - ghostscript - essential for dealing with LDAS graphics
 - nano - simple text editor - used for showing manuals
+- evince - for viewing LDAS postscript reports
 
-#### Optional (most functionality does not require these)
+### Optional (most functionality does not require these)
 
-- pandoc - document converter, used for creating manuals
+#### pandoc
+	- document converter, used for creating manuals
 	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
 ```
+	Ubuntu: 
+		$ sudo apt install pandoc -y
+
+	Other distros:  
 		$ version=2.9.1.1
 		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
 		$ dest=/opt/pandoc/
@@ -172,22 +176,28 @@ LDAS will not install or will fail to run properly without these programs, but t
 		- texlive-fonts-recommended
 
 
-- python3 + hdf5 support (required for some of the MEA scripts)
+#### python3 + hdf5 support 
+	- required for some of the MEA scripts
 ```
 		$ sudo yum install python3-y libffi-devel
 		$ sudo yum install -y openssl-devel
 		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
-- R - for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
-	... dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+#### R statistical package
+	- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
+	- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
 		$ sudo yum install -y R
 ```
 
-- libreoffice - for some scripts, required to convert Excell spreadsheets to CSV files
-	- this example is for a Fedora install using an RPM tarball
+#### libreoffice 
+	- for some scripts, required to convert Excell spreadsheets to CSV files
 ```
+	Ubuntu: 
+		$ sudo apt install libreoffice-common
+
+	for a Fedora install using an RPM tarball:
 		$ version=6.3.4
 		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
 		$ tarname=$rpmname".tar.gz"
