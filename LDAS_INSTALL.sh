@@ -353,10 +353,15 @@ if [ "$setupdate" == "0" ] ; then
 		command="yum -y install"
 	fi
 
+echo "command= "$command
+
+	# make a list of missing dependencies 
 	rm -f $tempfile".2"
 	for x in  $listdep ; do
 		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
 	done
+	
+	# if the file is not empty, report and attempt to install 
 	if [ -e $tempfile".2" ] ; then
 		echo -e $GREEN
 		echo -e "\n--------------------------------------------------------------------------------"
