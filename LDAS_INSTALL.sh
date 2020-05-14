@@ -513,7 +513,7 @@ rm -f $outpath/xe-*
 cd $inpath
 xs-progcompile "xe-*.c" --warn 0
 
-inpath=$setdest"/LDAS/source/regaamc"
+inpath=$setdest"/LDAS/source/regaamc8"
 cd $inpath
 gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
