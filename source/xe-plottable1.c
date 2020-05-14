@@ -838,18 +838,12 @@ int main (int argc, char *argv[]) {
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"\tbasefontsize mul -1 mul rmoveto\n");
-	if(strcmp(plottype,"tri")==0) {
-		fprintf(fpout,"\tbasefontsize 2 div neg basefontsize 4 div neg rmoveto\n");
-		fprintf(fpout,"\tbasefontsize 2 div basefontsize rlineto\n");
-		fprintf(fpout,"\tbasefontsize 2 div basefontsize neg rlineto\n");
-	}
-	else {
-		fprintf(fpout,"\t0 basefontsize 1.5 div rlineto\n");
-		fprintf(fpout,"\tbasefontsize 1.5 div 0 rlineto\n");
-		fprintf(fpout,"\t0 basefontsize 1.5 div neg rlineto\n");
-	}
-	fprintf(fpout,"\tpointdraw\n");
+	fprintf(fpout,"\t0 basefontsize 1.5 div rlineto\n");
+	fprintf(fpout,"\tbasefontsize 1.5 div 0 rlineto\n");
+	fprintf(fpout,"\t0 basefontsize 1.5 div neg rlineto\n");
+	fprintf(fpout,"\tfill\n");
 	fprintf(fpout,"\n");
+
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul basefontsize add xtloff 2 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
