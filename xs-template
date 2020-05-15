@@ -103,7 +103,7 @@ if [ "$(command -v pandoc)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]:
 # - will throw an error for bad arguments or missing options to arguments
 ########################################################################################
 # define acceptable short (vs) and long (vl) options, colon after options requiring values
-vs="s:b:v:c:" ; vl="batch:,skip:,verb:,clean:"
+vs="abs:v:c:" ; vl="batch:,skip:,verb:,clean:"
 # check for errors
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
@@ -378,9 +378,9 @@ printf "I ${RED}love${NC} Stack Overflow\n"
 # FILE OPERATIONS
 ################################################################################
 
-# CHECK FILE ENCODING 
+# CHECK FILE ENCODING
 file --mime ./* | grep -v ascii
-# CONVERT FILE ENCODING 
+# CONVERT FILE ENCODING
 FROM_ENCODING="UTF-8"
 TO_ENCODING="us-ascii"
 CONVERT="iconv -f $FROM_ENCODING -t $TO_ENCODING"
@@ -396,7 +396,7 @@ nano $filename --view --smooth # smooth allows smooth scrolling
 cat $infile | while read line ; do echo -e "$line" ; done
 
 # SORT PUTTING UPPERCASSE ENTRIES FIRST
-cat $listfile | LC_COLLATE=C sort 
+cat $listfile | LC_COLLATE=C sort
 
 # SORT A FILE USING MULTIPLE COLUMNS
 # example: sort a file using columns 7 and 8

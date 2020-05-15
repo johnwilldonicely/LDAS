@@ -9,28 +9,29 @@ start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
 basepath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 
+setverb="0"
 setmessage=""
-setupdate="0";
+let setcompile=0;
 
 
 if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": Git helper script"
-	echo "REQUIRES: a properly formatted ,notes file"
 	echo "USAGE: "
-	echo "	"$thisprog" [mode]"
-	echo "	[mode]: status, diff, push, or pull"
-	echo "		status: show local changes (committed=green, uncommitted=red)"
-	echo "		diff: compare local commited changes to remote master"
-	echo "		pull: pull remote master repository"
-	echo "		push: add changes, commit (with -m message), and push to remote master"
-	echo "ADDITIONAL ARGUMENTS (defaults in []):"
-	echo "	-m: message for push ["$setmessage"]"
-	echo "	-u: update option for pull (0=NO,1=YES) [$setupdate]"
-	echo "		- changed source-code (xe-*.c) will be recompiled"
+	echo "    $thisprog [mode] [options]"
+	echo "        [mode]: status, diff, push, or pull"
+	echo "          status: show local changes (committed=green, uncommitted=red)"
+	echo "          diff: compare local commited changes to remote master"
+	echo "          pull: pull remote master repository (see -u)"
+	echo "          push: add changes, commit, and push to remote master (see -m)"
+	echo "PULL OPTIONS (defaults in []):"
+	echo "    -c: compile changed source-code [unset]"
+	echo "PUSH OPTIONS (defaults in []):"
+	echo "    -m: message for push ["$setmessage"]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt"
+	echo "    $thisprog pull -u"
+	echo "    $thisprog push -m \"this is my message\""
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -45,7 +46,7 @@ mode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="m:u:" ; vl="verb:"
+vs="cm:" ; vl="verb:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -53,13 +54,14 @@ else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
 		-m ) setmessage=$2 ; shift ;;
-		-u ) setupdate=$2 ; shift ;;
+		-c ) let setcompile=1 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
 	shift
 done
-if [ "$setupdate" != "0" ] && [ "$setupdate" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --update ($setupdate) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+
 
 cd $basepath
 
@@ -68,16 +70,16 @@ if [ $mode == "status" ] ; then
 	git status
 	"
 	git status
-fi
-if [ $mode == "diff" ] ; then
+
+elif [ $mode == "diff" ] ; then
 	echo "
 	git fetch origin master
 	git diff --summary FETCH_HEAD
 	"
 	git fetch origin master
 	git diff --summary FETCH_HEAD
-fi
-if [ $mode == "push" ] ; then
+
+elif [ $mode == "push" ] ; then
 	if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
 	echo "
 	git add --all .
@@ -87,9 +89,9 @@ if [ $mode == "push" ] ; then
 	git add --all # also records removals
 	git commit -a -m "$setmessage"
 	git push -u origin master
-fi
-if [ $mode == "pull" ] ; then
-	if [ $setupdate == "1" ] ; then
+
+elif [ $mode == "pull" ] ; then
+	if [ $setcompile == "1" ] ; then
 		git remote update > $tempfile
 		list=$(git diff origin/master --name-only | grep -- 'xe-' | grep '.c' --color=never | cut -f 2 -d /)
 	fi
@@ -97,9 +99,14 @@ if [ $mode == "pull" ] ; then
 	echo -e "\ngit pull origin master"
 	git pull origin master
 
-	if [ "$setupdate" == "1" ] && [ "$list" != "" ] ; then
+	if [ "$setcompile" == "1" ] && [ "$list" != "" ] ; then
+		cd $basebpath/source
 		xs-progcompile "$list" --warn 1
 	fi
+
+else
+	echo -e "\n--- Error ["$thisprog"]: invalid mode\n" ;
+	exit
 fi
 
 cd $start_dir

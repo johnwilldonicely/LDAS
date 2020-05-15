@@ -17,7 +17,6 @@ bar="############################################################"
 # for most scripts...
 thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))
-progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 allopts=$@
 
 tempfile="temp_"$thisprog #"."$$"."
