@@ -9,9 +9,18 @@ start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
 basepath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
 
-setverb="0"
 setmessage=""
 let setcompile=0;
+let setverb=0
+let settag=0
+
+
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
 
 
 if [ $# -lt 1 ]; then
@@ -23,14 +32,15 @@ if [ $# -lt 1 ]; then
 	echo "        [mode]: status, diff, push, or pull"
 	echo "          status: show local changes (committed=green, uncommitted=red)"
 	echo "          diff: compare local commited changes to remote master"
-	echo "          pull: pull remote master repository (see -u)"
+	echo "          pull: pull remote master repository (see -c)"
 	echo "          push: add changes, commit, and push to remote master (see -m)"
-	echo "PULL OPTIONS (defaults in []):"
-	echo "    -c: compile changed source-code [unset]"
-	echo "PUSH OPTIONS (defaults in []):"
-	echo "    -m: message for push ["$setmessage"]"
+	echo "OPTIONS (defaults in []):"
+	echo "    -v: verbose output [unset]"
+	echo "    -c: (pull) compile changed source-code [unset]"
+	echo "    -t: (pull) update PROGTAG.html program list [unset]"
+	echo "    -m: (push) message for commit [default defined by git status]"
 	echo "EXAMPLE: "
-	echo "    $thisprog pull -u"
+	echo "    $thisprog pull -u -v"
 	echo "    $thisprog push -m \"this is my message\""
 	echo "--------------------------------------------------------------------------------"
 	echo
@@ -46,7 +56,7 @@ mode=$1 ; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="cm:" ; vl="verb:"
+vs="ctvm:" ; vl="abcdefg:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -55,59 +65,121 @@ while [ $# -gt 0 ] ; do
 	case $1 in
 		-m ) setmessage=$2 ; shift ;;
 		-c ) let setcompile=1 ; shift ;;
+		-t ) let settag=1 ; shift ;;
+		-v ) let setverb=1 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
 	shift
 done
-if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 
 
+################################################################################
+# CHANGE TO REPOSITORY PATH 
 cd $basepath
 
-if [ $mode == "status" ] ; then
-	echo "
-	git status
-	"
-	git status
+################################################################################
+# SIMPLE GIT DIFF
+if [ $mode == "diff" ] ; then
+	if [ $setverb -eq 1 ] ; then 
+		echo "
+		git fetch origin master
+		git diff --summary FETCH_HEAD
+		"
+	fi
 
-elif [ $mode == "diff" ] ; then
-	echo "
 	git fetch origin master
 	git diff --summary FETCH_HEAD
-	"
-	git fetch origin master
-	git diff --summary FETCH_HEAD
 
+################################################################################
+# STATUS UPDATE 
+elif [ $mode == "status" ] ; then
+
+	if [ $setverb -eq 1 ] ; then 
+		echo "
+		git status
+		git remote update 
+		git diff origin/master --compact-summary
+		"
+	fi 
+
+	echo ""
+	echo "LOCAL CHANGES"
+	echo "--------------------------------------------------------------------------------"
+	git -c color.status=always status | awk 'NF>0{print $0}' | grep -v '(use'
+
+
+	echo ""
+	echo "REMOTE CHANGES"
+	echo "--------------------------------------------------------------------------------"
+	echo -en $RED	
+	git remote update &> /dev/null
+	git diff origin/master --compact-summary | 
+	head -n -1 | cut -f 1 -d '|' | 
+	awk '{
+		a=$1; b=$2; 
+		if(b=="")         b="(modified) : "
+		else if(b=="(gone)") b="(added)    : "
+		else if(b=="(new)")  b="(deleted)  : "
+		print "\t"b,a
+	}'
+	echo -e "$NC\n"
+
+
+################################################################################
+# PUSH TO REMOTE - INCLUDES COMMIT 
 elif [ $mode == "push" ] ; then
 	if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
-	echo "
-	git add --all .
-	git commit -a -m \"$setmessage\"
-	git push -u origin master
-	"
+	if [ $setverb -eq 1 ] ; then 
+		echo "
+		git add --all .
+		git commit -a -m \"$setmessage\"
+		git push -u origin master
+		"
+	fi 
 	git add --all # also records removals
 	git commit -a -m "$setmessage"
 	git push -u origin master
 
+################################################################################
+# PULL FROM REMOTE - INCLUDES COMPILE OPTION 
 elif [ $mode == "pull" ] ; then
-	if [ $setcompile == "1" ] ; then
-		git remote update > $tempfile
+
+	# git the list of changes before pulling the repo
+	if [ $setcompile -eq 1 ] ; then
+		git remote update &> /dev/null
 		list=$(git diff origin/master --name-only | grep -- 'xe-' | grep '.c' --color=never | cut -f 2 -d /)
 	fi
 
-	echo -e "\ngit pull origin master"
+	# pull the repo
+	if [ $setverb -eq 1 ] ; then echo -e "\ngit pull origin master"	; fi 
 	git pull origin master
 
-	if [ "$setcompile" == "1" ] && [ "$list" != "" ] ; then
+
+	# compile changed code 
+	if [ $setcompile -eq 1 ] && [ "$list" != "" ] ; then
+		if [ $setverb -eq 1 ] ; then echo -e "\ncd $basebpath/source\nxs-progcompile "$list" --warn 1 " ; fi 
 		cd $basebpath/source
 		xs-progcompile "$list" --warn 1
 	fi
 
+	# update HTML program-tag guide
+	if [ $settag -eq 1 ] ; then
+		if [ $setverb -eq 1 ] ; then echo -e "\nxs-progtag html" ; fi 
+		cd $basebpath/source
+		xs-progtag html
+	fi
+
+################################################################################
+# OTHERWISE, INVALID MODE 
 else
 	echo -e "\n--- Error ["$thisprog"]: invalid mode\n" ;
 	exit
 fi
+
+
+################################################################################
+# FINISH 
 
 cd $start_dir
 exit
