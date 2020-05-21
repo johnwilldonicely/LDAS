@@ -68,12 +68,12 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[country]: name of country to analyse\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"	-mindeaths: (start) minimum cumulative deaths [%ld]\n",setmindeaths);
-		fprintf(stderr,"	-maxdays: (stop) maximum days post-peak [%ld]\n",setmaxdays);
+		fprintf(stderr,"	-maxdays: (stop) maximum days post-peak (0=total) [%ld]\n",setmaxdays);
+		fprintf(stderr,"	-pad: add data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
 		fprintf(stderr,"	-low: low frequency limit, 0=NONE [%g]\n",setlow);
 		fprintf(stderr,"	-high: high frequency limit, 0=NONE [%g]\n",sethigh);
 		fprintf(stderr,"	-normd: normalise deaths to 0-1 range (0=NO 1=YES) [%d]\n",setnormd);
 		fprintf(stderr,"	-normc: normalise cases to 0-1 range (0=NO 1=YES) [%d]\n",setnormc);
-		fprintf(stderr,"	-pad: add sample-and-hold data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
 		fprintf(stderr,"	-out: output format [%d]\n",setout);
 		fprintf(stderr,"		1: Day Cases Deaths DeathsSum\n");
 		fprintf(stderr,"		2: Var Day Count\n");
@@ -155,8 +155,8 @@ int main (int argc, char *argv[]) {
 		nn++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: Country \"%s\" not found in \"%s\"inflie\n\n",thisprog,setcountry,infile);exit(1);};
 
+	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: Country \"%s\" not found in \"%s\"inflie\n\n",thisprog,setcountry,infile);exit(1);};
 	if(setverb==999) printf("nn= %ld nkeys= %ld\n",nn,nkeys);
 	if(setverb==999) printf("keys= %s\n",keys);
 	if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld\n",ii,keycols[ii]);
@@ -214,7 +214,8 @@ int main (int argc, char *argv[]) {
 	/* find the peak */
 	dmax= deaths1[istart];
 	for(ii=istart;ii<nn;ii++) { if(deaths1[ii]>dmax) { dmax=deaths1[ii]; ipeak=ii; } }
-	/* find the stop */
+	/* find the stop (unincluded sample for loops) */
+	if(setmaxdays==0) setmaxdays= (nn-ipeak)-1;
 	istop= ipeak+setmaxdays+1;
 	if(istop>nn) istop= nn;
 	overrun= (ipeak+setmaxdays+1)-nn ; // number of excess days being requested

@@ -188,7 +188,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		echo -e "27\tFit_Fall:__$slope2" >> "table_groupnames.txt"
 
 		#echo -e "\t\t...plotting..."
-		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -yint 10 -xscale .45 -vline 0 -ypad 0 -hline $dcurrent"
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -yint 10 -xscale .45 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
 
