@@ -217,7 +217,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	list=$(xe-cut1 "table_slopes_pre.txt" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_slopes_pre.ps"
 	plotlist=$plotlist" "$plotfile
-	xe-plottable1 "table_slopes_pre.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: rise to peak" -out $plotfile
+	xe-plottable1 "table_slopes_pre.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: slope of rise" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
 	# 2. SLOPE OF FALL FROM PEAK
@@ -230,7 +230,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	list=$(xe-cut1 "table_slopes_post.txt" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_slopes_post.ps"
 	plotlist=$plotlist" "$plotfile
-	xe-plottable1 "table_slopes_post.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: fall from peak" -out $plotfile
+	xe-plottable1 "table_slopes_post.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: slope of fall" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
 	# 3. LAST CALCULATED DEATHS, %-OF-PEAK 
