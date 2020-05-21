@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS> </TAGS>
+# <TAGS> epidemiology </TAGS>
 
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
@@ -142,6 +142,9 @@ fi
 # PROCESS THE LATEST DATA
 if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
+	echo 
+	listcountries=$(echo $setcountries | tr ',' ' ')
+
 	########################################
 	echo -n "...determine the latest data..."
 	in1=$(ls -1 "covid_"????????".txt" | tail -n 1)
@@ -153,9 +156,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	########################################
 	echo "...initialising the slopes file"
-	listcountries=$(echo $setcountries | tr ',' ' ')
-	listcols="Date,Cases,Deaths"
-	echo -e "code\tslope1\tslope2" > jj.slopes
+	echo -e "code\tslope1\tslope2\tdcurrent" > jj.slopes
 
 	########################################
 	echo "...running analysis for each country..."
@@ -173,8 +174,11 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		#echo -e "\t\txe-CORONA1 $in1 $country $opts"
 		xe-CORONA1 $in1 $country $opts  > $out2a
 
+		# save the slopes
 		slope1=$(grep "Regression_rising:" $out2b | xe-getkey stdin slope=)
 		slope2=$(grep "Regression_falling:" $out2b | xe-getkey stdin slope=)
+		dcurrent=$(xe-dbmatch1 temp_xs-CORONA1_block.txt Var Deaths -oc Count | tail -n 1)
+		echo -e "$code\t$slope1\t$slope2\t$dcurrent" >> jj.slopes
 
 		# make the groupnames table
 		echo -e "group\tname" > "table_groupnames.txt"
@@ -184,15 +188,13 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		echo -e "27\tFit_Fall:__$slope2" >> "table_groupnames.txt"
 
 		#echo -e "\t\t...plotting..."
-		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -xscale .45"
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -yint 10 -xscale .45 -vline 0 -ypad 0 -hline $dcurrent"
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
 
 		xe-plottable1 $out2a $plotopts -title "$country" -xlabel "Weeks" -ylabel "% of Peak" -legend 1 -out $plotfile
 		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
 
-		# save the slopes
-		echo -e "$code\t$slope1\t$slope2" >> jj.slopes
 	done
 
 	xe-plotmerge1 $plotlist -xo 80 -xmax 2 -ymax 3 -xinc 280 -yinc 250 -out "plot_summary"
@@ -205,6 +207,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	let ncountries=$(tail -n +2 jj.slopes | wc -l)
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
 	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -legend 2 -pal inferno -frame 1"
+
 	# 1. SLOPE OF RISE TO PEAK
 	# build a slopes data file sorted by ascending (steeper) slopes
 	xe-cut1 jj.slopes code,slope1 > jj.temp
@@ -216,6 +219,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	plotlist=$plotlist" "$plotfile
 	xe-plottable1 "table_slopes_pre.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: rise to peak" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
+
 	# 2. SLOPE OF FALL FROM PEAK
 	# build a slopes data file sorted by descending (steeper) slopes, and converting to absolute values
 	xe-cut1 jj.slopes code,slope2 > jj.temp
@@ -228,9 +232,24 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	plotlist=$plotlist" "$plotfile
 	xe-plottable1 "table_slopes_post.txt" $plotopts -xlabel "Country" -ylabel "% of Peak / Day" -title "Deaths: fall from peak" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
+
+	# 3. LAST CALCULATED DEATHS, %-OF-PEAK 
+	# build a data file sorted by ascending deaths
+	xe-cut1 jj.slopes code,dcurrent > jj.temp
+	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
+		xe-math_round2 stdin -c 3 -b .01 > "table_dcurrent.txt"
+	# build a list of xpos/countrycode pairs for the xtics modification
+	list=$(xe-cut1 "table_dcurrent.txt" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
+	plotfile="plot_deaths_latest.ps"
+	plotlist=$plotlist" "$plotfile
+	xe-plottable1 "table_dcurrent.txt" $plotopts -xlabel "Country" -ylabel "% of Peak" -title "Deaths: last measure" -out $plotfile
+	xs-plotmod1 $plotfile --xtics $list --out 1
+
+
 	# MERGE THE PLOTS
-	xe-plotmerge1 $plotlist -xmax 1 -xinc 280 -yinc 225 -out "plot_slopes"
+	xe-plotmerge1 $plotlist -xmax 2 -xinc 280 -yinc 225 -out "plot_slopes"
 	rm -f $plotlist
+
 
 fi
 exit

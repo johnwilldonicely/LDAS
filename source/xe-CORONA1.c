@@ -7,7 +7,7 @@
 #include <math.h>
 #define N 20
 /*
-<TAGS> CORONAVIRUS </TAGS>
+<TAGS> epidemiology </TAGS>
 
 v 1: 20.May.2020 [JRH]
 
@@ -41,6 +41,7 @@ int main (int argc, char *argv[]) {
 
 	int sizeofcases0,sizeofdeaths0;
 	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords,ipeak=-1,setmindeaths=0,setmaxdays=356,istart=-1,istop=-1,cmin,cmax,overrun;
+	float *weeks1=NULL;
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,dmin,dmax,result_d[8];
 	double intercept1,intercept2,slope1,slope2,week;
 
@@ -184,6 +185,10 @@ int main (int argc, char *argv[]) {
 	if(deaths2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(ii=kk=0;ii<nn;ii++) { if(deaths0[ii]>0) {kk+= deaths0[ii]; deaths2[ii]= kk;} }
 
+	/* weeks-fractions - to help with later plotting  */
+	weeks1= calloc(nn,sizeof(*weeks1));
+	if(weeks1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+
 	if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths2[%ld]= %ld\n",ii,deaths2[ii]);
 
 	/********************************************************************************/
@@ -205,7 +210,7 @@ int main (int argc, char *argv[]) {
 	/* find the start */
 	istart= -1;
 	for(ii=0;ii<nn;ii++) { if(deaths2[ii]>=setmindeaths) { istart=ii; break; } }
-	if(istart==-1) {fprintf(stderr,"\n--- Error[%s]: -mindeaths threshold (%ld) never reached\n\n",thisprog,setmindeaths);exit(1);};
+	if(istart==-1) {fprintf(stderr,"\n--- Error[%s]: -mindeaths threshold (%ld) never reached\n\n",thisprog,setmindeaths);exit(1);}
 	/* find the peak */
 	dmax= deaths1[istart];
 	for(ii=istart;ii<nn;ii++) { if(deaths1[ii]>dmax) { dmax=deaths1[ii]; ipeak=ii; } }
@@ -227,25 +232,37 @@ int main (int argc, char *argv[]) {
 
 	if(setverb==999) for(ii=istart;ii<istop;ii++) printf("CHUNK[%ld]: %g\n",ii,deaths1[ii]);
 
+	/********************************************************************************/
+	/* BUILD THE WEEKS ARRAY, CENTRED ON THE PEAK */
+	/********************************************************************************/
+	for(ii=0;ii<nn;ii++) weeks1[ii]= (double)(ii-ipeak)/7.0;
+	/* expand memory if required */
+	if(overrun>0) {
+		kk= nn+overrun;
+		weeks1= realloc(weeks1,kk*sizeof(*weeks1));
+		if(weeks1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		for(ii=ii;ii<kk;ii++) weeks1[ii]= (double)(ii-ipeak)/7.0;
+	}
+
+
 
 	/********************************************************************************/
 	/* NORMALISE CASES AND DEATHS */
 	/********************************************************************************/
 	if(setnormc==1) {
 		bb= cmax-cmin;
-		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);};
+		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);}
 		for(ii=0;ii<nn;ii++) {
 			aa= 100 * (cases1[ii]-cmin);
 			if(aa!=0.0) cases1[ii]= aa/bb; else cases1[ii]= 0.0;
 	}}
 	if(setnormd==1) {
 		bb= dmax-dmin;
-		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);};
+		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);}
 		for(ii=0;ii<nn;ii++) {
 			aa= 100 * (deaths1[ii]-dmin);
 			if(aa!=0.0) deaths1[ii]= aa/bb; else deaths1[ii]= 0.0;
 	}}
-
 
 
 	/********************************************************************************/
@@ -288,34 +305,26 @@ int main (int argc, char *argv[]) {
 
 	if(setout==1) {
 		printf("Day\tCases\tDeaths\tDeathsSum\tDeltaWeeks\n");
-		for(ii=istart;ii<istop;ii++) {
-			week= (double)(ii-istart)/7.0;
-			printf("%ld\t%g\t%g\t%ld\t%g\n",ii,cases1[ii],deaths1[ii],deaths2[ii],week);
-		}
+		for(ii=istart;ii<istop;ii++) { 	printf("%ld\t%g\t%g\t%ld\t%g\n",ii,cases1[ii],deaths1[ii],deaths2[ii],weeks1[ii]); }
 		if(overrun>0 && setpad==1) {
 			aa= cases1[nn-1];
 			bb= deaths1[nn-1];
 			kk= deaths2[nn-1];
-			for(ii=ii;ii<(nn+overrun);ii++) {
-				week= (double)(ii-istart)/7.0;
-				printf("%ld\t%g\t%g\t%ld\t%g\n",ii,aa,bb,kk,week);
-			}
+			for(ii=ii;ii<(nn+overrun);ii++) { printf("%ld\t%g\t%g\t%ld\t%g\n",ii,aa,bb,kk,weeks1[ii]); }
 		}
 	}
 	if(setout==2) {
 		printf("Var\tDay\tCount\tDeltaWeeks\n");
 		for(ii=istart;ii<istop;ii++){
-			week= (double)(ii-istart)/7.0;
-			printf("Cases\t%ld\t%g\t%g\n",ii,cases1[ii],week);
-			printf("Deaths\t%ld\t%g\t%g\n",ii,deaths1[ii],week);
+			printf("Cases\t%ld\t%g\t%g\n",ii,cases1[ii],weeks1[ii]);
+			printf("Deaths\t%ld\t%g\t%g\n",ii,deaths1[ii],weeks1[ii]);
 		}
 		if(overrun>0 && setpad==1) {
 			aa= cases1[nn-1];
 			bb= deaths1[nn-1];
 			for(ii=ii;ii<(nn+overrun);ii++) {
-				week= (double)(ii-istart)/7.0;
-				printf("Cases\t%ld\t%g\t%g\n",ii,aa,week);
-				printf("Deaths\t%ld\t%g\t%g\n",ii,bb,week);
+				printf("c\t%ld\t%g\t%g\n",ii,aa,weeks1[ii]);
+				printf("d\t%ld\t%g\t%g\n",ii,bb,weeks1[ii]);
 	}}}
 
 	/********************************************************************************/
@@ -331,5 +340,6 @@ END:
 	if(cases1!=NULL) free(cases1);
 	if(deaths0!=NULL) free(deaths0);
 	if(deaths2!=NULL) free(deaths2);
+	if(weeks1!=NULL) free(weeks1);
 	exit(0);
 }
