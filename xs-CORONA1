@@ -47,7 +47,8 @@ if [ $# -lt 1 ]; then
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" download --verb 1"
+	echo "	list=\"United_Kingdom,France,Germany,Italy,Spain\""
+	echo "	$thisprog all --countries \$list -d 10 -w 12"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -142,7 +143,7 @@ fi
 if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	########################################
-	echo "...determine the latest data..."
+	echo -n "...determine the latest data..."
 	in1=$(ls -1 "covid_"????????".txt" | tail -n 1)
 	echo "	input= "$in1
 
@@ -164,89 +165,34 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		code=$(xe-dbmatch1 "table_countries_all.txt" Country $country -oc Code -o 1)
 		echo -e "\tCountry: "$country" ("$code")"
 
-		# select data for country, calculate cumulative deaths and days, and select on mindeaths
-		echo -e "\t\t...extracting country & calculating cumulative deaths..."
-		xe-dbmatch1 $in1 Country $country |
-			xe-cut1 stdin $listcols |
-			awk 'BEGIN{n=deaths=days=0; mindeaths=1*'$setmindeaths'}
-			{
-				if(++n==1) print $0"\tDay\tDeathSum";
-				else { deaths+=$3; if(deaths>=mindeaths) print $0"\t"days"\t"deaths }
-			}' > jj.3
+		#echo -e "\t\t...analyzing..."
+		out2a=$tempfile"_block.txt"
+		out2b="temp_xe-CORONA.txt"
+		opts="-mindeaths $setmindeaths -maxdays $setmaxdays -low $setlo -high $sethi -normd 1 -normc 1 -pad 1 -out 2"
 
-		# filter the data and extract on days past peak in smoothed-deaths
-		echo -e "\t\t...filtering..."
-		xe-cut1 jj.3 Deaths |
-			xe-filter_butterworth1 stdin -sf 7 -low $setlo -high $sethi |
-			xe-timestamp1 stdin -p 0 |
-			awk 'BEGIN{days=0;maxdays=1*'$setmaxdays'}{
-				if(days++<=maxdays) print "1\t"$0
-			}' > jj.filtdeaths
-		xe-cut1 jj.3 Cases |
-			xe-filter_butterworth1 stdin -sf 7  -low $setlo -high $sethi |
-			xe-timestamp1 stdin -p 0 |
-			awk 'BEGIN{days=0;maxdays=1*'$setmaxdays'}{
-				if(days++<=maxdays) print "24\t"$0
-			}' > jj.filtcases
+		#echo -e "\t\txe-CORONA1 $in1 $country $opts"
+		xe-CORONA1 $in1 $country $opts  > $out2a
 
-		# find the smoothed peak and the correction factor for the cases
-		echo -e "\t\t...finding peak..."
-		dmax=$(cut -f 3 jj.filtdeaths | xe-statsd1 stdin -f 0 | cut -f 5) # max value, deaths
-		x=$(cut -f 3 jj.filtcases | xe-statsd1 stdin -f 0 | cut -f 5) # max value, cases
-		ratio=$(echo "scale=12; $dmax/$x" | bc)
+		slope1=$(grep "Regression_rising:" $out2b | xe-getkey stdin slope=)
+		slope2=$(grep "Regression_falling:" $out2b | xe-getkey stdin slope=)
 
-		# save the deaths data for the pre-peak period
-		echo -e "\t\t...getting pre-peak period..."
-		awk 'BEGIN{s=1;a=1*'$dmax'}{if(s==1)print $2"\t"$3; if($3==a) s=0;}' jj.filtdeaths > jj.pre
-		# calculate the regression line
-		reg=$(xe-correlate jj.pre -verb 2 | grep "Regression equation:" | cut -f 2- -d :)
-		x1=$(head -n 1 jj.pre | cut -f 1)
-		x2=$(tail -n 1 jj.pre | cut -f 1)
-		y1=$(echo $reg | awk 'BEGIN{x1=1*'$x1'}{print $3 + x1*$5}')
-		y2=$(echo $reg | awk 'BEGIN{x2=1*'$x2'}{print $3 + x2*$5}')
-		echo -e "26\t$x1\t$y1\n26\t$x2\t$y2" > jj.prepoints # the two points defining the fit-line
-		# calculate the corrected slope - scale data 0-100
-		div=$(echo "scale=12; $dmax / 100" | bc)
-		xe-norm2 jj.pre -cy 2 -sub 0 -div $div > jj.prenorm # new range is  hypothetical-0 to 100
-		slope1=$(xe-correlate jj.prenorm -verb 2 | grep "Regression equation:" | cut -f 2- -d : | awk '{printf("%.3f",$5)}')
-
-		# save the deaths data for the post-peak period
-		echo -e "\t\t...getting post-peak period..."
-		awk 'BEGIN{s=0;a=1*'$dmax'}{if($3==a) s=1; if(s==1)print $2"\t"$3}' jj.filtdeaths > jj.post
-		# calculate the regression line for the post-peak deaths data
-		reg=$(xe-correlate jj.post -verb 2 | grep "Regression equation:" | cut -f 2- -d :)
-		x1=$(head -n 1 jj.post | cut -f 1)
-		x2=$(tail -n 1 jj.post | cut -f 1)
-		y1=$(echo $reg | awk 'BEGIN{x1=1*'$x1'}{print $3 + x1*$5}')
-		y2=$(echo $reg | awk 'BEGIN{x2=1*'$x2'}{print $3 + x2*$5}')
-		echo -e "27\t$x1\t$y1\n27\t$x2\t$y2" > jj.postpoints # the two points defining the fit-line
-		# calculate the corrected slope - scale data 0-100
-		div=$(echo "scale=12; $dmax / 100" | bc)
-		xe-norm2 jj.post -cy 2 -sub 0 -div $div > jj.postnorm # new range is  hypothetical-0 to 100
-		slope2=$(xe-correlate jj.postnorm -verb 2 | grep "Regression equation:" | cut -f 2- -d : | awk '{printf("%.3f",$5)}')
-
-		########################################
-		echo -e "\t\t...plotting..."
-		# make the country plot
+		# make the groupnames table
 		echo -e "group\tname" > "table_groupnames.txt"
-		echo -e "24\tCases_Normalized" >> "table_groupnames.txt"
+		echo -e "0\tCases_Normalized" >> "table_groupnames.txt"
 		echo -e "1\tDeaths" >> "table_groupnames.txt"
 		echo -e "26\tFit_Rise:__$slope1" >> "table_groupnames.txt"
 		echo -e "27\tFit_Fall:__$slope2" >> "table_groupnames.txt"
-		plotopts="-cg 1 -cx 2 -cy 3 -line 1 -ps 0 -xint 7 -xscale .4"
+
+		#echo -e "\t\t...plotting..."
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -xscale .45"
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
-		t=$country
-		xe-math_mult1 jj.filtcases -cy 3 -v $ratio |
-			cat jj.prepoints jj.postpoints jj.filtdeaths - |
-				xe-plottable1 stdin $plotopts -title "$t" -xlabel "Days" -ylabel "Deaths" -legend 1 -out $plotfile
-			xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
 
+		xe-plottable1 $out2a $plotopts -title "$country" -xlabel "Weeks" -ylabel "% of Peak" -legend 1 -out $plotfile
+		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
 
 		# save the slopes
 		echo -e "$code\t$slope1\t$slope2" >> jj.slopes
-
-
 	done
 
 	xe-plotmerge1 $plotlist -xo 80 -xmax 2 -ymax 3 -xinc 280 -yinc 250 -out "plot_summary"
