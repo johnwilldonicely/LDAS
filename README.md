@@ -106,7 +106,7 @@ Example install commands:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 	$ ./LDAS_INSTALL.sh update
 ```
-Note that in two of the examples you do have the option to install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
+Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
 ### 4. Check for Warnings and Errors
 * Are you using the most up-to-date installer?
