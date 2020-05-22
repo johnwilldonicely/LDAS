@@ -135,6 +135,17 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "down" ] ; then
 
 	echo "done downloading"
 	head $basename.txt
+
+	# Add Europe-wide data 
+	xe-dbmatch1 $basename.txt Continent Europe > jj.europe1
+	pop=$(xe-cut1 jj.europe1 GeoID,Pop -o 1 | sort -u | cut -f 2 | xe-math_sum1 stdin -long 1)
+	listdates=$( xe-dbmatch1 covid_20200522.txt Continent Europe | xe-cut1 stdin Date -o 1 | sort -u)
+	for d in $listdates ; do 
+		cases=$(xe-dbmatch1 jj.europe1 Date $d -oc Cases | xe-math_sum1 stdin -long 1)
+		deaths=$(xe-dbmatch1 jj.europe1 Date $d -oc Deaths | xe-math_sum1 stdin -long 1)
+		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUR\t$pop\tEurope" >> $basename.txt 
+	done 
+
 fi
 
 
@@ -177,6 +188,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		# save the slopes
 		slope1=$(grep "Regression_rising:" $out2b | xe-getkey stdin slope=)
 		slope2=$(grep "Regression_falling:" $out2b | xe-getkey stdin slope=)
+		dmax=$(xe-getkey $out2b peak_deaths= | xe-math_round2 stdin -b 1)
 		dcurrent=$(xe-dbmatch1 temp_xs-CORONA1_block.txt Var Deaths -oc Count | tail -n 1)
 		echo -e "$code\t$slope1\t$slope2\t$dcurrent" >> jj.slopes
 
@@ -188,17 +200,23 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		echo -e "27\tFit_Fall:__$slope2" >> "table_groupnames.txt"
 
 		#echo -e "\t\t...plotting..."
-		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -ps 0 -xint 1 -yint 10 -xscale .45 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 4 -xint 1 -yint 10 -xscale .45 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
 
-		xe-plottable1 $out2a $plotopts -title "$country" -xlabel "Weeks" -ylabel "% of Peak" -legend 1 -out $plotfile
-		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
+		xe-plottable1 $out2a $plotopts -title "$country ($dmax)" -xlabel "Weeks" -ylabel "% of Peak" -legend 1 -out $plotfile
+
+		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
+		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
+		mv jjj $plotfile 
+	
+#		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
 
 	done
 
-	xe-plotmerge1 $plotlist -xo 80 -xmax 2 -ymax 3 -xinc 280 -yinc 250 -out "plot_summary"
+	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "plot_summary"
 	rm -f $plotlist
+
 
 
 	# MAKE THE SLOPES PLOTS
@@ -221,10 +239,10 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
 	# 2. SLOPE OF FALL FROM PEAK
-	# build a slopes data file sorted by descending (steeper) slopes, and converting to absolute values
+	# build a slopes data file sorted by ascending (lower) slopes, and converting to absolute values
 	xe-cut1 jj.slopes code,slope2 > jj.temp
-	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2nr | awk '{print n++"\t"$0}' ) |
-		xe-math_abs1 stdin -cy 3 |
+	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
+#		xe-math_abs1 stdin -cy 3 |
 		xe-math_round2 stdin -c 3 -b .01 > "table_slopes_post.txt"
 	# build a list of xpos/countrycode pairs for the xtics modification
 	list=$(xe-cut1 "table_slopes_post.txt" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
@@ -242,12 +260,12 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	list=$(xe-cut1 "table_dcurrent.txt" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_deaths_latest.ps"
 	plotlist=$plotlist" "$plotfile
-	xe-plottable1 "table_dcurrent.txt" $plotopts -xlabel "Country" -ylabel "% of Peak" -title "Deaths: last measure" -out $plotfile
+	xe-plottable1 "table_dcurrent.txt" $plotopts -xlabel "Country" -ylabel "% of Peak" -title "Deaths at $setmaxweeks weeks post-peak" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
 
 	# MERGE THE PLOTS
-	xe-plotmerge1 $plotlist -xmax 2 -xinc 280 -yinc 225 -out "plot_slopes"
+	xe-plotmerge1 $plotlist -xo 55 -xmax 2 -xinc 300 -yinc 225 -out "plot_slopes"
 	rm -f $plotlist
 
 

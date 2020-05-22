@@ -299,7 +299,8 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"index_start= %ld\n",istart);
 	fprintf(fpout,"index_peak= %ld\n",ipeak);
 	fprintf(fpout,"index_stop= %ld\n",(istop-1));
-	fprintf(fpout,"peak_deaths= %g\n",deaths1[ipeak]);
+	fprintf(fpout,"peak_cases= %ld\n",cmax);
+	fprintf(fpout,"peak_deaths= %g\n",dmax);
 	fprintf(fpout,"Regression_rising: intercept= %g slope= %g\n",intercept1,slope1);
 	fprintf(fpout,"Regression_falling: intercept= %g slope= %g\n",intercept2,slope2);
 	fclose(fpout);
