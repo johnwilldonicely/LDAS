@@ -26,8 +26,8 @@ seturl="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv"
 setcountries="United_Kingdom"
 setmindeaths="0"
 setmaxweeks="0"
-setlo="0"
-sethi="0.5"
+setsmooth="7"
+
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -45,8 +45,7 @@ if [ $# -lt 1 ]; then
 	echo "	-d: minimum cumulative deaths (begin analysis) [$setmindeaths]"
 	echo "	-w: maximum weeks since --mindeaths was reached (end analysis) [$setmaxweeks]"
 	echo "	--countries: CSV list of countries to analyse [$setcountries]"
-	echo "	--lo: butterworth low-cut frequency (weeks) [$setlo]"
-	echo "	--hi: butterworth high-cut frequency (weeks) [$sethigh]"
+	echo "	--smooth: Gaussian smoothin gwindow (days) [$setsmooth]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
@@ -64,7 +63,7 @@ setmode=$1 ; shift
 #if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
 #if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
 
-vs="v:c:d:w:" ; vl="verb:,clean:,countries:,lo:,hi:"
+vs="v:c:d:w:" ; vl="verb:,clean:,countries:,smooth:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -75,8 +74,7 @@ while [ $# -gt 0 ] ; do
 		-d ) setmindeaths=$2 ; shift ;;
 		-w ) setmaxweeks=$2 ; shift ;;
 		--countries ) setcountries=$2 ; shift ;;
-		--lo ) setlo=$2 ; shift ;;
-		--hi ) sethi=$2 ; shift ;;
+		--smooth ) setsmooth=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -139,16 +137,16 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "down" ] ; then
 	echo "done downloading"
 	head $basename.txt
 
-	# Add Europe-wide data 
+	# Add Europe-wide data
 	echo "Building Europe-wide data"
 	xe-dbmatch1 $basename.txt Continent Europe > jj.europe1
 	pop=$(xe-cut1 jj.europe1 GeoID,Pop -o 1 | sort -u | cut -f 2 | xe-math_sum1 stdin -long 1)
 	listdates=$( xe-dbmatch1 $basename.txt Continent Europe | xe-cut1 stdin Date -o 1 | sort -u)
-	for d in $listdates ; do 
+	for d in $listdates ; do
 		cases=$(xe-dbmatch1 jj.europe1 Date $d -oc Cases | xe-math_sum1 stdin -long 1)
 		deaths=$(xe-dbmatch1 jj.europe1 Date $d -oc Deaths | xe-math_sum1 stdin -long 1)
-		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUR\t$pop\tEurope" >> $basename.txt 
-	done 
+		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUR\t$pop\tEurope" >> $basename.txt
+	done
 
 fi
 
@@ -157,7 +155,7 @@ fi
 # PROCESS THE LATEST DATA
 if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
-	echo 
+	echo
 	listcountries=$(echo $setcountries | tr ',' ' ')
 
 	########################################
@@ -186,16 +184,16 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		#echo -e "\t\t...analyzing..."
 		out2a=$tempfile"_block.txt"
 		out2b="temp_xe-CORONA.txt"
-		opts="-mindeaths $setmindeaths -maxdays $setmaxdays -low $setlo -high $sethi -normd 1 -normc 1 -pad 1 -out 2"
-		
-		# special case - eliminate second-peak for China 
-		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi 
+		opts="-mindeaths $setmindeaths -maxdays $setmaxdays -smooth $setsmooth -normd 1 -normc 1 -pad 1 -out 2"
+
+		# special case - eliminate second-peak for China
+		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
 		#echo -e "\t\txe-CORONA1 $in1 $country $opts"
 		xe-CORONA1 $in1 $country $opts  > $out2a
 
 		# save the slopes
-		slope1raw=$(grep "Regression_rising_raw:" $out2b | xe-getkey stdin slope= | awk 'BEGIN{p='$pop'/1000000.0}{printf("%.3f",($1/p))}')
+		slope1raw=$(grep "Regression_rising_raw:" $out2b | xe-getkey stdin slope=) #  | awk 'BEGIN{p='$pop'/1000000.0}{printf("%.3f",($1/p))}'
 		slope2norm=$(grep "Regression_falling_normalised:" $out2b | xe-getkey stdin slope=)
 		dmax=$(xe-getkey $out2b peak_deaths= | xe-math_round2 stdin -b 1)
 		days2dmax=$(xe-getkey $out2b days_to_dmax=)
@@ -218,15 +216,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
 		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
-		mv jjj $plotfile 
-	
+		mv jjj $plotfile
+
 #		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
 
 	done
 
 	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "plot_summary"
 	rm -f $plotlist
-	xe-plotmerge2 $(ls plot_summary.???.ps) > plot_summary.ps 
+	xe-plotmerge2 $(ls plot_summary.???.ps) > plot_summary.ps
 	rm -f plot_summary.???.ps
 
 
@@ -237,7 +235,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
 	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 8 "
 
-	# 1. SLOPE OF RISE TO PEAK - RAW 
+	# 1. SLOPE OF RISE TO PEAK - RAW
 	# build a slopes data file sorted by ascending (steeper) slopes
 	echo -e "\t- rising raw"
 	in3="table_slopes_pre_raw.txt"
@@ -248,10 +246,10 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	list=$(xe-cut1 $in3 xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_slopes_pre_raw.ps"
 	plotlist=$plotlist" "$plotfile
-	xe-plottable1 $in3 $plotopts -xlabel "Country" -ylabel "Deaths/million per Day" -title "Pre-mitigation disease-impact" -out $plotfile
+	xe-plottable1 $in3 $plotopts -xlabel "Country" -ylabel "Daily Deaths, per Day" -title "Initial impact (slope of rise in deaths) " -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
-	# 2. DAYS TO DEATH-MAX - a measure of speed of effective response 
+	# 2. DAYS TO DEATH-MAX - a measure of speed of effective response
 	echo -e "\t- days to d-max"
 	in3="table_slopes_days_to_dmax.txt"
 	xe-cut1 jj.slopes code,days2dmax > jj.temp
@@ -277,7 +275,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	xe-plottable1 $in3 $plotopts -xlabel "Country" -ylabel "% Normalised Peak / Day" -title "Persistence (slope of fall in deaths)" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
-	# 4. LAST CALCULATED DEATHS, %-OF-PEAK 
+	# 4. LAST CALCULATED DEATHS, %-OF-PEAK
 	# build a data file sorted by ascending deaths
 	echo -e "\t- latest deaths (% of peak)"
 	in3="table_dcurrent.txt"

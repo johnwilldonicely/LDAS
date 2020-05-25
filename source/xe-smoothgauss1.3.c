@@ -25,7 +25,6 @@ v 1: 14.August.2012 [JRH]
 
 
 /* external functions start */
-int xf_smoothgaussd(double *original,long arraysize,int smooth);
 int xf_smoothgauss1_d(double *original, size_t arraysize,int smooth);
 /* external functions end */
 

@@ -1,6 +1,7 @@
 #define thisprog "xe-plottable1"
 #define TITLE_STRING thisprog" 5.May.2020 [JRH]"
 #define MAXLINELEN 10000
+#define MAXWORDLEN 256
 #define MAXUSERLINES 256
 
 #include <stdio.h>
@@ -57,7 +58,7 @@ void xf_qsortindex1_d(double *data, long *index,long nn);
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char *infile=NULL,outfile[256],line[MAXLINELEN],*pline,*pcol,*gwords=NULL,message[256];
+	char *infile=NULL,outfile[MAXWORDLEN],line[MAXLINELEN],*pline,*pcol,*gwords=NULL,message[MAXWORDLEN];
 	long ii,jj,kk,nn,mm;
 	int w,x,y,z,col,colsmissing=2;
 	int  sizeofchar=sizeof(char),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double),sizeoflong=sizeof(long);
@@ -66,7 +67,7 @@ int main (int argc, char *argv[]) {
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
-	char xlabel[256],ylabel[256],plottitle[256],*tempgword=NULL;
+	char xlabel[MAXWORDLEN],ylabel[MAXWORDLEN],plottitle[MAXWORDLEN],*tempgword=NULL;
 	int *linebreak=NULL,*temp_linebreak=NULL,*tempint=NULL,lb;
 	int xticprecision,yticprecision;
 	long n1,linecount;
@@ -91,7 +92,7 @@ int main (int argc, char *argv[]) {
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* arguments */
-	char plottype[16],pointtype[16],bigtic[256],*hlineword=NULL,*vlineword=NULL;
+	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
 	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
 	int pointfill=1, framestyle=3, f1=0,f2=0,f3=0,f4=0,setdatacolour=0,setmaxpoints=10000,setmid=1,setgshift=0;
@@ -101,7 +102,7 @@ int main (int argc, char *argv[]) {
 	float setticsize=-3,pointsize=5,fontsize=10.0;
 	float boxwidth=0.75, ewidth=(boxwidth*0.5),lwdata=1,lwaxes=1,lwerror=0.75; // boxwidth and linewidth for drawing data and frame/tics
 
-	snprintf(outfile,256,"temp_%s.ps",thisprog);
+	snprintf(outfile,MAXWORDLEN,"temp_%s.ps",thisprog);
 	xlabel[0]=0;
 	ylabel[0]=0;
 	plottitle[0]= '\0';
@@ -246,7 +247,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-ps")==0) 	{ pointsize=atof(argv[++ii]); setpointsize=1; }
 			else if(strcmp(argv[ii],"-pf")==0) 	{ pointfill=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-plot")==0) 	{ sprintf(plottype,"%s",(argv[++ii])); }
-			else if(strcmp(argv[ii],"-out")==0) 	{ snprintf(outfile,256,"%s",(argv[++ii])); }
+			else if(strcmp(argv[ii],"-out")==0) 	{ snprintf(outfile,MAXWORDLEN,"%s",(argv[++ii])); }
 			else if(strcmp(argv[ii],"-zx")==0) 	{ zx=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-zy")==0) 	{ zy=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-verb")==0) 	{ setverb=atoi(argv[++ii]); }
@@ -703,21 +704,24 @@ int main (int argc, char *argv[]) {
 	if(setyint!=-1) {
 		if((ymin<=0. && ymax>0.)||(ymax>=0 && ymin<0.)) {
 			for(aa=0;aa>=ymin;aa-=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) {yticmaxchar=(float)z;snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 			for(aa=(0+yint);aa<=ymax;aa+=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) {yticmaxchar=(float)z;snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 		}
 		else {
 			for(aa=ymin; aa<=ymax; aa+=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) { yticmaxchar=(float)z; snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 		}
 	}
