@@ -57,7 +57,7 @@ void xf_qsortindex1_d(double *data, long *index,long nn);
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char *infile=NULL,outfile[256],line[256],newline[256],*pline,*pcol,*gwords=NULL,message[256];
+	char *infile=NULL,outfile[256],line[MAXLINELEN],*pline,*pcol,*gwords=NULL,message[256];
 	long ii,jj,kk,nn,mm;
 	int w,x,y,z,col,colsmissing=2;
 	int  sizeofchar=sizeof(char),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double),sizeoflong=sizeof(long);
@@ -101,7 +101,7 @@ int main (int argc, char *argv[]) {
 	float setticsize=-3,pointsize=5,fontsize=10.0;
 	float boxwidth=0.75, ewidth=(boxwidth*0.5),lwdata=1,lwaxes=1,lwerror=0.75; // boxwidth and linewidth for drawing data and frame/tics
 
-	sprintf(outfile,"temp_%s.ps",thisprog);
+	snprintf(outfile,256,"temp_%s.ps",thisprog);
 	xlabel[0]=0;
 	ylabel[0]=0;
 	plottitle[0]= '\0';
@@ -500,14 +500,14 @@ int main (int argc, char *argv[]) {
 		setdatacolour= 0;
 		setebright= 0;
 		ncolours= ngrps;
-		/* adjust number of colours slightly for palettes where the top is close to white */
-		if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) ncolours= ncolours+1;
-		red= realloc(red,ncolours*sizeof(*red));
-		green= realloc(green,ncolours*sizeof(*green));
-		blue= realloc(blue,ncolours*sizeof(*blue));
+		/* adjust number of colours (kk) slightly for palettes where the top is close to white */
+		kk=ncolours; if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) kk+=1;
+		red= realloc(red,kk+ncolours*sizeof(*red));
+		green= realloc(green,kk*sizeof(*green));
+		blue= realloc(blue,kk*sizeof(*blue));
 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(ii=0;ii<ncolours;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,ncolours,setpal);
+		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+		x= xf_palette7(red,green,blue,kk,setpal);
 	}
 	else {
 		ncolours= 32;
