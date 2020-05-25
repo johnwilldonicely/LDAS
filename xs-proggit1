@@ -40,7 +40,7 @@ if [ $# -lt 1 ]; then
 	echo "    -t: (pull) update PROGTAG.html program list [unset]"
 	echo "    -m: (push) message for commit [default defined by git status]"
 	echo "EXAMPLE: "
-	echo "    $thisprog pull -u -v"
+	echo "    $thisprog pull -c -v"
 	echo "    $thisprog push -m \"this is my message\""
 	echo "--------------------------------------------------------------------------------"
 	echo
@@ -158,15 +158,15 @@ elif [ $mode == "pull" ] ; then
 
 	# compile changed code 
 	if [ $setcompile -eq 1 ] && [ "$list" != "" ] ; then
-		if [ $setverb -eq 1 ] ; then echo -e "\ncd $basebpath/source\nxs-progcompile "$list" --warn 1 " ; fi 
-		cd $basebpath/source
+		if [ $setverb -eq 1 ] ; then echo -e "\ncd $basepath/source\nxs-progcompile "$list" --warn 1 " ; fi 
+		cd $basepath/source
 		xs-progcompile "$list" --warn 1
 	fi
 
 	# update HTML program-tag guide
 	if [ $settag -eq 1 ] ; then
 		if [ $setverb -eq 1 ] ; then echo -e "\nxs-progtag html" ; fi 
-		cd $basebpath/source
+		cd $basepath/source
 		xs-progtag html
 	fi
 
