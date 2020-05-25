@@ -21,6 +21,7 @@ long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long *xf_getkeycol(char *line1, char *d1, char *keys1, char *d2, long *nkeys1, char *message);
 int xf_filter_bworth1_d(double *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
 double xf_correlate_simple_d(double *x, double *y, long nn, double *result_d);
+long xf_detectinflect1_d(double *data,long n1,long **itime,int **isign,char *message);
 /* external functions end */
 
 
@@ -31,7 +32,7 @@ int main (int argc, char *argv[]) {
 	int vector[] = {1,2,3,4,5,6,7},z;
 	long ii,jj,kk,nn,maxlinelen=0,nlines;
 	float a,b,c;
-	double aa,bb,cc;
+	double aa,bb,cc,dd;
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
@@ -40,14 +41,14 @@ int main (int argc, char *argv[]) {
 	long *ikeys=NULL,*keycols=NULL,nkeys;
 
 	int sizeofcases0,sizeofdeaths0;
-	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords,ipeak=-1,setmindeaths=0,setmaxdays=356,istart=-1,istop=-1,cmin,cmax,overrun;
+	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords,ipeak=-1,setmindeaths=0,setmaxdays=356,istart=-1,istop=-1,itrough2,ipeak2,cmin,cmax,overrun;
 	float *weeks1=NULL;
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,dmin,dmax,result_d[8];
-	double intercept1,intercept2,slope1,slope2,week;
+	double intercept1a,intercept1b,intercept2,slope1a,slope1b,slope2,week;
 
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
-	int setverb=0,setpad=0,setnormc=0,setnormd=0,setout=1;
+	int setverb=0,setpad=0,setnormc=0,setnormd=0,setout=1,setpeak2=0;
 	double setlow=0,sethigh=0;
 
 	sprintf(outfile,"temp_%s.txt",thisprog);
@@ -55,7 +56,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
 	********************************************************************************/
-	if(argc<2) {
+	if(argc<3) {
 		fprintf(stderr,"\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"%s\n",TITLE_STRING);
@@ -74,6 +75,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-high: high frequency limit, 0=NONE [%g]\n",sethigh);
 		fprintf(stderr,"	-normd: normalise deaths to 0-1 range (0=NO 1=YES) [%d]\n",setnormd);
 		fprintf(stderr,"	-normc: normalise cases to 0-1 range (0=NO 1=YES) [%d]\n",setnormc);
+		fprintf(stderr,"	-peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
 		fprintf(stderr,"	-out: output format [%d]\n",setout);
 		fprintf(stderr,"		1: Day Cases Deaths DeathsSum\n");
 		fprintf(stderr,"		2: Var Day Count\n");
@@ -104,6 +106,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-pad")==0) setpad= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-normc")==0) setnormc= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-normd")==0) setnormd= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-peak2")==0) setpeak2= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-out")==0) setout= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
@@ -112,6 +115,7 @@ int main (int argc, char *argv[]) {
 	if(setnormc!=0 && setnormc!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -normc [%d] must be 0 or 1\n\n",thisprog,setnormc);exit(1);}
 	if(setnormd!=0 && setnormd!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -normd [%d] must be 0 or 1\n\n",thisprog,setnormd);exit(1);}
 	if(setout!=1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: invalid -out [%d] must be 1 or 2\n\n",thisprog,setout);exit(1);}
+	if(setpeak2!=0 && setpeak2!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -peak2 [%d] must be 0 or 1\n\n",thisprog,setpeak2);exit(1);}
 
 
 	/********************************************************************************
@@ -191,8 +195,47 @@ int main (int argc, char *argv[]) {
 
 	if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths2[%ld]= %ld\n",ii,deaths2[ii]);
 
+
 	/********************************************************************************/
-	/* APPLY THE FILTER TO THE ENTIRE DATASET */
+	/* FIND CHUNK OF DATA PART-1 : start (setmindeaths, unfiltered) */
+	/********************************************************************************/
+	/* find the start */
+	istart= -1;
+	for(ii=0;ii<nn;ii++) { if(deaths2[ii]>=setmindeaths) { istart=ii; break; } }
+	if(istart==-1) {fprintf(stderr,"\n--- Error[%s]: -mindeaths threshold (%ld) never reached\n\n",thisprog,setmindeaths);exit(1);}
+
+
+	/********************************************************************************/
+	/* FIXED PRE-FILTER TO DETECT FIRST PEAK  - 2-week smoothing */
+	/********************************************************************************/
+	if(setpeak2==1) {
+		z= xf_filter_bworth1_d(deaths1,nn,7.0,0.0,.5,sqrt(2),message);
+		jj=kk= 0;
+		itrough2= nn; // default stop based on second-peak is the whole dataset 
+		aa=bb=cc=dd= deaths1[istart];
+		for(ii=istart;ii<nn;ii++) {
+			cc= deaths1[ii];
+			if(cc>bb && bb<aa) jj= ii;  // index to most recent trough
+			if(cc<bb && bb>aa) {
+				kk++; // peak-counter
+				if(kk==1) dd= cc; // save amplitude of first peak 
+				if(kk>=2 && cc>dd) { 
+					fprintf(stderr,"--- Warning: larger second peak detected at day %ld\n",ii); 
+					itrough2=jj; 
+					break;
+				}
+			}		
+			aa= bb; bb= cc;
+		}
+		/* restore the original death1 array for re-filtering */
+		for(ii=0;ii<nn;ii++) deaths1[ii]= (double)(deaths0[ii]);
+		/* adjust the sample-count */
+		if(itrough2<nn) nn= itrough2;
+	}
+
+
+	/********************************************************************************/
+	/* APPLY THE REQUESTED FILTER TO THE ENTIRE DATASET */
 	/********************************************************************************/
 	if(setlow!=0||sethigh!=0) {
 
@@ -205,12 +248,9 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
-	/* IDENTIFY THE RELEVANT CHUNK OF DATA BETWEEN setmindeaths and setmaxdays */
+	/* FIND CHUNK OF DATA PART-1 : peak and stop (setmaxdays) */
+	/* note we use itrough2 as the end-post for searching for peak - this is the same as nn if no second peak was detected in the super-smoothed data */
 	/********************************************************************************/
-	/* find the start */
-	istart= -1;
-	for(ii=0;ii<nn;ii++) { if(deaths2[ii]>=setmindeaths) { istart=ii; break; } }
-	if(istart==-1) {fprintf(stderr,"\n--- Error[%s]: -mindeaths threshold (%ld) never reached\n\n",thisprog,setmindeaths);exit(1);}
 	/* find the peak */
 	dmax= deaths1[istart];
 	for(ii=istart;ii<nn;ii++) { if(deaths1[ii]>dmax) { dmax=deaths1[ii]; ipeak=ii; } }
@@ -218,6 +258,7 @@ int main (int argc, char *argv[]) {
 	if(setmaxdays==0) setmaxdays= (nn-ipeak)-1;
 	istop= ipeak+setmaxdays+1;
 	if(istop>nn) istop= nn;
+	
 	overrun= (ipeak+setmaxdays+1)-nn ; // number of excess days being requested
 
 	if(setverb==999) printf("istart= %ld ipeak= %ld istop= %ld\n",istart,ipeak,istop);
@@ -248,11 +289,23 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
+	/* CALCULATE THE RISING DEATH-SLOPE  - unormalized */
+	/********************************************************************************/
+	/* raw deaths */
+	pdays1= (days1+istart);
+	pdeaths1= (deaths1+istart);
+	kk= (ipeak-istart)+1;
+	aa= xf_correlate_simple_d(pdays1,pdeaths1,kk,result_d);
+	intercept1a= result_d[0];
+	slope1a= result_d[1];
+
+
+	/********************************************************************************/
 	/* NORMALISE CASES AND DEATHS */
 	/********************************************************************************/
 	if(setnormc==1) {
 		bb= cmax-cmin;
-		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);}
+		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise cases, range=0\n\n",thisprog);exit(1);}
 		for(ii=0;ii<nn;ii++) {
 			aa= 100 * (cases1[ii]-cmin);
 			if(aa!=0.0) cases1[ii]= aa/bb; else cases1[ii]= 0.0;
@@ -267,19 +320,19 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
-	/* CALCULATE THE START SLOPE  */
+	/* CALCULATE THE RISING DEATH-SLOPE  - normalized */
 	/********************************************************************************/
 	pdays1= (days1+istart);
 	pdeaths1= (deaths1+istart);
 	kk= (ipeak-istart)+1;
 	aa= xf_correlate_simple_d(pdays1,pdeaths1,kk,result_d);
-	intercept1= result_d[0];
-	slope1= result_d[1];
+	intercept1b= result_d[0];
+	slope1b= result_d[1];
 
 	if(setverb==999) { pdeaths2= (deaths2+istart); for(ii=0;ii<kk;ii++) printf("RISING[%ld]: %g\t%g\t%ld\n",ii,pdays1[ii],pdeaths1[ii],pdeaths2[ii]); }
 
 	/********************************************************************************/
-	/* CALCULATE THE STOP SLOPE  */
+	/* CALCULATE THE FALLING DEATH-SLOPE - normalized  */
 	/********************************************************************************/
 	pdays1= (days1+ipeak);
 	pdeaths1= (deaths1+ipeak);
@@ -301,8 +354,10 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"index_stop= %ld\n",(istop-1));
 	fprintf(fpout,"peak_cases= %ld\n",cmax);
 	fprintf(fpout,"peak_deaths= %g\n",dmax);
-	fprintf(fpout,"Regression_rising: intercept= %g slope= %g\n",intercept1,slope1);
-	fprintf(fpout,"Regression_falling: intercept= %g slope= %g\n",intercept2,slope2);
+	fprintf(fpout,"days_to_dmax= %ld\n",(ipeak-istart));
+	fprintf(fpout,"Regression_rising_raw: intercept= %g slope= %g\n",intercept1a,slope1a);
+	fprintf(fpout,"Regression_rising_normalised: intercept= %g slope= %g\n",intercept1b,slope1b);
+	fprintf(fpout,"Regression_falling_normalised: intercept= %g slope= %g\n",intercept2,slope2);
 	fclose(fpout);
 
 	if(setout==1) {
