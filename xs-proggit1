@@ -97,33 +97,33 @@ elif [ $mode == "status" ] ; then
 
 	if [ $setverb -eq 1 ] ; then 
 		echo "
-		git status
-		git remote update 
+		git fetch origin 
 		git diff origin/master --compact-summary
+		git status
 		"
 	fi 
 
-	echo ""
-	echo "LOCAL CHANGES"
-	echo "--------------------------------------------------------------------------------"
-	git -c color.status=always status | awk 'NF>0{print $0}' | grep -v '(use'
-
-
-	echo ""
-	echo "REMOTE CHANGES"
-	echo "--------------------------------------------------------------------------------"
+	echo "	"
+	echo "	REMOTE CHANGES - pull to resolve these first"
+	echo "	--------------------------------------------------------------------------------"
 	echo -en $RED	
-	git remote update &> /dev/null
-	git diff origin/master --compact-summary | 
+	git fetch origin
+	git diff HEAD origin/master --compact-summary | 
 	head -n -1 | cut -f 1 -d '|' | 
 	awk '{
 		a=$1; b=$2; 
-		if(b=="")         b="(modified) : "
-		else if(b=="(gone)") b="(added)    : "
-		else if(b=="(new)")  b="(deleted)  : "
-		print "\t"b,a
+		if(b=="")            b="modified: "
+		else if(b=="(gone)") b="added:    "
+		else if(b=="(new)")  b="deleted:  "
+		print "\t\t"b,a
 	}'
-	echo -e "$NC\n"
+	echo -e "$NC"
+
+	echo "	LOCAL CHANGES - push to update remote origin"
+	echo "	--------------------------------------------------------------------------------"
+	git -c color.status=always status | awk 'NF>0{print "\t"$0}' | grep -v '(use'
+	echo 
+
 
 
 ################################################################################
