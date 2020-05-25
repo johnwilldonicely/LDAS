@@ -37,7 +37,10 @@ if [ $# -lt 1 ]; then
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": template BASH script"
 	echo "USAGE: $thisprog [mode] [options]"
-	echo "	[mode]: operating mode: download | run"
+	echo "	[mode]: operating mode: down | proc | all"
+	echo "		down: download latest data"
+	echo "		process: process the data"
+	echo "		all: all of the above"
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	-d: minimum cumulative deaths (begin analysis) [$setmindeaths]"
 	echo "	-w: maximum weeks since --mindeaths was reached (end analysis) [$setmaxweeks]"
@@ -207,7 +210,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		echo -e "27\tFit_Fall:__$slope2norm" >> "table_groupnames.txt"
 
 		#echo -e "\t\t...plotting..."
-		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 2 -xint 1 -yint 10 -xscale .45 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 1 -xint 1 -yint 10 -xscale .45 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
 
@@ -223,7 +226,8 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "plot_summary"
 	rm -f $plotlist
-
+	xe-plotmerge2 $(ls plot_summary.???.ps) > plot_summary.ps 
+	rm -f plot_summary.???.ps
 
 
 	# MAKE THE SLOPES PLOTS

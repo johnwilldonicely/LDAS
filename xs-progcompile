@@ -4,9 +4,13 @@
 thisprog=`basename "$0"`
 allopts=$@
 logfile="temp_"$thisprog".log"
+progdir=$(which $0 2>/dev/null | rev | cut -f 2- -d / |rev)"/source"
 startdir=$(pwd)
+progpath=$(dirname $(readlink -f "$0"))
+progdir=$progpath"/source"
 start_time=$(date +'%s.%3N')
 date1=$(date)
+
 
 # DEFINE DEFAULT ARGUMENTS
 func_path="./"
@@ -59,8 +63,10 @@ if [ $# -lt 1 ]; then
 	exit
 fi
 
+
 ################################################################################
 # READ INPUT FILE LIST. SHIFT IS NECESSARY FOR ARGUMENT HANDLING (BELOW)
+cd $progdir 
 listinfiles=$(ls 2>/dev/null $1)
 let ninfiles=$(echo $listinfiles | wc -w)
 if [ $ninfiles -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no source-code files found matching \"$1\"" ; echo ; exit; } ; fi
@@ -87,6 +93,8 @@ while [ $# -gt 0 ] ; do
 	shift
 done
 if [ "$set_compiler" != "gcc" ] && [ "$set_compiler" != "g++" ] ; then { echo ; echo "--- Error ["$thisprog"]: -c (compiler) cannot be "$set_compiler" - must be gcc or g++" ; echo ; exit ; } fi
+
+
 
 ################################################################################
 # SET UP WARNING FLAGS
@@ -173,7 +181,6 @@ for infile in $listinfiles ; do
 done
 echo >> $logfile
 
-
 ################################################################################
 # REPORT
 echo
@@ -188,4 +195,11 @@ echo "Errors: "$nerrors
 grep " error:" $logfile --color=yes | awk '{print "\t"$0}'
 echo
 echo "Check log file $logfile for details"
+
+
+cd $startdir
+
+
+
+
 echo

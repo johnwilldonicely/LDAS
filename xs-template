@@ -7,7 +7,12 @@
 
 # for most scripts...
 thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"."$$"."
+
+progdir=$(which $0 2>/dev/null | rev | cut -f 2- -d / |rev)"/source"
 progpath=$(dirname $(readlink -f "$0"))
+startdir=$(pwd)
+
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 allopts=$@
 
@@ -17,8 +22,6 @@ thatprog=$(echo $thisprog | rev | cut -c 2- | rev)  # trim the last "b"
 progbase1="XSERIES1"
 thisprog="xs-ldas5-"$progbase1"b"
 
-tempfile="temp_"$thisprog #"."$$"."
-startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date0=$(date)
 

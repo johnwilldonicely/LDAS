@@ -469,7 +469,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	if(setverb==999) printf("*** STARTING: MEMORY ALLOCATION\n");
 	grprank= realloc(grprank,ngrps*sizeoflong);
-	grpshift= realloc(grpshift,ngrps*sizeoffloat);
+	grpshift= realloc(grpshift,ngrps*sizeof(*grpshift));
 	tempdouble= malloc(ngrps*sizeof(double));
 	temprank= malloc(ngrps*sizeof(long));
 	if(grprank==NULL||grpshift==NULL||tempdouble==NULL||temprank==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
@@ -738,15 +738,14 @@ int main (int argc, char *argv[]) {
 
 	// DETERMINE X-SHIFTS FOR PLOT TO ALLOW SIDE-BY SIDE PLOTTING OF GROUP DATA, IF REQUIRED
 // ??? this needs updating
-	for(ii=0;ii<=ngrps;ii++) grpshift[ii]=0.0;
+	for(ii=0;ii<ngrps;ii++) grpshift[ii]=0.0;
 	if(setgshift==1) {
  		x=(int)((float)ngrps/2.0); // number of shifts
  		a=(float)xint/(float)(ngrps+1); // shift between each group
  		b=0; if((ngrps%2)==0) b=a/2.0; // shift value for smallest group-id
 		for(jj=0;jj<ngrps;jj++) {grpshift[jj]=b; b+=a; } // set initial shift values for each group index
-		for(ii=0;ii<x;ii++) for(jj=0;jj<ngrps;jj++) {grpshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
+		for(ii=0;ii<x;ii++) { for(jj=0;jj<ngrps;jj++) {grpshift[jj]-=a; } } // shifting the shifts (!) backwards to centre on the middle index
  	}
-
 
 	/* DIAGNOSTIC OUTPUT */
 	if(setverb>0) {
@@ -772,6 +771,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"zy= %f\n",zy);
 		fprintf(stderr,"psymin= %f\n",psymin);
 		fprintf(stderr,"psymax= %f\n",psymax);
+		fprintf(stderr,"ngrps= %ld\n",ngrps);
+		fprintf(stderr,"ncolours= %ld\n",ncolours);
 		fprintf(stderr,"\n");
 		for(ii=0;ii<ngrps;ii++) printf("label[%ld]=%s\trank=%ld\n",ii,(gwords+igword[ii]),grprank[ii]);
 		fprintf(stderr,"--------------------------------------------------------------------------------\n");

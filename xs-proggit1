@@ -7,7 +7,7 @@ tempfile="temp_"$thisprog #"."$$"."
 
 start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
-basepath=$(which xs-template 2>/dev/null | rev | cut -f 2- -d / |rev)
+progpath=$(dirname $(readlink -f "$0"))
 
 setmessage=""
 let setcompile=0;
@@ -76,7 +76,7 @@ done
 
 ################################################################################
 # CHANGE TO REPOSITORY PATH 
-cd $basepath
+cd $progpath
 
 ################################################################################
 # SIMPLE GIT DIFF
@@ -158,15 +158,15 @@ elif [ $mode == "pull" ] ; then
 
 	# compile changed code 
 	if [ $setcompile -eq 1 ] && [ "$list" != "" ] ; then
-		if [ $setverb -eq 1 ] ; then echo -e "\ncd $basepath/source\nxs-progcompile "$list" --warn 1 " ; fi 
-		cd $basepath/source
+		if [ $setverb -eq 1 ] ; then echo -e "\ncd $progpath/source\nxs-progcompile "$list" --warn 1 " ; fi 
+		cd $progpath/source
 		xs-progcompile "$list" --warn 1
 	fi
 
 	# update HTML program-tag guide
 	if [ $settag -eq 1 ] ; then
 		if [ $setverb -eq 1 ] ; then echo -e "\nxs-progtag html" ; fi 
-		cd $basepath/source
+		cd $progpath/source
 		xs-progtag html
 	fi
 
