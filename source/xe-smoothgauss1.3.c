@@ -50,7 +50,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"Apply Gaussian smoothing kernel to data\n");
 		fprintf(stderr,"Assumes data has a fixed sample-rate\n");
 		fprintf(stderr,"USAGE: \n");
-		fprintf(stderr,"\t%s [infile][smooth]\n",thisprog,line);
+		fprintf(stderr,"\t%s [infile][smooth]\n",thisprog);
 		fprintf(stderr,"	[infile]: data file or stdin\n");
 		fprintf(stderr,"		- non-numeric data is ignored\n");
 		fprintf(stderr,"		- ignores newlines\n");
