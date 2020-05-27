@@ -164,7 +164,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	########################################
 	echo "...initialising the slopes file"
-	echo -e "code\tslope1raw\tdays2dmax\tslope2norm\tdcurrent" > jj.slopes
+	echo -e "code\tslope1raw\tdays2dmax\tslope2norm\tdcurrent" > $progbase1"_stats.txt"
 
 	########################################
 	echo "...running analysis for each country..."
@@ -176,16 +176,13 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		pop=$(xe-dbmatch1 $in1 Country $country -oc Pop -o 1 | head -n 1)
 		echo -e "\tCountry: "$country" ("$code")"
 
-		#echo -e "\t\t...analyzing..."
-		out2a=$tempfile"_block.txt"
-		out2b=$progbase1"_stats.txt"
-		opts="$setopts1 -out 2"
-
 		# special case - eliminate second-peak for China
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
 		# run the analysis for the current country
 		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
+		out2a=$tempfile"_block.txt"
+		opts="$setopts1 -out 2"
 		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
 
 
@@ -194,7 +191,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		dcurrent=$(xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin Count | tail -n 1)
 
 		#echo -e "\t\t...plotting..."
-		plotfile="plot_"$count".ps"
+		plotfile="temp_plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
 		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 1 -xint 1 -xscale .4 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent -vline $w50"
 		if [ "$setnormc" == "0" ] || [ "$setnormd" == "0" ] ; then
@@ -213,9 +210,9 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		# compile the output
 		if [ $count -eq 1 ] ; then
-			cat "temp_xe-CORONA1.txt" > $out2b
+			cat "temp_xe-CORONA1.txt" > $progbase1"_stats.txt"
 		else
-			tail -n +2 "temp_xe-CORONA1.txt" >> $out2b
+			tail -n +2 "temp_xe-CORONA1.txt" >> $progbase1"_stats.txt"
 		fi
 
 
@@ -223,15 +220,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "plot_summary"
 	rm -f $plotlist
-	xe-plotmerge2 $(ls plot_summary.???.ps) > plot_summary.ps
-	rm -f plot_summary.???.ps
+	xe-plotmerge2 $(ls temp_curves.???.ps) > $outbase1"_curves.ps"
+	rm -f temp_curves.???.ps
 
-exit
 
-	# MAKE THE SLOPES PLOTS
+	########################################
+	# MAKE THE STATS PLOTS
 	echo "...making slope-plots..."
 	plotlist=""
-	let ncountries=$(tail -n +2 jj.slopes | wc -l)
+	let ncountries=$(tail -n +2 $progbase1"_stats.txt" | wc -l)
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
 	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 8 "
 
@@ -239,7 +236,7 @@ exit
 	# build a slopes data file sorted by ascending (steeper) slopes
 	echo -e "\t- rising raw"
 	in3="table_slopes_pre_raw.txt"
-	xe-cut1 jj.slopes code,slope1raw > jj.temp
+	xe-cut1 $progbase1"_stats.txt" code,slope1raw > jj.temp
 	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
 		xe-math_round2 stdin -c 3 -b .01 > $in3
 	# build a list of xpos/countrycode pairs for the xtics modification
@@ -252,7 +249,7 @@ exit
 	# 2. DAYS TO DEATH-MAX - a measure of speed of effective response
 	echo -e "\t- days to d-max"
 	in3="table_slopes_days_to_dmax.txt"
-	xe-cut1 jj.slopes code,days2dmax > jj.temp
+	xe-cut1 $progbase1"_stats.txt" code,days2dmax > jj.temp
 	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
 		xe-math_round2 stdin -c 3 -b .01 > $in3
 	list=$(xe-cut1 $in3 xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
@@ -265,7 +262,7 @@ exit
 	# build a slopes data file sorted by ascending (lower) slopes, and converting to absolute values
 	echo -e "\t- falling norm"
 	in3="table_slopes_post_norm.txt"
-	xe-cut1 jj.slopes code,slope2norm > jj.temp
+	xe-cut1 $progbase1"_stats.txt" code,slope2norm > jj.temp
 	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
 #		xe-math_abs1 stdin -cy 3 |
 		xe-math_round2 stdin -c 3 -b .01 > $in3
@@ -279,7 +276,7 @@ exit
 	# build a data file sorted by ascending deaths
 	echo -e "\t- latest deaths (% of peak)"
 	in3="table_dcurrent.txt"
-	xe-cut1 jj.slopes code,dcurrent > jj.temp
+	xe-cut1 $progbase1"_stats.txt" code,dcurrent > jj.temp
 	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
 		xe-math_round2 stdin -c 3 -b .01 > $in3
 	list=$(xe-cut1 $in3 xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
