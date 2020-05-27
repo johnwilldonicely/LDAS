@@ -39,7 +39,7 @@ Open Windows Powershell as Administrator and  run this command:
 ```
 ...then restart your PC.  
 
-**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better fperformance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
+**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better performance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
 This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
