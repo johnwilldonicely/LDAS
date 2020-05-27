@@ -321,6 +321,17 @@ base=${clufile%%.clu*}
 ext=${clufile#*clu*.}
 probe=${ext%%.*}
 
+
+# DYNAMIC STRING ASSIGNMENT - STRING DEFINES A STRING NAME
+# ALSO, SCAN A LIST OF OPTIONS eg "-normc 0 -normd 1" and assign setnormc and setnormd accordingly
+if [ "$setopts1" != "" ] ; then
+	for var in normc normd ; do
+		z=$(echo $setopts1 | xe-getkey stdin "-$var")
+		if [ "$z" != "" ] ; then declare "set$var"=$z ; fi
+	done
+fi
+
+
 # PULLING OUT CHARACTER SUBSETS FROM A WORD
 echo $base | cut -c 1-2	# pulls out first two chracters
 echo FP01.bin | rev | cut -c 1-6 | rev # pulls out the last 6 characters

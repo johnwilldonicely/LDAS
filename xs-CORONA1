@@ -21,12 +21,8 @@ NC='\033[0m' 		# to revert to default text colour
 # options
 setverb="0"
 setclean="1"
-
 seturl="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv"
 setcountries="United_Kingdom"
-setmindeaths="0"
-setmaxweeks="0"
-setsmooth="7"
 setopts1=""
 
 ################################################################################
@@ -42,10 +38,7 @@ if [ $# -lt 1 ]; then
 	echo "		process: process the data"
 	echo "		all: all of the above"
 	echo "VALID OPTIONS (defaults in []):"
-	echo "	-d: minimum cumulative deaths (begin analysis) [$setmindeaths]"
-	echo "	-w: maximum weeks since --mindeaths was reached (end analysis) [$setmaxweeks]"
 	echo "	--countries: CSV list of countries to analyse [$setcountries]"
-	echo "	--smooth: Gaussian smoothin gwindow (days) [$setsmooth]"
 	echo "	--opts1: options (in quotes) o pass to xe-CORONA1 [unset]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
@@ -61,21 +54,16 @@ fi
 # INPUT FILE(S) AND ARGUMENT HANDLING
 ########################################################################################
 setmode=$1 ; shift
-#if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
-#if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
 
-vs="v:c:d:w:" ; vl="verb:,clean:,countries:,smooth,opts1:"
+vs="v:c:" ; vl="verb:,clean:,countries:,smooth,opts1:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
-		-v | --verb ) setverb=$2 ; shift ;;
-		-c | --clean ) setclean=$2 ; shift ;;
-		-d ) setmindeaths=$2 ; shift ;;
-		-w ) setmaxweeks=$2 ; shift ;;
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
 		--countries ) setcountries=$2 ; shift ;;
-		--smooth ) setsmooth=$2 ; shift ;;
 		--opts1 ) setopts1=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
@@ -89,15 +77,13 @@ if [ $setverb == 1 ] ; then
 	echo -e "$date0"
 fi
 
-# convert weeks to days
-let setmaxdays=$(echo "$setmaxweeks * 7" | bc | cut -f 1 -d .)
 
-
-setmindeaths=$(echo $setopts1 | xe-getkey stdin "-mindeaths")
-setmaxdays=$(echo $setopts1 | xe-getkey stdin "-maxdays")
-setnormc=$(echo $setopts1 | xe-getkey stdin "-normc")
-setnormd=$(echo $setopts1 | xe-getkey stdin "-normd")
-setsmooth=$(echo $setopts1 | xe-getkey stdin "-smooth")
+if [ "$setopts1" != "" ] ; then
+	for var in mindeaths maxdays normc normd smooth ; do
+		z=$(echo $setopts1 | xe-getkey stdin "-$var")
+		if [ "$z" != "" ] ; then declare "set$var"=$z ; fi
+	done
+fi
 
 rm -f jj.*
 
@@ -192,50 +178,46 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		#echo -e "\t\t...analyzing..."
 		out2a=$tempfile"_block.txt"
-		out2b="temp_xe-CORONA.txt"
-		opts="-mindeaths $setmindeaths -maxdays $setmaxdays -normd 1 -normc 1 -pad 1 -out 2 $setopts1"
+		out2b=$progbase1"_stats.txt"
+		opts="$setopts1 -out 2"
 
 		# special case - eliminate second-peak for China
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
-		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi 
+		# run the analysis for the current country
+		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
 		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
 
-		# save the slopes
-		slope1raw=$(grep "Regression_rising_raw:" $out2b | xe-getkey stdin slope= | awk 'BEGIN{p='$pop'/1000000.0}{printf("%.3f",($1/p))}')
-		slope2norm=$(grep "Regression_falling_normalised:" $out2b | xe-getkey stdin slope=)
-		dmax=$(xe-getkey $out2b peak_deaths= | xe-math_round2 stdin -b 1)
-		days2dmax=$(xe-getkey $out2b days_to_dmax=)
-		dcurrent=$(xe-dbmatch1 temp_xs-CORONA1_block.txt Var Deaths -oc Count | tail -n 1)
-		echo -e "$code\t$slope1raw\t$days2dmax\t$slope2norm\t$dcurrent" >> jj.slopes
 
-		# make the groupnames table
-		echo -e "group\tname" > "table_groupnames.txt"
-		echo -e "0\tCases_Normalized" >> "table_groupnames.txt"
-		echo -e "1\tDeaths" >> "table_groupnames.txt"
-		echo -e "26\tFit_Rise:__$slope1norm" >> "table_groupnames.txt"
-		echo -e "27\tFit_Fall:__$slope2norm" >> "table_groupnames.txt"
+		w50=$(xe-cut1 temp_xe-CORONA1.txt tmax,t50 -o 1 | awk '{print ($2-$1)/7}')
+		dmax=$(xe-cut1 temp_xe-CORONA1.txt dmax -o 1 | awk '{printf("%ld\n",$1)}')
+		dcurrent=$(xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin Count | tail -n 1)
 
 		#echo -e "\t\t...plotting..."
-		xl="Weeks"
-		yl="% of Peak"
-
-
-		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 1 -xint 1 -xscale .4 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent"
-		if [ "$setnormc" == "0" ] || [ "$setnormd" == "0" ] ; then
-			plotop=$plotopts" -yint 10"
-			yl="Daily Count"
-		fi
 		plotfile="plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 1 -xint 1 -xscale .4 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent -vline $w50"
+		if [ "$setnormc" == "0" ] || [ "$setnormd" == "0" ] ; then
+			xl="Weeks"
+			yl="Daily Count"
+		else
+			xl="Weeks"
+			yl="% of Peak"
+			plotopts=$plotopts" -yint 10"
+		fi
 
 		xe-plottable1 $out2a $plotopts -title "$country ($dmax)" -xlabel "$xl" -ylabel "$yl" -legend 1 -out $plotfile
-
 		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
 		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
 		mv jjj $plotfile
 
-#		xs-plotmod1 $plotfile --out 1 --legend "table_groupnames.txt"
+		# compile the output
+		if [ $count -eq 1 ] ; then
+			cat "temp_xe-CORONA1.txt" > $out2b
+		else
+			tail -n +2 "temp_xe-CORONA1.txt" >> $out2b
+		fi
+
 
 	done
 
@@ -244,6 +226,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	xe-plotmerge2 $(ls plot_summary.???.ps) > plot_summary.ps
 	rm -f plot_summary.???.ps
 
+exit
 
 	# MAKE THE SLOPES PLOTS
 	echo "...making slope-plots..."
@@ -302,7 +285,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	list=$(xe-cut1 $in3 xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_deaths_latest.ps"
 	plotlist=$plotlist" "$plotfile
-	xe-plottable1 $in3 $plotopts -xlabel "Country" -ylabel "% of Peak, $setmaxdays days" -title "$setmaxweeks-Week score (post-peak)" -out $plotfile
+	xe-plottable1 $in3 $plotopts -xlabel "Country" -ylabel "% of Peak, $setmaxdays days" -title "$maxweeks-Week score (post-peak)" -out $plotfile
 	xs-plotmod1 $plotfile --xtics $list --out 1
 
 

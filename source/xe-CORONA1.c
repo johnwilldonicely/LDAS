@@ -18,6 +18,7 @@ v 1: 20.May.2020 [JRH]
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long *xf_getkeycol(char *line1, char *d1, char *keys1, char *d2, long *nkeys1, char *message);
+long xf_interp3_d(double *data, long ndata);
 int xf_filter_bworth1_d(double *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
 double xf_correlate_simple_d(double *x, double *y, long nn, double *result_d);
 int xf_smoothgauss1_d(double *original, size_t arraysize,int smooth);
@@ -45,15 +46,15 @@ int main (int argc, char *argv[]) {
 	float *weeks1=NULL;
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,cmin,cmax,dmin,dmax,result_d[8];
 
-	long lastdeaths2,slopedeaths2;
-	double lastcases1,slopecases1,lastdeaths1,slopedeaths1,slopedeaths1max;
+	long lastdeaths2,slope2deaths2;
+	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1,slope1deaths1max=-1.,slope2deaths1=-1.;
 
 
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
-	int setverb=0,setpad=0,setnormc=0,setnormd=0,setout=1,setpeak2=0;
-	long setmindeaths=0,setmaxdays=356;
-	double setsmooth=0;
+	int setverb=0,setpad=0,setnormc=1,setnormd=1,setout=1,setpeak2=0;
+	long setmindeaths=10,setmaxdays=0;
+	double setsmooth=21;
 
 	sprintf(outfile,"temp_%s.txt",thisprog);
 
@@ -173,31 +174,40 @@ int main (int argc, char *argv[]) {
 	/* INITIALISE EXTRA ARRAYS  */
 	/********************************************************************************/
 	/* days: double-version of line-number */
-	days1= calloc(nn,sizeof(*days1));
+	days1= malloc(nn*sizeof(*days1));
 	if(days1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(ii=0;ii<nn;ii++) days1[ii]= (double)ii;
 
 	/* cases: double-version  */
-	cases1= calloc(nn,sizeof(*cases1));
+	cases1= malloc(nn*sizeof(*cases1));
 	if(cases1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(ii=0;ii<nn;ii++) cases1[ii]= (double)(cases0[ii]);
 
 	/* deaths: double-version  */
-	deaths1= calloc(nn,sizeof(*deaths1));
+	deaths1= malloc(nn*sizeof(*deaths1));
 	if(deaths1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(ii=0;ii<nn;ii++) deaths1[ii]= (double)(deaths0[ii]);
 
 	/* cumulative deaths - long integer */
-	deaths2= calloc(nn,sizeof(*deaths2));
+	deaths2= malloc(nn*sizeof(*deaths2));
 	if(deaths2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-	for(ii=kk=0;ii<nn;ii++) { if(deaths0[ii]>0) {kk+= deaths0[ii]; deaths2[ii]= kk;} }
+	for(ii=kk=0;ii<nn;ii++) { if(deaths0[ii]>0) kk+= deaths0[ii]; deaths2[ii]= kk; }
 
 	/* weeks-fractions - to help with later plotting  */
 	weeks1= calloc(nn,sizeof(*weeks1));
 	if(weeks1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 
+	if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths1[%ld]= %g\n",ii,deaths1[ii]);
 	if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths2[%ld]= %ld\n",ii,deaths2[ii]);
 
+
+	/********************************************************************************
+	DATA-CLEAN
+	- remove any "corrections" to cases or deaths (negative numbers) which may appear in some datasets
+	/********************************************************************************/
+	for(ii=0;ii<nn;ii++) {if(cases1[ii]<0) cases1[ii]=NAN; if(deaths1[ii]<0) deaths1[ii]=NAN;}
+	ii= xf_interp3_d(cases1,nn);
+	ii= xf_interp3_d(deaths1,nn);
 
 	/********************************************************************************/
 	/* FIND CHUNK OF DATA PART-1 : start (setmindeaths, unfiltered) */
@@ -206,6 +216,7 @@ int main (int argc, char *argv[]) {
 	istart= -1;
 	for(ii=0;ii<nn;ii++) { if(deaths2[ii]>=setmindeaths) { istart=ii; break; } }
 	if(istart==-1) {fprintf(stderr,"\n--- Error[%s]: -mindeaths threshold (%ld) never reached\n\n",thisprog,setmindeaths);exit(1);}
+	if(setverb==999) printf("istart= %ld\n",istart);
 
 
 	/********************************************************************************/
@@ -238,18 +249,18 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
-	/* APPLY THE GAUSSIAN SMOOTHING  */
+	/* APPLY THE GAUSSIAN SMOOTHING TO CASES1 and DEATHS1 */
 	/********************************************************************************/
 	if(smooth!=0) {
 		z= xf_smoothgauss1_d(cases1,nn,smooth);
 		z= xf_smoothgauss1_d(deaths1,nn,smooth);
-		if(setverb==999) for(ii=0;ii<nn;ii++) printf("cases1_filt[%ld]= %g\n",ii,cases1[ii]);
-		if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths1_filt[%ld]= %g\n",ii,deaths1[ii]);
+		if(setverb==999) for(ii=0;ii<nn;ii++) printf("cases1_smoothed[%ld]= %g\n",ii,cases1[ii]);
+		if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths1_smoothed[%ld]= %g\n",ii,deaths1[ii]);
 	}
 
 
 	/********************************************************************************/
-	/* FIND CHUNK OF DATA PART-1 : peak and stop (setmaxdays) */
+	/* FIND CHUNK OF DATA PART-2 : peak and stop (setmaxdays) */
 	/* note we use itrough2 as the end-post for searching for peak - this is the same as nn if no second peak was detected in the super-smoothed data */
 	/********************************************************************************/
 	/* find the deaths peak */
@@ -263,16 +274,6 @@ int main (int argc, char *argv[]) {
 	overrun= (imax+setmaxdays+1)-nn ; // number of excess days being requested
 
 	if(setverb==999) printf("istart= %ld imax= %ld istop= %ld\n",istart,imax,istop);
-
-	/* find the min/max values within the specified range  */
-	cmax=cmin= cases1[istart];
-	dmin= deaths1[istart];
-	for(ii=istart;ii<istop;ii++) {
-		if(deaths1[ii]<dmin) dmin= deaths1[ii];
-		if(cases1[ii]>cmax) cmax= cases1[ii];
-		if(cases1[ii]<cmin) cmin= cases1[ii];
-	}
-
 	if(setverb==999) for(ii=istart;ii<istop;ii++) printf("CHUNK[%ld]: %g\n",ii,deaths1[ii]);
 
 	/********************************************************************************/
@@ -288,21 +289,34 @@ int main (int argc, char *argv[]) {
 	}
 
 
-
 	/********************************************************************************/
 	/* CALCULATE THE RISING DEATH-SLOPE  - unormalized */
 	/********************************************************************************/
-	/* raw deaths */
+	/* best fit for entire rising phase */
 	pdays1= (days1+istart);
 	pdeaths1= (deaths1+istart);
 	kk= (imax-istart)+1;
 	aa= xf_correlate_simple_d(pdays1,pdeaths1,kk,result_d);
-	slopedeaths1= result_d[1];
-
+	slope1deaths1= result_d[1];
+	/* maximum slope - no need to divide by delta-days, as this is always "1" */
+	slope1deaths1max= deaths1[istart+1]-deaths1[istart];
+	for(ii=(istart+1);ii<imax;ii++) {
+		aa= deaths1[ii]-deaths1[ii-1];
+		if(aa>slope1deaths1max) slope1deaths1max=aa;
+	}
 
 	/********************************************************************************/
 	/* NORMALISE CASES AND DEATHS */
 	/********************************************************************************/
+	/* find the min/max values within the specified range  */
+	cmax=cmin= cases1[istart];
+	dmin= deaths1[istart];
+	for(ii=istart;ii<istop;ii++) {
+		if(deaths1[ii]<dmin) dmin= deaths1[ii];
+		if(cases1[ii]>cmax) cmax= cases1[ii];
+		if(cases1[ii]<cmin) cmin= cases1[ii];
+	}
+	if(setverb==999) printf("cmin= %g cmax=%g dmin= %g dmax= %g\n",cmin,cmax,dmin,dmax);
 	if(setnormc==1) {
 		bb= cmax-cmin;
 		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise cases, range=0\n\n",thisprog);exit(1);}
@@ -327,26 +341,28 @@ int main (int argc, char *argv[]) {
 	pdeaths1= (deaths1+imax);
 	kk= (istop-imax);
 	aa= xf_correlate_simple_d(pdays1,pdeaths1,kk,result_d);
-	slopedeaths2= result_d[1];
+	slope2deaths1= result_d[1];
 
-	if(setverb==999) for(ii=0;ii<kk;ii++) { pdeaths2= (deaths2+imax); printf("FALLING[%ld]: %g\t%g\t%ld\n",ii,pdays1[ii],pdeaths1[ii],pdeaths2[ii]); }
+	if(setverb==999) { for(ii=0;ii<kk;ii++) printf("FALLING[%ld]: %g\t%g\n",ii,pdays1[ii],pdeaths1[ii]) ; printf("falling_slope=%g\n",slope2deaths1);}
 
 	/********************************************************************************/
 	/* CALCULATE THE DAYS (POST-MAX) to 50% and 25% reduction in deaths  */
 	/********************************************************************************/
-	aa= 0.5*dmax; 
-	bb= 0.25*dmax; 
-	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=aa) {i50= ii-imax; break;}
-	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=bb) {i25= ii-imax; break;}
+	if(setnormd==0) { aa= 0.5*dmax; bb= 0.25*dmax;}
+	else {aa=50.0; bb=25.0;}
+	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=aa) {i50= ii; break;}
+	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=bb) {i25= ii; break;}
 
 	/********************************************************************************/
 	/* OUTPUT  */
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"Country\tistart\timax\ti50\ti25\tistop	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm\n");
-	fprintf(fpout,"%s\t%ld\t%ld\t%ld\t%ld\t%ld	%g\t%g\t%ld	%g\t%g\t%ld\n",
-		setcountry,istart,imax,i50,i25,(istop-1), cmax,dmax,deaths2[istop], slopedeaths1,slopedeaths1max,slopedeaths2
+	fprintf(fpout,"Country\tistart\tistop\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm\n");
+	fprintf(fpout,"%s\t%ld\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f\n",
+		setcountry,istart,(istop-1),(imax-istart),(i50-istart),(i25-istart),
+		cmax,dmax,deaths2[(istop-1)],
+		slope1deaths1,slope1deaths1max,slope2deaths1
 	);
 	fclose(fpout);
 
@@ -354,9 +370,9 @@ int main (int argc, char *argv[]) {
 		lastcases1= cases1[nn-1];
 		lastdeaths1= deaths1[nn-1];
 		lastdeaths2= deaths2[nn-1];
-		slopecases1= cases1[nn-1]-cases1[nn-3];
-		slopedeaths1= deaths1[nn-1]-deaths1[nn-3];
-		slopedeaths2= deaths1[nn-1]-deaths2[nn-3];
+		slope2cases1= cases1[nn-1]-cases1[nn-3];
+		slope2deaths1= deaths1[nn-1]-deaths1[nn-3];
+		slope2deaths2= deaths2[nn-1]-deaths2[nn-3];
 	}
 
 
@@ -365,9 +381,9 @@ int main (int argc, char *argv[]) {
 		for(ii=istart;ii<istop;ii++) { printf("%ld\t%g\t%g\t%ld\t%g\n",ii,cases1[ii],deaths1[ii],deaths2[ii],weeks1[ii]); }
 		if(overrun>0 && setpad==1) {
 			for(ii=ii;ii<(nn+overrun);ii++) {
-				lastcases1+= slopecases1; 
-				lastdeaths1+= slopedeaths1; 
-				lastdeaths2+= slopedeaths2; 
+				lastcases1+= slope2cases1;
+				lastdeaths1+= slope2deaths1;
+				lastdeaths2+= slope2deaths2;
 				if(lastcases1<0) lastcases1=0;
 				if(lastdeaths1<0) lastdeaths1=0;
 				if(lastdeaths2<0) lastdeaths2=0;
@@ -383,8 +399,8 @@ int main (int argc, char *argv[]) {
 		}
 		if(overrun>0 && setpad==1) {
 			for(ii=ii;ii<(nn+overrun);ii++) {
-				lastcases1+= slopecases1; 
-				lastdeaths1+= slopedeaths1; 
+				lastcases1+= slope2cases1;
+				lastdeaths1+= slope2deaths1;
 				if(lastcases1<0) lastcases1=0;
 				if(lastdeaths1<0) lastdeaths1=0;
 				printf("c\t%ld\t%g\t%g\n",ii,lastcases1,weeks1[ii]);
