@@ -198,7 +198,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		# special case - eliminate second-peak for China
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
-		#echo -e "\t\txe-CORONA1 $in1 $country $opts"
+		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi 
 		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
 
 		# save the slopes
