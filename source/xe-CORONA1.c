@@ -42,7 +42,7 @@ int main (int argc, char *argv[]) {
 
 	int sizeofcases0,sizeofdeaths0,smooth;
 	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
-	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50=-1,i25=-1,overrun;
+	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun;
 	float *weeks1=NULL;
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,cmin,cmax,dmin,dmax,result_d[8];
 
@@ -67,29 +67,42 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Analyse daily cases and deaths in an epidemiological dataset\n");
+		fprintf(stderr,"- data: https://opendata.ecdc.europa.eu/covid19/casedistribution/csv\n");
+		fprintf(stderr,"- must be downloaded & processed by xs-CORONA1\n");
 		fprintf(stderr,"Required input columns: \n");
-		fprintf(stderr,"	%s\n",keys);
+		fprintf(stderr,"    %s\n",keys);
 		fprintf(stderr,"USAGE: %s [in] [country] [options]\n",thisprog);
-		fprintf(stderr,"	[in]: file name or \"stdin\"\n");
-		fprintf(stderr,"	[country]: name of country to analyse\n");
+		fprintf(stderr,"    [in]: file name or \"stdin\"\n");
+		fprintf(stderr,"    	- ECDC data pre-processed by xs-CORONA1\n");
+		fprintf(stderr,"    [country]: name of country to analyse\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
-		fprintf(stderr,"	-mindeaths: (start) minimum cumulative deaths [%ld]\n",setmindeaths);
-		fprintf(stderr,"	-maxdays: (stop) maximum days post-peak (0=total) [%ld]\n",setmaxdays);
-		fprintf(stderr,"	-pad: add data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
-		fprintf(stderr,"	-smooth: Gaussian smoothing window (days, 0=NONE) [%g]\n",setsmooth);
-		fprintf(stderr,"	-normd: normalise deaths to 0-1 range (0=NO 1=YES) [%d]\n",setnormd);
-		fprintf(stderr,"	-normc: normalise cases to 0-1 range (0=NO 1=YES) [%d]\n",setnormc);
-		fprintf(stderr,"	-peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
-		fprintf(stderr,"	-out: output format [%d]\n",setout);
-		fprintf(stderr,"		1: Day Cases Deaths DeathsSum\n");
-		fprintf(stderr,"		2: Var Day Count\n");
-		fprintf(stderr,"	-verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
+		fprintf(stderr,"    -mindeaths: (start) minimum cumulative deaths [%ld]\n",setmindeaths);
+		fprintf(stderr,"    -maxdays: (stop) maximum days post-peak (0=total) [%ld]\n",setmaxdays);
+		fprintf(stderr,"    -pad: add data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
+		fprintf(stderr,"    -smooth: Gaussian smoothing window (days, 0=NONE) [%g]\n",setsmooth);
+		fprintf(stderr,"    -normd: normalise deaths to 0-1 range (0=NO 1=YES) [%d]\n",setnormd);
+		fprintf(stderr,"    -normc: normalise cases to 0-1 range (0=NO 1=YES) [%d]\n",setnormc);
+		fprintf(stderr,"    -peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
+		fprintf(stderr,"    -out: output format [%d]\n",setout);
+		fprintf(stderr,"        1: Day Cases Deaths DeathsSum\n");
+		fprintf(stderr,"        2: Var Day Count\n");
+		fprintf(stderr,"    -verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"	%s data.txt\n",thisprog);
+		fprintf(stderr,"    %s data.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	%s: basic stats on the curves\n",outfile);
-		fprintf(stderr,"	stdout: chunk of data: basic stats on the curves\n,outfile");
-		fprintf(stderr,"----------------------------------------------------------------------\n");
+		fprintf(stderr,"    stdout: chunk of data as per -out above\n");
+		fprintf(stderr,"    %s:\n",outfile);
+		fprintf(stderr,"        country: name of the input country\n");
+		fprintf(stderr,"        start: day (from start of records) -mindeaths passed\n");
+		fprintf(stderr,"        tmax: days (from istart) to dmax\n");
+		fprintf(stderr,"        t50: days (from istart) to 50%% dmax\n");
+		fprintf(stderr,"        t25: days (from istart) to 25%% dmax\n");
+		fprintf(stderr,"        cmax: max number of cases (after smoothing)\n");
+		fprintf(stderr,"        dmax: max number of deaths (after smoothing)\n");
+		fprintf(stderr,"        dtot: total cumulative deaths\n");
+		fprintf(stderr,"        s1raw: best-fit linear slope, istart to tmax\n");
+		fprintf(stderr,"        s1max: the maximum day-to-day slope, istart to tmax\n");
+		fprintf(stderr,"        s2norm: best-fit post-normalization linear slope, tmax to istop\n");
 		fprintf(stderr,"\n");
 		exit(0);
 	}
@@ -350,17 +363,23 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	if(setnormd==0) { aa= 0.5*dmax; bb= 0.25*dmax;}
 	else {aa=50.0; bb=25.0;}
+	i50=i25=0;
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=aa) {i50= ii; break;}
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=bb) {i25= ii; break;}
+	if(i50>0) i50-=istart;
+	if(i25>0) i25-=istart;
+	if(setverb==999) printf("%g %ld %g	%g %ld %g\n",aa,i50,deaths1[i50],bb,i25,deaths1[i25]);
+
+
 
 	/********************************************************************************/
 	/* OUTPUT  */
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"Country\tistart\tistop\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm\n");
-	fprintf(fpout,"%s\t%ld\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f\n",
-		setcountry,istart,(istop-1),(imax-istart),(i50-istart),(i25-istart),
+	fprintf(fpout,"Country\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm\n");
+	fprintf(fpout,"%s\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f\n",
+		setcountry,istart,(imax-istart),i50,i25,
 		cmax,dmax,deaths2[(istop-1)],
 		slope1deaths1,slope1deaths1max,slope2deaths1
 	);

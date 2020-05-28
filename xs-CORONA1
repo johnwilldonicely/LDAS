@@ -160,7 +160,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	########################################
 	echo "...making all-countries code-table"
-	xe-cut1 $in1 GeoID,Code,Country | (head -n 1 && tail -n +2 | sort -u )  > "table_countries_all.txt"
+	xe-cut1 $in1 GeoID,Code,Country | (head -n 1 && tail -n +2 | sort -u )  > "progbase1.txt"
 
 	########################################
 	echo "...initialising the slopes file"
@@ -176,15 +176,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		pop=$(xe-dbmatch1 $in1 Country $country -oc Pop -o 1 | head -n 1)
 		echo -e "\tCountry: "$country" ("$code")"
 
-		# special case - eliminate second-peak for China
-		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
 		# run the analysis for the current country
 		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
 		out2a=$tempfile"_block.txt"
 		opts="$setopts1 -out 2"
-		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
+		# special case - eliminate second-peak for China
+		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
+		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
 
 		w50=$(xe-cut1 temp_xe-CORONA1.txt tmax,t50 -o 1 | awk '{print ($2-$1)/7}')
 		dmax=$(xe-cut1 temp_xe-CORONA1.txt dmax -o 1 | awk '{printf("%ld\n",$1)}')
@@ -210,35 +210,45 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		# compile the output
 		if [ $count -eq 1 ] ; then
+			echo -e "Country\tDeaths\tDeltaWeeks" > $progbase1"_curves.txt"
+			xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin DeltaWeeks,Count -o 1 | awk '{print "'$country'\t"$0}' >> $progbase1"_curves.txt"
 			cat "temp_xe-CORONA1.txt" > $progbase1"_stats.txt"
+
 		else
+			xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin DeltaWeeks,Count -o 1 | awk '{print "'$country'\t"$0}' >> $progbase1"_curves.txt"
 			tail -n +2 "temp_xe-CORONA1.txt" >> $progbase1"_stats.txt"
 		fi
 
 
 	done
 
-	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "plot_summary"
+	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "temp_curves_merge"
 	rm -f $plotlist
-	xe-plotmerge2 $(ls temp_curves.???.ps) > $outbase1"_curves.ps"
-	rm -f temp_curves.???.ps
-
+	xe-plotmerge2 $(ls temp_curves_merge.???.ps) > $progbase1"_curves.ps"
+	rm -f temp_curves_merge.???.ps
 
 	########################################
 	# MAKE THE STATS PLOTS
-	echo "...making slope-plots..."
+	echo "...making stats-plots..."
 	plotlist=""
 	let ncountries=$(tail -n +2 $progbase1"_stats.txt" | wc -l)
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
 	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 8 "
 
-	# 1. SLOPE OF RISE TO PEAK - DEATHS/MILLION/DAY
-	# build a slopes data file sorted by ascending (steeper) slopes
-	echo -e "\t- rising raw"
-	in3="table_slopes_pre_raw.txt"
-	xe-cut1 $progbase1"_stats.txt" code,slope1raw > jj.temp
-	(head -n 1 jj.temp | awk '{print "xpos\t"$0}' && tail -n +2 jj.temp | sort -k2,2n | awk '{print n++"\t"$0}' ) |
-		xe-math_round2 stdin -c 3 -b .01 > $in3
+	in2=$progbase1"_stats.txt"
+	head $in2
+	exit
+
+	for stat in tmax t50 t25 dmax dtot s1raw s1max s2norm ; do
+		echo -e "\t $stat"
+		xe-cut1 $in2 Country,$stat > $tempfile".1"
+		(
+		head -n 1 $tempfile".1 "| awk '{print "xpos\t"$0}' &&
+		tail -n +2 $tempfile".1" | sort -k2,2n | awk '{print n++"\t"$0}'
+		) | xe-math_round2 stdin -c 3 -b .01 > $tempfile".2"
+	done
+	exit
+
 	# build a list of xpos/countrycode pairs for the xtics modification
 	list=$(xe-cut1 $in3 xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 	plotfile="plot_slopes_pre_raw.ps"
