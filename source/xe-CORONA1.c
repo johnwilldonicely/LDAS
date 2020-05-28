@@ -36,7 +36,7 @@ int main (int argc, char *argv[]) {
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
-	char keys[]="Country,Date,Cases,Deaths,GeoID,Code,Pop,Continent\0";
+	char keys[]="Country,Date,Cases,Deaths,GeoID,Code,Pop,Continent\0",countrycode[8];
 	char outfile[64];
 	long *ikeys=NULL,*keycols=NULL,nkeys;
 
@@ -44,7 +44,7 @@ int main (int argc, char *argv[]) {
 	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
 	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun;
 	float *weeks1=NULL;
-	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,cmin,cmax,dmin,dmax,result_d[8];
+	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popmillions=0.0,cmin,cmax,dmin,dmax,result_d[8];
 
 	long lastdeaths2,slope2deaths2;
 	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1,slope1deaths1max=-1.,slope2deaths1=-1.;
@@ -92,17 +92,19 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"OUTPUT:\n");
 		fprintf(stderr,"    stdout: chunk of data as per -out above\n");
 		fprintf(stderr,"    %s:\n",outfile);
-		fprintf(stderr,"        country: name of the input country\n");
+		fprintf(stderr,"        code: 3-letter country code\n");
+		fprintf(stderr,"        popm: country population, in millions\n");
 		fprintf(stderr,"        start: day (from start of records) -mindeaths passed\n");
-		fprintf(stderr,"        tmax: days (from istart) to dmax\n");
-		fprintf(stderr,"        t50: days (from istart) to 50%% dmax\n");
-		fprintf(stderr,"        t25: days (from istart) to 25%% dmax\n");
+		fprintf(stderr,"        tmax: days (from start) to dmax\n");
+		fprintf(stderr,"        t50: days (from tmax) to 50%% dmax\n");
+		fprintf(stderr,"        t25: days (from tmax) to 25%% dmax\n");
 		fprintf(stderr,"        cmax: max number of cases (after smoothing)\n");
 		fprintf(stderr,"        dmax: max number of deaths (after smoothing)\n");
 		fprintf(stderr,"        dtot: total cumulative deaths\n");
 		fprintf(stderr,"        s1raw: best-fit linear slope, istart to tmax\n");
 		fprintf(stderr,"        s1max: the maximum day-to-day slope, istart to tmax\n");
 		fprintf(stderr,"        s2norm: best-fit post-normalization linear slope, tmax to istop\n");
+		fprintf(stderr,"        country: name of the input country\n");
 		fprintf(stderr,"\n");
 		exit(0);
 	}
@@ -151,7 +153,7 @@ int main (int argc, char *argv[]) {
 		if(nlines==0) {
 			keycols= xf_getkeycol(line,"\t",keys,",",&nkeys,message);
 			if(keycols==NULL) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
-			//TEST for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld\n",ii,keycols[ii]);exit(0);
+			if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld keys=%s\n",ii,keycols[ii],keys);
 		}
 
 		/* parse the line */
@@ -160,6 +162,13 @@ int main (int argc, char *argv[]) {
 		/* select on Country */
 		if(strcmp(setcountry,line+iword[keycols[0]])!=0) { nlines++; continue; }
 		//TEST CORRECT SELECTION: printf("%ld,%s,%s\n",keycols[0],setcountry,line+iword[keycols[0]]);
+
+		/* store the population and country-code (do this once only)  */
+		if(nn==0) {
+			snprintf(countrycode,4,"%s",line+iword[keycols[5]]);
+			sscanf(line+iword[keycols[6]],"%ld",&kk);  popmillions= (double)kk/1000000.0;
+		}
+
 
 		/* load cases */
 		if(sscanf(line+iword[keycols[2]],"%ld",&kk)!=1) kk=-1;
@@ -366,8 +375,8 @@ int main (int argc, char *argv[]) {
 	i50=i25=0;
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=aa) {i50= ii; break;}
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=bb) {i25= ii; break;}
-	if(i50>0) i50-=istart;
-	if(i25>0) i25-=istart;
+	if(i50>0) i50-=imax;
+	if(i25>0) i25-=imax;
 	if(setverb==999) printf("%g %ld %g	%g %ld %g\n",aa,i50,deaths1[i50],bb,i25,deaths1[i25]);
 
 
@@ -377,11 +386,11 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"Country\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm\n");
-	fprintf(fpout,"%s\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f\n",
-		setcountry,istart,(imax-istart),i50,i25,
+	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm	country\n");
+	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f	%s\n",
+		countrycode,popmillions,istart,(imax-istart),i50,i25,
 		cmax,dmax,deaths2[(istop-1)],
-		slope1deaths1,slope1deaths1max,slope2deaths1
+		slope1deaths1,slope1deaths1max,slope2deaths1,setcountry
 	);
 	fclose(fpout);
 

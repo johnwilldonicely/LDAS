@@ -166,8 +166,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		let count=$count+1
 		code=$(xe-dbmatch1 $progbase1"_codes.txt" Country $country -oc Code -o 1)
-		pop=$(xe-dbmatch1 $in1 Country $country -oc Pop -o 1 | head -n 1)
-		echo -e "\tCountry: "$country" ("$code", pop:"$pop")"
+		echo -e "\tCountry: "$country" ("$code")"
 
 		# run the analysis for the current country
 		opts="$setopts1 -out 2"
@@ -177,10 +176,11 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
 
-		w50=$(xe-cut1 "temp_xe-CORONA1.txt" tmax,t50 -o 1 | awk '{print ($2-$1)/7}')
-		dmax=$(xe-cut1 "temp_xe-CORONA1.txt" dmax -o 1 | awk '{printf("%ld\n",$1)}')
+		w50=$(xe-cut1 $out2b tmax,t50 -o 1 | awk '{print ($2-$1)/7}')
+		dmax=$(xe-cut1 $out2b dmax -o 1 | awk '{printf("%ld\n",$1)}')
+		popm=$(xe-cut1 $out2b popm -o 1)
 		dcurrent=$(xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin Count | tail -n 1)
-
+	
 		#echo -e "\t\t...plotting..."
 		plotfile="temp_plot_"$count".ps"
 		plotlist=$plotlist" "$plotfile
@@ -211,31 +211,37 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		fi
 	done
 
-	# add country codes to the stats file 
-	xe-dbmatch2 $progbase1"_stats.txt" Country $progbase1"_codes.txt" Code > $tempfile
-	mv $tempfile $progbase1"_stats.txt"
-
 	# merge the plots 
 	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "temp_curves_merge"
-	rm -f $plotlist
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi 
 	xe-plotmerge2 $(ls temp_curves_merge.???.ps) > $progbase1"_curves.ps"
 	rm -f temp_curves_merge.???.ps
 
 
 	########################################
 	# MAKE THE STATS PLOTS
-	echo -e "\t...making stats-plots..."
+	echo -e "\n\t...making stats-plots..."
+
+	# adjust some stats by population 
+	cat $progbase1"_stats.txt" | 
+		xe-math_doublet stdin -cx 2 -cy 7 -t 4 -out 1 | 
+		xe-math_doublet stdin -cx 2 -cy 8 -t 4 -out 1 | 
+		xe-math_doublet stdin -cx 2 -cy 9 -t 4 -out 1 | 
+		xe-math_doublet stdin -cx 2 -cy 10 -t 4 -out 1 | 
+		xe-math_doublet stdin -cx 2 -cy 11 -t 4 -out 1 |
+		xe-math_round2 stdin -b 0.001 -c 7,8,9,10,11 > $progbase1"_stats_popnorm.txt"
+
 
 	plotlist=""
 	let ncountries=$(tail -n +2 $progbase1"_stats.txt" | wc -l)
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
 	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 8 "
 
-	in2=$progbase1"_stats.txt"
+	in2=$progbase1"_stats_popnorm.txt"
 
 	for stat in s1raw s1max dmax dtot tmax t50 t25 s2norm ; do
 		echo -e "\t $stat"
-		xe-cut1 $in2 Code,$stat > $tempfile".1"
+		xe-cut1 $in2 code,$stat > $tempfile".1"
 		# use sub-shells to extract header and sort contents on $stat
 		(
 		head -n 1 $tempfile".1" | awk '{print "xpos\t"$0}' &&
@@ -244,15 +250,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		# make the plot
 		plotfile=$tempfile"_plot_"$stat".ps"
 		plotlist=$plotlist" "$plotfile
-		xe-plottable1 $tempfile".2" $plotopts -xlabel "Country" -ylabel "$stat" -title "$stat" -out $plotfile
+		xe-plottable1 $tempfile".2" $plotopts -xlabel "country" -ylabel "$stat" -title "$stat" -out $plotfile
 		# modify the xtics to reflect country codes
-		list=$(xe-cut1 $tempfile".2" xpos,Code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
+		list=$(xe-cut1 $tempfile".2" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 		xs-plotmod1 $plotfile --xtics $list --out 1
 	done
 
 	# merge the plots
 	xe-plotmerge1 $plotlist -xo 65 -xmax 1 -ymax 4 -yinc 200 -out "temp_stats_merge"
-	rm -f $plotlist
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi 
 	xe-plotmerge2 $(ls temp_stats_merge.???.ps) > $progbase1"_stats.ps"
 	rm -f temp_stats_merge.???.ps
 
