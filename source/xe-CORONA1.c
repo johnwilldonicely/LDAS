@@ -47,12 +47,12 @@ int main (int argc, char *argv[]) {
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popmillions=0.0,cmin,cmax,dmin,dmax,result_d[8];
 
 	long lastdeaths2,slope2deaths2;
-	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1,slope1deaths1max=-1.,slope2deaths1=-1.;
+	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1=NAN,slope2deaths1=NAN;
 
 
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
-	int setverb=0,setpad=0,setnormc=1,setnormd=1,setout=1,setpeak2=0;
+	int setverb=0,setpad=0,setnormd=0,setnormc=0,setout=1,setpeak2=0;
 	long setmindeaths=10,setmaxdays=0;
 	double setsmooth=21;
 
@@ -80,8 +80,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -maxdays: (stop) maximum days post-peak (0=total) [%ld]\n",setmaxdays);
 		fprintf(stderr,"    -pad: add data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
 		fprintf(stderr,"    -smooth: Gaussian smoothing window (days, 0=NONE) [%g]\n",setsmooth);
-		fprintf(stderr,"    -normd: normalise deaths to 0-1 range (0=NO 1=YES) [%d]\n",setnormd);
-		fprintf(stderr,"    -normc: normalise cases to 0-1 range (0=NO 1=YES) [%d]\n",setnormc);
+		fprintf(stderr,"    -normd: normalise deaths to population (millions) (0=NO 1=YES) [%d]\n",setnormc);
+		fprintf(stderr,"    -normc: normalise cases to the deaths range (0=NO 1=YES) [%d]\n",setnormc);
 		fprintf(stderr,"    -peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
 		fprintf(stderr,"    -out: output format [%d]\n",setout);
 		fprintf(stderr,"        1: Day Cases Deaths DeathsSum\n");
@@ -95,15 +95,14 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        code: 3-letter country code\n");
 		fprintf(stderr,"        popm: country population, in millions\n");
 		fprintf(stderr,"        start: day (from start of records) -mindeaths passed\n");
-		fprintf(stderr,"        tmax: days (from start) to dmax\n");
-		fprintf(stderr,"        t50: days (from tmax) to 50%% dmax\n");
-		fprintf(stderr,"        t25: days (from tmax) to 25%% dmax\n");
+		fprintf(stderr,"        tmax: days from start to dmax\n");
+		fprintf(stderr,"        t50:  days from tmax to 50%% dmax\n");
+		fprintf(stderr,"        t25:  days from tmax to 25%% dmax\n");
 		fprintf(stderr,"        cmax: max number of cases (after smoothing)\n");
 		fprintf(stderr,"        dmax: max number of deaths (after smoothing)\n");
 		fprintf(stderr,"        dtot: total cumulative deaths\n");
-		fprintf(stderr,"        s1raw: best-fit linear slope, istart to tmax\n");
-		fprintf(stderr,"        s1max: the maximum day-to-day slope, istart to tmax\n");
-		fprintf(stderr,"        s2norm: best-fit post-normalization linear slope, tmax to istop\n");
+		fprintf(stderr,"        s1: best-fit linear slope, start to tmax\n");
+		fprintf(stderr,"        s2: best-fit linear slope, tmax to maxdays\n");
 		fprintf(stderr,"        country: name of the input country\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -122,16 +121,16 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-maxdays")==0) setmaxdays=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-smooth")==0) setsmooth=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-pad")==0) setpad= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-normc")==0) setnormc= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-normd")==0) setnormd= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-normc")==0) setnormc= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-peak2")==0) setpeak2= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-out")==0) setout= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1 && setverb!=999) { fprintf(stderr,"\n--- Error [%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(setpad!=0 && setpad!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -pad [%d] must be 0 or 1\n\n",thisprog,setpad);exit(1);}
-	if(setnormc!=0 && setnormc!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -normc [%d] must be 0 or 1\n\n",thisprog,setnormc);exit(1);}
 	if(setnormd!=0 && setnormd!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -normd [%d] must be 0 or 1\n\n",thisprog,setnormd);exit(1);}
+	if(setnormc!=0 && setnormc!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -normc [%d] must be 0 or 1\n\n",thisprog,setnormc);exit(1);}
 	if(setout!=1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: invalid -out [%d] must be 1 or 2\n\n",thisprog,setout);exit(1);}
 	if(setpeak2!=0 && setpeak2!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -peak2 [%d] must be 0 or 1\n\n",thisprog,setpeak2);exit(1);}
 
@@ -232,7 +231,7 @@ int main (int argc, char *argv[]) {
 	ii= xf_interp3_d(deaths1,nn);
 
 	/********************************************************************************/
-	/* FIND CHUNK OF DATA PART-1 : start (setmindeaths, unfiltered) */
+	/* FIND CHUNK OF DATA PART-1 : start (based on deaths2 vs. setmindeaths) */
 	/********************************************************************************/
 	/* find the start */
 	istart= -1;
@@ -242,7 +241,8 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
-	/* FIXED PRE-FILTER TO DETECT EXTRA PEAKS  - 2-week smoothing */
+	/* FIXED PRE-FILTER TO DETECT EXTRA PEAKS  - 2-week filtering */
+	/* - this will readjust "nn" to the trough just before the second peak, if found */
 	/********************************************************************************/
 	if(setpeak2==1) {
 		z= xf_filter_bworth1_d(deaths1,nn,7.0,0.0,.5,sqrt(2),message);
@@ -271,6 +271,13 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
+	/* NORMALISE DEATHS1 TO POPULATION (MILLIONS)
+	/********************************************************************************/
+	if(setnormd==1) {
+		for(ii=0;ii<nn;ii++) deaths1[ii]/= popmillions;
+	}
+
+	/********************************************************************************/
 	/* APPLY THE GAUSSIAN SMOOTHING TO CASES1 and DEATHS1 */
 	/********************************************************************************/
 	if(smooth!=0) {
@@ -280,20 +287,28 @@ int main (int argc, char *argv[]) {
 		if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths1_smoothed[%ld]= %g\n",ii,deaths1[ii]);
 	}
 
-
 	/********************************************************************************/
 	/* FIND CHUNK OF DATA PART-2 : peak and stop (setmaxdays) */
-	/* note we use itrough2 as the end-post for searching for peak - this is the same as nn if no second peak was detected in the super-smoothed data */
 	/********************************************************************************/
 	/* find the deaths peak */
 	dmax= deaths1[istart];
 	for(ii=istart;ii<nn;ii++) { if(deaths1[ii]>dmax) { dmax=deaths1[ii]; imax=ii; } }
-	/* find the stop (unincluded sample for loops) */
+	/* if unset, adjust setmaxdays to the actual data */
 	if(setmaxdays==0) setmaxdays= (nn-imax)-1;
+	/* determine the number of excess days being requested */
+	overrun= (imax+setmaxdays+1)-nn ;
+	/* find the stop (unincluded sample for loops) */
 	istop= imax+setmaxdays+1;
 	if(istop>nn) istop= nn;
 
-	overrun= (imax+setmaxdays+1)-nn ; // number of excess days being requested
+	/* find the other min/max values bey=tween istart and istop */
+	cmin=cmax= cases1[istart];
+	dmin= deaths1[istart];
+	for(ii=istart;ii<istop;ii++) {
+		if(deaths1[ii]<dmin) dmin= deaths1[ii];
+		if(cases1[ii]>cmax) cmax= cases1[ii];
+		if(cases1[ii]<cmin) cmin= cases1[ii];
+	}
 
 	if(setverb==999) printf("istart= %ld imax= %ld istop= %ld\n",istart,imax,istop);
 	if(setverb==999) for(ii=istart;ii<istop;ii++) printf("CHUNK[%ld]: %g\n",ii,deaths1[ii]);
@@ -310,9 +325,22 @@ int main (int argc, char *argv[]) {
 		for(ii=ii;ii<kk;ii++) weeks1[ii]= (double)(ii-imax)/7.0;
 	}
 
+	/********************************************************************************/
+	/* NORMALISE CASES */
+	/********************************************************************************/
+	if(setverb==999) printf("cmin= %g cmax=%g dmin= %g dmax= %g\n",cmin,cmax,dmin,dmax);
+	if(setnormc==1) {
+		cc= cmax-cmin; // cases range
+		dd= dmax-dmin; // deaths range - multiply cases (scaled 0-1) by this
+		if(cc==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise cases, cases range=0\n\n",thisprog);exit(1);}
+		if(dd==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise cases, deaths range=0\n\n",thisprog);exit(1);}
+		for(ii=0;ii<nn;ii++) {
+			aa= cases1[ii]-cmin; if(aa!=0.0) aa/= cc; // aa= cases ranged 0-1, ready to adjust to deaths range
+			cases1[ii]= (aa*dd) + dmin;
+	}}
 
 	/********************************************************************************/
-	/* CALCULATE THE RISING DEATH-SLOPE  - unormalized */
+	/* CALCULATE THE RISING DEATH-SLOPE  */
 	/********************************************************************************/
 	/* best fit for entire rising phase */
 	pdays1= (days1+istart);
@@ -320,44 +348,10 @@ int main (int argc, char *argv[]) {
 	kk= (imax-istart)+1;
 	aa= xf_correlate_simple_d(pdays1,pdeaths1,kk,result_d);
 	slope1deaths1= result_d[1];
-	/* maximum slope - no need to divide by delta-days, as this is always "1" */
-	slope1deaths1max= deaths1[istart+1]-deaths1[istart];
-	for(ii=(istart+1);ii<imax;ii++) {
-		aa= deaths1[ii]-deaths1[ii-1];
-		if(aa>slope1deaths1max) slope1deaths1max=aa;
-	}
-
-	/********************************************************************************/
-	/* NORMALISE CASES AND DEATHS */
-	/********************************************************************************/
-	/* find the min/max values within the specified range  */
-	cmax=cmin= cases1[istart];
-	dmin= deaths1[istart];
-	for(ii=istart;ii<istop;ii++) {
-		if(deaths1[ii]<dmin) dmin= deaths1[ii];
-		if(cases1[ii]>cmax) cmax= cases1[ii];
-		if(cases1[ii]<cmin) cmin= cases1[ii];
-	}
-	if(setverb==999) printf("cmin= %g cmax=%g dmin= %g dmax= %g\n",cmin,cmax,dmin,dmax);
-	if(setnormc==1) {
-		bb= cmax-cmin;
-		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise cases, range=0\n\n",thisprog);exit(1);}
-		for(ii=0;ii<nn;ii++) {
-			aa= 100 * (cases1[ii]-cmin);
-			if(aa!=0.0) cases1[ii]= aa/bb; else cases1[ii]= 0.0;
-	}}
-	if(setnormd==1) {
-		bb= dmax-dmin;
-		if(bb==0.0) {fprintf(stderr,"\n--- Error[%s]: cannot normalise deaths, range=0\n\n",thisprog);exit(1);}
-		for(ii=0;ii<nn;ii++) {
-			aa= 100 * (deaths1[ii]-dmin);
-			if(aa!=0.0) deaths1[ii]= aa/bb; else deaths1[ii]= 0.0;
-	}}
-
 
 
 	/********************************************************************************/
-	/* CALCULATE THE FALLING DEATH-SLOPE - normalized  */
+	/* CALCULATE THE FALLING DEATH-SLOPE */
 	/********************************************************************************/
 	pdays1= (days1+imax);
 	pdeaths1= (deaths1+imax);
@@ -370,9 +364,9 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	/* CALCULATE THE DAYS (POST-MAX) to 50% and 25% reduction in deaths  */
 	/********************************************************************************/
-	if(setnormd==0) { aa= 0.5*dmax; bb= 0.25*dmax;}
-	else {aa=50.0; bb=25.0;}
-	i50=i25=0;
+	aa= 0.5*dmax;
+	bb= 0.25*dmax;
+	i50=i25=-1;
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=aa) {i50= ii; break;}
 	for(ii=imax;ii<istop;ii++) if(deaths1[ii]<=bb) {i25= ii; break;}
 	if(i50>0) i50-=imax;
@@ -386,11 +380,11 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1raw\ts1max\ts2norm	country\n");
-	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f\t%.3f	%s\n",
+	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1\ts2	country\n");
+	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f	%s\n",
 		countrycode,popmillions,istart,(imax-istart),i50,i25,
 		cmax,dmax,deaths2[(istop-1)],
-		slope1deaths1,slope1deaths1max,slope2deaths1,setcountry
+		slope1deaths1,slope2deaths1,setcountry
 	);
 	fclose(fpout);
 
