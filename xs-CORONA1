@@ -23,6 +23,7 @@ setverb="0"
 setclean="1"
 seturl="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv"
 setcountries="United_Kingdom"
+sett50="0"
 setopts1=""
 
 ################################################################################
@@ -34,12 +35,13 @@ if [ $# -lt 1 ]; then
 	echo $thisprog": template BASH script"
 	echo "USAGE: $thisprog [mode] [options]"
 	echo "	[mode]: operating mode: down | proc | all"
-	echo "		down: download latest data"
+	echo "		init: download, convert & nitialize data"
 	echo "		process: process the data"
 	echo "		all: all of the above"
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--countries: CSV list of countries to analyse [$setcountries]"
 	echo "	--opts1: options (in quotes) o pass to xe-CORONA1 [unset]"
+	echo "	--t50: exclude countries still above 50% mx deaths (0=NO 1=YES) [$sett50]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "EXAMPLE: "
@@ -55,7 +57,7 @@ fi
 ########################################################################################
 setmode=$1 ; shift
 
-vs="v:c:" ; vl="verb:,clean:,countries:,smooth,opts1:"
+vs="v:c:" ; vl="verb:,clean:,countries:,smooth,t50:,opts1:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -64,6 +66,7 @@ while [ $# -gt 0 ] ; do
 		--verb ) setverb=$2 ; shift ;;
 		--clean ) setclean=$2 ; shift ;;
 		--countries ) setcountries=$2 ; shift ;;
+		--t50 ) sett50=$2 ; shift ;;
 		--opts1 ) setopts1=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
@@ -72,6 +75,7 @@ while [ $# -gt 0 ] ; do
 done
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$sett50" != "0" ] && [ "$sett50" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --t50 ($sett50) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ $setverb == 1 ] ; then
 	echo -e "--------------------------------------------------------------------------------\n"$thisprog" "$allopts"\n"
 	echo -e "$date0"
@@ -89,7 +93,7 @@ rm -f jj.*
 
 ################################################################################
 # DOWNLOAD AND CREATE TEXT FILE
-if [ "$setmode" == "all" ] || [ "$setmode" == "down" ] ; then
+if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 
 	# download file - rename from "csv" to covid_[date].csv
 	# ...where date is derived from the flie timestamp
@@ -123,17 +127,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "down" ] ; then
 	# the following is organised to be robust against changes in the order of the columns in the csv file
 	listcols="Date,Cases,Deaths,Country,GeoID,Code,Pop,Continent"
 	cat jj.header | xe-cut1 stdin $listcols > $basename".txt"
-	cat jj.header jj.1 | #xe-dbmatch1 stdin GeoID -,N/A -m -2 |
+	cat jj.header jj.1 |
 		xe-cut1 stdin $listcols -o 1 |
 		xe-dateconv1 stdin -h 0 -i 1 -o 4 |
 		sort -k1,1n |
 		xe-dateconv1 stdin -h 0 -i 4 -o 3  >> $basename".txt"
-
-	echo "done downloading"
 	head $basename.txt
 
 	# Add Europe-wide data
-	echo "Building Europe-wide data"
+	echo "...Building Europe-wide data..."
 	xe-dbmatch1 $basename.txt Continent Europe > jj.europe1
 	pop=$(xe-cut1 jj.europe1 GeoID,Pop -o 1 | sort -u | cut -f 2 | xe-math_sum1 stdin -long 1)
 	listdates=$( xe-dbmatch1 $basename.txt Continent Europe | xe-cut1 stdin Date -o 1 | sort -u)
@@ -142,6 +144,18 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "down" ] ; then
 		deaths=$(xe-dbmatch1 jj.europe1 Date $d -oc Deaths | xe-math_sum1 stdin -long 1)
 		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUU\t$pop\tEurope" >> $basename.txt
 	done
+
+	# Build country list, sorted by continent and total-deaths
+	echo "...Building country death-list..."
+	in1=$(ls covid_*.txt | tail -n 1)
+	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
+	echo -e "dTot\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
+	for i in $list1 ; do
+		tot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
+		if [ "$tot" == "" ] ; then tot="0" ; fi
+		cont=$(xe-dbmatch1 $in1 Country $i -oc Continent -o 1 | head -n 1)
+		echo -e "$tot\t$cont\t$i"
+	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
 
 fi
 
@@ -177,10 +191,15 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
 		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
-		w50=$(xe-cut1 $out2b t50 -o 1 | awk '{print $1/7}')
+
+		let t50=$(xe-cut1 $out2b t50 -o 1)
+		if [ "$sett50" == "1" ] && [ $t50 -lt 0 ] ; then continue ; fi
+
+		w50=$(echo $t50 | awk '{print $1/7}')
 		dmax=$(xe-cut1 $out2b dmax -o 1 | awk '{printf("%ld\n",$1)}')
 		popm=$(xe-cut1 $out2b popm -o 1)
 		dcurrent=$(xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin Count | tail -n 1)
+
 
 		#echo -e "\t\t...plotting..."
 		plotfile="temp_plot_"$count".ps"
@@ -220,7 +239,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	plotlist=""
 	let ncountries=$(tail -n +2 $progbase1"_stats.txt" | wc -l)
 	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
-	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 8 "
+	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 6 "
 
 	in2=$progbase1"_stats.txt"
 

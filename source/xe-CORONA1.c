@@ -20,8 +20,8 @@ long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long *xf_getkeycol(char *line1, char *d1, char *keys1, char *d2, long *nkeys1, char *message);
 long xf_interp3_d(double *data, long ndata);
 int xf_filter_bworth1_d(double *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
-double xf_correlate_simple_d(double *x, double *y, long nn, double *result_d);
 int xf_smoothgauss1_d(double *original, size_t arraysize,int smooth);
+double xf_correlate_simple_d(double *x, double *y, long nn, double *result_d);
 /* external functions end */
 
 
@@ -40,11 +40,11 @@ int main (int argc, char *argv[]) {
 	char outfile[64];
 	long *ikeys=NULL,*keycols=NULL,nkeys;
 
-	int sizeofcases0,sizeofdeaths0,smooth;
+	int sizeofcases0,sizeofdeaths0;
 	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
-	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun;
+	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun,maxdays;
 	float *weeks1=NULL;
-	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popmillions=0.0,cmin,cmax,dmin,dmax,result_d[8];
+	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popmillions=0.0,cmin,cmax,dmin,dmax,smooth,result_d[8];
 
 	long lastdeaths2,slope2deaths2;
 	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1=NAN,slope2deaths1=NAN,dtot1,dtot2;
@@ -53,8 +53,8 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
 	int setverb=0,setpad=0,setnormd=0,setnormc=0,setout=1,setpeak2=0;
-	long setmindeaths=10,setmaxdays=0;
-	double setsmooth=21;
+	long setmindeaths=10;
+	double setsmooth=21,setmaxweeks=0.0;
 
 	sprintf(outfile,"temp_%s.txt",thisprog);
 
@@ -77,9 +77,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    [country]: name of country to analyse\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"    -mindeaths: (start) minimum cumulative deaths [%ld]\n",setmindeaths);
-		fprintf(stderr,"    -maxdays: (stop) maximum days post-peak (0=total) [%ld]\n",setmaxdays);
-		fprintf(stderr,"    -pad: add data if maxdays exceeds data length (0=NO 1=YES) [%d]\n",setpad);
-		fprintf(stderr,"    -smooth: Gaussian smoothing window (days, 0=NONE) [%g]\n",setsmooth);
+		fprintf(stderr,"    -maxweeks: (stop) maximum weeks post-peak (0=total) [%g]\n",setmaxweeks);
+		fprintf(stderr,"    -pad: add data if maxweeks exceeds data length (0=NO 1=YES) [%d]\n",setpad);
+		fprintf(stderr,"    -smooth: weeks over which to smooth data (0=NONE) [%g]\n",setsmooth);
+		fprintf(stderr,"        - uses Butterworth filter, high-cut= 1/(smooth*2)\n");
 		fprintf(stderr,"    -normd: normalise deaths to population (millions) (0=NO 1=YES) [%d]\n",setnormc);
 		fprintf(stderr,"    -normc: normalise cases to the deaths range (0=NO 1=YES) [%d]\n",setnormc);
 		fprintf(stderr,"    -peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
@@ -102,7 +103,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        dmax: max number of deaths (after smoothing)\n");
 		fprintf(stderr,"        dtot: total cumulative deaths\n");
 		fprintf(stderr,"        s1: best-fit linear slope, start to tmax\n");
-		fprintf(stderr,"        s2: best-fit linear slope, tmax to maxdays\n");
+		fprintf(stderr,"        s2: best-fit linear slope, tmax to maxweeks\n");
 		fprintf(stderr,"        country: name of the input country\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -118,7 +119,7 @@ int main (int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-mindeaths")==0)  setmindeaths=atol(argv[++ii]);
-			else if(strcmp(argv[ii],"-maxdays")==0) setmaxdays=atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-maxweeks")==0) setmaxweeks=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-smooth")==0) setsmooth=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-pad")==0) setpad= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-normd")==0) setnormd= atoi(argv[++ii]);
@@ -134,7 +135,8 @@ int main (int argc, char *argv[]) {
 	if(setout!=1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: invalid -out [%d] must be 1 or 2\n\n",thisprog,setout);exit(1);}
 	if(setpeak2!=0 && setpeak2!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -peak2 [%d] must be 0 or 1\n\n",thisprog,setpeak2);exit(1);}
 
-	smooth= (int)((setsmooth-1.0)/2.0);
+	smooth= 1.0/ (setsmooth*2.0);
+	maxdays= (long)(setmaxweeks*7.0);
 
 	/********************************************************************************
 	STORE DATA - ASSUME WE DON'T KNOW THE LENGTH OF EACH INPUT LINE
@@ -278,27 +280,31 @@ int main (int argc, char *argv[]) {
 	}
 
 	/********************************************************************************/
-	/* APPLY THE GAUSSIAN SMOOTHING TO CASES1 and DEATHS1 */
+	/* APPLY THE FILTER TO CASES1 and DEATHS1 */
 	/********************************************************************************/
 	if(smooth!=0) {
-		z= xf_smoothgauss1_d(cases1,nn,smooth);
-		z= xf_smoothgauss1_d(deaths1,nn,smooth);
+		z= xf_filter_bworth1_d(cases1,nn,7.0,0.0,smooth,sqrt(2),message);
+		if(z!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+		z= xf_filter_bworth1_d(deaths1,nn,7.0,0.0,smooth,sqrt(2),message);
+		if(z!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+		// z= xf_smoothgauss1_d(cases1,nn,smooth);
+		// z= xf_smoothgauss1_d(deaths1,nn,smooth);
 		if(setverb==999) for(ii=0;ii<nn;ii++) printf("cases1_smoothed[%ld]= %g\n",ii,cases1[ii]);
 		if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths1_smoothed[%ld]= %g\n",ii,deaths1[ii]);
 	}
 
 	/********************************************************************************/
-	/* FIND CHUNK OF DATA PART-2 : peak and stop (setmaxdays) */
+	/* FIND CHUNK OF DATA PART-2 : peak and stop (setmaxweeks) */
 	/********************************************************************************/
 	/* find the deaths peak */
 	dmax= deaths1[istart];
 	for(ii=istart;ii<nn;ii++) { if(deaths1[ii]>dmax) { dmax=deaths1[ii]; imax=ii; } }
-	/* if unset, adjust setmaxdays to the actual data */
-	if(setmaxdays==0) setmaxdays= (nn-imax)-1;
+	/* if unset, adjust maxdays to the actual data */
+	if(maxdays==0) maxdays= (nn-imax)-1;
 	/* determine the number of excess days being requested */
-	overrun= (imax+setmaxdays+1)-nn ;
+	overrun= (imax+maxdays+1)-nn ;
 	/* find the stop (unincluded sample for loops) */
-	istop= imax+setmaxdays+1;
+	istop= imax+maxdays+1;
 	if(istop>nn) istop= nn;
 
 	/* find the other min/max values bey=tween istart and istop */
