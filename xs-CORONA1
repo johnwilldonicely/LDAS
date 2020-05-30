@@ -148,6 +148,7 @@ fi
 
 ################################################################################
 # PROCESS THE LATEST DATA
+################################################################################
 if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	echo
@@ -158,7 +159,8 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	echo -e "code\tslope1raw\tdays2dmax\tslope2norm\tdcurrent" > $progbase1"_stats.txt"
 
 
-	########################################
+	################################################################################
+	# RUN THE ANALYSIS, BUILDING THE CURVE-PLOTS
 	out2a=$tempfile"_block.txt"
 	out2b="temp_xe-CORONA1.txt"
 	let count=0
@@ -211,7 +213,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 	rm -f temp_curves_merge.???.ps
 
 
-	########################################
+	################################################################################
 	# MAKE THE STATS PLOTS
 	echo -e "\n\t...making stats-plots..."
 
@@ -222,7 +224,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 
 	in2=$progbase1"_stats.txt"
 
-	for stat in s1 dmax dtot tmax t50 t25 s2 ; do
+	for stat in s1 dtot1 dmax tmax s2 dtot2 t50 t25 ; do
 		echo -e "\t $stat"
 		xe-cut1 $in2 code,$stat > $tempfile".1"
 		# use sub-shells to extract header and sort contents on $stat
@@ -238,7 +240,6 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		list=$(xe-cut1 $tempfile".2" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
 		xs-plotmod1 $plotfile --xtics $list --out 1
 	done
-
 	# merge the plots
 	xe-plotmerge1 $plotlist -xo 65 -xmax 1 -ymax 4 -yinc 200 -out "temp_stats_merge"
 	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi

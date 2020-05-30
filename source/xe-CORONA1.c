@@ -47,7 +47,7 @@ int main (int argc, char *argv[]) {
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popmillions=0.0,cmin,cmax,dmin,dmax,result_d[8];
 
 	long lastdeaths2,slope2deaths2;
-	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1=NAN,slope2deaths1=NAN;
+	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1=NAN,slope2deaths1=NAN,dtot1,dtot2;
 
 
 	/* arguments */
@@ -376,14 +376,21 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************/
+	/* CALCULATE DTOT1 (PRE-PEAK) and DTOT2 (POST-PEAK) */
+	/********************************************************************************/
+	dtot1=dtot2= 0.0;
+	for(ii=istart;ii<imax;ii++) dtot1+= deaths1[ii];
+	for(ii=imax;ii<istop;ii++) dtot2+= deaths1[ii];
+
+	/********************************************************************************/
 	/* OUTPUT  */
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot	s1\ts2	country\n");
-	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%ld	%.3f\t%.3f	%s\n",
+	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot1\tdtot2	s1\ts2	country\n");
+	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%.0f\t%.0f	%.3f\t%.3f	%s\n",
 		countrycode,popmillions,istart,(imax-istart),i50,i25,
-		cmax,dmax,deaths2[(istop-1)],
+		cmax,dmax,dtot1,dtot2,
 		slope1deaths1,slope2deaths1,setcountry
 	);
 	fclose(fpout);
