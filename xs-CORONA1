@@ -24,7 +24,8 @@ setclean="1"
 seturl="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv"
 setcountries="United_Kingdom"
 sett50="0"
-setopts1=""
+setopt1=""
+setopts2=""
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -32,7 +33,8 @@ setopts1=""
 if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
-	echo $thisprog": template BASH script"
+	echo $thisprog": process disease data using ECDC and WorldBank datasets"
+	echo " - assumes WorldBank data is in folder as .zip files named by measure"
 	echo "USAGE: $thisprog [mode] [options]"
 	echo "	[mode]: operating mode: down | proc | all"
 	echo "		init: download, convert & nitialize data"
@@ -40,7 +42,8 @@ if [ $# -lt 1 ]; then
 	echo "		all: all of the above"
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--countries: CSV list of countries to analyse [$setcountries]"
-	echo "	--opts1: options (in quotes) o pass to xe-CORONA1 [unset]"
+	echo "	--opt1: options (in quotes) to pass to xe-CORONA1 [unset]"
+	echo "	--opt2: options (in quotes) for curve-plots [unset]"
 	echo "	--t50: exclude countries still above 50% mx deaths (0=NO 1=YES) [$sett50]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
@@ -57,7 +60,7 @@ fi
 ########################################################################################
 setmode=$1 ; shift
 
-vs="v:c:" ; vl="verb:,clean:,countries:,smooth,t50:,opts1:"
+vs="v:c:" ; vl="verb:,clean:,countries:,smooth,t50:,opt1:,opt2:,"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -67,7 +70,8 @@ while [ $# -gt 0 ] ; do
 		--clean ) setclean=$2 ; shift ;;
 		--countries ) setcountries=$2 ; shift ;;
 		--t50 ) sett50=$2 ; shift ;;
-		--opts1 ) setopts1=$2 ; shift ;;
+		--opt1 ) setopt1=$2 ; shift ;;
+		--opt2 ) setopt2=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -82,14 +86,14 @@ if [ $setverb == 1 ] ; then
 fi
 
 
-if [ "$setopts1" != "" ] ; then
+if [ "$setopt1" != "" ] ; then
 	for var in mindeaths maxdays normc smooth ; do
-		z=$(echo $setopts1 | xe-getkey stdin "-$var")
+		z=$(echo $setopt1 | xe-getkey stdin "-$var")
 		if [ "$z" != "" ] ; then declare "set$var"=$z ; fi
 	done
 fi
 
-rm -f jj.*
+rm -f jj*
 
 ################################################################################
 # DOWNLOAD AND CREATE TEXT FILE
@@ -146,7 +150,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 	done
 
 	# Build country list, sorted by continent and total-deaths
-	echo "...Building country death-list..."
+	echo "...Building table_countries_maxdeaths.txt..."
 	in1=$(ls covid_*.txt | tail -n 1)
 	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
 	echo -e "dTot\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
@@ -157,8 +161,52 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 		echo -e "$tot\t$cont\t$i"
 	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
 
+	# Build country list, sorted by continent and total-deaths
+	echo "...Building table_indicators.txt..."
+	listzip=$(ls *.zip)
+	let count=0
+	for in1 in $listzip ; do 
+		let count=$count+1
+		measure=$(echo $in1 | cut -f 1 -d . | cut -f 2- -d _)
+		echo $measure
+
+		if [ $count -eq 1 ] ; then 
+			unzip -p $in1 "API*" | 
+			awk -F '"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", "", $i) } 1' | # remove commas inside quotes 
+			tr -d '"' | tr ' ' '_' | 
+			xe-cut2 stdin Country_Code | 
+			awk -F , '{printf("%s\t%s\n",$2,$1)}' |
+			xe-strsub1 stdin Country_Code Code |
+			xe-strsub1 stdin Country_Name Country > "table_codes.txt"
+			cut -f 1 "table_codes.txt"  > "table_indicators.txt"
+		fi 	
+	
+		listints="AirlinePassengers PopTotal" 
+		if [[ $listints =~ $measure ]] ; then 
+			base=1.0
+		else 
+			base=0.001
+		fi
+
+		echo -e "Code\t$measure" > $tempfile".1"
+		unzip -p $in1 "API*" | # extract 
+		awk -F '"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", "", $i) } 1' | # remove commas inside quotes
+		tr -d '"' | tr ' ' '_' | tr ',' '\t' | # remove quotes, spaces, and commas 
+		xe-cut2 stdin Country_Code | # remove the top to the file up to the header line 
+		cut -f 2,5- |  # cut out the long descriptive fields
+		xe-delimit stdin | # theis is mainly to remove trailing blank tabs
+		xe-math_round2 stdin -b $base | # make the number more sensible
+		awk '{b=$2; if(b=="") b="-";  print $1"\t"b}' >> $tempfile".1" # if there was no data, replace it with a hyphen 
+		xe-dbmatch2 "table_indicators.txt" Code $tempfile".1" $measure > $tempfile".2"
+		cp $tempfile".2" "table_indicators.txt"
+	done
+
+
+
+
 fi
 
+rm -f jj*
 
 ################################################################################
 # PROCESS THE LATEST DATA
@@ -185,12 +233,12 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		echo -e "\tCountry: "$country" ("$code")"
 
 		# run the analysis for the current country
-		opts="$setopts1 -out 2"
+		opts="$setopt1 -out 2"
 		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
 		# special case - eliminate second-peak for China
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
 
-		xe-CORONA1 $in1 $country $opts $setopts1 > $out2a
+		xe-CORONA1 $in1 $country $opts $setopt1 > $out2a
 
 		let t50=$(xe-cut1 $out2b t50 -o 1)
 		if [ "$sett50" == "1" ] && [ $t50 -lt 0 ] ; then continue ; fi
@@ -208,7 +256,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		xl="Weeks"
 		yl="Daily Count"
 
-		xe-plottable1 $out2a $plotopts -title "$country ($dmax)" -xlabel "$xl" -ylabel "$yl" -legend 1 -out $plotfile
+		xe-plottable1 $out2a $plotopts -title "$country ($dmax)" -xlabel "$xl" -ylabel "$yl" -legend 1 $setopt2 -out $plotfile
 		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
 		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
 		mv jjj $plotfile

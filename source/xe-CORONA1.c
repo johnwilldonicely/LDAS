@@ -52,9 +52,9 @@ int main (int argc, char *argv[]) {
 
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
-	int setverb=0,setpad=0,setnormd=0,setnormc=0,setout=1,setpeak2=0;
+	int setverb=0,setpad=0,setnormd=0,setnormc=1,setout=1,setpeak2=0;
 	long setmindeaths=10;
-	double setsmooth=21,setmaxweeks=0.0;
+	double setsmooth=0.0,setmaxweeks=0.0;
 
 	sprintf(outfile,"temp_%s.txt",thisprog);
 
@@ -135,7 +135,8 @@ int main (int argc, char *argv[]) {
 	if(setout!=1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: invalid -out [%d] must be 1 or 2\n\n",thisprog,setout);exit(1);}
 	if(setpeak2!=0 && setpeak2!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -peak2 [%d] must be 0 or 1\n\n",thisprog,setpeak2);exit(1);}
 
-	smooth= 1.0/ (setsmooth*2.0);
+
+	if(setsmooth!=0) smooth= 1.0/(setsmooth*2.0) ; else smooth=0.0;
 	maxdays= (long)(setmaxweeks*7.0);
 
 	/********************************************************************************
