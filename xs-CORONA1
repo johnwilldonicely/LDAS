@@ -119,7 +119,9 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 		tr ',' '\t' |
 		tr ' ' '_'  > jj.header
 	tail -n +2 $basename".csv" |
-		xe-strsub1 stdin ',,,' ',-,-,' | # pad e double-empty fields fr countries with no GeoID and Code
+		xe-strsub1 stdin ',,' ',-,' | # pad empty fields
+		xe-strsub1 stdin ',,' ',-,' | # repeat in case of two empty fields in a row
+		xe-strsub1 stdin ',,' ',-,' | # repeat in case of three empty fields in a row
 		xe-strsub1 stdin 'N/A' '-' | # treat as "missing"
 		grep -v "Saint Eustatius" | # problematic due to comma in name
 		tr ' ' '\t' |
