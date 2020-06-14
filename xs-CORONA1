@@ -151,16 +151,19 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUU\t$pop\tEurope" >> $basename.txt
 	done
 
-	# Build country list, sorted by continent and total-deaths
+	# Build country list, sorted by continent and total-deaths/million, countries > 1million pop only
 	echo "...Building table_countries_maxdeaths.txt..."
 	in1=$(ls covid_*.txt | tail -n 1)
 	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
-	echo -e "dTot\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
+	echo -e "Death_per_M\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
 	for i in $list1 ; do
-		tot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
-		if [ "$tot" == "" ] ; then tot="0" ; fi
+		popm=$(xe-dbmatch1 $in1 Country $i -oc Pop -o 1 | head -n 1 | xe-math_div1 stdin -v 1000000)
+		if [ $(echo "$popm <1.0" | bc) -eq 1 ] ; then continue ; fi
+		dtot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
+		if [ "$dtot" == "" ] ; then dtot="0" ; fi
+		dpm=$(echo "scale=4; $dtot / $popm" | bc | xe-math_round2 stdin -b 0.01)
 		cont=$(xe-dbmatch1 $in1 Country $i -oc Continent -o 1 | head -n 1)
-		echo -e "$tot\t$cont\t$i"
+		echo -e "$dpm\t$cont\t$i"
 	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
 
 	# Build country list, sorted by continent and total-deaths
@@ -258,7 +261,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		xl="Weeks"
 		yl="Daily Count"
 
-		xe-plottable1 $out2a $plotopts -title "$country ($dmax)" -xlabel "$xl" -ylabel "$yl" -legend 1 $setopt2 -out $plotfile
+		xe-plottable1 $out2a $plotopts -title "$country ($popm)" -xlabel "$xl" -ylabel "$yl" -legend 1 $setopt2 -out $plotfile
 		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
 		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
 		mv jjj $plotfile
