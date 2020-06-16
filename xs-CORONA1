@@ -88,7 +88,7 @@ fi
 
 if [ "$setopt1" != "" ] ; then
 	for var in mindeaths maxdays normc smooth ; do
-		z=$(echo $setopt1 | xe-getkey stdin "-$var")
+		z=$(echo $setopt1 | xe-getkey stdin "-$var" | tail -n 1)
 		if [ "$z" != "" ] ; then declare "set$var"=$z ; fi
 	done
 fi
