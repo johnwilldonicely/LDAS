@@ -140,6 +140,24 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 		xe-dateconv1 stdin -h 0 -i 4 -o 3  >> $basename".txt"
 	head $basename.txt
 
+	# Build country list, sorted by continent and total-deaths/million, countries > 1million pop only
+	echo "...Building table_countries_maxdeaths.txt..."
+	in1=$(ls covid_*.txt | tail -n 1)
+	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
+	echo -e "Death_per_M\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
+	for i in $list1 ; do
+		pop=$(xe-dbmatch1 $in1 Country $i -oc Pop -o 1 | tail -n 1)
+		echo "...$i $pop"
+		if [ "$pop" == "-" ] ; then echo -e "\t*** skipping $i (no population data)"  >&2 ; continue ; fi 
+		popm=$(echo "scale=3; $pop / 1000000" | bc)
+		if [ $(echo "$popm <1.0" | bc) -eq 1 ] ; then echo -e "\t*** skipping $i (pop < 1M)"  >&2 ; continue ; fi
+		dtot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
+		if [ "$dtot" == "" ] ; then dtot="0" ; fi
+		dpm=$(echo "scale=4; $dtot / $popm" | bc | xe-math_round2 stdin -b 0.01)
+		cont=$(xe-dbmatch1 $in1 Country $i -oc Continent -o 1 | head -n 1)
+		echo -e "$dpm\t$cont\t$i"
+	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
+
 	# Add Europe-wide data
 	echo "...Building Europe-wide data..."
 	xe-dbmatch1 $basename.txt Continent Europe > jj.europe1
@@ -150,21 +168,6 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 		deaths=$(xe-dbmatch1 jj.europe1 Date $d -oc Deaths | xe-math_sum1 stdin -long 1)
 		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUU\t$pop\tEurope" >> $basename.txt
 	done
-
-	# Build country list, sorted by continent and total-deaths/million, countries > 1million pop only
-	echo "...Building table_countries_maxdeaths.txt..."
-	in1=$(ls covid_*.txt | tail -n 1)
-	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
-	echo -e "Death_per_M\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
-	for i in $list1 ; do
-		popm=$(xe-dbmatch1 $in1 Country $i -oc Pop -o 1 | head -n 1 | xe-math_div1 stdin -v 1000000)
-		if [ $(echo "$popm <1.0" | bc) -eq 1 ] ; then continue ; fi
-		dtot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
-		if [ "$dtot" == "" ] ; then dtot="0" ; fi
-		dpm=$(echo "scale=4; $dtot / $popm" | bc | xe-math_round2 stdin -b 0.01)
-		cont=$(xe-dbmatch1 $in1 Country $i -oc Continent -o 1 | head -n 1)
-		echo -e "$dpm\t$cont\t$i"
-	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
 
 	# Build country list, sorted by continent and total-deaths
 	echo "...Building table_indicators.txt..."
