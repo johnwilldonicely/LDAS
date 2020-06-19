@@ -104,17 +104,16 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 	wget -O csv -q --show-progress  $seturl
 	basename="covid_"$(ls -l csv  --time-style="+%Y%m%d" | awk '{print $6}' | cut -f 1 -d /)
 	mv csv $basename".csv"
-	ls -l *.csv
+	dos2unix $basename".csv"
 
 	# save the header with renamed variables, convert commas and spaces
 	head -n 1 $basename".csv" |
-		xe-strsub1 stdin dateRep Date |
-		xe-strsub1 stdin cases Cases |
+		xe-strsub1 stdin dateRep Date |xe-strsub1 stdin cases Cases |
 		xe-strsub1 stdin deaths Deaths |
 		xe-strsub1 stdin countriesAndTerritories Country |
 		xe-strsub1 stdin geoId GeoID |
 		xe-strsub1 stdin countryterritoryCode Code |
-		xe-strsub1 stdin popData2018 Pop |
+		xe-strsub1 stdin popData2019 Pop |
 		xe-strsub1 stdin continentExp Continent |
 		tr ',' '\t' |
 		tr ' ' '_'  > jj.header
