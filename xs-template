@@ -236,7 +236,7 @@ fi
 ########################################################################################
 echo "$@" 	# all arguments after the program name - enclose in quotes to avoid expansion
 echo "${@:2}"	# everything from argument #2 onwards
-echo $#		# the number of arguments
+echo $#	# the number of arguments
 
 base=$1 ; shift
 echo $base
@@ -276,6 +276,27 @@ fi
 { sleep 1; echo waking up after 1 second; } &
 wait
 echo all jobs are done!
+
+
+################################################################################
+# CPU AND SERVER PARALLEL PROCESSING (parallelization) using GNU parallel
+# - https://www.gnu.org/software/parallel/
+# - though "parallel" has many clever command and redirection options, I think 
+#   the safest apprach is to build a command list beforehand 
+# - NOTE that care must be taken not to overwrite output from each command
+# 	- use unique names 
+# - NOTE in the example below that variables, quotes and redirection can be included in the command 
+# - NOTE that if parallel is used in published work, it should be cited, 
+#	- citation should be as described running "parallel --bibtex"
+################################################################################
+list=$(ls temp_???.bin | head -n 16 )
+setsteps=10
+for i in $list ; do 
+	command="xe-fftpow2 \"$i\" -dt 8 -sf 1000 -w 2000 -s $setsteps -max 100 > $i.fft" 
+	echo -e "echo \"\t$command\"" ; echo $command
+done > jjtasks 
+# NOW RUN THE JOBS 
+cat jjtasks | parallel -j+0
 
 
 ################################################################################
