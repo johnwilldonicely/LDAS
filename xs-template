@@ -7,7 +7,7 @@
 
 # for most scripts...
 thisprog=`basename "$0"`
-tempfile="temp_"$thisprog #"."$$"."
+tempfile="temp_"$thisprog"_"$$
 
 progdir=$(which $0 2>/dev/null | rev | cut -f 2- -d / |rev)"/source"
 progpath=$(dirname $(readlink -f "$0"))
@@ -73,7 +73,9 @@ fi
 # INTERACTIVE TEST TO OVERWRITE DATA
 ################################################################################
 read -p  "--- Warning: data will be overwritten. Continue? [y/n] " answer
-while true ; do case $answer in [yY]* ) break ;; *) exit ;; esac ; done
+while true ; do case $answer in
+	[yY]* ) break ;; *) exit ;; esac ;
+done
 echo "continuing..."
 exit
 
@@ -110,7 +112,7 @@ if [ "$(command -v pandoc)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]:
 vs="abs:v:c:" ; vl="batch:,skip:,verb:,clean:"
 # check for errors
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
-if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
 # otherwise, parse options
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 # now scan the options and set flags or assign values as appropriate
@@ -281,22 +283,25 @@ echo all jobs are done!
 ################################################################################
 # CPU AND SERVER PARALLEL PROCESSING (parallelization) using GNU parallel
 # - https://www.gnu.org/software/parallel/
-# - though "parallel" has many clever command and redirection options, I think 
-#   the safest apprach is to build a command list beforehand 
+# - though "parallel" has many clever command and redirection options, I think
+#   the safest apprach is to build a command list beforehand
 # - NOTE that care must be taken not to overwrite output from each command
-# 	- use unique names 
-# - NOTE in the example below that variables, quotes and redirection can be included in the command 
-# - NOTE that if parallel is used in published work, it should be cited, 
+# 	- use unique names
+# - NOTE in the example below that variables, quotes and redirection can be included in the command
+# - NOTE that if parallel is used in published work, it should be cited,
 #	- citation should be as described running "parallel --bibtex"
+# - DO NOT USE PARALLELIZATION IF:
+# 	- the parallel outputs are normally appended - this would then require an additional concatenation at the end of the jobs, and performance may be lost.
+# 		- note: if the files are quite large, parallelization might still benefit
 ################################################################################
 list=$(ls temp_???.bin | head -n 16 )
 setsteps=10
-for i in $list ; do 
-	command="xe-fftpow2 \"$i\" -dt 8 -sf 1000 -w 2000 -s $setsteps -max 100 > $i.fft" 
+for i in $list ; do
+	command="xe-fftpow2 \"$i\" -dt 8 -sf 1000 -w 2000 -s $setsteps -max 100 > $i.fft"
 	echo -e "echo \"\t$command\"" ; echo $command
-done > jjtasks 
-# NOW RUN THE JOBS 
-cat jjtasks | parallel -j+0
+done > $tempfile.jobs
+# NOW RUN THE JOBS
+cat $tempfile.jobs | parallel -j+0 --progress
 
 
 ################################################################################

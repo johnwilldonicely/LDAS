@@ -6,7 +6,7 @@ thisprog=`basename "$0"`
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 allopts=$@
 
-tempfile="temp_"$thisprog #"."$$"."
+tempfile="temp_"$thisprog"_"$$
 startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date1=$(date)
