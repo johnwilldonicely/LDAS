@@ -151,6 +151,7 @@ LDAS will not install or will fail to run properly without these programs.
 - zip - for zipping archives
 - unzip - for unzipping archives
 - gcc - compiler used for C-source code
+- parallel - an GNU package for CPU-parallelization  
 - dos2unix - required for correcting DOS-style line-breaks
 - gs - ghostscript - essential for dealing with LDAS graphics
 - nano - simple text editor - used for showing manuals

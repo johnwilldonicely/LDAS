@@ -27,7 +27,7 @@ let previnstall=0
 
 setsource="https://github.com/johnwilldonicely/LDAS/"
 setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
-listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc"
+listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc parallel"
 
 setscope="local"
 setdest="/home/$USER/bin/"

@@ -524,12 +524,13 @@ elif [ "$setmode" == "plot" ] ; then
 	list=$(ls *.dat)
 	plotlist=""
 	rm -f $tempfile".jobs"
-	if [ "$setverb" == "1" ] ; then echo ; fi 
+	if [ "$setverb" == "1" ] ; then echo ; fi
 	# FOR EACH INPUT, GENERATE A SINGLE-LINE JOB FOR PARALLEL PROCESSING
 	for in1 in $list ; do
 
-		out1="out_"$tempfile".config" # can't be tempfile, because xs-TAINI-tools will delete!
+		out1=$tempfile".config"
 		$thisprog config --file $in1 > $out1
+
 
 		subject=$(grep subject= $out1 | awk '{print $2}')
 		band=$(grep band= $out1 | awk '{print $2}')
@@ -560,7 +561,7 @@ elif [ "$setmode" == "plot" ] ; then
 		# now generate the job for parallel processing
 		job="xs-ldas5-plotdata1 $in1 $opts1 -s $start -P \"$plotopts\" 2>&1 > /dev/null"
 		if [ "$setverb" == "1" ] ; then
-			echo -e "plotting using channel-table: $table"
+			echo -e "plotting $in1 using channel-table: $table"
 			echo -e $job"\n"
 		fi
 		echo $job >> $tempfile".jobs"
