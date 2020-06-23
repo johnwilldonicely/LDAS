@@ -1,4 +1,4 @@
-![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo.png)
+![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo_simple.jpg)
 
 # Contents
 [* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* PLOTS ](#plots)
