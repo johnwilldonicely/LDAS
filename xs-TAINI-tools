@@ -7,11 +7,11 @@
 # for most scripts...
 thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))
-tempfile="temp_"$thisprog #"."$$"."
+tempfile="temp_"$thisprog"_"$$
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 
 startdir=$(pwd)
-start_time=$(date +'%s.%3N')
+prog_starttime=$(date +'%s.%3N')
 mydate=$(date +'%Y%m%d')
 template_channels="$progpath/docs/templates/table_channels_taini_2.txt"
 RED='\033[0;31m'	# for errors
@@ -45,7 +45,7 @@ setclean="1"
 nboxes=4
 filenotes=$(ls *.notes 2>/dev/null | head -n 1)
 fileconfig=$(ls *configuration.yaml 2>/dev/null)
-fileplot="plot_traces_"$thisprog".ps"
+plotfile1="plot_traces_"$thisprog".ps"
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -120,10 +120,11 @@ if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; e
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		--verb )  setverb=$2 ; shift ;;
+		--clean )  setclean=$2 ; shift ;;
 		--expt )  setexpt=$2 ; shift ;;
 		--batch ) setbatch=$2 ; shift ;;
 		--block ) setblock=$2 ; shift ;;
-		--verb )  setverb=$2 ; shift ;;
 		--input ) setinput=$2 ; shift ;;
 		--file )  setfile=$2 ; shift ;;
 		--pre ) setpre=$2 ; shift ;;
@@ -138,8 +139,9 @@ while [ $# -gt 0 ] ; do
 done
 
 # PERFORM CHECKS ON OPTIONS
-if [ "$setblock" != "0" ] && [ "$setblock" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --block ($setblock) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+if [ "$setblock" != "0" ] && [ "$setblock" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --block ($setblock) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setinput" != "ab" ] && [ "$setinput" != "cd" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --input ($setinput) -  must be ab or cd" ; echo ; exit; } ; fi
 if [ "$setfile" != "" ]  && [ ! -e "$setfile" ] ; then { echo -e "\n$RED--- Error ["$thisprog"]: missing --file $setfile$NC\n"; exit; } fi
 
@@ -150,7 +152,6 @@ if [ "$setkey" != "" ] ; then
 	done
 	if [ $z -eq 0 ] ; then { echo -e "$RED--- Error ["$thisprog"]: invalid --key ($setkey)\n\t- use one of $listkeys$NC\n";  exit; } fi
 fi
-
 
 # INITIAL CLEANUP
 if [ "$setclean" == "1" ] ; then
@@ -522,10 +523,14 @@ elif [ "$setmode" == "plot" ] ; then
 
 	list=$(ls *.dat)
 	plotlist=""
+	rm -f $tempfile".jobs"
+	if [ "$setverb" == "1" ] ; then echo ; fi
+	# FOR EACH INPUT, GENERATE A SINGLE-LINE JOB FOR PARALLEL PROCESSING
 	for in1 in $list ; do
 
-		out1="out_"$tempfile".config" # can't be tempfile, because xs-TAINI-tools will delete!
-		xs-TAINI-tools config --file $in1 > $out1
+		out1=$tempfile".config"
+		$thisprog config --file $in1 > $out1
+
 
 		subject=$(grep subject= $out1 | awk '{print $2}')
 		band=$(grep band= $out1 | awk '{print $2}')
@@ -543,25 +548,39 @@ elif [ "$setmode" == "plot" ] ; then
 		elif [ -e $y ] ; then table=$y
 		else table=$template_channels
 		fi
-		echo "plotting using channel-table: $table"
 
 		# DETERMINE START-TIME: 5 SECONDS BEFORE THE END OF THE FILE
 		opts1="-c good -f $sample_rate -l 10 -h 0 -w 1 -m 0 -v 0 -d 1000 -t $table"
 		start=$(xe-filesize1 $in1 -sf $sample_rate -dt 2 -nch $n_channels | xe-getkey2 stdin nseconds= | awk '{a=$1-5.0; if(a<0.0) a=0; print a}')
 
-		plotfile="plot_"$tempfile"_"$in1".ps"
-		plotlist=$plotlist" "$plotfile
+		plotfile2=$tempfile"_"$in1".ps"
+		plotlist=$plotlist" "$plotfile2
 		title=$start_date"_"$start_time"_"$in1"_band:"$band"_device:"$dev
-		if [ "$setverb" == "1" ] ; then echo -e "\nxs-ldas5-plotdata1 $in1 $opts1 -a $start -P \"-yscale .25 -frame 15 -title $title -out $plotfile\"" ; fi
-		xs-ldas5-plotdata1 $in1 $opts1 -s $start -P "-yscale .25 -frame 15 -title $title -out $plotfile" &>/dev/null
-	done
+		plotopts="-yscale .25 -frame 15 -title $title -out $plotfile2"
 
+		# now generate the job for parallel processing
+		job="xs-ldas5-plotdata1 $in1 $opts1 -s $start -P \"$plotopts\" 2>&1 > /dev/null"
+		if [ "$setverb" == "1" ] ; then
+			echo -e "plotting $in1 using channel-table: $table"
+			echo -e $job"\n"
+		fi
+		echo $job >> $tempfile".jobs"
+
+# this works on the command line but not here - there is a quote substitution issue
+# "${job[@]}"
+# xs-ldas5-plotdata1 $in1 $opts1 -s $start -P "$plotopts" 2>&1 > /dev/null
+
+	done
+	# ..and run the batch job
+	if [ "$setverb" == "1" ] ; then echo -e "\n...running above jobs in parallel...\n" ; fi
+	cat $tempfile".jobs" | parallel -j+0
+
+	# merge the plots and then combine multi-page output into a single document
 	xe-plotmerge1 -xmax 1 -ymax 4 $plotlist
 	rm -f $plotlist
-	xe-plotmerge2 temp_xe-plotmerge1.*.ps > $fileplot
+	xe-plotmerge2 temp_xe-plotmerge1.*.ps > $plotfile1
 	rm -f temp_xe-plotmerge1.*.ps
-	evince $fileplot &
-
+	evince $plotfile1 &
 
 #-------------------------------------------------------------------------------
 elif [ "$setmode" == "unrename" ] ; then
@@ -665,8 +684,8 @@ fi
 # REPORT, CLEANUP AND EXIT
 ################################################################################
 if [ "$setverb" == "1" ] ; then
-	end_time=$(date +'%s.%3N')
-	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	prog_endtime=$(date +'%s.%3N')
+	s=$(echo $prog_endtime $prog_starttime | awk '{print $1-$2}' )
 	m=$(echo $s | awk '{print ($1/60)}')
 	echo "	Time to finish job: "$s" seconds = "$m" minutes"
 fi

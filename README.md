@@ -22,7 +22,6 @@
 	...and more.
 
 
-
 ################################################################################
 # INSTALLATION
 
@@ -40,7 +39,7 @@ Open Windows Powershell as Administrator and  run this command:
 ```
 ...then restart your PC.  
 
-**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better fperformance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
+**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better performance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
 This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
@@ -107,7 +106,7 @@ Example install commands:
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 	$ ./LDAS_INSTALL.sh update
 ```
-Note that in two of the examples you do have the option to install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
+Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
 ### 4. Check for Warnings and Errors
 * Are you using the most up-to-date installer?
@@ -152,6 +151,7 @@ LDAS will not install or will fail to run properly without these programs.
 - zip - for zipping archives
 - unzip - for unzipping archives
 - gcc - compiler used for C-source code
+- parallel - an GNU package for CPU-parallelization  
 - dos2unix - required for correcting DOS-style line-breaks
 - gs - ghostscript - essential for dealing with LDAS graphics
 - nano - simple text editor - used for showing manuals

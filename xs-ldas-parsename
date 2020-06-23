@@ -54,7 +54,7 @@ setfield=$1 ; shift
 ################################################################################
 vs="fsp" ; vl="file,session,part"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
-if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" exit ; }
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -75,13 +75,13 @@ if [ $setfile -eq 1 ] ; then inname=${inname%.*}; fi
 # CHECK NAME FORMAT
 ################################################################################
 let n=$(echo $inname | tr '_' '\n' | wc -l)
-if [ $n -ne 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" must contain exactly one underscore\n" ; exit ; } fi
+if [ $n -ne 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" must contain exactly one underscore\n" >&2 ; exit ; } fi
 a=$(echo $inname | cut -f 1 -d _)
 b=$(echo $inname | cut -f 2 -d _)
 let n=$(echo $a | tr '-' '\n' | wc -l)
-if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$innam\" has >1 hyphen in the time-section\n" ; exit ; } fi
+if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$innam\" has >1 hyphen in the time-section\n" >&2 ; exit ; } fi
 let n=$(echo $b | tr '-' '\n' | wc -l)
-if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" has >1 hyphen in the subject-section\n" ; exit ; } fi
+if [ $n -gt 2 ] ; then { echo -e "\n--- Error ["$thisprog"]: name \"$inname\" has >1 hyphen in the subject-section\n" >&2 ; exit ; } fi
 
 ################################################################################
 # OUTPUT SETFIELD - OR ERROR IF SETFIELD IS INAPPROPRIATE
@@ -90,25 +90,25 @@ case $setfield in
 	date    )
 		z=$(echo $inname | xe-cut1 stdin 1 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d -)
 		if [ "$z" ] ; then echo $z
-		else   echo -e "\n--- Error ["$thisprog"]: missing date field\n" ; exit
+		else   echo -e "\n--- Error ["$thisprog"]: missing date field\n" >&2 ; exit
 		fi
 		;;
 	session )
 		z=$(echo $inname | xe-cut1 stdin 1 -n 1 -d _ | xe-cut1 stdin 2 -n 1 -d -)
 		if [ "$z" ] ; then echo $z
-		elif [ $setsession -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing session field\n" ;  exit
+		elif [ $setsession -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing session field\n" >&2 ; exit
 		fi
 		;;
 	subject )
 		z=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d -)
 		if [ "$z" ] ; then echo $z
-		else   echo -e "\n--- Error ["$thisprog"]: missing subject field\n" ; exit
+		else   echo -e "\n--- Error ["$thisprog"]: missing subject field\n" >&2 ; exit
 		fi
 		;;
 	part    )
 		z=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 2 -n 1 -d -)
 		if [ "$z" ] ; then echo $z
-		elif [ $setpart -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing part field\n" ; exit
+		elif [ $setpart -eq 1 ] ; then  echo -e "\n--- Error ["$thisprog"]: missing part field\n" >&2 ; exit
 		fi
 		;;
 	base    )
@@ -116,7 +116,7 @@ case $setfield in
 		b=$(echo $inname | xe-cut1 stdin 2 -n 1 -d _ | xe-cut1 stdin 1 -n 1 -d '-')
 		echo $a"_"$b
 		;;
-	* ) echo -e "\n--- Error ["$thisprog"]: invalid field ($setfield) -  must be date, session, subject or part\n" ; exit ;;
+	* ) echo -e "\n--- Error ["$thisprog"]: invalid field ($setfield) -  must be date, session, subject or part\n" >&2 ; exit ;;
 esac
 
 

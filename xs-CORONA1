@@ -1,0 +1,339 @@
+#!/bin/bash
+# <TAGS> epidemiology </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+# for most scripts...
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+allopts=$@
+tempfile="temp_"$thisprog #"."$$"."
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+# options
+setverb="0"
+setclean="1"
+seturl="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv"
+setcountries="United_Kingdom"
+sett50="0"
+setopt1=""
+setopts2=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": process disease data using ECDC and WorldBank datasets"
+	echo " - assumes WorldBank data is in folder as .zip files named by measure"
+	echo "USAGE: $thisprog [mode] [options]"
+	echo "	[mode]: operating mode: down | proc | all"
+	echo "		init: download, convert & nitialize data"
+	echo "		process: process the data"
+	echo "		all: all of the above"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--countries: CSV list of countries to analyse [$setcountries]"
+	echo "	--opt1: options (in quotes) to pass to xe-CORONA1 [unset]"
+	echo "	--opt2: options (in quotes) for curve-plots [unset]"
+	echo "	--t50: exclude countries still above 50% mx deaths (0=NO 1=YES) [$sett50]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	list=\"United_Kingdom,France,Germany,Italy,Spain\""
+	echo "	$thisprog all --countries \$list -d 10 -w 12"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND ARGUMENT HANDLING
+########################################################################################
+setmode=$1 ; shift
+
+vs="v:c:" ; vl="verb:,clean:,countries:,smooth,t50:,opt1:,opt2:,"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--verb ) setverb=$2 ; shift ;;
+		--clean ) setclean=$2 ; shift ;;
+		--countries ) setcountries=$2 ; shift ;;
+		--t50 ) sett50=$2 ; shift ;;
+		--opt1 ) setopt1=$2 ; shift ;;
+		--opt2 ) setopt2=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$sett50" != "0" ] && [ "$sett50" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --t50 ($sett50) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ $setverb == 1 ] ; then
+	echo -e "--------------------------------------------------------------------------------\n"$thisprog" "$allopts"\n"
+	echo -e "$date0"
+fi
+
+
+if [ "$setopt1" != "" ] ; then
+	for var in mindeaths maxdays normc smooth ; do
+		z=$(echo $setopt1 | xe-getkey stdin "-$var" | tail -n 1)
+		if [ "$z" != "" ] ; then declare "set$var"=$z ; fi
+	done
+fi
+
+rm -f jj*
+
+################################################################################
+# DOWNLOAD AND CREATE TEXT FILE
+if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
+
+	# download file - rename from "csv" to covid_[date].csv
+	# ...where date is derived from the flie timestamp
+	wget -O csv -q --show-progress  $seturl
+	basename="covid_"$(ls -l csv  --time-style="+%Y%m%d" | awk '{print $6}' | cut -f 1 -d /)
+	mv csv $basename".csv"
+	dos2unix $basename".csv"
+
+	# save the header with renamed variables, convert commas and spaces
+	head -n 1 $basename".csv" |
+		xe-strsub1 stdin dateRep Date |xe-strsub1 stdin cases Cases |
+		xe-strsub1 stdin deaths Deaths |
+		xe-strsub1 stdin countriesAndTerritories Country |
+		xe-strsub1 stdin geoId GeoID |
+		xe-strsub1 stdin countryterritoryCode Code |
+		xe-strsub1 stdin popData2019 Pop |
+		xe-strsub1 stdin continentExp Continent |
+		tr ',' '\t' |
+		tr ' ' '_'  > jj.header
+	tail -n +2 $basename".csv" |
+		xe-strsub1 stdin ',,' ',-,' | # pad empty fields
+		xe-strsub1 stdin ',,' ',-,' | # repeat in case of two empty fields in a row
+		xe-strsub1 stdin ',,' ',-,' | # repeat in case of three empty fields in a row
+		xe-strsub1 stdin 'N/A' '-' | # treat as "missing"
+		grep -v "Saint Eustatius" | # problematic due to comma in name
+		tr ' ' '\t' |
+		tr ',' '\t' |
+		tr ' ' '_' |
+		tr -d '"' > jj.1
+
+	# sort the file by date and convert date format
+	# the following is organised to be robust against changes in the order of the columns in the csv file
+	listcols="Date,Cases,Deaths,Country,GeoID,Code,Pop,Continent"
+	cat jj.header | xe-cut1 stdin $listcols > $basename".txt"
+	cat jj.header jj.1 |
+		xe-cut1 stdin $listcols -o 1 |
+		xe-dateconv1 stdin -h 0 -i 1 -o 4 |
+		sort -k1,1n |
+		xe-dateconv1 stdin -h 0 -i 4 -o 3  >> $basename".txt"
+	head $basename.txt
+
+	# Build country list, sorted by continent and total-deaths/million, countries > 1million pop only
+	echo "...Building table_countries_maxdeaths.txt..."
+	in1=$(ls covid_*.txt | tail -n 1)
+	list1=$(xe-cut1 $in1 Country -o 1 | sort -u)
+	echo -e "Death_per_M\tContinent\tCountry" >  "table_countries_maxdeaths.txt"
+	for i in $list1 ; do
+		pop=$(xe-dbmatch1 $in1 Country $i -oc Pop -o 1 | tail -n 1)
+		echo "...$i $pop"
+		if [ "$pop" == "-" ] ; then echo -e "\t*** skipping $i (no population data)"  >&2 ; continue ; fi 
+		popm=$(echo "scale=3; $pop / 1000000" | bc)
+		if [ $(echo "$popm <1.0" | bc) -eq 1 ] ; then echo -e "\t*** skipping $i (pop < 1M)"  >&2 ; continue ; fi
+		dtot=$(xe-dbmatch1 $in1 Country $i -oc Deaths -o 1 | xe-math_sum1 stdin -long 1)
+		if [ "$dtot" == "" ] ; then dtot="0" ; fi
+		dpm=$(echo "scale=4; $dtot / $popm" | bc | xe-math_round2 stdin -b 0.01)
+		cont=$(xe-dbmatch1 $in1 Country $i -oc Continent -o 1 | head -n 1)
+		echo -e "$dpm\t$cont\t$i"
+	done | sort -k1,1nr -k2 >> "table_countries_maxdeaths.txt"
+
+	# Add Europe-wide data
+	echo "...Building Europe-wide data..."
+	xe-dbmatch1 $basename.txt Continent Europe > jj.europe1
+	pop=$(xe-cut1 jj.europe1 GeoID,Pop -o 1 | sort -u | cut -f 2 | xe-math_sum1 stdin -long 1)
+	listdates=$( xe-dbmatch1 $basename.txt Continent Europe | xe-cut1 stdin Date -o 1 | sort -u)
+	for d in $listdates ; do
+		cases=$(xe-dbmatch1 jj.europe1 Date $d -oc Cases | xe-math_sum1 stdin -long 1)
+		deaths=$(xe-dbmatch1 jj.europe1 Date $d -oc Deaths | xe-math_sum1 stdin -long 1)
+		echo -e "$d\t$cases\t$deaths\tEurope\tEU\tEUU\t$pop\tEurope" >> $basename.txt
+	done
+
+	# Build country list, sorted by continent and total-deaths
+	echo "...Building table_indicators.txt..."
+	listzip=$(ls *.zip)
+	let count=0
+	for in1 in $listzip ; do 
+		let count=$count+1
+		measure=$(echo $in1 | cut -f 1 -d . | cut -f 2- -d _)
+		echo $measure
+
+		if [ $count -eq 1 ] ; then 
+			unzip -p $in1 "API*" | 
+			awk -F '"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", "", $i) } 1' | # remove commas inside quotes 
+			tr -d '"' | tr ' ' '_' | 
+			xe-cut2 stdin Country_Code | 
+			awk -F , '{printf("%s\t%s\n",$2,$1)}' |
+			xe-strsub1 stdin Country_Code Code |
+			xe-strsub1 stdin Country_Name Country > "table_codes.txt"
+			cut -f 1 "table_codes.txt"  > "table_indicators.txt"
+		fi 	
+	
+		listints="AirlinePassengers PopTotal" 
+		if [[ $listints =~ $measure ]] ; then 
+			base=1.0
+		else 
+			base=0.001
+		fi
+
+		echo -e "Code\t$measure" > $tempfile".1"
+		unzip -p $in1 "API*" | # extract 
+		awk -F '"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", "", $i) } 1' | # remove commas inside quotes
+		tr -d '"' | tr ' ' '_' | tr ',' '\t' | # remove quotes, spaces, and commas 
+		xe-cut2 stdin Country_Code | # remove the top to the file up to the header line 
+		cut -f 2,5- |  # cut out the long descriptive fields
+		xe-delimit stdin | # theis is mainly to remove trailing blank tabs
+		xe-math_round2 stdin -b $base | # make the number more sensible
+		awk '{b=$2; if(b=="") b="-";  print $1"\t"b}' >> $tempfile".1" # if there was no data, replace it with a hyphen 
+		xe-dbmatch2 "table_indicators.txt" Code $tempfile".1" $measure > $tempfile".2"
+		cp $tempfile".2" "table_indicators.txt"
+	done
+
+
+
+
+fi
+
+rm -f jj*
+
+################################################################################
+# PROCESS THE LATEST DATA
+################################################################################
+if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
+
+	echo
+	listcountries=$(echo $setcountries | tr ',' ' ')
+	in1=$(ls -1 "covid_"????????".txt" | tail -n 1)
+	echo "	input= "$in1
+	xe-cut1 $in1 GeoID,Code,Country | (head -n 1 && tail -n +2 | sort -u )  > $progbase1"_codes.txt"
+	echo -e "code\tslope1raw\tdays2dmax\tslope2norm\tdcurrent" > $progbase1"_stats.txt"
+
+
+	################################################################################
+	# RUN THE ANALYSIS, BUILDING THE CURVE-PLOTS
+	out2a=$tempfile"_block.txt"
+	out2b="temp_xe-CORONA1.txt"
+	let count=0
+	for country in $listcountries ; do
+
+		let count=$count+1
+		code=$(xe-dbmatch1 $progbase1"_codes.txt" Country $country -oc Code -o 1)
+		echo -e "\tCountry: "$country" ("$code")"
+
+		# run the analysis for the current country
+		opts="$setopt1 -out 2"
+		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
+		# special case - eliminate second-peak for China
+		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
+
+		xe-CORONA1 $in1 $country $opts $setopt1 > $out2a
+
+		let t50=$(xe-cut1 $out2b t50 -o 1)
+		if [ "$sett50" == "1" ] && [ $t50 -lt 0 ] ; then continue ; fi
+
+		w50=$(echo $t50 | awk '{print $1/7}')
+		dmax=$(xe-cut1 $out2b dmax -o 1 | awk '{printf("%ld\n",$1)}')
+		popm=$(xe-cut1 $out2b popm -o 1)
+		dcurrent=$(xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin Count | tail -n 1)
+
+
+		#echo -e "\t\t...plotting..."
+		plotfile="temp_plot_"$count".ps"
+		plotlist=$plotlist" "$plotfile
+		plotopts="-cg 1 -cx 4 -cy 3 -line 1 -pt histo -lwd 1 -xint 1 -xscale .4 -yscale .25 -vline 0 -xpad 0 -ypad 0 -hline $dcurrent -vline $w50"
+		xl="Weeks"
+		yl="Daily Count"
+
+		xe-plottable1 $out2a $plotopts -title "$country ($popm)" -xlabel "$xl" -ylabel "$yl" -legend 1 $setopt2 -out $plotfile
+		xe-strsub1 $plotfile "/c0 {0.0000 0.0000 0.0000} def" "/c0 {0.7 0.8 1.0} def" |
+		xe-strsub1 stdin "/c1 {0.7500 0.1000 0.2000} def" "/c1 {0.9 0.5 0.5} def" > jjj
+		mv jjj $plotfile
+
+		# compile the output
+		if [ $count -eq 1 ] ; then
+			echo -e "Country\tDeaths\tDeltaWeeks" > $progbase1"_curves.txt"
+			xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin DeltaWeeks,Count -o 1 | awk '{print "'$country'\t"$0}' >> $progbase1"_curves.txt"
+			cat "temp_xe-CORONA1.txt" > $progbase1"_stats.txt"
+
+		else
+			xe-dbmatch1 $out2a Var Deaths | xe-cut1 stdin DeltaWeeks,Count -o 1 | awk '{print "'$country'\t"$0}' >> $progbase1"_curves.txt"
+			tail -n +2 "temp_xe-CORONA1.txt" >> $progbase1"_stats.txt"
+		fi
+	done
+
+	# merge the plots
+	xe-plotmerge1 $plotlist -xo 75 -yo 680 -xmax 2 -ymax 4 -xinc 280 -yinc 200 -out "temp_curves_merge"
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+	xe-plotmerge2 $(ls temp_curves_merge.???.ps) > $progbase1"_curves.ps"
+	rm -f temp_curves_merge.???.ps
+
+
+	################################################################################
+	# MAKE THE STATS PLOTS
+	echo -e "\n\t...making stats-plots..."
+
+	plotlist=""
+	let ncountries=$(tail -n +2 $progbase1"_stats.txt" | wc -l)
+	xscale=$(echo "scale=3; 0.05 * $ncountries" | bc | awk '{s=$1; if(s>.9)s=.9; print s}')
+	plotopts="-cx 1 -cg 3 -cy 3 -xint 1 -pt box -xscale $xscale -yscale .275 -legend 2 -pal inferno -frame 1 -font 6 "
+
+	in2=$progbase1"_stats.txt"
+
+	for stat in s1 dtot1 dmax tmax s2 dtot2 t50 t25 ; do
+		echo -e "\t $stat"
+		xe-cut1 $in2 code,$stat > $tempfile".1"
+		# use sub-shells to extract header and sort contents on $stat
+		(
+		head -n 1 $tempfile".1" | awk '{print "xpos\t"$0}' &&
+		tail -n +2 $tempfile".1" | sort -k2,2n | awk '{print n++"\t"$0}'
+		) | xe-math_round2 stdin -c 3 -b .01 > $tempfile".2"
+		# make the plot
+		plotfile=$tempfile"_plot_"$stat".ps"
+		plotlist=$plotlist" "$plotfile
+		xe-plottable1 $tempfile".2" $plotopts -xlabel "country" -ylabel "$stat" -title "$stat" -out $plotfile
+		# modify the xtics to reflect country codes
+		list=$(xe-cut1 $tempfile".2" xpos,code -o 1 | tr '\t' ',' | paste -s | tr '\t' ',')
+		xs-plotmod1 $plotfile --xtics $list --out 1
+	done
+	# merge the plots
+	xe-plotmerge1 $plotlist -xo 65 -xmax 1 -ymax 4 -yinc 200 -out "temp_stats_merge"
+	if [ "$setclean" == "1" ] ; then rm -f $plotlist ; fi
+	xe-plotmerge2 $(ls temp_stats_merge.???.ps) > $progbase1"_stats.ps"
+	rm -f temp_stats_merge.???.ps
+
+
+fi
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

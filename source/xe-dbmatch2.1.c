@@ -1,14 +1,17 @@
+#define thisprog "xe-dbmatch2"
+#define TITLE_STRING thisprog" 29.May.2020 [JRH]"
+#define MAXDELIM 16
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#define thisprog "xe-dbmatch2"
-#define TITLE_STRING thisprog" 4.May.2019 [JRH]"
-#define MAXDELIM 16
 /*
 <TAGS>database</TAGS>
+
+29.May.2020 [JRH]
+	- add ability to set the "missing value" string
 
 4.May.2019 [JRH]: complete reworking - currently this program is impractical and unused
 	- read database first and store key-value pairs
@@ -38,10 +41,12 @@ int main (int argc, char *argv[]) {
 	long *iwords=NULL,*ikeys=NULL,*ivals=NULL,nheader=-1,nwords=0,nkeys=0;
 	long incol=-1,keycol=-1,valcol=-1;
 	/* arguments */
-	char *infile=NULL,*keyfile=NULL,*setcol=NULL,*setkey=NULL,*setval=NULL,*setdelim=NULL;
+	char *infile=NULL,*keyfile=NULL,*setcol=NULL,*setkey=NULL,*setval=NULL,*setdelim=NULL,*setmissing=NULL;
 	int setskip=1;
 
-	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
+	/********************************************************************************
+	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
+	********************************************************************************/
 	if(argc<5) {
 		fprintf(stderr,"\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
@@ -60,10 +65,11 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[val]: column in keyfile containing values to append\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"	[-k]: key-column to match in keyfile [ default=[col] ]\n");
+		fprintf(stderr,"	[-m]: missing key-match placeholder to append [\"-\"]\n");
 		fprintf(stderr,"	[-d]: characters to use as column-delimiters [\"\\t\"]\n");
 		fprintf(stderr,"		- max %d characters permitted\n",MAXDELIM);
-		fprintf(stderr,"		- any delimiter in the input marks a new column\n");
 		fprintf(stderr,"		- the first delimiter is used for the output\n");
+		fprintf(stderr,"		- any delimiter in the input marks a new column\n");
 		fprintf(stderr,"EXAMPLES: add group-names to a file with only group-no. specified\n");
 		fprintf(stderr,"	%s data.txt group names.txt name -d \",\"\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -73,8 +79,9 @@ int main (int argc, char *argv[]) {
 		exit(0);
 	}
 
-
-	/* READ THE FILENAME AND OPTIONAL ARGUMENTS */
+	/********************************************************************************
+	READ THE FILENAME AND OPTIONAL ARGUMENTS - including comma-separated list item
+	********************************************************************************/
 	infile= argv[1];
 	setcol= argv[2];
 	keyfile= argv[3];
@@ -84,12 +91,14 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-k")==0) setkey= argv[++ii];
+			else if(strcmp(argv[ii],"-m")==0) setmissing= argv[++ii];
 			else if(strcmp(argv[ii],"-d")==0) {
 				if((setdelim= malloc(MAXDELIM))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 				snprintf(setdelim,MAXDELIM,"%s",xf_strescape1(argv[++ii]));
 			}
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
+	if(setmissing==NULL) setmissing="-";
 
 	/* check validity of arguments */
 	if(strcmp(keyfile,"stdin")==0) {fprintf(stderr,"\n--- Error[%s]: keyfile cannot be \"stdin\" - specify a file-name\n\n",thisprog);exit(1);}
@@ -181,7 +190,7 @@ int main (int argc, char *argv[]) {
 		/* find matching keys - the value for the last matching key will be the one used */
 		for(kk=-1,ii=0;ii<nkeys;ii++) if(strcmp(pword,allkeys+ikeys[ii])==0) kk=ii;
 		if(kk!=-1) printf("%s\n",allvals+ivals[kk]);
-		else printf("-\n");
+		else printf("%s\n",setmissing);
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 

@@ -1,6 +1,7 @@
 #define thisprog "xe-plottable1"
 #define TITLE_STRING thisprog" 5.May.2020 [JRH]"
 #define MAXLINELEN 10000
+#define MAXWORDLEN 256
 #define MAXUSERLINES 256
 
 #include <stdio.h>
@@ -57,7 +58,7 @@ void xf_qsortindex1_d(double *data, long *index,long nn);
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char *infile=NULL,outfile[256],line[256],newline[256],*pline,*pcol,*gwords=NULL,message[256];
+	char *infile=NULL,outfile[MAXWORDLEN],line[MAXLINELEN],*pline,*pcol,*gwords=NULL,message[MAXWORDLEN];
 	long ii,jj,kk,nn,mm;
 	int w,x,y,z,col,colsmissing=2;
 	int  sizeofchar=sizeof(char),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double),sizeoflong=sizeof(long);
@@ -66,7 +67,7 @@ int main (int argc, char *argv[]) {
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
-	char xlabel[256],ylabel[256],plottitle[256],*tempgword=NULL;
+	char xlabel[MAXWORDLEN],ylabel[MAXWORDLEN],plottitle[MAXWORDLEN],*tempgword=NULL;
 	int *linebreak=NULL,*temp_linebreak=NULL,*tempint=NULL,lb;
 	int xticprecision,yticprecision;
 	long n1,linecount;
@@ -91,7 +92,7 @@ int main (int argc, char *argv[]) {
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* arguments */
-	char plottype[16],pointtype[16],bigtic[256],*hlineword=NULL,*vlineword=NULL;
+	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
 	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
 	int pointfill=1, framestyle=3, f1=0,f2=0,f3=0,f4=0,setdatacolour=0,setmaxpoints=10000,setmid=1,setgshift=0;
@@ -101,7 +102,7 @@ int main (int argc, char *argv[]) {
 	float setticsize=-3,pointsize=5,fontsize=10.0;
 	float boxwidth=0.75, ewidth=(boxwidth*0.5),lwdata=1,lwaxes=1,lwerror=0.75; // boxwidth and linewidth for drawing data and frame/tics
 
-	sprintf(outfile,"temp_%s.ps",thisprog);
+	snprintf(outfile,MAXWORDLEN,"temp_%s.ps",thisprog);
 	xlabel[0]=0;
 	ylabel[0]=0;
 	plottitle[0]= '\0';
@@ -246,7 +247,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-ps")==0) 	{ pointsize=atof(argv[++ii]); setpointsize=1; }
 			else if(strcmp(argv[ii],"-pf")==0) 	{ pointfill=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-plot")==0) 	{ sprintf(plottype,"%s",(argv[++ii])); }
-			else if(strcmp(argv[ii],"-out")==0) 	{ snprintf(outfile,256,"%s",(argv[++ii])); }
+			else if(strcmp(argv[ii],"-out")==0) 	{ snprintf(outfile,MAXWORDLEN,"%s",(argv[++ii])); }
 			else if(strcmp(argv[ii],"-zx")==0) 	{ zx=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-zy")==0) 	{ zy=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-verb")==0) 	{ setverb=atoi(argv[++ii]); }
@@ -469,7 +470,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	if(setverb==999) printf("*** STARTING: MEMORY ALLOCATION\n");
 	grprank= realloc(grprank,ngrps*sizeoflong);
-	grpshift= realloc(grpshift,ngrps*sizeoffloat);
+	grpshift= realloc(grpshift,ngrps*sizeof(*grpshift));
 	tempdouble= malloc(ngrps*sizeof(double));
 	temprank= malloc(ngrps*sizeof(long));
 	if(grprank==NULL||grpshift==NULL||tempdouble==NULL||temprank==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
@@ -500,14 +501,14 @@ int main (int argc, char *argv[]) {
 		setdatacolour= 0;
 		setebright= 0;
 		ncolours= ngrps;
-		/* adjust number of colours slightly for palettes where the top is close to white */
-		if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) ncolours= ncolours+1;
-		red= realloc(red,ncolours*sizeof(*red));
-		green= realloc(green,ncolours*sizeof(*green));
-		blue= realloc(blue,ncolours*sizeof(*blue));
+		/* adjust number of colours (kk) slightly for palettes where the top is close to white */
+		kk=ncolours; if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) kk+=1;
+		red= realloc(red,kk+ncolours*sizeof(*red));
+		green= realloc(green,kk*sizeof(*green));
+		blue= realloc(blue,kk*sizeof(*blue));
 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(ii=0;ii<ncolours;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,ncolours,setpal);
+		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+		x= xf_palette7(red,green,blue,kk,setpal);
 	}
 	else {
 		ncolours= 32;
@@ -703,21 +704,24 @@ int main (int argc, char *argv[]) {
 	if(setyint!=-1) {
 		if((ymin<=0. && ymax>0.)||(ymax>=0 && ymin<0.)) {
 			for(aa=0;aa>=ymin;aa-=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) {yticmaxchar=(float)z;snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 			for(aa=(0+yint);aa<=ymax;aa+=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) {yticmaxchar=(float)z;snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 		}
 		else {
 			for(aa=ymin; aa<=ymax; aa+=yint) {
-				if(yticprecision==0)  sprintf(line,"%ld",(long)aa);
-				else sprintf(line,"%.*f",yticprecision,aa);
-				z=strlen(line); if(z>(int)yticmaxchar) {yticmaxchar=(float)z;sprintf(bigtic,"%s",line); }
+				if(yticprecision==0)  snprintf(message,MAXWORDLEN,"%ld",(long)aa);
+				else snprintf(message,MAXWORDLEN,"%.*f",yticprecision,aa);
+				z=strlen(message);
+				if(z>(int)yticmaxchar) { yticmaxchar=(float)z; snprintf(bigtic,MAXWORDLEN,"%s",message); }
 			}
 		}
 	}
@@ -738,15 +742,14 @@ int main (int argc, char *argv[]) {
 
 	// DETERMINE X-SHIFTS FOR PLOT TO ALLOW SIDE-BY SIDE PLOTTING OF GROUP DATA, IF REQUIRED
 // ??? this needs updating
-	for(ii=0;ii<=ngrps;ii++) grpshift[ii]=0.0;
+	for(ii=0;ii<ngrps;ii++) grpshift[ii]=0.0;
 	if(setgshift==1) {
  		x=(int)((float)ngrps/2.0); // number of shifts
  		a=(float)xint/(float)(ngrps+1); // shift between each group
  		b=0; if((ngrps%2)==0) b=a/2.0; // shift value for smallest group-id
 		for(jj=0;jj<ngrps;jj++) {grpshift[jj]=b; b+=a; } // set initial shift values for each group index
-		for(ii=0;ii<x;ii++) for(jj=0;jj<ngrps;jj++) {grpshift[jj]-=a; } // shifting the shifts (!) backwards to centre on the middle index
+		for(ii=0;ii<x;ii++) { for(jj=0;jj<ngrps;jj++) {grpshift[jj]-=a; } } // shifting the shifts (!) backwards to centre on the middle index
  	}
-
 
 	/* DIAGNOSTIC OUTPUT */
 	if(setverb>0) {
@@ -772,6 +775,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"zy= %f\n",zy);
 		fprintf(stderr,"psymin= %f\n",psymin);
 		fprintf(stderr,"psymax= %f\n",psymax);
+		fprintf(stderr,"ngrps= %ld\n",ngrps);
+		fprintf(stderr,"ncolours= %ld\n",ncolours);
 		fprintf(stderr,"\n");
 		for(ii=0;ii<ngrps;ii++) printf("label[%ld]=%s\trank=%ld\n",ii,(gwords+igword[ii]),grprank[ii]);
 		fprintf(stderr,"--------------------------------------------------------------------------------\n");
@@ -838,18 +843,12 @@ int main (int argc, char *argv[]) {
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"\tbasefontsize mul -1 mul rmoveto\n");
-	if(strcmp(plottype,"tri")==0) {
-		fprintf(fpout,"\tbasefontsize 2 div neg basefontsize 4 div neg rmoveto\n");
-		fprintf(fpout,"\tbasefontsize 2 div basefontsize rlineto\n");
-		fprintf(fpout,"\tbasefontsize 2 div basefontsize neg rlineto\n");
-	}
-	else {
-		fprintf(fpout,"\t0 basefontsize 1.5 div rlineto\n");
-		fprintf(fpout,"\tbasefontsize 1.5 div 0 rlineto\n");
-		fprintf(fpout,"\t0 basefontsize 1.5 div neg rlineto\n");
-	}
-	fprintf(fpout,"\tpointdraw\n");
+	fprintf(fpout,"\t0 basefontsize 1.5 div rlineto\n");
+	fprintf(fpout,"\tbasefontsize 1.5 div 0 rlineto\n");
+	fprintf(fpout,"\t0 basefontsize 1.5 div neg rlineto\n");
+	fprintf(fpout,"\tfill\n");
 	fprintf(fpout,"\n");
+
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
 	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul basefontsize add xtloff 2 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);

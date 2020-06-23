@@ -17,7 +17,6 @@ bar="############################################################"
 # for most scripts...
 thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))
-progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
 allopts=$@
 
 tempfile="temp_"$thisprog #"."$$"."
@@ -28,7 +27,7 @@ let previnstall=0
 
 setsource="https://github.com/johnwilldonicely/LDAS/"
 setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
-listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc"
+listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc parallel"
 
 setscope="local"
 setdest="/home/$USER/bin/"
@@ -513,7 +512,7 @@ rm -f $outpath/xe-*
 cd $inpath
 xs-progcompile "xe-*.c" --warn 0
 
-inpath=$setdest"/LDAS/source/regaamc"
+inpath=$setdest"/LDAS/source/regaamc8"
 cd $inpath
 gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 

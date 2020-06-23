@@ -4,8 +4,9 @@
 
 thisprog=`basename "$0"`
 allopts=$@
-tempfile="temp_"$thisprog #"."$$"."
+tempfile="temp_"$thisprog"_"$$
 plotfile="plot_"$thisprog".ps"
+start_time=$(date +'%s.%3N')
 
 datrate="19531.25"
 binrate="1000"
@@ -123,10 +124,14 @@ if [ "$setrect" != "0" ] && [ "$setrect" != "1" ] ; then { echo -e "\n--- Error 
 if [ "$settable" != "" ] && [ ! -e "$settable" ] ; then { echo -e "\n--- Error ["$thisprog"]: table file (-t $settable) missing\n"; exit; } ; fi
 if [ "$setchans" == "good" ] && [ "$settable" == "" ] && [ "$settable" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: good channels (-c good) requires also setting -t\n"; exit; } ; fi
 
+
+
 ########################################################################################
 # PARSE INFILE AND READ DEFAULTS FROM .NOTES IF AVAILABLE
 ext=$(echo $infile | xe-cut1 stdin 2 -d . -n 1)
-base=$(xs-ldas-parsename $infile base -f)
+base=$(xs-ldas-parsename $infile base -f  2>/dev/null) # make sure error message goes to null - its's possible this script is used for non-LDAS filenames
+if [ ! "$base" ] ; then base=${infile%%.*} ; fi
+
 filenotes=$base".notes"
 if [ -e "$filenotes" ] ; then
 	key="sample_rate="
@@ -315,6 +320,7 @@ fi
 rm -f $tempfile
 
 if [ "$filetype" == "dat" ] ; then
+
 	for i in $triplets ; do
 		label=$(echo $i|cut -f 3 -d ,)
 		yoff=$(echo $i|cut -f 2 -d ,)
@@ -330,6 +336,7 @@ if [ "$filetype" == "dat" ] ; then
 	 		xe-timestamp1 stdin -sf $newrate -o $offset |
 			xe-math_add1 stdin -cy 2 -v $yoff >> $tempfile
 	done
+
 
 elif [ "$filetype" == "bin" ] ; then
 	for i in $triplets ; do
@@ -376,5 +383,12 @@ xs-plotmod1 $plotfile --ytics $y,$a,"",$b,"" --out 1
 ################################################################################
 # CLEANUP AND EXIT
 ################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
 if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+
 exit
