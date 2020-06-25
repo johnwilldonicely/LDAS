@@ -27,10 +27,7 @@
 
 --------------------------------------------------------------------------------
 ## Installation on Windows 10 (estimated: 15 minutes)
-**This section explains how to set up your Windows computer to run Linux in the Windows Subsystem for Linux.  
-Once you complete this, proceed to the "Installation on Linux" section**. 
-
-While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". 
+**This section explains how to quickly set up a Linux subsystem on your Windows 10 computer. Once you complete this, proceed to the "Installation on Linux" section**. 
 
 ### 1. Enable the Windows Subsystem for Linux (WSL-1)
 Open Windows Powershell as Administrator and  run this command:
@@ -38,8 +35,6 @@ Open Windows Powershell as Administrator and  run this command:
 	dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
 ...then restart your PC.  
-
-**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better performance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
 This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
@@ -61,16 +56,18 @@ https://docs.microsoft.com/en-us/windows/wsl/user-support
 
 ### 5. Now proceed with the **Installation on Linux**  instructions below. 
 
-
 A few extra notes:  
 
-* Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
+* In the Ubuntu window, your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
 
-* To view LDAS plots on Windows you will need the free ghostscript and GS-View tools
+* To view native LDAS plots on Windows you will need the free *ghostscript* and *GS-View* tools. Otherwise, LDAS can also convert your plots to jpg or pdf format. 
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
-* Running LDAS in the Windows Subsystem for Linux might be slower than running on a Linux workstation. These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10.
+* These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
+
+* Running LDAS in the *Windows Subsystem for Linux* will probably be slower than running on a native-Linux workstation. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Fedora or Ubuntu on a dedicated PC. 
+
 
 
 
