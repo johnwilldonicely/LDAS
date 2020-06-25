@@ -12,13 +12,15 @@
 	* modular design allows custom scripting for complex tasks
 
 * Capabilities include:
+	* large-scale automated batch-processing for entire experiments
+	* CPU parallelization 
 	* data visualization (smart-postscript)
 	* behavioural analysis 
 	* spectral power and coherence analysis (FFT)
 	* functional connectivity / correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)
-	* large-scale automated batch-processing for entire experiments
+	* spike (action-potential) analysis 
 
 	...and more.
 
@@ -136,15 +138,12 @@ Note (as in the 3rd example above) that you can install from a previously-saved 
 
 #### Essential dependencies
 * Most LDAS dependencies will come with your Linux distribution.
-* If not, the LDAS_INSTALLER.sh script will have attempted to install them 
+* The LDAS_INSTALLER.sh script will attempted to install any missing dependencies. 
 * Otherwise, they can be installed by the superuser or users with sudo-access.
 ```
 	Fedora/Redhat: $ sudo yum install -y [program]
 	Ubuntu:        $ sudo apt install -y [program]
 ```
-
-LDAS will not install or will fail to run properly without these programs.
-
 - wget - for downloading the installer
 - zip - for zipping archives
 - unzip - for unzipping archives
