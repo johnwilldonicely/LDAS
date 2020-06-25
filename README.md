@@ -6,15 +6,16 @@
 ![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
 
 # Introduction
-* There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
+* If you're struggling to process the volumes of data you're generating, or if you need to automate analysis and report production, then LDAS is right for you. Designed with speed and customization in mind, LDAS offers a number of advantages: 
 	* coded in C for very high-speed processing
 	* minimal dependencies for quick and easy installation
 	* modular design allows custom scripting for complex tasks
 
 * Capabilities include:
 	* data visualization (smart-postscript)
-	* spectral power analysis (FFT)
-	* coherence and correlation
+	* behavioural analysis 
+	* spectral power and coherence analysis (FFT)
+	* functional connectivity / correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)
 	* large-scale automated batch-processing for entire experiments
