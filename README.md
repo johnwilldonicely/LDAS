@@ -49,7 +49,7 @@ Click on the Ubuntu icon in the Start menu to launch, and follow these steps to 
 https://docs.microsoft.com/en-us/windows/wsl/user-support
 
 ### 4. [optional] Configure display for handling by Xming
-- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](http://www.straightrunning.com/XmingNotes/), and run the following commands once:
+- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](https://sourceforge.net/projects/xming/files/latest/download), and run the following commands once:
 
 ```
 		$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
