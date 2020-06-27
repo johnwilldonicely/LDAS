@@ -44,7 +44,7 @@ int xf_writewave1_f(char *outfile, short *wid, long *wn, float *wmean, short *wc
 		return(-1);}
 
 	if(makez<0) {
-		sprintf(message,"%s [ERROR]: invalid makez (%d): must be >=0",thisfunc,makez);
+		sprintf(message,"%s [ERROR]: invalid makez (%ld): must be >=0",thisfunc,makez);
 		return(-1);}
 
 	nn= params[0];     // number of waveforms to be output
