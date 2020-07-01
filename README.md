@@ -160,27 +160,18 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 ##### pandoc
 	- document converter, used for creating manuals
 	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
-```
-	Ubuntu: 
-		$ sudo apt install pandoc -y
-
-	Other distros:  
-		$ version=2.9.1.1
-		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
-		$ dest=/opt/pandoc/
-		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
-		$ sudo tar xvzf $tarname --strip-components 1 -C $dest
-```
 	- for pandoc to generate PDF output, addtional dependencies may be required:
 		- texlive-latex-base
 		- texlive-fonts-recommended
-
+```
+		$ sudo apt install -y pandoc
+```
 
 ##### python3 + hdf5 support 
 	- required for some of the MEA scripts
 ```
-		$ sudo yum install python3-y libffi-devel
-		$ sudo yum install -y openssl-devel
+		$ sudo apt install -y python3 libffi-devel
+		$ sudo apt install -y openssl-devel
 		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
@@ -188,24 +179,14 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 	- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
 	- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
-		$ sudo yum install -y R
+		$ sudo apt install -y R
 ```
 
 ##### libreoffice 
 	- for some scripts, required to convert Excel spreadsheets to CSV files
 ```
-	Ubuntu: 
-		$ sudo apt install libreoffice-common
+		$ sudo apt install -y libreoffice-common
 
-	for a Fedora install using an RPM tarball:
-		$ version=6.3.4
-		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
-		$ tarname=$rpmname".tar.gz"
-		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
-		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
-		$ tar -zxvf $tarname
-		$ cd $rpmname/RPMS
-		$ sudo yum install *.rpm
 ```
 
 
