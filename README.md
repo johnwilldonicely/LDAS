@@ -155,49 +155,38 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 - nano - simple text editor - used for showing manuals
 - evince - for viewing LDAS postscript reports
 
-#### Optional dependencies
+#### Optional dependencies  
 
-##### pandoc
-	- document converter, used for creating manuals
-	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
+##### pandoc  
+- document converter, used for creating manuals
+- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
 ```
 		$ sudo apt install pandoc -y
 ```
-	- for pandoc to generate PDF output, addtional dependencies may be required:
-		- texlive-latex-base
-		- texlive-fonts-recommended
+- for pandoc to generate PDF output, addtional dependencies may be required:
+	- texlive-latex-base
+	- texlive-fonts-recommended
 
 
 ##### python3 + hdf5 support 
-	- required for some of the MEA scripts
+- required for some of the MEA scripts
 ```
-		$ sudo yum install python3-y libffi-devel
-		$ sudo yum install -y openssl-devel
-		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
+	$ sudo yum install python3-y libffi-devel
+	$ sudo yum install -y openssl-devel
+	$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
 ##### R statistical package
-	- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
-	- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
+- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
-		$ sudo yum install -y R
+	$ sudo yum install -y R
 ```
 
 ##### libreoffice 
-	- for some scripts, required to convert Excel spreadsheets to CSV files
+- for some scripts, required to convert Excel spreadsheets to CSV files
 ```
-	Ubuntu: 
 		$ sudo apt install libreoffice-common
-
-	for a Fedora install using an RPM tarball:
-		$ version=6.3.4
-		$ rpmname="LibreOffice_"$version"_Linux_x86-64_rpm"
-		$ tarname=$rpmname".tar.gz"
-		$ urlbase="https://www.mirrorservice.org/sites/download.documentfoundation.org/tdf/libreoffice/stable/"
-		$ wget $urlbase"/"$version"/rpm/x86_64/"$tarname
-		$ tar -zxvf $tarname
-		$ cd $rpmname/RPMS
-		$ sudo yum install *.rpm
 ```
 
 
