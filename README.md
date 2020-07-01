@@ -6,21 +6,21 @@
 ![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
 
 # Introduction
-* If you're struggling to process the volumes of data you're generating, or if you need to automate analysis and report production, then LDAS is right for you. Designed with speed and customization in mind, LDAS offers a number of advantages: 
+* If you're struggling to process the volumes of data you're generating, or if you need to automate analysis and report production, then LDAS is right for you. Designed with speed and customization in mind, LDAS offers a number of advantages:
 	* coded in C for very high-speed processing
 	* minimal dependencies for quick and easy installation
 	* modular design allows custom scripting for complex tasks
 
 * Capabilities include:
 	* large-scale automated batch-processing for entire experiments
-	* CPU parallelization 
+	* CPU parallelization
 	* data visualization (smart-postscript)
-	* behavioural analysis 
+	* behavioural analysis
 	* spectral power and coherence analysis (FFT)
 	* functional connectivity / correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)
-	* spike (action-potential) analysis 
+	* spike (action-potential) analysis
 
 	...and more.
 
@@ -37,8 +37,8 @@ Once you complete this, *proceed to the "Installation on Linux" section*.
 
 
 ### 1. Enable the Windows Subsystem for Linux (WSL-1)
-Open Windows Powershell as Administrator and  run this command: 
-``` 
+Open Windows Powershell as Administrator and  run this command:
+```
 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
 
@@ -50,22 +50,22 @@ https://www.microsoft.com/store/apps/9N9TNGVNDL3Q
 Click on the Ubuntu icon in the Start menu to launch, and follow these steps to set up your username and password.
 https://docs.microsoft.com/en-us/windows/wsl/user-support
 
-#### That's it! Now proceed with the **Installation on Linux**  instructions below. 
+#### That's it! Now proceed with the **Installation on Linux**  instructions below.
 
 A few extra notes on LDAS under Windows...
 * In the Ubuntu window, your Windows drives will be accessible from **/mnt/c**, **/mnt/d**, etc.  
 * The Windows Subsystem will likely be slower than native-Linux. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Ubuntu or Fedora on a dedicated PC or hard drive.  
-* To view native LDAS plots in the Windows file explorer, you will need the free *ghostscript* and *GS-View* tools. Alternatively, LDAS provides tools to convert your plots to jpg or pdf format. 
- 
+* To view native LDAS plots in the Windows file explorer, you will need the free *ghostscript* and *GS-View* tools. Alternatively, LDAS provides tools to convert your plots to jpg or pdf format.
+
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
 
-* If you want "live" graphical output frim Linux image-viewers, text editors etc to display in Windows, you can install a free X-windows server like 
-[Vcxsrv](https://sourceforge.net/projects/vcxsrv/), 
-or 
+* If you want "live" graphical output frim Linux image-viewers, text editors etc to display in Windows, you can install a free X-windows server like
+[Vcxsrv](https://sourceforge.net/projects/vcxsrv/),
+or
 [Xming](https://sourceforge.net/projects/xming/files/latest/download).
- Vcxsrv is easy to install, and you will just need to run it before launching a Linux session. 
+ Vcxsrv is easy to install, and you will just need to run it before launching a Linux session.
 
 
 
@@ -78,7 +78,7 @@ or
 
 ### 1. Make sure your Linux distribution is updated
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux.
-``` 
+```
 	For Ubuntu:    $ sudo apt-get update
 	Other distros: $ sudo yum update -y
 ```
@@ -97,7 +97,7 @@ It's always a good idea to make sure your Linux components are up to date before
 * local: for the current user only  
 * global: for all users, superuser privileges will be required  
 * update: for an existing installation  
-	
+
 Example install commands:
 ```
 	$ ./LDAS_INSTALL.sh local
@@ -106,7 +106,7 @@ Example install commands:
 ```
 Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
-Be sure to check for Warnings and Errors when the installation completes. If there were any, There are a few things to check, including: 
+Be sure to check for Warnings and Errors when the installation completes. If there were any, There are a few things to check, including:
 * Are you using the most up-to-date installer?
 * Do you have sudo privileges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
@@ -119,7 +119,7 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 
 
 --------------------------------------------------------------------------------
-## Extra notes on installation (all platforms): 
+## Extra notes on installation (all platforms):
 * local: installation is for the **current user only**:
 	* any user can install
 	* LDAS installed in /home/$USER/bin/LDAS
@@ -139,7 +139,7 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 
 #### Essential dependencies
 * Most LDAS dependencies will come with your Linux distribution.
-* The LDAS_INSTALLER.sh script will attempted to install any missing dependencies. 
+* The LDAS_INSTALLER.sh script will attempted to install any missing dependencies.
 * Otherwise, they can be installed by the superuser or users with sudo-access.
 ```
 	Fedora/Redhat: $ sudo yum install -y [program]
@@ -155,38 +155,38 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 - nano - simple text editor - used for showing manuals
 - evince - for viewing LDAS postscript reports
 
-#### Optional dependencies
+#### Optional dependencies  
 
-##### pandoc
-	- document converter, used for creating manuals
-	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
-	- for pandoc to generate PDF output, addtional dependencies may be required:
-		- texlive-latex-base
-		- texlive-fonts-recommended
+##### pandoc  
+- document converter, used for creating manuals
+- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
 ```
-		$ sudo apt install -y pandoc
+		$ sudo apt install pandoc -y
 ```
+- for pandoc to generate PDF output, addtional dependencies may be required:
+	- texlive-latex-base
+	- texlive-fonts-recommended
 
-##### python3 + hdf5 support 
-	- required for some of the MEA scripts
+
+##### python3 + hdf5 support
+- required for some of the MEA scripts
 ```
-		$ sudo apt install -y python3 libffi-devel
-		$ sudo apt install -y openssl-devel
-		$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
+	$ sudo yum install python3-y libffi-devel
+	$ sudo yum install -y openssl-devel
+	$ python3 -m pip install h5py numpy pandas requests mne matplotlib --user
 ```
 
 ##### R statistical package
-	- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
-	- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
+- for the xs-R_* statistics scripts (ANOVA, Multiple regression, etc)
+- dependenceies here: https://mirrors.sonic.net/epel/7/x86_64/Packages/r/
 ```
-		$ sudo apt install -y R
+	$ sudo yum install -y R
 ```
 
-##### libreoffice 
-	- for some scripts, required to convert Excel spreadsheets to CSV files
+##### libreoffice
+- for some scripts, required to convert Excel spreadsheets to CSV files
 ```
-		$ sudo apt install -y libreoffice-common
-
+		$ sudo apt install libreoffice-common
 ```
 
 
