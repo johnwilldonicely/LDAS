@@ -180,9 +180,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	modified .wfm file %s\n",outfilewfm);
 		fprintf(stderr,"	histogram file (optional) %s\n",outfilehist);
 		fprintf(stderr,"REPORT OUTPUT (-v 0 or 2):\n");
-		fprintf(stderr,"	c1 c2 tot   rl tl pl   rr tr pr   wavecor combine\n");
+		fprintf(stderr,"	c1 c2 a1 a2   nxcor  rl tl pl   rr tr pr   wavecor combine\n");
 		fprintf(stderr,"\n");
-		fprintf(stderr,"	[c1 c2 tot]: cluster IDs and histogram spike-count\n");
+		fprintf(stderr,"	[c1 c2 a1 a2]: cluster IDs and autocorrelation\n");
+		fprintf(stderr,"	[nxcor]: number of spikes contriibuting to the cross-correlation\n");
 		fprintf(stderr,"	[rl tl pl]: left-side refractoriness, t-stat & prob.\n");
 		fprintf(stderr,"	[rr tr pr]: as above for right-hand side\n");
 		fprintf(stderr,"	[wavecor]: waveform correlation, 5 channels centred on\n");
@@ -261,7 +262,7 @@ int main (int argc, char *argv[]) {
 	wclumax= resultl[5]; // largest cluster number
 	wprobe= resultl[6]; // probe-id
 	/* check maximum-cluster-id's match in club and wfm records */
-	if(wclumax!=clumax) {fprintf(stderr,"\n--- Error[%s]: max cluster in waveform file (%ld) does not match the club file (%ld)\n\n",thisprog,wclumax,clumax);exit(1);}
+	if(wclumax!=clumax) {fprintf(stderr,"\n--- Error[%s]: max cluster in waveform file (%ld) does not match the club file (%d)\n\n",thisprog,wclumax,clumax);exit(1);}
 	/* check that the total number of populated clusters also matches */
 	if(wnclust!=nclust) {fprintf(stderr,"\n--- Error[%s]: no. of clusters in waveform file (%ld) does not match the club file (%ld)\n\n",thisprog,wnclust,nclust);exit(1);}
 	/* compare spike counts for each cluster  */
@@ -313,7 +314,7 @@ int main (int argc, char *argv[]) {
 	histbintot=(long)(histhalf*2*1000); // ensures 1 bin per millisecond
 	histhigh=(long)(histhalf*wsfreq);
 	histlow= 0-histhigh;
-	if(histbintot>HISTMAXSIZE) {fprintf(stderr,"\n--- Error [%s]: %g-second histogram requires %ld bins - exceeds predefined HISTMAXSIZE (%ld)\n\n",thisprog,histhalf,histbintot,HISTMAXSIZE); exit(1);}
+	if(histbintot>HISTMAXSIZE) {fprintf(stderr,"\n--- Error [%s]: %g-second histogram requires %ld bins - exceeds predefined HISTMAXSIZE (%d)\n\n",thisprog,histhalf,histbintot,HISTMAXSIZE); exit(1);}
 
 	/********************************************************************************
 	CALCULATE STARTING AUTOCORRELATION AND REFRACTORINESS FOR EACH CLUSTER

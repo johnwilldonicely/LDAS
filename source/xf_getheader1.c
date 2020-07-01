@@ -40,7 +40,7 @@ char *xf_getheader1(char *infile, char *keyword, char *message) {
 	FILE *fpin;
 
 	/* CHECK VALIDITY OF ARGUMENTS */
-	if(infile==NULL) { sprintf(message,"%s [ERROR]: invalid size of input (%ld)",thisfunc,nn); return(NULL); }
+	if(infile==NULL) { sprintf(message,"%s [ERROR]: infile is undefined",thisfunc); return(NULL); }
 
 	/* INITIALIZE THE VARIABLES */
 	keylen= strlen(keyword);

@@ -6,18 +6,21 @@
 ![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
 
 # Introduction
-* There are plenty of data-analysis tools available, but LDAS was designed to provide several advantages:
+* If you're struggling to process the volumes of data you're generating, or if you need to automate analysis and report production, then LDAS is right for you. Designed with speed and customization in mind, LDAS offers a number of advantages: 
 	* coded in C for very high-speed processing
 	* minimal dependencies for quick and easy installation
 	* modular design allows custom scripting for complex tasks
 
 * Capabilities include:
+	* large-scale automated batch-processing for entire experiments
+	* CPU parallelization 
 	* data visualization (smart-postscript)
-	* spectral power analysis (FFT)
-	* coherence and correlation
+	* behavioural analysis 
+	* spectral power and coherence analysis (FFT)
+	* functional connectivity / correlation
 	* phase-amplitude coupling
 	* filters (IIR, FIR, notch)
-	* large-scale automated batch-processing for entire experiments
+	* spike (action-potential) analysis 
 
 	...and more.
 
@@ -27,10 +30,7 @@
 
 --------------------------------------------------------------------------------
 ## Installation on Windows 10 (estimated: 15 minutes)
-**This section explains how to set up your Windows computer to run Linux in the Windows Subsystem for Linux.  
-Once you complete this, proceed to the "Installation on Linux" section**. 
-
-While LDAS is designed for maximum speed on Ubuntu/Fedora/Redhat Linux, you can now configure any Windows 10 machine to run a Linux "subsystem". 
+**This section explains how to quickly set up a Linux subsystem on your Windows 10 computer. Once you complete this, proceed to the "Installation on Linux" section**. 
 
 ### 1. Enable the Windows Subsystem for Linux (WSL-1)
 Open Windows Powershell as Administrator and  run this command:
@@ -38,8 +38,6 @@ Open Windows Powershell as Administrator and  run this command:
 	dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
 ...then restart your PC.  
-
-**Note:** LDAS will run under the existing (WSL-1) version of the subsystem. If you want even better performance, you can join the Windows Insider program to update Windows and try WSL-2. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
 ### 2. Install the free Ubuntu distribution from Microsoft Store 
 This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
@@ -51,7 +49,7 @@ Click on the Ubuntu icon in the Start menu to launch, and follow these steps to 
 https://docs.microsoft.com/en-us/windows/wsl/user-support
 
 ### 4. [optional] Configure display for handling by Xming
-- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](http://www.straightrunning.com/XmingNotes/), and run the following commands once:
+- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](https://sourceforge.net/projects/xming/files/latest/download), and run the following commands once:
 
 ```
 		$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
@@ -61,16 +59,18 @@ https://docs.microsoft.com/en-us/windows/wsl/user-support
 
 ### 5. Now proceed with the **Installation on Linux**  instructions below. 
 
-
 A few extra notes:  
 
-* Your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
+* In the Ubuntu window, your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
 
-* To view LDAS plots on Windows you will need the free ghostscript and GS-View tools
+* To view native LDAS plots on Windows you will need the free *ghostscript* and *GS-View* tools. Otherwise, LDAS can also convert your plots to jpg or pdf format. 
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
-* Running LDAS in the Windows Subsystem for Linux might be slower than running on a Linux workstation. These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10.
+* These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
+
+* Running LDAS in the *Windows Subsystem for Linux* will probably be slower than running on a native-Linux workstation. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Fedora or Ubuntu on a dedicated PC. 
+
 
 
 
@@ -104,11 +104,10 @@ Example install commands:
 	$ ./LDAS_INSTALL.sh local
 	$ ./LDAS_INSTALL.sh global
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
-	$ ./LDAS_INSTALL.sh update
 ```
 Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
 
-### 4. Check for Warnings and Errors
+Be sure to check for Warnings and Errors when the installation completes. If there were any, There are a few things to check, including: 
 * Are you using the most up-to-date installer?
 * Do you have sudo privileges (required for GLOBAL installs and for installing missing dependencies)
 * Is there a Firewall preventing access to remote repositories?
@@ -138,15 +137,12 @@ Note (as in the 3rd example above) that you can install from a previously-saved 
 
 #### Essential dependencies
 * Most LDAS dependencies will come with your Linux distribution.
-* If not, the LDAS_INSTALLER.sh script will have attempted to install them 
+* The LDAS_INSTALLER.sh script will attempted to install any missing dependencies. 
 * Otherwise, they can be installed by the superuser or users with sudo-access.
 ```
 	Fedora/Redhat: $ sudo yum install -y [program]
 	Ubuntu:        $ sudo apt install -y [program]
 ```
-
-LDAS will not install or will fail to run properly without these programs.
-
 - wget - for downloading the installer
 - zip - for zipping archives
 - unzip - for unzipping archives

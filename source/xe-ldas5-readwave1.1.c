@@ -70,7 +70,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"	-low: filter low-cut (0=none) [%g]\n",setfiltlow);
 		fprintf(stderr,"	-high: filter high-cut (0=none) [%g]\n",setfilthigh);
-		fprintf(stderr,"	-clust: restrict output to a CSV list of clusters) [%s]\n",setclulist);
+		fprintf(stderr,"	-clust: restrict output to a CSV list of clusters) [unset]\n");
 		fprintf(stderr,"		- if unset (null), all clusters are output\n");
 		fprintf(stderr,"	-verb: verbose output (0=NO 1=YES) [%d]\n",setverb);
 		fprintf(stderr,"	-out: output format [%d]\n",setout);
@@ -78,7 +78,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		1= .wfm format (header + waveforms & metadata)\n");
 		fprintf(stderr,"		2= [cluster] [channel] [time:ms] [value]\n");
 		fprintf(stderr,"...if -out is set to 2...\n");
-		fprintf(stderr,"	-chan: restrict output to channel-ID (-1 = no restriction) [%d]\n",setchan);
+		fprintf(stderr,"	-chan: restrict output to channel-ID (-1 = no restriction) [%ld]\n",setchan);
 		fprintf(stderr,"		NOTE: derived from CHANNEL_LIST, not sequence\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -100,8 +100,8 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"Error[%s]: invalid command line argument \"%s\"\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setout<0 || setout>2) { fprintf(stderr,"\n--- Error [%s]: invalid -out [%d] must be 0-2\n\n",thisprog,setout);exit(1);}
-	if(setchan<-1) { fprintf(stderr,"\n--- Error [%s]: invalid -chan [%d] must be -1 or >=0\n\n",thisprog,setchan);exit(1);}
-	if(setchan!=-1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: channel-selection (-chan %d) only valid for output option 2 (-out 2)\n\n",thisprog,setchan);exit(1);}
+	if(setchan<-1) { fprintf(stderr,"\n--- Error [%s]: invalid -chan [%ld] must be -1 or >=0\n\n",thisprog,setchan);exit(1);}
+	if(setchan!=-1 && setout!=2) { fprintf(stderr,"\n--- Error [%s]: channel-selection (-chan %ld) only valid for output option 2 (-out 2)\n\n",thisprog,setchan);exit(1);}
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error [%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 
 	/*********************************************************************************************************/
@@ -201,8 +201,8 @@ int main (int argc, char *argv[]) {
 			/* output the waveform */
 			for(jj=chanstart;jj<chanstop;jj++) {
 				kk= jj/spklen; // channel number
-				aa= 1000.0 * ((jj-kk*spklen-spkpre) / srate) ;
-				printf("%ld	%ld	%.3f	%g\n",
+				aa= 1000.0 * ((1+jj-kk*spklen-spkpre) / srate); // time in ms
+				printf("%ld	%d	%.3f	%g\n",
 					clu,chanlist[kk],aa,wavep0[jj]);
 	}}}
 

@@ -90,7 +90,7 @@ double xf_readwave1_f(char *infile, short **id, long **count, float **data, shor
 	/********************************************************************************/
 	clumax=wavelen=spklen=spkpre=srate=nchan=wavestart=-1;
 	while(!feof(fpin)) {
-		fscanf(fpin,"%s",&key);
+		fscanf(fpin,"%s",key);
 		if(strcmp(key,"PROBE")==0) fscanf(fpin,"%ld",&probe);
 		if(strcmp(key,"N_CHANNELS")==0) fscanf(fpin,"%ld",&nchan);
 		if(strcmp(key,"CHANNEL_LIST")==0) fscanf(fpin,"%ms",&ptempc);

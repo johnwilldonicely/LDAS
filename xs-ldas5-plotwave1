@@ -101,8 +101,7 @@ zones=$(seq 0 $y | awk '{print ($1*'$spklen')"\n"($1*'$spklen')+('$spklen'-1)}' 
 # make a temp file for removing ticmarks from plots, if required
 echo "" > $tempfile"_notics.txt"
 # save the channel list for modifying xtics on the multi-wave plots
-xe-getkey $filewfm CHANNEL_LIST | tr ',' '\n' | awk 'BEGIN{i=0}{print $1"\t"i++}' > $tempfile"_chans.txt"
-
+listchans=$(xe-getkey $filewfm CHANNEL_LIST | tr ',' '\n' | awk '{print ii++","$1}' | paste -s | tr '\t' ',')
 
 # IF "ALL" IS SPECIFIED, MAKE A LIST OF ALL THE CLUSTERS WITH CONTENTS
 if [ $setlistclu == "all" ] ; then
@@ -152,7 +151,7 @@ for cluster in $listclu ; do
 		plotfile=$tempfile"_"$cluster"a.ps"
 		plotlist=$plotlist" "$plotfile
 		vlines=$(seq 0 $nchans | paste -s | tr '\t' ',')
-		plotopts="-cx 1 -cy 2 -line 1 -ps 0 -colour 1 -xscale .45 -lwa .5 -yscale 0.05 -frame 0 -xpad 0 -vline $vlines "
+		plotopts="-cx 1 -cy 2 -font 6 -line 1 -ps 0 -colour 1 -xscale .45 -lwa .5 -yscale 0.07 -frame 0 -xpad 0 -xint 1 -vline $vlines -tics -.5 -ypad 0"
 		title=$(echo $probe $cluster $nspikes | awk '{printf("Cluster %d:%d  n= %d",$1,$2,$3)}')
 		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 $filtplot |
 			xe-cut1 stdin uV -o 1 |
@@ -160,11 +159,10 @@ for cluster in $listclu ; do
 			xe-timestamp1 stdin -sf $spklen |
 			xe-plottable1 stdin $plotopts -ylabel $cluster -out $plotfile
 		# correct the channel labels
-		xs-plotmodtics $plotfile $tempfile"_chans.txt" xtic
-		xs-plotmodtics $plotfile $tempfile"_notics.txt" ytic
+		xs-plotmod1 $plotfile --out 1 --xtics $listchans
 
 	elif [ "$setplottype" == "1" ] ; then
-		# PLOT THE MULTI-CHANNEL WAVEFORM
+		# PLOT THE MULTI-CHANNEL WAVEFORM + MAX WAVEFORM
 		plotfile=$tempfile"_"$cluster"a.ps"
 		plotlist=$plotlist" "$plotfile
 		vlines=$(seq 0 $nchans | paste -s | tr '\t' ',')
@@ -178,7 +176,7 @@ for cluster in $listclu ; do
 			xe-timestamp1 stdin -sf $spklen |
 			xe-plottable1 stdin $plotopts -title "$title" -xlabel "$xlabel" -ylabel "$ylabel" $yscaletext -out $plotfile
 		# correct the channel labels
-		xs-plotmodtics $plotfile $tempfile"_chans.txt" xtic
+		xs-plotmod1 $plotfile --out 1 --xtics $listchans
 
 		# PLOT THE MAX WAVEFORM
 		plotfile=$tempfile"_"$cluster"b.ps"
@@ -209,7 +207,7 @@ for cluster in $listclu ; do
 	elif [ "$setplottype" == "3" ] ; then
 		plotfile=$tempfile"_"$cluster"b.ps"
 		plotlist=$plotlist" "$plotfile
-		plotopts="-line 1 -ps 0 -cx 1 -cy 2 -lb 2 -colour 1 -font 6 -xscale 0.04 -yscale 0.2 -xint .5 -xpad 0 -frame 0 -lwd 0.5 -lwa 0.5 -xpad 0 -ypad 0"
+		plotopts="-line 1 -ps 0 -cx 1 -cy 2 -lb 2 -colour 2 -font 5 -xscale 0.07 -yscale 0.2 -xint -1 -yint -1 -frame 0 -lwd 0.5 -lwa 0.5 -xpad 0 -ypad 1 -tics -2"
 		xlabel="$cluster"
 		ylabel="n= $nspikes   $peak uV"
 		xe-ldas5-readwave1 $filewfm -clust $cluster -out 2 $filtplot |
@@ -218,8 +216,7 @@ for cluster in $listclu ; do
 			xe-timestamp1 stdin -sf $spklen -p 0 | # add column representing the channel-number
 			awk 'BEGIN{z=0;p='$spkpre';i='$msint'}{print (z-p)*i,$2-($1*'$setdepthoff'); z++; if(z>='$spklen')z=0}' |
 			xe-plottable1 stdin $plotopts -xlabel "$xlabel" -ylabel "$ylabel" -out $plotfile $setplotopts
-		xs-plotmodtics $plotfile $tempfile"_notics.txt" xtic
-		xs-plotmodtics $plotfile $tempfile"_notics.txt" ytic
+
 	# MAKE A DEPTH-PROFILE PLOT OF EACH CLUSTER - SINGLE ROW
 	elif [ "$setplottype" == "4" ] ; then
 		plotfile=$tempfile"_"$cluster"b.ps"
@@ -244,13 +241,13 @@ done
 rm -f plot_wave*ps
 
 if [ "$setplottype" == "0" ] ; then
-	setmergeopts="-xmax 1 -yinc 50 -ymax 20 -yo 780 -out plot_wave1 "$setmergeopts
+	setmergeopts="-xmax 1 -yinc 50 -ymax 15 -yo 780 -out plot_wave1 "$setmergeopts
 	xe-plotmerge1 $plotlist $setmergeopts
 elif [ "$setplottype" == "1" ] ; then
 	setmergeopts="-xmax 2 -xinc 350 -yinc 150 -out plot_wave1 "$setmergeopts
 	xe-plotmerge1 $plotlist $setmergeopts
 elif [ "$setplottype" == "2" ] ; then
-	setmergeopts="-xmax 5 -xinc 107 -ymax 10 -yinc 70 -yo 720 -out plot_wave1 "$setmergeopts
+	setmergeopts="-xmax 5 -xinc 107 -ymax 10 -yinc 80 -yo 720 -out plot_wave1 "$setmergeopts
 	xe-plotmerge1 $plotlist $setmergeopts
 elif [ "$setplottype" == "3" ] ; then
 	setmergeopts="-xmax 10 -xinc 50 -ymax 5 -yinc 120 -yo 700 -out plot_wave1 "$setmergeopts
