@@ -161,15 +161,7 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 	- document converter, used for creating manuals
 	- determine the actual version by refrring to the pandoc download page: https://github.com/jgm/pandoc/releases
 ```
-	Ubuntu: 
 		$ sudo apt install pandoc -y
-
-	Other distros:  
-		$ version=2.9.1.1
-		$ tarname="pandoc-"$version"-linux-amd64.tar.gz"
-		$ dest=/opt/pandoc/
-		$ wget "https://github.com/jgm/pandoc/releases/download/"$version"/"$tarname
-		$ sudo tar xvzf $tarname --strip-components 1 -C $dest
 ```
 	- for pandoc to generate PDF output, addtional dependencies may be required:
 		- texlive-latex-base
