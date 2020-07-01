@@ -29,53 +29,52 @@
 # INSTALLATION
 
 --------------------------------------------------------------------------------
-## Installation on Windows 10 (estimated: 15 minutes)
-**This section explains how to quickly set up a Linux subsystem on your Windows 10 computer. Once you complete this, proceed to the "Installation on Linux" section**. 
+## 3-step installation on Windows 10 (estimated time: 15 minutes)
+This section explains how to quickly set up the Windows Subsytem for Linux (WSL-1).
+The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**.
+Once you complete this, *proceed to the "Installation on Linux" section*.
+
+
 
 ### 1. Enable the Windows Subsystem for Linux (WSL-1)
-Open Windows Powershell as Administrator and  run this command:
+Open Windows Powershell as Administrator and  run this command: 
+``` 
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
-	dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-```
-...then restart your PC.  
 
-### 2. Install the free Ubuntu distribution from Microsoft Store 
-This is suprisngly simple, as Microsoft Store provides pre-tested "plug & play" versions which should install and run seamlessly under Windows 10. When installation completes you'll see an Ubuntu icon in the Start Menu (recently added section) .
-
+### 2. Now restart your PC,  and install the free Ubuntu distribution from Microsoft Store
+Don't worry - this is easy and will not affect your Windows operating system :)  
 https://www.microsoft.com/store/apps/9N9TNGVNDL3Q
 
 ### 3. Initialise the distribution
 Click on the Ubuntu icon in the Start menu to launch, and follow these steps to set up your username and password.
 https://docs.microsoft.com/en-us/windows/wsl/user-support
 
-### 4. [optional] Configure display for handling by Xming
-- LDAS will run fine without this, but if you want graphical output to be displayed in windows, you will need to install an X-windows server like [Xming](https://sourceforge.net/projects/xming/files/latest/download), and run the following commands once:
+#### That's it! Now proceed with the **Installation on Linux**  instructions below. 
 
-```
-		$ echo '[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0' >> ~/.bashrc 
-		$ dbus-launch --exit-with-x11 s
-		$ sudo dbus-uuidgen --ensure 
-```
-
-### 5. Now proceed with the **Installation on Linux**  instructions below. 
-
-A few extra notes:  
-
-* In the Ubuntu window, your Windows drives will be accessible from /mnt/c, /mnt/d, etc. 
-
-* To view native LDAS plots on Windows you will need the free *ghostscript* and *GS-View* tools. Otherwise, LDAS can also convert your plots to jpg or pdf format. 
+A few extra notes on LDAS under Windows...
+* In the Ubuntu window, your Windows drives will be accessible from **/mnt/c**, **/mnt/d**, etc.  
+* The Windows Subsystem will likely be slower than native-Linux. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Ubuntu or Fedora on a dedicated PC or hard drive.  
+* To view native LDAS plots in the Windows file explorer, you will need the free *ghostscript* and *GS-View* tools. Alternatively, LDAS provides tools to convert your plots to jpg or pdf format. 
+ 
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
-* These instructions are for running under WSL-1, but if you choose to sign up for the Windows Insider program you can begin testing with WSL-2. In time we assume WSL-2 will become standard with updates to Windwows 10. Complete instructions are **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**
 
-* Running LDAS in the *Windows Subsystem for Linux* will probably be slower than running on a native-Linux workstation. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Fedora or Ubuntu on a dedicated PC. 
+* If you want "live" graphical output frim Linux image-viewers, text editors etc to display in Windows, you can install a free X-windows server like 
+[Vcxsrv](https://sourceforge.net/projects/vcxsrv/), 
+or 
+[Xming](https://sourceforge.net/projects/xming/files/latest/download).
+ Vcxsrv is easy to install, and you will just need to run it before launching a Linux session. 
+
 
 
 
 
 --------------------------------------------------------------------------------
 ## Installation on Linux
+
+
 
 ### 1. Make sure your Linux distribution is updated
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux.
@@ -115,6 +114,9 @@ Be sure to check for Warnings and Errors when the installation completes. If the
 ### 5. Log out and back in again
 - updates the $PATH variable so the system can find LDAS programs
 - if the install ws sucessful, you may want to delete the installer in your home directory, as a new version will now be in the install location
+
+
+
 
 --------------------------------------------------------------------------------
 ## Extra notes on installation (all platforms): 
