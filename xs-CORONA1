@@ -102,7 +102,7 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 	# download file - rename from "csv" to covid_[date].csv
 	# ...where date is derived from the flie timestamp
 	wget -O csv -q --show-progress  $seturl
-	basename="covid_"$(ls -l csv  --time-style="+%Y%m%d" | awk '{print $6}' | cut -f 1 -d /)
+	basename="corona_"$(ls -l csv  --time-style="+%Y%m%d" | awk '{print $6}' | cut -f 1 -d /)
 	mv csv $basename".csv"
 	dos2unix $basename".csv"
 

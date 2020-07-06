@@ -133,6 +133,24 @@ function func_permission () {
 	fi
 }
 
+################################################################################
+#???? # IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES 
+################################################################################
+if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+		
+	echo -e "\n--------------------------------------------------------------------------------"
+	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
+	com1='# LDAS: config display for WSL'
+	if ! grep -qEis "$com1" $setrc ; then
+		echo -e "\n$com1" >> $setrc 
+		echo -e "[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0" >> $setrc
+		echo -e "dbus-launch --exit-with-x11" >> $setrc
+		echo -e "sudo dbus-uuidgen --ensure" >> $setrc
+	fi 
+fi
+
+exit
+
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -252,6 +270,8 @@ elif [ "$setscope" == "global" ] ; then
 	setrc="/etc/profile"
 	setnano="/etc/nanorc"
 fi
+
+
 
 
 # REPORT ON SYSTEM AND CURRENT INSTALL
@@ -518,6 +538,11 @@ gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
 
 
+
+
+################################################################################
+# UPDATE TAGS 
+################################################################################
 echo -e "\n--------------------------------------------------------------------------------"
 echo -e "UPDATING TAGS-SUMMARY FILE..."
 xs-progtag html | awk '{print "\t"$0}'
@@ -530,6 +555,7 @@ if [ "$(command -v pandoc)" != "" ] ; then
 else
 	echo -e "\n--- Warning ["$thisprog"]: pandoc is not installed on this machine: cannot create HTML versions of manuals\n"
 fi
+
 
 ################################################################################
 # REPORT, CLEANUP AND EXIT
