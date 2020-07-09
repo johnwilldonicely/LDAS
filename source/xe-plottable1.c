@@ -50,8 +50,6 @@ double xf_rand1_d(double setmax);
 long xf_scale1_l(long old, long min, long max);
 int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
 long xf_interp3_f(float *data, long ndata);
-int xf_compare1_i(const void *a, const void *b);
-void xf_qsortindex1_i(int *data, long *index,long nn);
 void xf_qsortindex1_d(double *data, long *index,long nn);
 /* external functions end */
 
