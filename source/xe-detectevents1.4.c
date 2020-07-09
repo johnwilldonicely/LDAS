@@ -114,12 +114,12 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-z1: manually define subtractor (mean, 0=none) [%g]\n",setzscore1);
 		fprintf(stderr,"	-z2: manually define divisor (stddev, 1=none) [%g]\n",setzscore2);
 		fprintf(stderr," ...threshold options...\n");
-		fprintf(stderr,"	-t: detecton lower threshold [%g]\n",setthresh);
+		fprintf(stderr,"	-t: detection lower threshold [%g]\n",setthresh);
 		fprintf(stderr,"		NOTE: can be positive or negative\n");
 		fprintf(stderr,"	-e: multiple of -t (0-1) defining event edges) [%g]\n",setedge);
 		fprintf(stderr,"	-u: multiple of -t (>1) defining rejection limit [%g]\n",setupper);
 		fprintf(stderr,"		- event peak values must fall between (-t) and (-u)*(-t) \n");
-		fprintf(stderr,"	-s: detecton sign (-1=negative, +1=positive, 0=either) [%d]\n",setsign);
+		fprintf(stderr,"	-s: detection sign (-1=negative, +1=positive, 0=either) [%d]\n",setsign);
 		fprintf(stderr,"		NOTE: for -ive, -t may also need to be -ive\n");
 		fprintf(stderr,"	-min: minimum event length (0=none) [%ld]\n",setmin);
 		fprintf(stderr,"	-max: maximum event length (0=none) [%ld]\n",setmax);
