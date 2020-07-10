@@ -29,6 +29,8 @@ long *xf_lineparse1(char *line, long *nwords);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 char *xf_strescape1(char *line);
 char *xf_strcat1(char *string1,char *string2,char *delimiter);
+int xf_strselect1(char *input, char delimiter, long *words, long nwords);
+
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -38,7 +40,7 @@ int main (int argc, char *argv[]) {
 	FILE *fpin,*fpout;
 	/* program-specific variables */
 	char *allkeys=NULL,*allvals=NULL,delimout[4];
-	long *iwords=NULL,*ikeys=NULL,*ivals=NULL,nheader=-1,nwords=0,nkeys=0;
+	long *iwords=NULL,*ikeys=NULL,*ivals=NULL,nheader=-1,nwords=0,nkeylines=0;
 	long incol=-1,keycol=-1,valcol=-1;
 	/* arguments */
 	char *infile=NULL,*keyfile=NULL,*setcol=NULL,*setkey=NULL,*setval=NULL,*setdelim=NULL,*setmissing=NULL;
@@ -109,11 +111,12 @@ int main (int argc, char *argv[]) {
 	}
 	sprintf(delimout,"%c",setdelim[0]);
 
+
 	/********************************************************************************/
 	/* STORE KEY-VALUE PAIRS */
 	/********************************************************************************/
 	if((fpin=fopen(keyfile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: key-file \"%s\" not found\n\n",thisprog,keyfile);exit(1);}
-	nn= mm= nkeys= 0;
+	nn= mm= nkeylines= 0;
 	while((line= xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
 		mm++; // just used for error-reporting
@@ -121,6 +124,7 @@ int main (int argc, char *argv[]) {
 		if(setskip==1 && (line[0]=='#'||strlen(line)<2)) continue;
 		/* parse the line */
 		iwords= xf_lineparse2(line,setdelim,&nwords);
+
 		/* if it's the header-line, determine the key-column */
 		if(++nn==1) {
 			/* record how many columns there should be */
@@ -130,6 +134,16 @@ int main (int argc, char *argv[]) {
 				if(strcmp(setkey,line+iwords[ii])==0) keycol=ii;
 				if(strcmp(setval,line+iwords[ii])==0) valcol=ii;
 			}
+
+			// ??? NEXT STEP - REPLACE THE CODE ABOVE WITH A MULTI-KEY SEARCH AND STORE THE LIST OF KEYCOLS
+			// ?? KEYCOLS SHOULD BE INITIALISED TO -1 - TEST AFTER SEARCH
+			// /* look for matches between words and keys */
+			// for(jj=0;jj<nwords;jj++) {
+			// 	pword= (line+iwords[jj]);
+			// 	for(kk=0;kk<nkeys;kk++) if(strcmp(key[kk],pword)==0) keycol[kk]= jj;
+			// }
+
+
 			if(keycol==-1) {fprintf(stderr,"\n--- Error[%s]: no key-column matching \"%s\" found in %s\n\n",thisprog,setkey,keyfile);exit(1);}
 			if(valcol==-1) {fprintf(stderr,"\n--- Error[%s]: no value-column matching \"%s\" found in %s\n\n",thisprog,setval,keyfile);exit(1);}
 			continue;
@@ -139,11 +153,27 @@ int main (int argc, char *argv[]) {
 		if(nwords!=nheader) {fprintf(stderr,"\n--- Error[%s]: corrupt key line %ld - number of columns (%ld) does not match number of headers (%ld) in %s\n\n",thisprog,mm,nwords,nheader,keyfile);exit(1);}
 		allkeys= xf_strcat1(allkeys,line+iwords[keycol],setdelim);
 		allvals= xf_strcat1(allvals,line+iwords[valcol],setdelim);
-		nkeys++;
+
+		// REPLACE THE ABOVE CODE WITH STORAGE OF A SELECTED VERSION OF EACH LINE AS IN THIS EXAMPLE
+			// char input[]= "zero,one,two,three,four,five,siz,seven\n";
+			// long ii,keep[]= {1,3,5};
+			// ii= xf_strselect1(input,',',keep,3);
+			// printf("input=%s\n",input);
+
+		// NOTE HOWEVER! WE NEED A SPECIAL DELIMITER TO GO BETWEEN EACH SET OF VALUES!
+		// BEST SOLUTION:
+		// - process allkeys as above, and parse afterwards as always
+		// - unparse the line (replace all nulls before the end with setdelim)
+		// - use strselect to reduce the line
+		// - calculate required storage - do realloc()
+		// - add the "selected" line to the allvals array
+
+
+		nkeylines++;
 	}
 	fclose(fpin);
-	if(nkeys==0) {fprintf(stderr,"\n--- Error[%s]: no key-value pairs in %s\n\n",thisprog,keyfile);exit(1);}
-	//TEST: printf("nkeys=%ld\nallkeys=%s\nallvals=%s\n",nkeys,allkeys,allvals);
+	if(nkeylines==0) {fprintf(stderr,"\n--- Error[%s]: no key-value pairs in %s\n\n",thisprog,keyfile);exit(1);}
+	//TEST: printf("nkeylines=%ld\nallkeys=%s\nallvals=%s\n",nkeylines,allkeys,allvals);
 
 
 
@@ -152,7 +182,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************/
 	ikeys= xf_lineparse2(allkeys,setdelim,&nn);
 	ivals= xf_lineparse2(allvals,setdelim,&mm);
-	//TEST:for(ii=0;ii<nkeys;ii++) printf("%ld  %s  %s\n",ii,allkeys+ikeys[ii],allvals+ivals[ii]);
+	//TEST:for(ii=0;ii<nkeylines;ii++) printf("%ld  %s  %s\n",ii,allkeys+ikeys[ii],allvals+ivals[ii]);
 
 
 
@@ -188,7 +218,7 @@ int main (int argc, char *argv[]) {
 		/* get pointer to the input-column-to-match */
 		pword= line+iwords[incol];
 		/* find matching keys - the value for the last matching key will be the one used */
-		for(kk=-1,ii=0;ii<nkeys;ii++) if(strcmp(pword,allkeys+ikeys[ii])==0) kk=ii;
+		for(kk=-1,ii=0;ii<nkeylines;ii++) if(strcmp(pword,allkeys+ikeys[ii])==0) kk=ii;
 		if(kk!=-1) printf("%s\n",allvals+ivals[kk]);
 		else printf("%s\n",setmissing);
 	}
