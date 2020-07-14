@@ -242,11 +242,10 @@ echo $#	# the number of arguments
 
 base=$1 ; shift
 echo $base
-for i in $(seq 1 2 $#) ; do
-	let j=$i+1
-	echo ${!i}" "${!j}
-done
 
+name="John"
+var="name"
+echo ${!var}
 
 
 ########################################################################################
