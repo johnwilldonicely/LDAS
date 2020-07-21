@@ -127,8 +127,6 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		 for 25Hz video, 10-25 (0.4-1.0 sec) recommended\n");
 		fprintf(stderr,"	-verb: set verbocity of output (0=low, 1=high) [%d]\n",setverb);
 		fprintf(stderr,"	-vf: sample-rate for video (Hz) [%g]\n",setvidfreq);
-		fprintf(stderr,"	-sf: sample-rate  for electrophysiology [%g]\n",setsampfreq);
-		fprintf(stderr,"		used for ASCII output - elapsed time\n");
 		fprintf(stderr,"	-out: output format [%d]:\n",setout);
 		fprintf(stderr,"		0= summary: duration, velocity mean & median\n");
 		fprintf(stderr,"		1= ASCII, one timestamp-id and x,y,d triplet per line\n");
