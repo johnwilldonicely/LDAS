@@ -57,6 +57,7 @@ v 2: 20.November.2015 [JRH]
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long xf_readssp1(char *infile, long **start, long **stop, char *message);
 long xf_readxydt(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message);
+long xf_dejump2_f(float *posx, float *posy, long nn, double sfreq, double thresh);
 long xf_screen_xydt(long *start, long *stop, long nlist2, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message);
 long xf_screen_ssp1(long *start1, long *stop1, long nlist1, long *start2, long *stop2, long nlist2, int mode, char *message);
 long xf_screen_lf(long *start, long *stop, long nssp, long *time1, float *data, long ndata, char *message);
@@ -91,7 +92,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *setscreenfile=NULL,*setscreenlist=NULL;
 	int setout=1,setverb=0;
-	double setvidfreq=25.0, setsampfreq=19531.25,setvelmin=NAN,setvelmax=NAN,setveldur=0.0,setvelint=0.4;
+	double setvidfreq=25.0, setsampfreq=19531.25,setdejump=-1.0,setvelmin=NAN,setvelmax=NAN,setveldur=0.0,setvelint=0.4;
 	long setinterp=0;
 	off_t setheaderbytes=0;
 
@@ -119,6 +120,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"	-sf: sample-frequency of clock used to timestamp video [%g]\n",setsampfreq);
 		fprintf(stderr,"	-vf: video sample-frequency [%g]\n",setvidfreq);
+		fprintf(stderr,"	-dejump: max cm/s, to invalidate jumpy x/y points [%g]\n",setdejump);
 		fprintf(stderr,"	-scrf: screen-file (binary ssp) defining inclusion bounds []\n");
 		fprintf(stderr,"	-scrl: screen-list (CSV) defining inclusion bounds []\n");
 		fprintf(stderr,"	-int: max interpolation gap (video-samples) [%ld]\n",setinterp);
@@ -126,7 +128,6 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		 0: no interpolation\n");
 		fprintf(stderr,"		 for 25Hz video, 10-25 (0.4-1.0 sec) recommended\n");
 		fprintf(stderr,"	-verb: set verbocity of output (0=low, 1=high) [%d]\n",setverb);
-		fprintf(stderr,"	-vf: sample-rate for video (Hz) [%g]\n",setvidfreq);
 		fprintf(stderr,"	-out: output format [%d]:\n",setout);
 		fprintf(stderr,"		0= summary: duration, velocity mean & median\n");
 		fprintf(stderr,"		1= ASCII, one timestamp-id and x,y,d triplet per line\n");
@@ -168,6 +169,7 @@ int main (int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-sf")==0)     setsampfreq=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-vf")==0)     setvidfreq=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-dejump")==0) setdejump=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-int")==0)    setinterp=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-scr")==0)    setscreen=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-scrf")==0)   setscreenfile=argv[++ii];
@@ -238,11 +240,20 @@ int main (int argc, char *argv[]) {
 		for(ii=0;ii<nlist1;ii++) fprintf(stderr,"	%ld	%ld\n",start1[ii],stop1[ii]);
 	}
 
+
+	/************************************************************
+	DEJUMP THE DATA
+	***********************************************************/
+	if(setdejump>0.0){
+		kk= xf_dejump2_f(xydx,xydy,nn,setvidfreq,setdejump);
+	}
+
 	/************************************************************
 	APPLY INTERPOLATION  - units of setinterp (max) are video-samples
 	***********************************************************/
 	ii= xf_interp3max_f(xydx,nn,setinterp);
 	ii= xf_interp3max_f(xydy,nn,setinterp);
+
 
 	/************************************************************
 	CALCULATE THE VELOCITY ARRAY
@@ -347,7 +358,7 @@ int main (int argc, char *argv[]) {
 		for(ii=0;ii<nn;ii++) {
 			aa=((double)ii/setvidfreq);
 			bb=((double)(xydt[ii]-xydt[0])/setsampfreq);
-			printf("%ld\t%g\t%g\t%g\t%.3f\t%.3f\t%.3f\n",xydt[ii],xydx[ii],xydy[ii],xydd[ii],velocity[ii],aa,bb);
+			printf("%ld\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",xydt[ii],xydx[ii],xydy[ii],xydd[ii],velocity[ii],aa,bb);
 		}
 	}
 	/* output binary xyd(t) file pair */

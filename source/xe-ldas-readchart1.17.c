@@ -18,10 +18,10 @@ v 16: 11.July.2013 [JRH]
 	- minor bugfix - should not report long time-gap at first time-stamp!
 
 v 15:  13.May.2013 [JRH]
-	- report warning if sample-interval is too long (gaps in time record) 
+	- report warning if sample-interval is too long (gaps in time record)
 
 v 14: 6.October.2012 [JRH]
-	- updated call to xf_percentile1_d 
+	- updated call to xf_percentile1_d
 		- "message" string is no longer used, as printing messages with the function name complicated determination of program dependencies
 
 v1.13  27.June.2012 [JRH]
@@ -38,18 +38,18 @@ v1.12  26.June.2012 [JRH]
 	- multiple comments from the same line are output on separate lines, but with the same time-stamp
 
 v1.11  8.February.2012 [JRH]
-	- minor correction to creation of sample_interval array (line 255) - now correctly fills array starting from element zero (i-1) instead of 1 (i) 
+	- minor correction to creation of sample_interval array (line 255) - now correctly fills array starting from element zero (i-1) instead of 1 (i)
 
 v1.10  10.November.2011 [JRH]
 	- basename now also strips leading PATHNAME (everything up to last "/") off the input filename
 		- this will allow local output even if input file is remote
-	- remove requirement for Range= tag in header to calculate number of channels 
+	- remove requirement for Range= tag in header to calculate number of channels
 		- this is now read from the number of labels instead
 	- incorporate Windows-style carriage-return character into delimiters for reading header labels
-	
+
 v1.9  5.September.2011 [JRH]
-	- bugfix - replaced xf_strsub with xf_strsub1 
-		- potential (never-encountered) error if replacing a string with a longer string 
+	- bugfix - replaced xf_strsub with xf_strsub1
+		- potential (never-encountered) error if replacing a string with a longer string
 
 v1.8  12.July.2011 [JRH]
 	- simple name-change from lilly-readchart1 to ldas-readchart1
@@ -63,15 +63,15 @@ v1.7  4.July.2011 [JRH]
 
 v1.6  19.May.2011 [JRH]
 	- stripped down version - remove filtering options - program now simply creates new raw data files
-	
+
 v1.4  6.May.2011 [JRH]
-	- remove from channel labels the "#[ch]" CHART inserts, and replace other spaces with underscores 
+	- remove from channel labels the "#[ch]" CHART inserts, and replace other spaces with underscores
 
 v 1.3: JRH, 26.April.2011
  	- saves probe data (one column only) to new named file
  	- saves comments to a matching file for same probe (time + comment)
 	- optional save time series (only needs to be done once - same for all probes)
-	
+
 v 1.2: JRH, 8.April.2011
  	- added storage for start & end times to define blocks of data to be later averaged
 	- added specification of a channel name to identify column to use
@@ -92,21 +92,21 @@ int main (int argc, char *argv[]) {
 	long int i,j,k,l,n;
 	int v,w,x,y,z,col,colmatch,datcoltot,result_i[32];
 	int sizeofchar=sizeof(char),sizeofshort=sizeof(short),sizeoflong=sizeof(long),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double);
-	float a,b,c,d,result_f[32]; 
+	float a,b,c,d,result_f[32];
 	double aa,bb,cc,dd,result_d[32];
 	FILE *fpin,*fpout;
 	/* program-specific variables */
 	char *words=NULL,tempword[MAXLINELEN];
 	int *iword=NULL,lenwords=0,nwords=0,foundword=0;
 	long *posword=NULL;
-		
-	char basefile[256],tempfile[256],datafile[256],commentfile[256],timefile[256]; 
+
+	char basefile[256],tempfile[256],datafile[256],commentfile[256],timefile[256];
 	int oldchart=0; // is this an old version of CHART? (detemined by presence of TopValue in header)
 	int headerlines=0; // keeps track of the number of lines in the CHART output file header
 	int nchans=0; // total number of channels (this will be obtained from the header)
 	int colchan=-1; // column containing channel to be read
-	double sample_interval=-1.0; 
-	float sample_freq=-1.0; 
+	double sample_interval=-1.0;
+	float sample_freq=-1.0;
 	float *data1=NULL;
 	double *time=NULL,*interval=NULL,tcur,tprev,tadj;
 	FILE *fpoutdata, *fpouttime, *fpoutcomment;
@@ -114,7 +114,7 @@ int main (int argc, char *argv[]) {
 	char setoutstring[266],setchanname[256];
 	int filttype=1; // this specifies a lowpass filter, provided setfilthigh is also set
 	int setinvert=0,setouttime=1,setdatacol=2;
-	float setfilthigh=-1.0,setdejump=-1.0;
+	float setfilthigh=-1.0;
 
 	sprintf(setchanname,"");
 
@@ -175,7 +175,7 @@ int main (int argc, char *argv[]) {
 	}}
 	if(setouttime!=0&&setouttime!=1) {fprintf(stderr,"\n--- Error[%s]: -time (%d) must be 0 or 1\n\n",thisprog,setouttime);exit(1);};
 	if(setdatacol==1) {fprintf(stderr,"\n--- Error[%s]: -chancol cannot be set to 1: this is the time column\n\n",thisprog);exit(1);}
-	if(setdatacol>0 && strlen(setchanname)>0) setdatacol=-1; 
+	if(setdatacol>0 && strlen(setchanname)>0) setdatacol=-1;
 
 	// GENERATE BASE-NAME - STRIP PATH NAME AND ".TXT" OR OTHER EXTENTIONS OFF INFILE NAME
 	for(i=strlen(infile);i>=0;i--) if(infile[i]=='/') break;
@@ -191,13 +191,13 @@ int main (int argc, char *argv[]) {
 	if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
 	/* first read the header: keep track of the last line number read starting with a non-number */
 	headerlines=0; /* keep track of total number of lines in the header */
-	oldchart=0; /* variable to determine if this is an old version of chart or new */ 
+	oldchart=0; /* variable to determine if this is an old version of chart or new */
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
-		pline=line; 
+		pline=line;
 		// read first word on line - if it's a number, break
-		pkey=strtok(pline," ,\t\n\r"); pline=NULL; 
-		if(sscanf(pkey,"%lf",&aa)==1) break; 
-		else headerlines++; 
+		pkey=strtok(pline," ,\t\n\r"); pline=NULL;
+		if(sscanf(pkey,"%lf",&aa)==1) break;
+		else headerlines++;
 
 		/* if header contains keyword "TopValue", this is output from an old version of CHART */
 		if(strcmp(pkey,"TopValue=")==0) oldchart=1;
@@ -205,18 +205,18 @@ int main (int argc, char *argv[]) {
 		/* Find the specified input column number of channel name */
 		if(strcmp(pkey,"ChannelTitle=")==0) {
 			if(setdatacol>0) {
-				// start reading next columns, tab delimited, looking for the specified column 
-				for(col=2;(pcol=strtok(pline,"\t\n\r"))!=NULL;col++) { 
+				// start reading next columns, tab delimited, looking for the specified column
+				for(col=2;(pcol=strtok(pline,"\t\n\r"))!=NULL;col++) {
 					pline=NULL;
 					nchans++;
-					if(col==setdatacol) {colchan=col;sprintf(setchanname,"%s",pcol);} 
+					if(col==setdatacol) {colchan=col;sprintf(setchanname,"%s",pcol);}
 				}
 				if(colchan<0) {fprintf(stderr,"\n--- Error[%s]: specified input column %d not found\n\n",thisprog,setdatacol);exit(1);}
 			}
 			else { /* this condition only met if -channame is set */
 				/* look for input column name */
-				for(col=2;(pcol=strtok(pline,"\t\n\r"))!=NULL;col++) { 
-					pline=NULL; 
+				for(col=2;(pcol=strtok(pline,"\t\n\r"))!=NULL;col++) {
+					pline=NULL;
 					nchans++;
 					if(strcmp(pcol,setchanname)==0) colchan=col;
 				}
@@ -224,31 +224,31 @@ int main (int argc, char *argv[]) {
 			}
 		}
 	}
-	
+
 	// GENERATE OUTPUT FILE-NAMES - DATA & COMMENT FILE NAMES INCLUDE CHANNEL-NUMBER
 	sprintf(datafile,"%s.%03d.dat",basefile,(colchan-1));
 	sprintf(timefile,"%s.time",basefile);
 	sprintf(commentfile,"%s.%03d.cmt",basefile,(colchan-1));
 
 	// SET HOW MANY COLUMNS TO LOOK FOR TIME AND DATA IN
-	datcoltot=nchans+1; 
+	datcoltot=nchans+1;
 
 	/******************************************************************************/
-	/* NOW GO BACK AND READ THE DATA*/	
+	/* NOW GO BACK AND READ THE DATA*/
 	/******************************************************************************/
-	rewind(fpin); for(i=0;i<headerlines;i++) fgets(line,MAXLINELEN,fpin); 
+	rewind(fpin); for(i=0;i<headerlines;i++) fgets(line,MAXLINELEN,fpin);
 	/* now read the real data */
 	if(oldchart==0) sprintf(delimiters,"\t\n");
 	if(oldchart==1) sprintf(delimiters,"#\t\n");
 	n=0;
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
-		pline=line; 
+		pline=line;
 		foundword=0; //marker to indicate if a comment was found
 		colmatch=2; // number of columns to match - time plus specified channel
 		sprintf(tempword,""); // initialise placeholder for comments
 		for(col=1;(pcol=strtok(pline,delimiters))!=NULL;col++) { // only tabs and newlines are field separators - allows parsing of comments for each channel
-			pline=NULL; 
-			if(col==1 && sscanf(pcol,"%lf",&aa)==1) colmatch--; // if this is the time column store time temporarily in "aa" 
+			pline=NULL;
+			if(col==1 && sscanf(pcol,"%lf",&aa)==1) colmatch--; // if this is the time column store time temporarily in "aa"
 			if(col==colchan && sscanf(pcol,"%f",&b)==1) colmatch--; // if this is the data column, store the temporary number in "b"
 			if(col==(colchan+nchans)) { // if column is appropriate for optional comments for the selected channel, save the comment
 				foundword=1;break;
@@ -256,17 +256,17 @@ int main (int argc, char *argv[]) {
 		}
 		// if fewer than time+nch columns were found containing numbers, continue
 		if(colmatch>0) continue;
-		 
+
 		// dynamically allocate memory for the time and data
 		if((time=(double *)realloc(time,(n+1)*sizeofdouble))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 		if((data1=(float *)realloc(data1,(n+1)*sizeoffloat))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 		// assign values to time and data for this record (timepoint)
 		time[n]=aa; data1[n]=b;
-	
+
 		// if a comment (word) was found, store it in a list (words)
 		if(foundword==1) {
 			/* replace any spaces with underscores */
-			pcol=xf_strsub1(pcol," ","_"); 
+			pcol=xf_strsub1(pcol," ","_");
 			/* allocate memory for expanded words and word-index */
 			x=strlen(pcol); // not including terminating NULL
 			words=(char *)realloc(words,((lenwords+x+4)*sizeofchar)); if(words==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
@@ -281,8 +281,8 @@ int main (int argc, char *argv[]) {
 			/* update length, allowing for terminal NULL - serves as pointer to start of next word */
 			lenwords+=(x+1);
 			/* incriment nwords with check */
-			nwords++; 
-		}	
+			nwords++;
+		}
 		 n++;
 	}
 	fclose(fpin);
@@ -294,7 +294,7 @@ int main (int argc, char *argv[]) {
 	/* make a copy of the time array which is actually interval */
 	if((interval=(double *)realloc(interval,(n+1)*sizeofdouble))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(i=1;i<n;i++) interval[(i-1)]=time[i]-time[(i-1)];
-	/* sort the intervals */ 
+	/* sort the intervals */
 	z=xf_percentile1_d(interval,(n-1),result_d);
 	if(z!=0) {fprintf(stderr,"\t\aError[%s]: insufficient memory for calculation of percentiles%s\n",thisprog);exit(1);}
 	sample_interval=result_d[5];
@@ -307,7 +307,7 @@ int main (int argc, char *argv[]) {
 	tadj = 0.0; /* adjustment to current time is zero at start, before any gaps are detected */
 
 	for(i=0;i<n;i++) {
-		tcur=time[i]+tadj; 
+		tcur=time[i]+tadj;
 		aa = tcur-tprev;
 		if(aa<=0) {
 			tadj+=(tprev-tcur)+(2.0*sample_interval); // guarantees an unusually long gap at adjustment point
@@ -315,16 +315,16 @@ int main (int argc, char *argv[]) {
 			fprintf(stderr,"\n--- Warning[%s]: bad time sequence at sample %d, time %g. New time=%g\n\n",thisprog,i,time[i],tcur);
 		}
 		if(aa>(1.5 * sample_interval)) fprintf(stderr,"\n--- Warning[%s]: Sample interval at sample %d, time %g is unusually large (%g seconds)\n\n",thisprog,i,time[i],aa);
-		time[i]=tcur; 
+		time[i]=tcur;
 		tprev=tcur;
 	}
-	
+
 	/******************************************************************************/
 	/* OUTPUT TIME */
 	/******************************************************************************/
 	if(setouttime==1) {
 		if((fpouttime=fopen(timefile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: cannot write to file \"%s\"\n\n",thisprog,timefile);exit(1);}
-		for(i=0;i<n;i++) fprintf(fpouttime,"%.3f\n",time[i]); 
+		for(i=0;i<n;i++) fprintf(fpouttime,"%.3f\n",time[i]);
 		fclose(fpouttime);
 	}
 
@@ -332,7 +332,7 @@ int main (int argc, char *argv[]) {
 	/* OUTPUT THE DATA */
 	/******************************************************************************/
 	if((fpoutdata=fopen(datafile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: cannot write to file \"%s\"\n\n",thisprog,datafile);exit(1);}
-	for(i=0;i<n;i++) fprintf(fpoutdata,"%.3f\n",data1[i]); 
+	for(i=0;i<n;i++) fprintf(fpoutdata,"%.3f\n",data1[i]);
 	fclose(fpoutdata);
 
 	/******************************************************************************/
@@ -344,7 +344,7 @@ int main (int argc, char *argv[]) {
 		pline=line;
 		for(col=1;(pcol=strtok(pline,"#\t\n"))!=NULL;col++) { // only hash and newlines are field separators - allows parsing of multiple comments for a given timestamp
 			pline=NULL;
-			fprintf(fpoutcomment,"%.3f\t%s\n",time[posword[i]],pcol); 
+			fprintf(fpoutcomment,"%.3f\t%s\n",time[posword[i]],pcol);
 		}
 	}
 	fclose(fpoutcomment);
@@ -352,7 +352,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	/* PRINT REPORT
 	/******************************************************************************/
-	aa=time[0]; bb=time[(n-1)]; cc=bb-aa; 
+	aa=time[0]; bb=time[(n-1)]; cc=bb-aa;
 	printf("\n");
 	printf("Total_channels: %d\n",nchans);
 	printf("Input_channel: %s (column %d)\n",setchanname,colchan);
@@ -366,10 +366,9 @@ int main (int argc, char *argv[]) {
 	printf("\t%s\n",commentfile);
 	if(setouttime==1) printf("\t%s\n",timefile);
 	printf("\n");
-	
+
 	free(time); free(interval); free(data1);
 	free(words); free(iword); free(posword);
 
 	exit(0);
 	}
-
