@@ -409,13 +409,16 @@ echo -n "number:  " ; for i in 1 2 3 4 5 ; do echo -en '\b'$i ; done ; echo
 
 # USING THE TRANSLATE TOOL...
 # to do character substitution
-echo "abcdefg" | tr a x
+echo 'abcdefg' | tr a x
+
 # to remove windows formating at end of lines
 echo $line | tr -d '\r'
+
 # to squeeze multiple delimiters in a row to a single one (default replacement is the same as the specified one)
 d="_" ; echo _one_two__three___end | tr -s $d $d
 # to also remove leading/trailing delimiters
 d="_" ; echo _one_two__three___end_ | tr -s $d | sed 's/^['$d']//g;s/['$d']*$//g;'
+
 
 # STRING SUBSTITUTION WITH SED
 sed -i 's/OLD/NEW/g' $infile
@@ -430,6 +433,7 @@ printf "%s\t%s\n" $(cat data.txt)
 # SET COLOUR FOR BASH ECHO OUTPUT
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
 printf "I ${RED}love${NC} Stack Overflow\n"
 
 
@@ -437,8 +441,12 @@ printf "I ${RED}love${NC} Stack Overflow\n"
 # FILE OPERATIONS
 ################################################################################
 
+# CHECK FILE TYPE
+filetype=$(file $inxyd | cut -f 2 -d ' ')
+
 # CHECK FILE ENCODING
 file --mime ./* | grep -v ascii
+
 # CONVERT FILE ENCODING
 FROM_ENCODING="UTF-8"
 TO_ENCODING="us-ascii"
@@ -547,6 +555,10 @@ echo "scale=12; 0.123456789 * 1000" | bc | xe-math_round1 stdin
 if [ $(echo "$x<0"|bc) -eq 1 ] ; then echo "negative" ; else echo "positive" ; fi
 # calculate log base-2 of a number - say, 16
  echo 'l(16)/l(2)' | bc -l
+
+# MATHS WITH AWK : main consideration, use of -M or --bignum option for long integers to be handled properly
+echo 12345678901234567890 | awk '{print ($1+0)}'
+echo 12345678901234567890 | awk --bignum '{print ($1+0)}'
 
 
 ################################################################################
