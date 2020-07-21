@@ -59,11 +59,11 @@ v 0: 10.November.2015 [JRH]"
 /* external functions start */
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long xf_readssp1(char *infile, long **start, long **stop, char *message);
-long xf_readxyd1(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message);
+long xf_readxydt(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message);
 long xf_readclub1(char *infile1, char *infile2, long **clubt, short **club, char *message);
 long xf_matchclub1_ls(char *list1, long *clubt, short *club, long nn, char *message);
 long xf_screen_club(long *start, long *stop, long nssp, long *clubt, short *club, long nclub, char *message);
-long xf_screen_xyd(long *start, long *stop, long nssp, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message);
+long xf_screen_xydt(long *start, long *stop, long nssp, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message);
 long xf_fillinterp_lf(long *Atime, long *Btime, float *Aval, float *Bval, long Atot, long Btot, long maxinvalid, char *message);
 int xf_matrixcontig1_l(long *matrix1, long setxbintot, long setybintot, long setcontig, char *message);
 int xf_densitymatrix2_l(float *xdata, float *ydata, long nn, long *matrix, long setxbintot, long setybintot, float *ranges, char *message);
@@ -250,7 +250,7 @@ int main (int argc, char *argv[]) {
 	/************************************************************
 	READ THE POSITION TIMESTAMPS AND VALUES
 	***********************************************************/
- 	mm= xf_readxyd1(infile3,infile4,&xydt,&xydx,&xydy,&xydd,message);
+ 	mm= xf_readxydt(infile3,infile4,&xydt,&xydx,&xydy,&xydd,message);
 	if(mm<0) {fprintf(stderr,"\n*** %s/%s\n\n",thisprog,message); exit(1);}
 
 	/************************************************************
@@ -321,7 +321,7 @@ int main (int argc, char *argv[]) {
 	- redefines "n" for video (mm) and spike (nn) records
 	***********************************************************/
 	if(setscreen==1) {
-		mm= xf_screen_xyd(start1,stop1,nssp,xydt,xydx,xydy,xydd,mm,message);
+		mm= xf_screen_xydt(start1,stop1,nssp,xydt,xydx,xydy,xydd,mm,message);
 		nn= xf_screen_club(start1,stop1,nssp,clubt,club,nn,message);
 	}
 

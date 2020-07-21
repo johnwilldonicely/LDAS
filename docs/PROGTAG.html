@@ -291,7 +291,7 @@ of scripts, programs, and functions.
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-ldas2-pathstats2">xe-ldas2-pathstats2</a><br>
 <a href="#code-xe-ldas3-escapelatency1">xe-ldas3-escapelatency1</a><br>
-<a href="#code-xe-ldas5-readxyd1">xe-ldas5-readxyd1</a><br>
+<a href="#code-xe-readxydt">xe-readxydt</a><br>
 </td></table></tr>
 <h3 id="tag-database"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: database</font></h3>
 <table><tr>
@@ -462,7 +462,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-readdat1">xe-ldas5-readdat1</a><br>
 <a href="#code-xe-ldas5-readdat2">xe-ldas5-readdat2</a><br>
 <a href="#code-xe-ldas5-readwave1">xe-ldas5-readwave1</a><br>
-<a href="#code-xe-ldas5-readxyd1">xe-ldas5-readxyd1</a><br>
+<a href="#code-xe-readxydt">xe-readxydt</a><br>
 <a href="#code-xe-ldas5-screentxt1">xe-ldas5-screentxt1</a><br>
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
@@ -512,7 +512,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_readssp1">xf_readssp1</a><br>
 <a href="#code-xf_readwave1_f">xf_readwave1_f</a><br>
 <a href="#code-xf_readwinltp1_f">xf_readwinltp1_f</a><br>
-<a href="#code-xf_readxyd1">xf_readxyd1</a><br>
+<a href="#code-xf_readxydt">xf_readxydt</a><br>
 <a href="#code-xf_writebin1_v">xf_writebin1_v</a><br>
 <a href="#code-xf_writebin2_v">xf_writebin2_v</a><br>
 <a href="#code-xf_writebinx1">xf_writebinx1</a><br>
@@ -774,7 +774,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_screen_ls">xf_screen_ls</a><br>
 <a href="#code-xf_screen_ssp1">xf_screen_ssp1</a><br>
 <a href="#code-xf_screen_ssp2">xf_screen_ssp2</a><br>
-<a href="#code-xf_screen_xyd">xf_screen_xyd</a><br>
+<a href="#code-xf_screen_xydt">xf_screen_xydt</a><br>
 </td></table></tr>
 <h3 id="tag-signal_processing"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: signal_processing</font></h3>
 <table><tr>
@@ -962,7 +962,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_screen_ls">xf_screen_ls</a><br>
 <a href="#code-xf_screen_ssp1">xf_screen_ssp1</a><br>
 <a href="#code-xf_screen_ssp2">xf_screen_ssp2</a><br>
-<a href="#code-xf_screen_xyd">xf_screen_xyd</a><br>
+<a href="#code-xf_screen_xydt">xf_screen_xydt</a><br>
 <a href="#code-xf_smooth2d_gaussd">xf_smooth2d_gaussd</a><br>
 <a href="#code-xf_smoothbox1_d">xf_smoothbox1_d</a><br>
 <a href="#code-xf_smoothbox1_f">xf_smoothbox1_f</a><br>
@@ -9710,11 +9710,11 @@ VALID OPTIONS: defaults in []
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-ldas5-readxyd1"><a href="#CODE">&#8679</a> xe-ldas5-readxyd1</h3></font>
+<font color="Black"><h3 id="code-xe-readxydt"><a href="#CODE">&#8679</a> xe-readxydt</h3></font>
 [<a href="#tag-file">file</a>][<a href="#tag-behaviour">behaviour</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-ldas5-readxyd1 v 2: 21.January.2018 [JRH]
+xe-readxydt v 2: 21.January.2018 [JRH]
 ----------------------------------------------------------------------
 Read binary position timestamps (.xydt) and position values (.xydt)
 - output is either converted to ASCII or kept in binary form
@@ -9722,7 +9722,7 @@ Read binary position timestamps (.xydt) and position values (.xydt)
 - this program does not accept input piped via stdin
 
 USAGE:
-	xe-ldas5-readxyd1 [xydt] [xyd] [options]
+	xe-readxydt [xydt] [xyd] [options]
 	[xydt]: binary file containing position-times (long int)
 	[xyd]: binary file containing position-values (3x float)
 
@@ -9743,8 +9743,8 @@ VALID OPTIONS:
 		0= summary: duration, velocity mean & median
 		1= ASCII, one timestamp-id and x,y,d triplet per line
 		2= binary files x2
-		 	temp_xe-ldas5-readxyd1.xydt (long)
-		 	temp_xe-ldas5-readxyd1.xyd  (float triplets)
+		 	temp_xe-readxydt.xydt (long)
+		 	temp_xe-readxydt.xyd  (float triplets)
 		3= binary SSPs delineating velocity criteria (see below)
 
 Velocity criterion for -out 3 option ...
@@ -9754,8 +9754,8 @@ Velocity criterion for -out 3 option ...
 	-veldur: minimum duration (s) [0]
 
 EXAMPLES:
-	xe-ldas5-readxyd1 data.xydt data.xyd -scr 1 -scrl 10,20,40,50
-	xe-ldas5-readxyd1 A.xydt A.xyd -velmin 5 -out 3 &#62 B.ssp
+	xe-readxydt data.xydt data.xyd -scr 1 -scrl 10,20,40,50
+	xe-readxydt A.xydt A.xyd -velmin 5 -out 3 &#62 B.ssp
 ----------------------------------------------------------------------
 
 </blockquote></pre>
@@ -19728,7 +19728,7 @@ SAMPLE CALL:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xf_readxyd1"><a href="#CODE">&#8679</a> xf_readxyd1</h3></font>
+<font color="Black"><h3 id="code-xf_readxydt"><a href="#CODE">&#8679</a> xf_readxydt</h3></font>
 [<a href="#tag-file">file</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	Read a binary position-timestamp file (.xydt) and its complementary x-y-direction triplet file (.xyd)
@@ -19761,7 +19761,7 @@ SAMPLE CALL:
 		long *post=NULL,ii,nn;
 		float *posx=NULL,*posy=NULL,*posd=NULL;
 		sprintf(infile1,argv[1]); sprintf(infile2,argv[2]);
-		nn = xf_readxyd1(infile1,infile2,&posx,&posy,&posd,message);
+		nn = xf_readxydt(infile1,infile2,&posx,&posy,&posd,message);
 		if(nn==-1) { fprintf(stderr,"\n\t--- Error: %s\n\n",message); exit(1); }
 		for(ii=0;ii&#60nn;ii++) printf("%ld\t%f\t%f\t%f\n",posxt[ii],posx[ii],posy[ii],posd[ii]);
 		exit(0);
@@ -20367,7 +20367,7 @@ SAMPLE CALL: keep only start2/stop2 pairs which fall within the boundaries defin
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xf_screen_xyd"><a href="#CODE">&#8679</a> xf_screen_xyd</h3></font>
+<font color="Black"><h3 id="code-xf_screen_xydt"><a href="#CODE">&#8679</a> xf_screen_xydt</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-screen">screen</a>]<br>
 <blockquote><pre>DESCRIPTION:
 	- screen ldas5 XYD(T) data using start-stop pairs (keep data falling between the pairs)
@@ -20396,7 +20396,7 @@ RETURN VALUE:
 	the original arrays will typically be reduced
 
 SAMPLE CALL:
-	mm= xf_screen_xyd(start1,stop1,nlist,xydt,xydx,xydy,xydd,nn,message);
+	mm= xf_screen_xydt(start1,stop1,nlist,xydt,xydx,xydy,xydd,nn,message);
 	if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 
 

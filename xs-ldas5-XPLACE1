@@ -145,7 +145,7 @@ fi
 if [ "$setvmin" != "NAN" ] || [ "$setvmax" != "NAN" ] ; then
 	if [ $setverb == "1" ] ; then echo "	...extracting periods when running speed is between $setvmin and $setvmax cm/s" ; fi
 	# generate the runnning-restricted speed epochs
-	xe-ldas5-readxyd1 $filexydt $filexyd -sf $sf -out 3 -velmin $setvmin -velmax $setvmax > $tempfile"_vel.ssp"
+	xe-readxydt $filexydt $filexyd -sf $sf -out 3 -velmin $setvmin -velmax $setvmax > $tempfile"_vel.ssp"
 	# filter this by the trials-SSP
 	xe-ldas5-readssp1 $tempfile"_vel.ssp" -out 7 -scr 1 -scrf $tempfile"_trials.ssp" > $tempfile".ssp"
 else

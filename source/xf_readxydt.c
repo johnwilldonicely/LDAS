@@ -31,7 +31,7 @@ SAMPLE CALL:
 		long *post=NULL,ii,nn;
 		float *posx=NULL,*posy=NULL,*posd=NULL;
 		sprintf(infile1,argv[1]); sprintf(infile2,argv[2]);
-		nn = xf_readxyd1(infile1,infile2,&posx,&posy,&posd,message);
+		nn = xf_readxydt(infile1,infile2,&posx,&posy,&posd,message);
 		if(nn==-1) { fprintf(stderr,"\n\t--- Error: %s\n\n",message); exit(1); }
 		for(ii=0;ii<nn;ii++) printf("%ld\t%f\t%f\t%f\n",posxt[ii],posx[ii],posy[ii],posd[ii]);
 		exit(0);
@@ -44,9 +44,9 @@ SAMPLE CALL:
 #include <string.h>
 #include <math.h>
 
-long xf_readxyd1(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message) {
+long xf_readxydt(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message) {
 
-	char *thisfunc="xf_readxyd1\0";
+	char *thisfunc="xf_readxydt\0";
 	int nitems=3; // number of items per sample in the data-file
 	int sizeoflong=sizeof(long),sizeoffloat=sizeof(float);
 	long ii,jj,kk,mm,nn,datasize,blocksize,bytestoread,bytesread,nread;

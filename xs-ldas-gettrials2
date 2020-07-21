@@ -397,9 +397,9 @@ elif [ "$setout" == "file" ] ; then
 		if [ "$setin2" != "" ] ; then in2=$setin2 ; else in2=$base2.xyd ; fi
 		if [ ! -e $in2 ] ; then { echo -e "\n--- Error ["$thisprog"]: matching .xyd file '$in2' missing\n" ; exit ; } ; fi
 		outfile2=$tempfile"."xyd
-		xe-ldas5-readxyd1 $in1 $in2 -scrl $list1 -out 2
-		mv temp_xe-ldas5-readxyd1.xydt $outfile1
-		mv temp_xe-ldas5-readxyd1.xyd $outfile2
+		xe-readxydt $in1 $in2 -scrl $list1 -out 2
+		mv temp_xe-readxydt.xydt $outfile1
+		mv temp_xe-readxydt.xyd $outfile2
 		if [ $setverb == "1" ] ; then
 			(>&2 echo "- timestamps  sent to $outfile1")
 			(>&2 echo "- position triplets sent to $outfile2")

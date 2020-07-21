@@ -206,9 +206,9 @@ freqrate=$(echo "scale=3; 1.0/$freqres" | bc)
 ################################################################################
 echo "	...generating "$tempfile"_immobile.ssp and "$tempfile"_running.ssp"
 opts="-sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint"
-xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 |
+xe-readxydt $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 |
  	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_immobile.ssp"
-xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 |
+xe-readxydt $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 |
 	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_running.ssp"
 
 echo "	...extracting portions of spectrum matching immobility and running"
@@ -283,7 +283,7 @@ if [ "$setplot" == "1" ] ; then
 		xe-plotmatrix1 stdin $plotopts -title "Trials: $settrial" -xlabel "Time (seconds)" -ylabel "Frequency (Hz)"
 
 	# PLOT VELOCITY  TIMECOURSE
-	xe-ldas5-readxyd1 $filexydt $filexyd $opts -out 1 |
+	xe-readxydt $filexydt $filexyd $opts -out 1 |
 		xe-cut1 stdin elapsed,vel |
 		xe-bin2 stdin -t 10 -m 1 |
 		xe-plottable1 stdin -line 1 -ps 0 -xscale 1 -xpad 0 -colour 16 -lwd 0.5  -out $progbase1"_velocity.ps"

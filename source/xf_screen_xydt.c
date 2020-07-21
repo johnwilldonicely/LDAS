@@ -27,7 +27,7 @@ RETURN VALUE:
 	the original arrays will typically be reduced
 
 SAMPLE CALL:
-	mm= xf_screen_xyd(start1,stop1,nlist,xydt,xydx,xydy,xydd,nn,message);
+	mm= xf_screen_xydt(start1,stop1,nlist,xydt,xydx,xydy,xydd,nn,message);
 	if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 
 
@@ -36,9 +36,9 @@ SAMPLE CALL:
 # include <string.h>
 # include <stdio.h>
 
-long xf_screen_xyd(long *start, long *stop, long nssp, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message) {
+long xf_screen_xydt(long *start, long *stop, long nssp, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message) {
 
-	char *thisfunc="xf_screen_xyd\0";
+	char *thisfunc="xf_screen_xydt\0";
 	long ii,jj,kk=0,tempt;
 
 	for(ii=0;ii<ndata;ii++) {

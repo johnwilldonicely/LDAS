@@ -135,24 +135,24 @@ echo "	screenlist="$screenlist
 # DETERMINE TOTAL TIME SPENT IMMOBILE OR RUNNING IN THE PERIOD DEFINED ABOVE
 ########################################################################################
 echo "	...generating times_immobile.ssp"
-xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
+xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
 echo "	...generating times_running.ssp"
-xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
 
 ########################################################################################
 # DETERMINE DURATION AND MEAN & MEDIAN RUNNING SPEED - USE LIST TO SCREEN DATA
 ########################################################################################
 echo "	...calculating mean and median running speed"
-z=$(xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 0)
+z=$(xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 0)
 duration=$(echo $z | xe-getkey stdin dur=)
 velmean=$(echo $z | xe-getkey stdin vmean=)
 velmed=$(echo $z | xe-getkey stdin vmedian=)
 
 
 # echo "	...calculating angular velocity"
-# xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
+# xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
 # 	xe-cut1 stdin xyd_t -o 1 > $tempfile.1
-# xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
+# xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1  |
 # 	xe-cut1 stdin xyd_x,xyd_y -o 1 |
 # 	xe-posstats1 stdin -sf $sfxyd |
 # 	xe-cut1 stdin avel -o 1 > $tempfile.2
@@ -189,7 +189,7 @@ fi
 
 # GENERATE DWELLTIME MARTRIX (UNSMOOTHED)
 echo "	...calculating dwell-time density matrix"
-xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1 |
+xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -scrl $screenlist -out 1 |
 	xe-cut1 stdin xyd_x,xyd_y -o 1 |
 	xe-densitymatrix1 stdin -f 1 -x 50 -y 50 > $outbase"_matrix.txt"
 
@@ -209,7 +209,7 @@ if [ $setplot == "1" ] ; then
 	# THE MOVEMENT TRACE
 	echo "	...plotting the position trace"
 	plotfile=$outbase"_path_"$base".ps"
-	xe-ldas5-readxyd1 $in1 $in2 |
+	xe-readxydt $in1 $in2 |
 		xe-cut1 stdin xyd_x,xyd_y |
 		xe-plottable1 stdin -line 1 -ps 0 -xscale 1 -yscale 1 -out $plotfile
 
@@ -233,12 +233,12 @@ if [ $setplot == "1" ] ; then
 		echo "		"$start1"	"$stop1
 		vlines=$vlines","$start2","$stop2
 		# pull out the timestamps, decimate, and adjust by start-time and sample-rate
-		xe-ldas5-readxyd1 $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
+		xe-readxydt $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
 		xe-cut1 stdin xyd_t -o 1 |
 		xe-decimate1 stdin $newbin |
 		awk '{print '$start_secs' + $1/'$sf'}' > $tempfile.1
 		# pull out the data, and bin it
-		xe-ldas5-readxyd1 $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
+		xe-readxydt $in1 $in2 -scrl $start1","$stop1 -velint $setvelint |
 		xe-cut1 stdin vel -o 1 |
 		xe-bin1 stdin $newbin > $tempfile.2
 		# build the velocity timecourse record

@@ -126,7 +126,7 @@ if [ ! -e $filebin ] ; then { echo; echo "--- Error ["$thisprog"]: missing file 
 ################################################################################
 echo "	...processing running speed..."
 echo "vel" > $tempfile"_vel.txt"
-xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile".0.ssp"  |
+xe-readxydt $filexydt $filexyd -scrf $tempfile".0.ssp"  |
 	xe-cut1 stdin vel -o 1 |
 	xe-bin1 stdin 25 |
 	xe-math_round1 stdin -b 0.0001 >> $tempfile"_vel.txt"

@@ -110,8 +110,8 @@ for in0 in $list ; do
 	################################################################################
 	subject=$(xs-ldas-readethovision1 $in0 -h vSUBJECT | tr -d '_')
 
-	xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp  
-	xe-ldas5-readxyd1 $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+	xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp  
+	xe-readxydt $in1 $in2 -sf $sf -vf $sfxyd -out 3 -velint $setvelint -velmin $setvel2 -veldur $setdur2 > times_running.ssp
 
 	date=$(xs-ldas-readethovision1 $in0 -h vDATE | tr -d '_')
 	trial=$(xs-ldas-readethovision1 $in0 -h vTRIALNUM | tr -d '_')
@@ -121,8 +121,8 @@ for in0 in $list ; do
 	immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | awk '{print $2-$1}' | awk '{n+=$1}END{print n/'$sf'}')
 	running2=$(echo $running1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
 	immobile2=$(echo $immobile1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
-	mean1=$(xe-ldas5-readxyd1 $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.3f",$1)}' )
-	med1=$(xe-ldas5-readxyd1 $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | awk '{printf("%.3f",$1)}')
+	mean1=$(xe-readxydt $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin | xe-getkey stdin MEAN | awk '{printf("%.3f",$1)}' )
+	med1=$(xe-readxydt $in1 $in2 | xe-cut1 stdin vel -o 1 | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | awk '{printf("%.3f",$1)}')
 	screenlist="0,"$(echo $duration $sfxyd | awk '{print $1*$2}')
 
 	echo $date $subject $trial $name $duration $running2 $immobile2 $mean1 $med1 | xe-delimit stdin >> "output_"$thisprog"_summary.txt"
@@ -144,14 +144,14 @@ for in0 in $list ; do
 		if [ "$setplotdec" != "" ] ; then
 			if [ $setplotdec != 0 ] ; then newdec=$(echo $setplotdec $sfxyd | awk '{print $1*$2}') ; else newdec=1 ; fi
 			newrate=$(echo $sfxyd $newdec | awk '{print $1/$2}')
-			xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+			xe-readxydt $in1 $in2 -scrl $screenlist -velint $setvelint |
 			xe-cut1 stdin vel |
 			xe-decimate1 stdin $newdec |
 			xe-timestamp1 stdin -sf $newrate > $outfile
 		else
 			if [ $setplotbin != 0 ] ; then newbin=$(echo $setplotbin $sfxyd | awk '{print $1*$2}') ; else newbin=1 ; fi
 			newrate=$(echo $sfxyd $newbin | awk '{print $1/$2}')
-			xe-ldas5-readxyd1 $in1 $in2 -scrl $screenlist -velint $setvelint |
+			xe-readxydt $in1 $in2 -scrl $screenlist -velint $setvelint |
 			xe-cut1 stdin vel |
 			xe-bin1 stdin $newbin |
 			xe-timestamp1 stdin -sf $newrate > $outfile

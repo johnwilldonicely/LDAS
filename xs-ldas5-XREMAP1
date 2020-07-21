@@ -236,15 +236,15 @@ if [ $z -lt 2 ] ; then
 else
 	# IDENTIFY 1-SECOND WINDOWS WHERE MEAN RUNNING SPEED EXCEEDS THRESHOLD
 	# note that we do not use the readxyd's internal mechanism, as it invalidates window if an exception occurs within the window
-	# note that this could be sped-up with a mod to xe-ldas5-readxyd
-	xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile"_trial1.ssp" |
+	# note that this could be sped-up with a mod to xe-readxydt
+	xe-readxydt $filexydt $filexyd -scrf $tempfile"_trial1.ssp" |
 		xe-cut1 stdin xyd_t,vel -o 1 |
 		xe-bin2 stdin -t $setwin1b  |
 		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |
 		xe-math_add1 stdin -cy 2 -v $setwin1c -long 1 |
 		xe-writebinary1 stdin -dt 7 > $tempfile".1.ssp"
 
-	xe-ldas5-readxyd1 $filexydt $filexyd -scrf $tempfile"_trial2.ssp" |
+	xe-readxydt $filexydt $filexyd -scrf $tempfile"_trial2.ssp" |
 		xe-cut1 stdin xyd_t,vel -o 1 |
 		xe-bin2 stdin -t $setwin1b  |
 		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |

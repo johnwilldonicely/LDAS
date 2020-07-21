@@ -179,9 +179,9 @@ if [ "$setvelmin" != "nan" ] || [ "$setvelmax" != "nan" ]  ; then
 	# read xyd(t) files, filtering for speed and trials, and outputting SSPs
 	opts="-sf $sf -vf $sfxyd -velmax $setvelmax -velmin $setvelmin -veldur $setveldur -velint $setvelint -scrl $screenlist -out 3"
 
-	echo "xe-ldas5-readxyd1 $filexydt $filexyd $opts"
+	echo "xe-readxydt $filexydt $filexyd $opts"
 
-	xe-ldas5-readxyd1 $filexydt $filexyd $opts  |
+	xe-readxydt $filexydt $filexyd $opts  |
 	# now downsample SSPs to bin rate
 	xe-ldas5-readssp1 stdin -div $bindec -out 7 > $tempfile"_screen1.ssp"
 	# count the SSPs

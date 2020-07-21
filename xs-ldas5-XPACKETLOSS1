@@ -119,8 +119,8 @@ if [ -e $filexydt ] && [ -e $filexyd ] ; then
 
 	echo "	...generating times_immobile.ssp and times_running.ssp"
 	opts="-sf $sf -vf $sfxyd -scrl $screenlist -out 3 -velint $setvelint"
-	xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
-	xe-ldas5-readxyd1 $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 > times_running.ssp
+	xe-readxydt $filexydt $filexyd $opts -velmax $setvel1 -veldur $setdur1 > times_immobile.ssp
+	xe-readxydt $filexydt $filexyd $opts -velmin $setvel2 -veldur $setdur2 > times_running.ssp
 
 	echo "ANALYZING IMMOBILITY"
 	fileout=$outbase"_immobile.txt"

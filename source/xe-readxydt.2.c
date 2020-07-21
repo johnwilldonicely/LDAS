@@ -1,5 +1,5 @@
 
-#define thisprog "xe-ldas5-readxyd1"
+#define thisprog "xe-readxydt"
 #define TITLE_STRING thisprog" v 2: 21.January.2018 [JRH]"
 #define MAXLINELEN 1000
 #include <stdlib.h>
@@ -24,7 +24,7 @@ v 2: 20.July.2016 [JRH]
 		- bugfix in xf_detectevents3_lf: used to increment last timestamp of input if all input was good (no lonoger does this)
 
 v 2: 17.July.2016 [JRH]
-	- fix xf_screen_xyd so that check for overlapping SSPs cannot return error for very first start-signal
+	- fix xf_screen_xydt so that check for overlapping SSPs cannot return error for very first start-signal
 	- ie. do not initialize prev to zero because start[0] could be negative
 
 v 2: 4.June.2016 [JRH]
@@ -42,7 +42,7 @@ v 2: 8.March.2016 [JRH]
 	- add option to output SSP
 
 v 2: 3.March.2016 [JRH]
-	- switch to using xf_screen_xyd function (at present, inclusion only, not exclusion)
+	- switch to using xf_screen_xydt function (at present, inclusion only, not exclusion)
 	- include elapsed time and velocity calculation in ASCII output
 
 v 2: 20.November.2015 [JRH]
@@ -56,8 +56,8 @@ v 2: 20.November.2015 [JRH]
 /* external functions start */
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long xf_readssp1(char *infile, long **start, long **stop, char *message);
-long xf_readxyd1(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message);
-long xf_screen_xyd(long *start, long *stop, long nlist2, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message);
+long xf_readxydt(char *infile1, char *infile2, long **post, float **posx, float **posy, float **posd, char *message);
+long xf_screen_xydt(long *start, long *stop, long nlist2, long *xydt, float *xydx, float *xydy, float *xydd, long ndata, char *message);
 long xf_screen_ssp1(long *start1, long *stop1, long nlist1, long *start2, long *stop2, long nlist2, int mode, char *message);
 long xf_screen_lf(long *start, long *stop, long nssp, long *time1, float *data, long ndata, char *message);
 int xf_velocity1(float *posx, float *posy, float *velocity, long nn, double winsecs, double samprate, char *message);
@@ -106,7 +106,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
-		fprintf(stderr,"Read binary position timestamps (.xydt) and position values (.xydt)\n");
+		fprintf(stderr,"Read binary position timestamps (.xydt) and position values (.xyd)\n");
 		fprintf(stderr,"- output is either converted to ASCII or kept in binary form\n");
 		fprintf(stderr,"- use a file or list of boundaries to screen the start-stop pairs\n");
 		fprintf(stderr,"- this program does not accept input piped via stdin\n");
@@ -190,7 +190,7 @@ int main (int argc, char *argv[]) {
 	/************************************************************
 	READ THE POSITION TIMESTAMPS AND VALUES
 	*************************************************************/
- 	nn= xf_readxyd1(infile1,infile2,&xydt,&xydx,&xydy,&xydd,message);
+ 	nn= xf_readxydt(infile1,infile2,&xydt,&xydx,&xydy,&xydd,message);
 	if(nn<0) {fprintf(stderr,"\n*** %s/%s\n\n",thisprog,message); exit(1);}
 	if(setverb==1) {fprintf(stderr,"original_samples= %ld\n",nn);}
 
@@ -286,7 +286,7 @@ int main (int argc, char *argv[]) {
 		mm= xf_screen_lf(start1,stop1,nlist1,xydt,velocity,nn,message);
 		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 		/* screen the xydt data  */
-		mm= xf_screen_xyd(start1,stop1,nlist1,xydt,xydx,xydy,xydd,nn,message);
+		mm= xf_screen_xydt(start1,stop1,nlist1,xydt,xydx,xydy,xydd,nn,message);
 		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 		/* update nn */
 		nn= mm;
@@ -312,7 +312,7 @@ int main (int argc, char *argv[]) {
 		mm= xf_screen_lf(start2,stop2,nlist2,xydt,velocity,nn,message);
 		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 		/* screen the xydt data  */
-		mm= xf_screen_xyd(start2,stop2,nlist2,xydt,xydx,xydy,xydd,nn,message);
+		mm= xf_screen_xydt(start2,stop2,nlist2,xydt,xydx,xydy,xydd,nn,message);
 		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* update nn */
