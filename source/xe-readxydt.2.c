@@ -267,8 +267,9 @@ int main (int argc, char *argv[]) {
 
 
 	/************************************************************
-	DETECT SSPs FOR GOOD VELOCITY EPOCHS
+	DETECT SSPs FOR GOOD VELOCITY EPOCHS BEFORE SCREENING USING -SCRL or -SCRF
 	- NOTE: the STOP signals should not be included in output
+	- nlist2 = number of velocity epochs - if no velocity screening, nlist2=1 (entire recording) 
 	*************************************************************/
 	if(isfinite(setvelmin) || isfinite(setvelmax)) {
 		if(setverb==1) fprintf(stderr,"detecting velocity epochs (%g-%g cm/s)...\n",setvelmin,setvelmax);
@@ -288,6 +289,8 @@ int main (int argc, char *argv[]) {
 
 	/************************************************************
 	1. SCREEN USING THE SCREEN LIST/FILE (TYPICALLY TRIALS)
+	- nlist1 = number of start-stop pairs from file (-scrf) or list (-scrl)
+	- mm is the number of datapoints remaining after screening - all chunks of data combined 
 	*************************************************************/
 	if(setscreen==1) {
 		if(setverb==1) fprintf(stderr,"extracting screening epochs...\n");
@@ -299,7 +302,8 @@ int main (int argc, char *argv[]) {
 		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
 		/* update nn */
 		nn= mm;
-		/* screen the vel-list */
+
+		/* before doing velocity screening, screen the vel-list */
 		if(isfinite(setvelmin) || isfinite(setvelmax)) {
 			if(setverb==1) fprintf(stderr,"screening velocity SSPs...\n");
 			mm= xf_screen_ssp1(start1,stop1,nlist1,start2,stop2,nlist2,1,message);
@@ -308,8 +312,9 @@ int main (int argc, char *argv[]) {
 		}
 	}
 
+	//TEST: for(ii=0;ii<nn;ii++) printf("%ld %.2f %.2f	%.3f\n",xydt[ii],xydx[ii],xydy[ii],velocity[ii]); exit(0);
+	//TEST: for(ii=0;ii<nlist2;ii++) printf("%ld %ld %ld\n",ii,start2[ii],stop2[ii]); exit(0);
 
-//for(ii=0;ii<nn;ii++) printf("%ld %.2f %.2f	%.3f\n",xydt[ii],xydx[ii],xydy[ii],velocity[ii]); exit(0);
 
 	/************************************************************
 	2. SCREEN USING VELOCITY
