@@ -67,6 +67,7 @@ long xf_interp3max_f(float *data, long ndata, long max);
 long xf_stats3_f(float *data, long n1, int varcalc, double *result_d);
 int xf_percentile1_f(float *data, long nn, double *result);
 int xf_compare1_d(const void *a, const void *b);
+int xf_filter_bworth1_f(float *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -92,7 +93,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *setscreenfile=NULL,*setscreenlist=NULL;
 	int setout=1,setverb=0;
-	double setvidfreq=25.0, setsampfreq=19531.25,setdejump=-1.0,setvelmin=NAN,setvelmax=NAN,setveldur=0.0,setvelint=0.4;
+	double setvidfreq=25.0, setsampfreq=19531.25,setdejump=-1.0,setvelmin=NAN,setvelmax=NAN,setveldur=0.0,setvelint=0.4,sethigh=2.5;
 	long setinterp=0;
 	off_t setheaderbytes=0;
 
@@ -127,6 +128,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		-1: no limit - interpolate all missing data\n");
 		fprintf(stderr,"		 0: no interpolation\n");
 		fprintf(stderr,"		 for 25Hz video, 10-25 (0.4-1.0 sec) recommended\n");
+		fprintf(stderr,"	-high: path smoothing (1/sec), 0=NONE [%g]\n",sethigh);
 		fprintf(stderr,"	-verb: set verbocity of output (0=low, 1=high) [%d]\n",setverb);
 		fprintf(stderr,"	-out: output format [%d]:\n",setout);
 		fprintf(stderr,"		0= summary: duration, velocity mean & median\n");
@@ -174,6 +176,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-scr")==0)    setscreen=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-scrf")==0)   setscreenfile=argv[++ii];
 			else if(strcmp(argv[ii],"-scrl")==0)   setscreenlist=argv[++ii];
+			else if(strcmp(argv[ii],"-high")==0)   sethigh=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-out")==0)    setout=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-verb")==0)   setverb=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-velint")==0) setvelint=atof(argv[++ii]);
@@ -254,6 +257,14 @@ int main (int argc, char *argv[]) {
 	ii= xf_interp3max_f(xydx,nn,setinterp);
 	ii= xf_interp3max_f(xydy,nn,setinterp);
 
+
+	/************************************************************
+	APPLY THE SMOOTHING (BUTTERWORTH FILTER)
+	*************************************************************/
+	if(sethigh>0.0) {
+		xf_filter_bworth1_f(xydx,nn,setvidfreq,0,sethigh,1.4142,message);
+		xf_filter_bworth1_f(xydy,nn,setvidfreq,0,sethigh,1.4142,message);
+	}
 
 	/************************************************************
 	CALCULATE THE VELOCITY ARRAY
