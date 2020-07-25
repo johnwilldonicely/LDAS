@@ -6,7 +6,7 @@ progbase1=${thisprog##*-};
 tempfile="temp_"$thisprog #"."$$"."
 startdir=$(pwd)
 
-dirpattern="*/"
+setdir="*/"
 setpat="BASE"
 setverb="0"
 
@@ -20,9 +20,10 @@ if [ $# -lt 2 ]; then
 	echo "	[source]: path to sub-directories containing files to be linked"
 	echo "	[dest]:   path to desired destination working-directories"
 	echo "VALID OPTIONS (defaults in []):"
+	echo "	--dir: sub-directory pattern to match in [source] ["$setdir"]"
+	echo "		- one pattern only, wildcards must be inside the quotes"
 	echo "	--patterns: quoted list of file-patterns to match, or BASE ["$setpat"]"
-	echo "		- wildcards added to each item in the list"
-	echo "			- eg. .dat becomes *.dat*"
+	echo "		- wildcards added to each item, eg. .dat becomes *.dat*"
 	echo "		- if blank (\"\"), all files will be matched"
 	echo "		- \"BASE\" will match the 2-field directory basename"
 	echo "			- typical fields are date and subject"
@@ -36,10 +37,10 @@ if [ $# -lt 2 ]; then
 	echo "			- eg directory 123_999 will match file 123-0_999.1.dat"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "EXAMPLES: "
-	echo "	$thisprog Data_Library Data_Working"
+	echo "	$thisprog Data_Library Data_Working --patterns \".bin .notes\""
 	echo "	$thisprog Data_Library Data_Working --patterns \"BASE\""
 	echo "	$thisprog Data_Library Data_Working --patterns \"\""
-	echo "	$thisprog Data_Library Data_Working --patterns \".bin .notes\""
+	echo "	$thisprog Data_Library Data_Working --dir \"*REACT*\""
 	echo "------------------------------------------------------------------------------"
 	echo
 	exit
@@ -51,12 +52,13 @@ dest=$1; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="p:v:" ; vl="patterns:,verb:"
+vs="p:v:" ; vl="dir:,patterns:,verb:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
 while [ $# -gt 0 ] ; do
 	case $1 in
+		-D | --dir ) setdir=$2 ; shift ;;
 		-p | --patterns ) setpat=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-- ) shift ; break ;;
@@ -75,8 +77,8 @@ if [ ! -d $dest ] ; then echo ;  echo "	--- Error ["$thisprog"]: no dest directo
 ################################################################################
 # BUILD LIST OF DIRECTORIES TO MAKE WORKING COPIES OF
 ################################################################################
-dirlist=$(ls -d1 --color=never 2>/dev/null $source/$dirpattern)
-if [ "$dirlist" == "" ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no directories matching pattern "$source"/$dirpattern"; echo ;exit ; } ; fi
+dirlist=$(ls -d1 --color=never 2>/dev/null $source/$setdir)
+if [ "$dirlist" == "" ] ; then { echo ;  echo "	--- Error ["$thisprog"]: no directories matching pattern "$source"/$setdir"; echo ;exit ; } ; fi
 
 ################################################################################
 # CREATE LINKS
