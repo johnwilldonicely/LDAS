@@ -7,6 +7,7 @@
 #include <math.h>
 #include <sys/types.h> /* must be included for directory reading */
 #include <sys/stat.h> /* must be icncluded for directory reawding */
+#include <ctype.h>
 
 #define MAXLINELEN 10000
 #define BLOCKSIZE 1000
@@ -46,7 +47,7 @@ int main (int argc, char *argv[]) {
 
 	/* general and file type variables */
 	struct stat fileinfo; /* stat structure to hold file info */
-	FILE *fpin,*fpout;
+	FILE *fpin=NULL,*fpout=NULL;
 	char temp_str[256],*basename=NULL,outfile[256],*perror;
 	int w,x,y,z,skip,fail,col,systemtype,allfiletot=0;
 	unsigned long int i,j,k,n;
@@ -161,8 +162,8 @@ int main (int argc, char *argv[]) {
 			stat(argv[i],&fileinfo);
 			if((fileinfo.st_mode & S_IFMT) == S_IFDIR){ fprintf(stderr,"\n--- Error[%s]: %s is a directory\n\n",thisprog,argv[i]);exit(1); }
 			allfiletot++;
-			if(strstr(argv[i],".bin")!=NULL) {strncpy(binfile,argv[i],256); binfiletot++;}
-			if(strstr(argv[i],".trk")!=NULL) {strncpy(trackfile,argv[i],256); trackfiletot++;}
+			if(strstr(argv[i],".bin")!=NULL || strstr(argv[i],".BIN")!=NULL) {strncpy(binfile,argv[i],256); binfiletot++;}
+			if(strstr(argv[i],".trk")!=NULL || strstr(argv[i],".TRK")!=NULL) {strncpy(trackfile,argv[i],256); trackfiletot++;}
 	}}
 	if(binfiletot!=1) {fprintf(stderr,"Error[%s]: exactly one raw Axona file (.bin) must be specified\n",thisprog); exit(1);}
 	if(trackfiletot>1) {fprintf(stderr,"Error[%s]: at most one tracking file (.trk) can be specified\n",thisprog); exit(1);}
@@ -212,8 +213,8 @@ int main (int argc, char *argv[]) {
 	/*********************************************************************************************************/
 	/* create bit-mask: a logical AND of a value combined with a bit-shift will yield "1" if the bit is set  */
 	/*********************************************************************************************************/
-	bitshift=syncpin-1; // bit index and amount to shift bits to convert a match to "1"
-	bitmask=(int)pow(2,syncpin-1); // mask to identify if the bit (syncpin) is set
+	bitshift= syncpin-1; // bit index and amount to shift bits to convert a match to "1"
+	bitmask= (int)pow(2,syncpin-1); // mask to identify if the bit (syncpin) is set
 
 
 	/*********************************************************************************************************/
@@ -223,7 +224,8 @@ int main (int argc, char *argv[]) {
 	if((fpin=fopen(binfile,"rb"))==NULL) {fprintf(stderr,"Error[%s]: can't open input file \"%s\"\n",thisprog,binfile); exit(1);}
 	if(outdat==1) {
 		sprintf(outfile,"%s.dat",basename);
-		if((fpout=fopen(outfile,"wb"))==NULL) {fprintf(stderr,"Error[%s]: can't open output file \"%s\"\n",thisprog,outfile); exit(1);}
+		fpout=fopen(outfile,"wb");
+		if(fpout==NULL) {fprintf(stderr,"Error[%s]: can't open output file \"%s\"\n",thisprog,outfile); exit(1);}
 		printf("output_dat_file: %s\n",outfile);
 	}
 	/* determine size of .bin file and whether the number of bytes is appropriate */
@@ -249,7 +251,7 @@ int main (int argc, char *argv[]) {
 	/*********************************************************************************************************/
 	n_bin=n_dat=0; // record counter, incriments by the number of blocks read each read-iteration
 	blocksread=0; // counter for the number of data blocks read (BLOCKSIZE determines the number of blocks attempted to be read)
-	syncwarning=1; // flag to indicate if none of the digital i/o pins ever deviate from zer - this would suggest no input on any pins
+	syncwarning=1; // flag to indicate if none of the digital i/o pins ever deviate from zero - this would suggest no input on any pins
 	rewind(fpin);
 	while((blocksread = fread(&axraw,size_packet,BLOCKSIZE,fpin)) == BLOCKSIZE) {
 		/* the following will only happen if a full BLOCKSIZE number of data packets were read */
@@ -292,16 +294,17 @@ int main (int argc, char *argv[]) {
 	/*********************************************************************************************************/
 	if(outsync==1) {
 		sprintf(outfile,"%s.sync",basename);
-		if((fpout=fopen(outfile,"wb"))==NULL) {fprintf(stderr,"Error[%s]: can't open output file \"%s\"\n",thisprog,outfile); exit(1);}
+		fpout=fopen(outfile,"wb");
+		if(fpout==NULL) {fprintf(stderr,"Error[%s]: can't open output file \"%s\"\n",thisprog,outfile); exit(1);}
 		printf("output_sync_file: %s\n",outfile);
 		for(i=2;i<n_bin;i++) { // start at i=2 because first sync value in .binfile is often erroneously set to "1"
 			/* detect a sync step from 0 to 1 */
 			if(syncval[i-1]==0 && syncval[i]==1) fprintf(fpout,"%ld\n",i*3);
 		}
-		fclose(fpin);
+		fclose(fpout);
 	}
 
-	//TEST: for(i=0;i<n_dat;i++) printf("%d\n",syncval[i]); exit(0);
+	//TEST:	for(i=2;i<n_dat;i++) if(syncval[i-1]==0 && syncval[i]==1) printf("%d\n",syncval[i]); exit(0);
 
 	/*********************************************************************************************************/
 	/* STOP HERE IF WHD FILE IS NOT TO BE PRODUCED! */
