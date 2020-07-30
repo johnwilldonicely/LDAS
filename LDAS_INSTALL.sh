@@ -133,24 +133,6 @@ function func_permission () {
 	fi
 }
 
-################################################################################
-#???? # IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES 
-################################################################################
-if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
-		
-	echo -e "\n--------------------------------------------------------------------------------"
-	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
-	com1='# LDAS: config display for WSL'
-	if ! grep -qEis "$com1" $setrc ; then
-		echo -e "\n$com1" >> $setrc 
-		echo -e "[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0" >> $setrc
-		echo -e "dbus-launch --exit-with-x11" >> $setrc
-		echo -e "sudo dbus-uuidgen --ensure" >> $setrc
-	fi 
-fi
-
-exit
-
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -366,11 +348,13 @@ fi
 ########################################################################################
 if [ "$setupdate" == "0" ] ; then
 
-	# define the install command
+	# define the install command and the name of the X11 libraries (may be required for regaamc)
 	if [ "$distro" == "Ubuntu" ] ; then
 		command="apt-get -y install"
+		xlib="libx11-dev"
 	else
 		command="yum -y install"
+		xlib="imlib-devel.x86_64"
 	fi
 
 	# make a list of missing dependencies
@@ -378,6 +362,11 @@ if [ "$setupdate" == "0" ] ; then
 	for x in  $listdep ; do
 		if [ "$(command -v $x)" == "" ] ; then echo $x >> $tempfile".2" ; fi
 	done
+
+	# install X11 libraries if required
+	z=$(find /usr/include/X11 -name Xlib.h)
+	if [ "$z" == "" ] ; then echo $xlib >> $tempfile".2" ; fi
+
 
 	# if the file is not empty, report and attempt to install
 	if [ -e $tempfile".2" ] ; then
@@ -395,6 +384,8 @@ if [ "$setupdate" == "0" ] ; then
 			sudo $command $dep
 		done
 	fi
+
+
 fi
 
 
@@ -517,7 +508,7 @@ if [ "$setupdate" == "0" ] ; then
 		else
 			sudo sh -c "cat $tempfile >> $setnano"
 		fi
-	# ??? should add test here for whether LDAS is defined in the other (LOCAL or GLOBAL) location!
+# ??? should add test here for whether LDAS is defined in the other (LOCAL or GLOBAL) location!
 	fi
 fi
 
@@ -537,7 +528,25 @@ cd $inpath
 gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
 
-
+################################################################################
+# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES 
+################################################################################
+if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+		
+	echo -e "\n--------------------------------------------------------------------------------"
+	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
+	com1='# LDAS: config display for WSL'
+	if ! grep -qEis "$com1" $setrc ; then
+		echo -e "\n$com1" >> $setrc 
+		echo -e "[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0" >> $setrc
+# ??? the following is for Ubuntu only - prevents various x11 errors 
+# we probably should find a solution for Fedora/Redhat
+		if [ "$distro" == "Ubuntu" ] ; then
+			echo -e "dbus-launch --exit-with-x11" >> $setrc
+			echo -e "sudo dbus-uuidgen --ensure" >> $setrc
+		fi 
+	fi 
+fi
 
 
 ################################################################################
