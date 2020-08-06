@@ -56,6 +56,7 @@ LDAS uses tags to help you find code to perform particular tasks. A given script
 <a href="#tag-dt.matrix">dt.matrix</a> 
 <a href="#tag-dt.spikes">dt.spikes</a> 
 <a href="#tag-electrophysiology">electrophysiology</a> 
+<a href="#tag-epidemiology">epidemiology</a> 
 <a href="#tag-file">file</a> 
 <a href="#tag-filter">filter</a> 
 <a href="#tag-math">math</a> 
@@ -348,6 +349,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_detectevents1_f">xf_detectevents1_f</a><br>
 <a href="#code-xf_detectevents2_f">xf_detectevents2_f</a><br>
 <a href="#code-xf_detectevents3_lf">xf_detectevents3_lf</a><br>
+<a href="#code-xf_detectinflect1_d">xf_detectinflect1_d</a><br>
 <a href="#code-xf_detectinflect1_f">xf_detectinflect1_f</a><br>
 </td></table></tr>
 <h3 id="tag-dt.block"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: dt.block</font></h3>
@@ -436,6 +438,13 @@ of scripts, programs, and functions.
 <a href="#code-xs-TAINI-legacy3">xs-TAINI-legacy3</a><br>
 <a href="#code-xs-TAINI-preproc1">xs-TAINI-preproc1</a><br>
 </td></table></tr>
+<h3 id="tag-epidemiology"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: epidemiology</font></h3>
+<table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-CORONA1">xs-CORONA1</a><br>
+</td><td><b><font color="Black">Programs</font></b><br><br>
+<a href="#code-xe-CORONA1">xe-CORONA1</a><br>
+</td></table></tr>
 <h3 id="tag-file"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: file</font></h3>
 <table><tr>
 <td><b><font color="Black">Scripts</font></b><br><br>
@@ -462,7 +471,6 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-readdat1">xe-ldas5-readdat1</a><br>
 <a href="#code-xe-ldas5-readdat2">xe-ldas5-readdat2</a><br>
 <a href="#code-xe-ldas5-readwave1">xe-ldas5-readwave1</a><br>
-<a href="#code-xe-readxydt">xe-readxydt</a><br>
 <a href="#code-xe-ldas5-screentxt1">xe-ldas5-screentxt1</a><br>
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
@@ -478,6 +486,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-readbinary3">xe-readbinary3</a><br>
 <a href="#code-xe-readscore1">xe-readscore1</a><br>
 <a href="#code-xe-readscore2">xe-readscore2</a><br>
+<a href="#code-xe-readxydt">xe-readxydt</a><br>
 <a href="#code-xe-repeated1">xe-repeated1</a><br>
 <a href="#code-xe-splitfile1">xe-splitfile1</a><br>
 <a href="#code-xe-transpose1">xe-transpose1</a><br>
@@ -899,6 +908,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_detectevents1_f">xf_detectevents1_f</a><br>
 <a href="#code-xf_detectevents2_f">xf_detectevents2_f</a><br>
 <a href="#code-xf_detectevents3_lf">xf_detectevents3_lf</a><br>
+<a href="#code-xf_detectinflect1_d">xf_detectinflect1_d</a><br>
 <a href="#code-xf_detectinflect1_f">xf_detectinflect1_f</a><br>
 <a href="#code-xf_detrend1_d">xf_detrend1_d</a><br>
 <a href="#code-xf_detrend1_f">xf_detrend1_f</a><br>
@@ -1153,6 +1163,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_dateconv1">xf_dateconv1</a><br>
 <a href="#code-xf_datemod1">xf_datemod1</a><br>
 <a href="#code-xf_dateparse1">xf_dateparse1</a><br>
+<a href="#code-xf_getkeycol">xf_getkeycol</a><br>
 <a href="#code-xf_linecomment1">xf_linecomment1</a><br>
 <a href="#code-xf_lineparse1">xf_lineparse1</a><br>
 <a href="#code-xf_lineparse2">xf_lineparse2</a><br>
@@ -1164,6 +1175,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_strescape1">xf_strescape1</a><br>
 <a href="#code-xf_strkey1">xf_strkey1</a><br>
 <a href="#code-xf_strncat1">xf_strncat1</a><br>
+<a href="#code-xf_strselect1">xf_strselect1</a><br>
 <a href="#code-xf_strstr1">xf_strstr1</a><br>
 <a href="#code-xf_strstr2">xf_strstr2</a><br>
 <a href="#code-xf_strsub1">xf_strsub1</a><br>
@@ -1378,6 +1390,31 @@ EXAMPLE:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xs-CORONA1"><a href="#CODE">&#8679</a> xs-CORONA1</h3></font>
+[<a href="#tag-epidemiology">epidemiology</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-CORONA1: process disease data using ECDC and WorldBank datasets
+ - assumes WorldBank data is in folder as .zip files named by measure
+USAGE: xs-CORONA1 [mode] [options]
+	[mode]: operating mode: down | proc | all
+		init: download, convert & nitialize data
+		process: process the data
+		all: all of the above
+VALID OPTIONS (defaults in []):
+	--countries: CSV list of countries to analyse [United_Kingdom]
+	--opt1: options (in quotes) to pass to xe-CORONA1 [unset]
+	--opt2: options (in quotes) for curve-plots [unset]
+	--t50: exclude countries still above 50% max deaths (0=NO 1=YES) [0]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	list="United_Kingdom,France,Germany,Italy,Spain"
+	xs-CORONA1 all --countries $list -d 10 -w 12
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xs-crunch2"><a href="#CODE">&#8679</a> xs-crunch2</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>]<br>
 <blockquote><pre>
@@ -1401,7 +1438,7 @@ xs-dat2bin: downsample an interlaced .dat file
 	- uses xe-ldas5-readdat2 to interpolate, filter(anti-alias), and decimate
 	- outputs multiple 1-channel .bin files (binary 32-bit float)
 		- can also optionally output .binshort (binary 16-bit short)
-	- basename is everything before the last dot in the input file name
+	- requires the GNU parallel package
 USAGE: xs-dat2bin [infile] [nchans] [srin]
 	[infile]: interlaced multi-channel binary file (16-bit short-integer)
 	[nchans]: number of channels in infile
@@ -4095,9 +4132,10 @@ USAGE: xs-makelink1 [source] [dest] [options]
 	[source]: path to sub-directories containing files to be linked
 	[dest]:   path to desired destination working-directories
 VALID OPTIONS (defaults in []):
+	--dir: sub-directory pattern to match in [source] [*/]
+		- one pattern only, wildcards must be inside the quotes
 	--patterns: quoted list of file-patterns to match, or BASE [BASE]
-		- wildcards added to each item in the list
-			- eg. .dat becomes *.dat*
+		- wildcards added to each item, eg. .dat becomes *.dat*
 		- if blank (""), all files will be matched
 		- "BASE" will match the 2-field directory basename
 			- typical fields are date and subject
@@ -4111,10 +4149,10 @@ VALID OPTIONS (defaults in []):
 			- eg directory 123_999 will match file 123-0_999.1.dat
 	--verb: verbose output (0=NO 1=YES) [0]
 EXAMPLES: 
-	xs-makelink1 Data_Library Data_Working
+	xs-makelink1 Data_Library Data_Working --patterns ".bin .notes"
 	xs-makelink1 Data_Library Data_Working --patterns "BASE"
 	xs-makelink1 Data_Library Data_Working --patterns ""
-	xs-makelink1 Data_Library Data_Working --patterns ".bin .notes"
+	xs-makelink1 Data_Library Data_Working --dir "*REACT*"
 ------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4178,11 +4216,11 @@ EXAMPLE:
 xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
-		git
-		hargreaves
 		laser
-		ldas
+		hargreaves
+		git
 		mea
+		ldas
 		taini
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
@@ -4191,7 +4229,7 @@ VALID OPTIONS (defaults in []):
 		Format choices: pdf,html
 		NOTE: setting --make cancels viewing
 EXAMPLE: 
-	xs-manual git --view terminal
+	xs-manual laser --view terminal
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4395,6 +4433,15 @@ EXAMPLE:
 <font color="Black"><h3 id="code-xs-MEA-hdf5"><a href="#CODE">&#8679</a> xs-MEA-hdf5</h3></font>
 [<a href="#tag-MEA">MEA</a>][<a href="#tag-file">file</a>]<br>
 <blockquote><pre>
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
 --------------------------------------------------------------------------------
 xs-MEA-hdf5: 
 	- merge multiple Multi Channel Systems binary MEA files (.h5)
@@ -4420,6 +4467,15 @@ OUTPUT:
 <font color="Black"><h3 id="code-xs-MEA-merge1"><a href="#CODE">&#8679</a> xs-MEA-merge1</h3></font>
 [<a href="#tag-MEA">MEA</a>]<br>
 <blockquote><pre>
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
+--- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+
+
 --------------------------------------------------------------------------------
 xs-MEA-merge1: 
 	- merge multiple Multi Channel Systems binary MEA files (.raw)
@@ -4442,10 +4498,10 @@ EXAMPLE:
 	xs-MEA-merge1 .raw
 
 OUTPUT: (note base-name is derived from folder name)
-	source.dat
-	source.ssp
-	source-[channel].bin
-	source.notes
+	regaamc8.dat
+	regaamc8.ssp
+	regaamc8-[channel].bin
+	regaamc8.notes
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -5019,7 +5075,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200513.txt
+- other reports will go to the log file: /opt/LDAS/source/regaamc8/log_xs-O2-makex5b_200806.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5103,7 +5159,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2020_05_13
+		log_xs-O2-makex6b_2020_08_06
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5856,7 +5912,7 @@ USAGE: xs-progclean1 [version] [archive | noarchive]
 
 <font color="Black"><h3 id="code-xs-progcompile"><a href="#CODE">&#8679</a> xs-progcompile</h3></font>
 [<a href="#tag-programming">programming</a>]<br>
-<blockquote><pre>/opt/LDAS/xs-progcompile: line 21: lsb_release: command not found
+<blockquote><pre>No LSB modules are available.
 
 ------------------------------------------------------------
 Compiler script for programs using external functions
@@ -5928,20 +5984,21 @@ EXAMPLE:
 <blockquote><pre>
 --------------------------------------------------------------------------------
 xs-proggit1: Git helper script
-REQUIRES: a properly formatted ,notes file
 USAGE: 
-	xs-proggit1 [mode]
-	[mode]: status, diff, push, or pull
-		status: show local changes (committed=green, uncommitted=red)
-		diff: compare local commited changes to remote master
-		pull: pull remote master repository
-		push: add changes, commit (with -m message), and push to remote master
-ADDITIONAL ARGUMENTS (defaults in []):
-	-m: message for push []
-	-u: update option for pull (0=NO,1=YES) [0]
-		- changed source-code (xe-*.c) will be recompiled
+    xs-proggit1 [mode] [options]
+        [mode]: status, diff, push, or pull
+          status: show local changes (committed=green, uncommitted=red)
+          diff: compare local commited changes to remote master
+          pull: pull remote master repository (see -c)
+          push: add changes, commit, and push to remote master (see -m)
+OPTIONS (defaults in []):
+    -v: verbose output [unset]
+    -c: (pull) compile changed source-code [unset]
+    -t: (pull) update PROGTAG.html program list [unset]
+    -m: (push) message for commit [default defined by git status]
 EXAMPLE: 
-	xs-proggit1 data.txt
+    xs-proggit1 pull -c -v
+    xs-proggit1 push -m "this is my message"
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -7212,6 +7269,54 @@ NOTE: last window for each line may be NAN if there are &#603 data
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xe-CORONA1"><a href="#CODE">&#8679</a> xe-CORONA1</h3></font>
+[<a href="#tag-epidemiology">epidemiology</a>]<br>
+<blockquote><pre>
+----------------------------------------------------------------------
+xe-CORONA1 20.May.2020 [JRH]
+----------------------------------------------------------------------
+Analyse daily cases and deaths in an epidemiological dataset
+- data: https://opendata.ecdc.europa.eu/covid19/casedistribution/csv
+- must be downloaded & processed by xs-CORONA1
+Required input columns: 
+    Country,Date,Cases,Deaths,GeoID,Code,Pop,Continent
+USAGE: xe-CORONA1 [in] [country] [options]
+    [in]: file name or "stdin"
+    	- ECDC data pre-processed by xs-CORONA1
+    [country]: name of country to analyse
+VALID OPTIONS: defaults in []
+    -mindeaths: (start) minimum cumulative deaths [10]
+    -maxweeks: (stop) maximum weeks post-peak (0=total) [0]
+    -pad: add data if maxweeks exceeds data length (0=NO 1=YES) [0]
+    -smooth: weeks over which to smooth data (0=NONE) [0]
+        - uses Butterworth filter, high-cut= 1/(smooth*2)
+    -normd: normalise deaths to population (millions) (0=NO 1=YES) [1]
+    -normc: normalise cases to the deaths range (0=NO 1=YES) [1]
+    -peak2: truncate data if a second larger peak is found (0=NO 1=YES) [0]
+    -out: output format [1]
+        1: Day Cases Deaths DeathsSum
+        2: Var Day Count
+    -verb: verbose output (0=NO 1=YES 999=DEBUG) [0]
+EXAMPLES:
+    xe-CORONA1 data.txt
+OUTPUT:
+    stdout: chunk of data as per -out above
+    temp_xe-CORONA1.txt:
+        code: 3-letter country code
+        popm: country population, in millions
+        start: day (from start of records) -mindeaths passed
+        tmax: days from start to dmax
+        t50:  days from tmax to 50% dmax
+        t25:  days from tmax to 25% dmax
+        cmax: max number of cases (after smoothing)
+        dmax: max number of deaths (after smoothing)
+        dtot: total cumulative deaths
+        s1: best-fit linear slope, start to tmax
+        s2: best-fit linear slope, tmax to maxweeks
+        country: name of the input country
+
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xe-correlate"><a href="#CODE">&#8679</a> xe-correlate</h3></font>
 [<a href="#tag-stats">stats</a>]<br>
 <blockquote><pre>
@@ -7568,29 +7673,29 @@ EXAMPLES:
 [<a href="#tag-database">database</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-dbmatch2 4.May.2019 [JRH]
+xe-dbmatch2 29.May.2020 [JRH]
 ----------------------------------------------------------------------
-Read an input and append the matching value from a keyfile
-- match is performed on a column from the input and the keyfile
-- the appended value is in a specified column in the keyfile
+Read input-1 and append the corresponding values from a input-2
+- match is performed on a column (key) from both files
 - if there is no matching key, a "-" will be appended instead
-- matches are case-sensitive and must be exact (eg. 3 does not equal 03)
+- matches are case-sensitive & must be exact (e.g. 3 doesn't match 03)
 USAGE:
-	xe-dbmatch2 [input] [col] [keyfile] [val]  [options]
-	[input]: file name or "stdin" with key-column to be matched
-	[col]: input column to match with key
-	[keyfile]: file with key- and value-columns
-	[val]: column in keyfile containing values to append
+	xe-dbmatch2 [in1] [col] [in2] [val]  [options]
+	[in1]: the file (or "stdin") to be added to
+	[col]: in1 column-name holding the keys
+	[in2]: file containing values to be appended
+	[vals]: in2 column-names (CSV) to append
 VALID OPTIONS:
-	[-k]: key-column to match in keyfile [ default=[col] ]
+	[-k]: key-column to match in in2 [ default=[col] ]
+	[-m]: missing key-match placeholder to append ["-"]
 	[-d]: characters to use as column-delimiters ["\t"]
 		- max 16 characters permitted
 		- any delimiter in the input marks a new column
 		- the first delimiter is used for the output
-EXAMPLES: add group-names to a file with only group-no. specified
-	xe-dbmatch2 data.txt group names.txt name -d ","
+EXAMPLES: add age and height to a file containing names and sex
+	xe-dbmatch2 names.txt NAME stats.txt AGE,HEIGHT -d ","
 OUTPUT:
-	input + matching values from keyfile appended on each line
+	in1 + matching values from in2 appended on each line
 ----------------------------------------------------------------------
 
 </blockquote></pre>
@@ -7857,12 +7962,12 @@ VALID OPTIONS:
 	-z1: manually define subtractor (mean, 0=none) [0]
 	-z2: manually define divisor (stddev, 1=none) [1]
  ...threshold options...
-	-t: detecton lower threshold [3]
+	-t: detection lower threshold [3]
 		NOTE: can be positive or negative
 	-e: multiple of -t (0-1) defining event edges) [0.5]
 	-u: multiple of -t (&#621) defining rejection limit [10]
 		- event peak values must fall between (-t) and (-u)*(-t) 
-	-s: detecton sign (-1=negative, +1=positive, 0=either) [0]
+	-s: detection sign (-1=negative, +1=positive, 0=either) [0]
 		NOTE: for -ive, -t may also need to be -ive
 	-min: minimum event length (0=none) [1]
 	-max: maximum event length (0=none) [0]
@@ -8980,9 +9085,10 @@ FILE OUTPUT (-v 1 or 2):
 	modified .wfm file temp_xe-ldas5-clucombine1.wfm
 	histogram file (optional) temp_xe-ldas5-clucombine1.hist
 REPORT OUTPUT (-v 0 or 2):
-	c1 c2 tot   rl tl pl   rr tr pr   wavecor combine
+	c1 c2 a1 a2   nxcor  rl tl pl   rr tr pr   wavecor combine
 
-	[c1 c2 tot]: cluster IDs and histogram spike-count
+	[c1 c2 a1 a2]: cluster IDs and autocorrelation
+	[nxcor]: number of spikes contriibuting to the cross-correlation
 	[rl tl pl]: left-side refractoriness, t-stat & prob.
 	[rr tr pr]: as above for right-hand side
 	[wavecor]: waveform correlation, 5 channels centred on
@@ -9442,7 +9548,7 @@ VALID OPTIONS:
 	-con: number of contiguous bins required to keep a bin [0]
 	-vrate: video sample rate (samples/s) [25]
 	-vrange: 4-item CSV list defining xmin,ymin,xmax,ymax [unset]
-	-binsize : size of map-pixels (cm) [-1]
+	-binsize : size of map-pixels (cm) [-1203572649]
 	-sx : 2D gaussian smoothing (bins) applied to rate matrix [0]
 	-sy : 2D gaussian smoothing (bins) applied to matrix [0]
 	-st : smoothing type (0,1 or 2) [2]
@@ -9697,7 +9803,7 @@ USAGE:
 VALID OPTIONS: defaults in []
 	-low: filter low-cut (0=none) [0]
 	-high: filter high-cut (0=none) [0]
-	-clust: restrict output to a CSV list of clusters) [(null)]
+	-clust: restrict output to a CSV list of clusters) [unset]
 		- if unset (null), all clusters are output
 	-verb: verbose output (0=NO 1=YES) [0]
 	-out: output format [1]
@@ -9707,56 +9813,6 @@ VALID OPTIONS: defaults in []
 ...if -out is set to 2...
 	-chan: restrict output to channel-ID (-1 = no restriction) [-1]
 		NOTE: derived from CHANNEL_LIST, not sequence
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xe-readxydt"><a href="#CODE">&#8679</a> xe-readxydt</h3></font>
-[<a href="#tag-file">file</a>][<a href="#tag-behaviour">behaviour</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-readxydt v 2: 21.January.2018 [JRH]
-----------------------------------------------------------------------
-Read binary position timestamps (.xydt) and position values (.xydt)
-- output is either converted to ASCII or kept in binary form
-- use a file or list of boundaries to screen the start-stop pairs
-- this program does not accept input piped via stdin
-
-USAGE:
-	xe-readxydt [xydt] [xyd] [options]
-	[xydt]: binary file containing position-times (long int)
-	[xyd]: binary file containing position-values (3x float)
-
-VALID OPTIONS:
-	-sf: sample-frequency of clock used to timestamp video [19531.2]
-	-vf: video sample-frequency [25]
-	-scrf: screen-file (binary ssp) defining inclusion bounds []
-	-scrl: screen-list (CSV) defining inclusion bounds []
-	-int: max interpolation gap (video-samples) [0]
-		-1: no limit - interpolate all missing data
-		 0: no interpolation
-		 for 25Hz video, 10-25 (0.4-1.0 sec) recommended
-	-verb: set verbocity of output (0=low, 1=high) [0]
-	-vf: sample-rate for video (Hz) [25]
-	-sf: sample-rate  for electrophysiology [19531.2]
-		used for ASCII output - elapsed time
-	-out: output format [1]:
-		0= summary: duration, velocity mean & median
-		1= ASCII, one timestamp-id and x,y,d triplet per line
-		2= binary files x2
-		 	temp_xe-readxydt.xydt (long)
-		 	temp_xe-readxydt.xyd  (float triplets)
-		3= binary SSPs delineating velocity criteria (see below)
-
-Velocity criterion for -out 3 option ...
-	-velint: time (sec) over which velocity is integrated [0.4]
-	-velmin: minimum (cm/s, nan = no limit) [nan]
-	-velmax: maximum (cm/s, nan = no limit) [nan]
-	-veldur: minimum duration (s) [0]
-
-EXAMPLES:
-	xe-readxydt data.xydt data.xyd -scr 1 -scrl 10,20,40,50
-	xe-readxydt A.xydt A.xyd -velmin 5 -out 3 &#62 B.ssp
-----------------------------------------------------------------------
 
 </blockquote></pre>
 
@@ -11818,6 +11874,55 @@ OUTPUT:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xe-readxydt"><a href="#CODE">&#8679</a> xe-readxydt</h3></font>
+[<a href="#tag-file">file</a>][<a href="#tag-behaviour">behaviour</a>]<br>
+<blockquote><pre>
+----------------------------------------------------------------------
+xe-readxydt v 2: 21.January.2018 [JRH]
+----------------------------------------------------------------------
+Read binary position timestamps (.xydt) and position values (.xyd)
+- output is either converted to ASCII or kept in binary form
+- use a file or list of boundaries to screen the start-stop pairs
+- this program does not accept input piped via stdin
+
+USAGE:
+	xe-readxydt [xydt] [xyd] [options]
+	[xydt]: binary file containing position-times (long int)
+	[xyd]: binary file containing position-values (3x float)
+
+VALID OPTIONS:
+	-sf: sample-frequency of clock used to timestamp video [19531.2]
+	-vf: video sample-frequency [25]
+	-dejump: max cm/s, to invalidate jumpy x/y points [-1]
+	-scrf: screen-file (binary ssp) defining inclusion bounds []
+	-scrl: screen-list (CSV) defining inclusion bounds []
+	-int: max interpolation gap (video-samples) [0]
+		-1: no limit - interpolate all missing data
+		 0: no interpolation
+		 for 25Hz video, 10-25 (0.4-1.0 sec) recommended
+	-high: path smoothing (1/sec), 0=NONE [2.5]
+	-verb: set verbocity of output (0=low, 1=high) [0]
+	-out: output format [1]:
+		0= summary: duration, velocity mean & median
+		1= ASCII, one timestamp-id and x,y,d triplet per line
+		2= binary files x2
+		 	temp_xe-readxydt.xydt (long)
+		 	temp_xe-readxydt.xyd  (float triplets)
+		3= binary SSPs delineating velocity criteria (see below)
+
+Velocity criterion for -out 3 option ...
+	-velint: time (sec) over which velocity is integrated [0.4]
+	-velmin: minimum (cm/s, nan = no limit) [nan]
+	-velmax: maximum (cm/s, nan = no limit) [nan]
+	-veldur: minimum duration (s) [0]
+
+EXAMPLES:
+	xe-readxydt data.xydt data.xyd -scr 1 -scrl 10,20,40,50
+	xe-readxydt A.xydt A.xyd -velmin 5 -out 3 &#62 B.ssp
+----------------------------------------------------------------------
+
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xe-repeated1"><a href="#CODE">&#8679</a> xe-repeated1</h3></font>
 [<a href="#tag-file">file</a>][<a href="#tag-screen">screen</a>]<br>
 <blockquote><pre>
@@ -11936,7 +12041,7 @@ Apply boxcar-averaging to data
 Sliding window averages values to either side of central data-point
 USAGE: xe-smoothbox1 [infile] [s]
 	[infile]: data file or stdin
-	[s]: samples either side of data to use for averaging [4294967295]
+	[s]: samples either side of data to use for averaging [140166726471767]
 		- total size of averaging window = s+s+1
 EXAMPLES:
 	xe-smoothbox1 data.txt 5
@@ -14213,23 +14318,24 @@ SAMPLE CALL:
 <font color="Black"><h3 id="code-xf_dejump2_f"><a href="#CODE">&#8679</a> xf_dejump2_f</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-filter">filter</a>]<br>
 <blockquote><pre>DESCRIPTION:
-	Remove jumpy points from a series
+	Remove jumpy points from an x/y position series
 	- unlike filtering, will not alter the posx outside the "jumpy" events
 	- points are invalidated (assigned to NAN) until one is found that doesn't look jumpy relative to the last good point
 	- note that once enough time has elapsed, a series of displaced points can be considered non-jumpy again.
 
 USES:
-	Remove rapid changes in posx due to mis-measurement
+	Remove rapid changes in apparent position due to transient video tracking problems (reflection-tracking etc)
 	Can help to remove noise artefacts
 
 DEPENDENCY TREE:
 	No dependencies
 
 ARGUMENTS:
-	float *posx  : pointer to array already holding event ids (eg. cell-numbers)
-	long nn      : number of elements in the arrays
-	double sfreq : sample-frequency of input (samples per second)
-	float thresh : the threshold for rate-of-change, beyond which posx is reassigned to NAN
+	float *posx   : pointer to array holding x-position data
+	float *posy   : pointer to array holding y-position data
+	long nn       : number of elements in the arrays
+	double sfreq  : sample-frequency of input (samples per second)
+	double thresh : the threshold for rate-of-change, beyond which posx & posy are reassigned to NAN
 
 RETURN VALUE:
 	Number of jumpy points invalidated
@@ -14672,6 +14778,49 @@ SAMPLE CALL:
 	if(estart!=NULL) free(estart);
 	if(estop!=NULL) free(estop)
 
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_detectinflect1_d"><a href="#CODE">&#8679</a> xf_detectinflect1_d</h3></font>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-detect">detect</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	Detect inflections in a series
+	Assumes signal is filtered to reduce number of inflections to a reasonable number
+
+USES:
+
+DEPENDENCY TREE:
+	No dependencies
+
+ARGUMENTS:
+	double *data   : input holding data
+	long n1       : size of data array
+	long **itime : address for time-stamp array (samples) - calling function must free()
+	int **isign  : address for inflection-sign array (-1=negative, 1=positive) - calling function must free()
+	char *message : arrray to hold message in the event of an error
+
+RETURN VALUE:
+	number of detected inflections (&#62=0) on success
+	-1 on error
+	result arrays *itime and *isign will have been assigned memory and will hold event times (sample) and sign (-1 or +1)
+
+SAMPLE CALL:
+	#include &#60stdio.h&#62
+	#include &#60stdlib.h&#62
+	#include &#60math.h&#62
+	int main (int argc, char *argv[]) {
+		char message[1000];
+		long *itime=NULL,n1=350,n2,ii;
+		int *isign=NULL;
+		double data[1000];
+		double aa=M_PI/10;
+		for(ii=0;ii&#60n1;ii++) data[ii]= sin(ii*aa);
+		for(ii=0;ii&#60n1;ii++) printf("%ld %g\n",ii,data[ii]);
+		n2= xf_detectinflect1_f(data,n1,&itime,&isign,message);
+		if(n2&#600) {fprintf(stderr,"\n--- Error: %s\n\n",message); exit(1);}
+		for(ii=0;ii&#60n2;ii++) printf("%ld\t%d\n",itime[ii],isign[ii]);
+		if(itime!=NULL) free(itime);
+		if(isign!=NULL) free(isign);
+	}
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_detectinflect1_f"><a href="#CODE">&#8679</a> xf_detectinflect1_f</h3></font>
@@ -15653,6 +15802,36 @@ RETURN VALUE:
 SAMPLE CALL:
 
 
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_getkeycol"><a href="#CODE">&#8679</a> xf_getkeycol</h3></font>
+[<a href="#tag-string">string</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	- Find the columns containing each keyword in a delimited list
+	- Useful for reading the header-lines in files, and determining which columns correspond with the keywords
+	- It is assumed that the user knows wich keywords should be present
+
+
+DEPENDENCIES:
+	xf_lineparse2()
+
+ARGUMENTS:
+	double *data : input holding data
+	size_t nn : size of data array
+	double interval:  the interval between samples, for integrating area
+	double *result : pre-allocated array to hold results - must allow at least 6 elements
+	char *message : pre-allocated array to hold error message
+
+RETURN VALUE:
+	0 on success, -1 on error
+	result array will hold statistics
+	message array will hold explanatory text (if any)
+
+SAMPLE CALL:
+	x= xf_auc1_d(data, nn, interval, result, );
+	if(x!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+
+&#60TAGS&#62 string &#60/TAGS&#62
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_hist1d"><a href="#CODE">&#8679</a> xf_hist1d</h3></font>
@@ -21051,6 +21230,34 @@ ARGUMENTS:
 RETURN VALUE:
 	Pointer to the lengthened string1, or NULL on failure
 
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xf_strselect1"><a href="#CODE">&#8679</a> xf_strselect1</h3></font>
+[<a href="#tag-string">string</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	Reduce a string by keeping only a set of delimited "words"
+	Selected words are referred to by indices, range= 0 to (nwords-1)
+	NOTE: the user-defined order of the indices does not change the order of the words in the result
+
+DEPENDENCIES:
+	None
+
+ARGUMENTS:
+	char *input : pointer to a character array
+	char delimiter : a single delimiter which separates "input" into words
+	long *index1 ; a list (zer0-offset array) of the words in "input" to be kept (the order is irrelevant)
+	long nn ; size of the index1 array
+
+RETURN VALUE:
+	on success: 0, input will be modified
+
+SAMPLE CALL:
+	char input[]= "zero,one,two,three,four,five,siz,seven\n";
+	long zz,keep[]= {1,3,5};
+	zz= xf_strselect1(input,',',keep,3);
+	printf("input=%s\n",input);
+	exit(0);
+--------------------------------------------------------------------------------
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xf_strstr1"><a href="#CODE">&#8679</a> xf_strstr1</h3></font>
