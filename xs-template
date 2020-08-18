@@ -9,7 +9,9 @@
 thisprog=`basename "$0"`
 tempfile="temp_"$thisprog"_"$$
 
+# path to where programs should be found, based on the path to the crurrent script
 progdir=$(which $0 2>/dev/null | rev | cut -f 2- -d / |rev)"/source"
+# path to currently runnigng script 
 progpath=$(dirname $(readlink -f "$0"))
 startdir=$(pwd)
 

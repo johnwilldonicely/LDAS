@@ -4216,12 +4216,12 @@ EXAMPLE:
 xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
-		laser
-		hargreaves
-		git
 		mea
-		ldas
+		laser
+		git
+		hargreaves
 		taini
+		ldas
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
 		NOTE: only "terminal" will work if logging in remotely
@@ -4229,7 +4229,7 @@ VALID OPTIONS (defaults in []):
 		Format choices: pdf,html
 		NOTE: setting --make cancels viewing
 EXAMPLE: 
-	xs-manual laser --view terminal
+	xs-manual mea --view terminal
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -5075,7 +5075,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/regaamc8/log_xs-O2-makex5b_200806.txt
+- other reports will go to the log file: /opt/LDAS/source/regaamc8/log_xs-O2-makex5b_200818.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5159,7 +5159,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2020_08_06
+		log_xs-O2-makex6b_2020_08_18
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -9548,7 +9548,7 @@ VALID OPTIONS:
 	-con: number of contiguous bins required to keep a bin [0]
 	-vrate: video sample rate (samples/s) [25]
 	-vrange: 4-item CSV list defining xmin,ymin,xmax,ymax [unset]
-	-binsize : size of map-pixels (cm) [-1203572649]
+	-binsize : size of map-pixels (cm) [-1150054313]
 	-sx : 2D gaussian smoothing (bins) applied to rate matrix [0]
 	-sy : 2D gaussian smoothing (bins) applied to matrix [0]
 	-st : smoothing type (0,1 or 2) [2]
@@ -12041,7 +12041,7 @@ Apply boxcar-averaging to data
 Sliding window averages values to either side of central data-point
 USAGE: xe-smoothbox1 [infile] [s]
 	[infile]: data file or stdin
-	[s]: samples either side of data to use for averaging [140166726471767]
+	[s]: samples either side of data to use for averaging [140049510015063]
 		- total size of averaging window = s+s+1
 EXAMPLES:
 	xe-smoothbox1 data.txt 5
