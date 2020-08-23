@@ -1,5 +1,5 @@
 #define thisprog "xe-plotmerge1"
-#define TITLE_STRING thisprog" v 1.6: 29.September.2017 [JRH]"
+#define TITLE_STRING thisprog" v 1.6: 23.August.2020 [JRH]"
 #define MAXLINELEN 1000
 #define MAXFILES 256
 
@@ -10,6 +10,11 @@
 /*
 <TAGS>plot</TAGS>
 
+v 1.6: 23.August.2020 [JRH]
+	- bugfix: do not apply grestore to the first of the merged plots, to avoid problems with newer versions of ghostscript - at the top of the file, there is nothing to restore!
+	- updated variable names to new convention (ii,jj,nn etc)
+	- resolved possible overrun issues with sprintf for basename and output file name
+	- simplifed conditional loop - removed "filefound" variable
 v 1.6: 2.July.2019 [JRH]
 	- bugfix: longstanding issue resolved where an extra plot was always generated if ymax was reached but not exceeded
 v 1.6: 29.September.2017 [JRH]
@@ -38,9 +43,9 @@ v 1.3: 13.July.2011 [JRH]
 int main (int argc, char *argv[]) {
 	/* general variables */
 	char line[MAXLINELEN],templine[MAXLINELEN],word[256],*matchstring=NULL,*pline,*pcol;
-	long int i,j,k;
-	int v,w,x,y,z,n,col,colmatch;
-	int sizeofchar=sizeof(char),sizeofshort=sizeof(short),sizeoflong=sizeof(long),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double);
+	long int ii,jj,kk,nn;
+	int v,w,x,y,z;
+	int sizeofchar=sizeof(char),sizeoflong=sizeof(long),sizeofint=sizeof(int);
 	float a,b,c,d;
 	double aa,bb,cc,dd;
 	FILE *fpin,*fpout;
@@ -51,7 +56,7 @@ int main (int argc, char *argv[]) {
 	long *infileindex=NULL,index;
 
 	/* arguments */
-	char *infile=NULL,outbase[256],outfile[256];
+	char *infile=NULL,outbase[128],outfile[256];
 	float zxstart=60,zystart=655; // starting coordinates for top left of plot
 	float xinc=140,yinc=200; // pixel-shifts for each plot
 	int xstep=0,ystep=0; // count how many plots have been made on each column & row
@@ -61,7 +66,7 @@ int main (int argc, char *argv[]) {
 	int setformat=1,setnotrans=1;
 	float setlow=0.0,sethigh=0.0,setbinwidth=0.0;
 
-	sprintf(outbase,"temp_%s",thisprog);
+	snprintf(outbase,128,"temp_%s",thisprog);
 
 	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
 	if(argc<2) {
@@ -97,74 +102,75 @@ int main (int argc, char *argv[]) {
 	nfiles=index=0;infileindex[nfiles]=0;
 
 	/* READ THE FILENAMES AND OPTIONAL ARGUMENTS - DYNAMICALLY AND EFFICIENTLY ALLOCATE MEMORY FOR NEW FILENAMES */
-	for(i=1;i<argc;i++) {
-		if( *(argv[i]+0) == '-') {
+	for(ii=1;ii<argc;ii++) {
+		if( *(argv[ii]+0) == '-') {
 			// read optional arguments - must begin with a hyphen and be followed by a value
-			if((i+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
-			else if(strcmp(argv[i],"-xmax")==0) 	{ xstepmax=atoi(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-ymax")==0) 	{ ystepmax=atoi(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-xinc")==0) 	{ xinc=atof(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-yinc")==0) 	{ yinc=atof(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-xo")==0) 	{ zxstart=atof(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-yo")==0) 	{ zystart=atof(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-scale")==0) 	{ setscale=atof(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-notrans")==0) 	{ setnotrans=atoi(argv[i+1]); i++;}
-			else if(strcmp(argv[i],"-out")==0) 	{ sprintf(outbase,"%s",argv[i+1]); i++;}
-			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
+			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
+			else if(strcmp(argv[ii],"-xmax")==0)    xstepmax=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-ymax")==0)    ystepmax=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-xinc")==0)    xinc=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-yinc")==0)    yinc=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-xo")==0)      zxstart=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-yo")==0)      zystart=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-scale")==0)   setscale=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-notrans")==0) setnotrans=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-out")==0)     snprintf(outbase,128,"%s",argv[++ii]);
+			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 		}
 		else {  // store another name in the list and record the index to it
 			infileindex[nfiles]=index;
-			infilelen=strlen(argv[i])+2;
-			w=(index*sizeofchar) + ((infilelen+1)*sizeofchar);
+			infilelen=strlen(argv[ii])+2;
+			w= (index*sizeofchar) + ((infilelen+1)*sizeofchar);
 			if((infile=(char *)realloc(infile,w))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 			if((infileindex=(long *)realloc(infileindex,(nfiles+2)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-			sprintf(infile+infileindex[nfiles],"%s",argv[i]);
-			index+=infilelen;
-			nfiles+=1;
+			sprintf(infile+infileindex[nfiles],"%s",argv[ii]);
+			index+= infilelen;
+			nfiles+= 1;
 	}}
 
-	//for(i=0;i<nfiles;i++) printf("input file %d: %s\n",i,(infile+infileindex[i]));
+	//for(i=0;i<nfiles;i++) printf("input file %d: %s\n",i,(infile+infileindex[ii]));
 	if(setnotrans!=0&&setnotrans!=1) {fprintf(stderr,"\n--- Error[%s]: invlid -notrans (%d) - should be 0 or 1)\n\n",thisprog,setnotrans);exit(1);}
 
 	/* OPEN THE OUTPUT FILE */
-	sprintf(outfile,"%s.%03d.ps",outbase,page);
+	snprintf(outfile,256,"%s.%03d.ps",outbase,page);
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" could not be opened for writing\n\n",thisprog,outfile);exit(1);}
 	fileopen=1;
 
 	/* READ INPUT FILES AND OUPUT POSTSCRIPT */
-	n=0; zx=zxstart; zy=zystart;
+	nn= 0; zx= zxstart; zy= zystart;
 	/* make sure there's at least one file to merge */
-	z=0;for(i=0;i<nfiles;i++) if((fpin=fopen(infile+infileindex[i],"r"))!=0) { z++; fclose(fpin);}
+	z=0;for(ii=0;ii<nfiles;ii++) if((fpin=fopen(infile+infileindex[ii],"r"))!=0) { z++; fclose(fpin);}
 	if(z==0) {fprintf(stderr,"\n--- Error[%s]: none of the files to be merged were found\n",thisprog);exit(1);}
 
-	for(i=0;i<nfiles;i++) {
+	for(ii=0;ii<nfiles;ii++) {
 
-		filefound=0;
-		if((fpin=fopen(infile+infileindex[i],"r"))!=0) filefound=1;
-		else fprintf(stderr,"--- Warning[%s]: file \"%s\" not found\n",thisprog,infile+infileindex[i]);
-
-		if(filefound==1) {
-			n++; lineout=0;
-			// SEARCH FOR KEYWORDS IF THIS FILE WAS GENERATED BY PLOTPOST
-			while(fgets(line,MAXLINELEN,fpin)!=NULL){
-				// ONLY PRINT POSTSCRIPT HEADER LINE ONCE
-				if(strstr(line,"%!")>0) {
-					if(n==1) { fprintf(fpout,"%s",line); fprintf(fpout,"%%%%BoundingBox: 0 0 595 842\n\n");}
-					fprintf(fpout,"\n%% PLOT_CODE_START : %s\n\n\n",(infile+infileindex[i]));
-					fprintf(fpout,"grestore\n");
-					fprintf(fpout,"gsave\n");
-					fprintf(fpout,"%.3f %.3f scale\n",setscale,setscale);
-					fprintf(fpout,"%g %g translate\n",zx,zy);
-					lineout=1;
-				}
-				else if(strstr(line,"showpage")>0) { lineout=0; fprintf(fpout,"\n%% PLOT_CODE_END : %s\n\n\n",(infile+infileindex[i])); }
-				else if(strstr(line,"%%BoundingBox")>0) continue;
-				else if(strstr(line,"SHIFT_COORDINATES")>0 && setnotrans==1) continue;
-				else if(strstr(line,"translate")>0 && strstr(line,"internal")<=0  && setnotrans==1) continue;
-				else if(lineout==1) fprintf(fpout,"%s",line);
-			}
-			fclose(fpin);
+		if((fpin=fopen(infile+infileindex[ii],"r"))==0) {
+			fprintf(stderr,"--- Warning[%s]: file \"%s\" not found\n",thisprog,infile+infileindex[ii]);
+			continue;
 		}
+		nn++;
+		lineout=0;
+		// SEARCH FOR KEYWORDS IF THIS FILE WAS GENERATED BY PLOTPOST
+		while(fgets(line,MAXLINELEN,fpin)!=NULL){
+			// ONLY PRINT POSTSCRIPT HEADER LINE ONCE
+			if(strstr(line,"%!")>0) {
+				if(nn==1) { fprintf(fpout,"%s",line); fprintf(fpout,"%%%%BoundingBox: 0 0 595 842\n\n"); }
+				else fprintf(fpout,"grestore\n\n");
+
+				fprintf(fpout,"\n%% PLOT_CODE_START : %s\n\n\n",(infile+infileindex[ii]));
+				fprintf(fpout,"gsave\n");
+				fprintf(fpout,"%.3f %.3f scale\n",setscale,setscale);
+				fprintf(fpout,"%g %g translate\n",zx,zy);
+				lineout=1;
+
+			}
+			else if(strstr(line,"showpage")>0) { lineout=0; fprintf(fpout,"\n%% PLOT_CODE_END : %s\n\n\n",(infile+infileindex[ii])); }
+			else if(strstr(line,"%%BoundingBox")>0) continue;
+			else if(strstr(line,"SHIFT_COORDINATES")>0 && setnotrans==1) continue;
+			else if(strstr(line,"translate")>0 && strstr(line,"internal")<=0  && setnotrans==1) continue;
+			else if(lineout==1) fprintf(fpout,"%s",line);
+		}
+		fclose(fpin);
 
 		zx= zx+xinc;    // shift the zero-x coordinate
 		xstep= xstep+1; // incriment the xstep counter
@@ -179,16 +185,15 @@ int main (int argc, char *argv[]) {
 				fprintf(fpout,"%% SHOW_PAGE %d\n",page);
 				fprintf(fpout,"showpage\n");
 				fclose(fpout);
-				fileopen=0; page++; n=ystep=0; zy=zystart;
+				fileopen=0; page++; nn=ystep=0; zy=zystart;
 				// if this is not the last input file, start a new plot
-				if(i<(nfiles-1)) {
-					sprintf(outfile,"%s.%03d.ps",outbase,page);  // make a new output filename
+				if(ii<(nfiles-1)) {
+					snprintf(outfile,256,"%s.%03d.ps",outbase,page);  // make a new output filename
 					if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" could not be opened for writing\n\n",thisprog,outfile);exit(1);}
 					fileopen=1;
 				}
 			} // END OF LOOP: if this is the last row of plots on the page
 		} // END OF LOOP: if this is the last plot on the row
-
 	} // END OF LOOP: for each file
 
 	if(fileopen==1) {
@@ -198,4 +203,4 @@ int main (int argc, char *argv[]) {
 	}
 
 	exit(0);
-	}
+}
