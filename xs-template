@@ -11,7 +11,7 @@ tempfile="temp_"$thisprog"_"$$
 
 # path to where programs should be found, based on the path to the crurrent script
 progdir=$(which $0 2>/dev/null | rev | cut -f 2- -d / |rev)"/source"
-# path to currently runnigng script 
+# path to currently runnigng script
 progpath=$(dirname $(readlink -f "$0"))
 startdir=$(pwd)
 
@@ -449,6 +449,11 @@ filetype=$(file $inxyd | cut -f 2 -d ' ')
 # CHECK FILE ENCODING
 file --mime ./* | grep -v ascii
 
+
+# REPLACE SPACES WITH UNDERSCORES IN FILE AND DIRECTORY NAMES
+find -name "* *" -type f | rename 's/ /_/g'
+find -name "* *" -type d | rename 's/ /_/g'
+
 # CONVERT FILE ENCODING
 FROM_ENCODING="UTF-8"
 TO_ENCODING="us-ascii"
@@ -456,7 +461,6 @@ CONVERT="iconv -f $FROM_ENCODING -t $TO_ENCODING"
 for file in *.txt; do
 	$CONVERT "$file" -o "${file%.txt}.new"
 done
-
 
 # FILE VIEWING, FILE READING
 less $filename]
@@ -527,9 +531,6 @@ infile="jjj" ; match="<TAGS>" ; old="pig" ; new="cow"
 sed '/'$match'/s/\<'$old'\>/'$new'/g' $infile
 # put a sequence of 4 rows on a single line
 ncols=4 ; awk 'ORS=NR%'$ncols'?" ":"\n"' input.txt
-
-# CONVERT MARKDOWN TO HTML
-pandoc -s -f markdown --toc $infile.md > $outfile.html
 
 # USING GREP
 # grep with with a logical expression - in this case, finding either of two strings, case-insensitive
@@ -617,7 +618,13 @@ newtime=$(date -du --date="$x $y minutes ago" +"%y:%m:%d:%H:%M:%S")
 
 
 ################################################################################
-# POSTSCRIPT FUNCTIONS WITH GHOSTSCRIPT (GS)
+# FILE CONVERSION
+################################################################################
+
+# CONVERT MARKDOWN TO HTML
+pandoc -s -f markdown --toc $infile.md > $outfile.html
+
+# POSTSCRIPT
 # convert postscript to jpg
 gs -sDEVICE=jpeg -r300 -sPAPERSIZE=a4 -dBATCH -dNOPAUSE -sOutputFile=$outfile $infile
 # convert postscript to pdf
@@ -628,6 +635,19 @@ gs -q -sDEVICE=bbox -dBATCH -dNOPAUSE $infile
 	%%HiResBoundingBox: 46.421999 638.499988 215.513993 802.007976
 # convert postscript to format of choice, with or without cropping
 	xs-plotconvert1 $infile --format [format]
+
+# EXCEL
+# with libre office
+libreoffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":9,34,0,1,1 $infile
+# with gnumeric - requires libreoffice components
+http://manpages.ubuntu.com/manpages/bionic/man1/ssconvert.1.html
+sudo apt install gnumeric # requires libreoffice
+ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix sheet='Day 1'" MMN_020_dosing_schedule.xlsx MMN_020_dosing_schedule.txt
+# with csvkit (in2csv) - requires python3
+sudo apt install csvkit
+in2csv -n $infile # get the sheet names
+# pipe the output to csvformat to set the delimiter as a tab
+in2csv $infile -q 3 -K 1 --sheet "Day 2" | csvformat -D " " > temp.txt # disable quoting (-u) , skip 1 line on the sheet (-K)
 
 
 ################################################################################
