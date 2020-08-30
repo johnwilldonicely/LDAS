@@ -4,10 +4,8 @@
 thisprog="xs-proggit1"
 # define temporary file name, incorporating current process-id
 tempfile="temp_"$thisprog #"."$$"."
-
 start_dir=$(pwd)
 start_time=$(date +'%s.%3N')
-progpath=$(dirname $(readlink -f "$0"))
 
 setmessage=""
 let setcompile=0;
@@ -73,10 +71,6 @@ while [ $# -gt 0 ] ; do
 	shift
 done
 
-
-################################################################################
-# CHANGE TO REPOSITORY PATH 
-cd $progpath
 
 ################################################################################
 # SIMPLE GIT DIFF
