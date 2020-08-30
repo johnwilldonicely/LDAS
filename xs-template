@@ -642,12 +642,14 @@ libreoffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":9,34,0,1,1
 # with gnumeric - requires libreoffice components
 http://manpages.ubuntu.com/manpages/bionic/man1/ssconvert.1.html
 sudo apt install gnumeric # requires libreoffice
-ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix sheet='Day 1'" MMN_020_dosing_schedule.xlsx MMN_020_dosing_schedule.txt
+ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix sheet='Day 1'" input.xlsx output.txt
+ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix" -S input.xlsx output # all sheets, numbered
 # with csvkit (in2csv) - requires python3
 sudo apt install csvkit
 in2csv -n $infile # get the sheet names
-# pipe the output to csvformat to set the delimiter as a tab
-in2csv $infile -q 3 -K 1 --sheet "Day 2" | csvformat -D " " > temp.txt # disable quoting (-u) , skip 1 line on the sheet (-K)
+in2csv $infile -q 3 -K 1 --sheet "Day 2" |   # disable quoting (-q 3), skip 1 line on the sheet (-K)
+	csvformat -T > temp.txt              # pipe the output to csvformat to set the delimiter as a tab
+
 
 
 ################################################################################
