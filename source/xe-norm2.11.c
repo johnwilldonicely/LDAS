@@ -118,8 +118,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"		 5: apply Fisher transform for Pearson's \"r\"\n");
 		fprintf(stderr,"		 6: apply reverse Fisher transform for Pearson's \"r\"\n");
 		fprintf(stderr,"		 7: log-transform input (log base-10)\n");
-		fprintf(stderr,"	-start: start of normalization range (-n options 1-4) [%ld]\n",setstart);
-		fprintf(stderr,"	-stop:  end of normalization range (-n options 1-4) [%ld]\n",setstop);
+		fprintf(stderr,"	-start: start of normalization range (from 0, for options 1-4) [%ld]\n",setstart);
+		fprintf(stderr,"	-stop:  end of normalization range (from 1, for options 1-4) [%ld]\n",setstop);
 		fprintf(stderr,"		NOTE: stop = sample just AFTER the last to be included\n");
 		fprintf(stderr,"		-1 = auto (first valid sample, respectively\n");
 		fprintf(stderr,"			= first valid sample for start\n");
