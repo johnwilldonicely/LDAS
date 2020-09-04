@@ -32,6 +32,9 @@ if [ $# -lt 1 ]; then
 	echo "          diff: compare local commited changes to remote master"
 	echo "          pull: pull remote master repository (see -c)"
 	echo "          push: add changes, commit, and push to remote master (see -m)"
+	echo "			...extra repos..."
+	echo "          pull-bin: pull any repos in the user's ~/bin directory (see -c)"
+	echo "          push-bin: pull any repos in the user's ~/bin directory (see -c)"
 	echo "OPTIONS (defaults in []):"
 	echo "    -v: verbose output [unset]"
 	echo "    -c: (pull) compile changed source-code [unset]"
@@ -75,7 +78,7 @@ done
 ################################################################################
 # SIMPLE GIT DIFF
 if [ $mode == "diff" ] ; then
-	if [ $setverb -eq 1 ] ; then 
+	if [ $setverb -eq 1 ] ; then
 		echo "
 		git fetch origin master
 		git diff --summary FETCH_HEAD
@@ -86,26 +89,26 @@ if [ $mode == "diff" ] ; then
 	git diff --summary FETCH_HEAD
 
 ################################################################################
-# STATUS UPDATE 
+# STATUS UPDATE
 elif [ $mode == "status" ] ; then
 
-	if [ $setverb -eq 1 ] ; then 
+	if [ $setverb -eq 1 ] ; then
 		echo "
-		git fetch origin 
+		git fetch origin
 		git diff origin/master --compact-summary
 		git status
 		"
-	fi 
+	fi
 
 	echo "	"
 	echo "	REMOTE CHANGES - pull to resolve these first"
 	echo "	--------------------------------------------------------------------------------"
-	echo -en $RED	
+	echo -en $RED
 	git fetch origin
-	git diff HEAD origin/master --compact-summary | 
-	head -n -1 | cut -f 1 -d '|' | 
+	git diff HEAD origin/master --compact-summary |
+	head -n -1 | cut -f 1 -d '|' |
 	awk '{
-		a=$1; b=$2; 
+		a=$1; b=$2;
 		if(b=="")            b="modified: "
 		else if(b=="(gone)") b="added:    "
 		else if(b=="(new)")  b="deleted:  "
@@ -116,27 +119,27 @@ elif [ $mode == "status" ] ; then
 	echo "	LOCAL CHANGES - push to update remote origin"
 	echo "	--------------------------------------------------------------------------------"
 	git -c color.status=always status | awk 'NF>0{print "\t"$0}' | grep -v '(use'
-	echo 
+	echo
 
 
 
 ################################################################################
-# PUSH TO REMOTE - INCLUDES COMMIT 
+# PUSH TO REMOTE - INCLUDES COMMIT
 elif [ $mode == "push" ] ; then
 	if [ "$setmessage" == "" ] ; then setmessage=$(git status --porcelain) ; fi
-	if [ $setverb -eq 1 ] ; then 
+	if [ $setverb -eq 1 ] ; then
 		echo "
 		git add --all .
 		git commit -a -m \"$setmessage\"
 		git push -u origin master
 		"
-	fi 
+	fi
 	git add --all # also records removals
 	git commit -a -m "$setmessage"
 	git push -u origin master
 
 ################################################################################
-# PULL FROM REMOTE - INCLUDES COMPILE OPTION 
+# PULL FROM REMOTE - INCLUDES COMPILE OPTION
 elif [ $mode == "pull" ] ; then
 
 	# git the list of changes before pulling the repo
@@ -146,26 +149,63 @@ elif [ $mode == "pull" ] ; then
 	fi
 
 	# pull the repo
-	if [ $setverb -eq 1 ] ; then echo -e "\ngit pull origin master"	; fi 
+	if [ $setverb -eq 1 ] ; then echo -e "\ngit pull origin master"	; fi
 	git pull origin master
 
 
-	# compile changed code 
+	# compile changed code
 	if [ $setcompile -eq 1 ] && [ "$list" != "" ] ; then
-		if [ $setverb -eq 1 ] ; then echo -e "\ncd $progpath/source\nxs-progcompile "$list" --warn 1 " ; fi 
+		if [ $setverb -eq 1 ] ; then echo -e "\ncd $progpath/source\nxs-progcompile "$list" --warn 1 " ; fi
 		cd $progpath/source
 		xs-progcompile "$list" --warn 1
 	fi
 
 	# update HTML program-tag guide
 	if [ $settag -eq 1 ] ; then
-		if [ $setverb -eq 1 ] ; then echo -e "\nxs-progtag html" ; fi 
+		if [ $setverb -eq 1 ] ; then echo -e "\nxs-progtag html" ; fi
 		cd $progpath/source
 		xs-progtag html
 	fi
 
 ################################################################################
-# OTHERWISE, INVALID MODE 
+# EXTRA-REPO PULL (ANYTHING IN THE USERS ~/bin DIRECTORY)
+elif [ $mode == "pull-bin" ] ; then
+
+	list=$(ls -1 $HOME/bin/*/.git -d 2> /dev/null | rev | cut -f 2- -d \/ | rev)
+	if [ "$list" == "" ] ; then echo -e "\n--- Error ["$thisprog"]: no git repositories in $HOME/bin\n" ; fi
+
+	cd $start_dir
+	for i in $list ; do
+		echo -e $GREEN"\t"$i""$NC
+		cd $i
+		git remote update &> /dev/null
+		git pull origin master
+		if [ $setcompile -eq 1 ] && [ -d source ] ; then
+			cd source
+				xs-progcompile *.c --warn 1
+			cd ../
+		fi
+		cd $start_dir
+	done
+
+################################################################################
+# EXTRA-REPO PUSH (ANYTHING IN THE USERS ~/bin DIRECTORY)
+elif [ $mode == "push-bin" ] ; then
+
+	list=$(ls -1 $HOME/bin/*/.git -d 2> /dev/null | rev | cut -f 2- -d \/ | rev)
+	if [ "$list" == "" ] ; then echo -e "\n--- Error ["$thisprog"]: no git repositories in $HOME/bin\n" ; fi
+
+	cd $start_dir
+	for i in $list ; do
+		echo -e $GREEN"\t"$i""$NC
+		cd $i
+		git add --all # also records removals
+		git commit -a -m "$setmessage"
+		git push -u origin master
+	done
+
+################################################################################
+# OTHERWISE, INVALID MODE
 else
 	echo -e "\n--- Error ["$thisprog"]: invalid mode\n" ;
 	exit
@@ -173,7 +213,7 @@ fi
 
 
 ################################################################################
-# FINISH 
+# FINISH
 
 cd $start_dir
 exit
