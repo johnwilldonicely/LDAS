@@ -453,6 +453,8 @@ file --mime ./* | grep -v ascii
 # REPLACE SPACES WITH UNDERSCORES IN FILE AND DIRECTORY NAMES
 find -name "* *" -type f | rename 's/ /_/g'
 find -name "* *" -type d | rename 's/ /_/g'
+# for multiple patterns, use a semicolon
+find -name "* *" -type f | rename 's/ /_/g;s/\(//g;s/\)//g;'
 
 # CONVERT FILE ENCODING
 FROM_ENCODING="UTF-8"
@@ -547,7 +549,8 @@ echo "_x_junk_c_" | grep -vE 'x.*c|c.*x'
 # READ LINES USING WHILE, PRESERVING TABS & SUCH IN THE INPUT
 cat $infile | while read line ; do echo -e "$line" ; done
 
-
+# SWAP COLUMNS IN A FILE
+awk ' BEGIN{OFS="\t"}{a=$1;$1=$2;$2=a;print}'
 
 ################################################################################
 # MATHS WITH BASH CALCULATOR

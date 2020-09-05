@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAXLINELEN 1000
+#define MAXLINELEN 10000
 
 /*
 <TAGS>math </TAGS>
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"	-cy column containing data (0=none, -1=all) [%d]\n",dvcol);
 		fprintf(stderr,"	-v value to add to this column [%g]\n",setvald);
 		fprintf(stderr,"	-long: assume input is long-integers (0=NO 1=YES) [%d]\n",setlong);
-		fprintf(stderr,"Examples:\n",setvald);
+		fprintf(stderr,"Examples:\n");
 		fprintf(stderr,"	cat datafile.txt | %s stdin -cy 1 -v 25\n",thisprog);
 		fprintf(stderr,"	%s datafile.txt -cy 2 -v 1\n",thisprog);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 		pline=line;
 		for(col=1;(pcol=strtok(pline," ,\t\n"))!=NULL;col++) {
 			pline=NULL;
-			if(col>1)printf("\t",pcol);
+			if(col>1)printf("\t");
 			if(col==dvcol||dvcol==-1) {
 				if(setlong==0) {
 					if(sscanf(pcol,"%lf",&aa)!=1 || !isfinite(aa)) {printf("%s",pcol);continue;}
