@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAXLINELEN 2000
+#define MAXLINELEN 10000
 
 /*
 <TAGS>math </TAGS>
