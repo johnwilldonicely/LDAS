@@ -188,7 +188,7 @@ int main (int argc, char *argv[]) {
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 
-	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: Country \"%s\" not found in \"%s\"inflie\n\n",thisprog,setcountry,infile);exit(1);};
+	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: Country \"%s\" not found in \"%s\"infile\n\n",thisprog,setcountry,infile);exit(1);};
 	if(setverb==999) printf("nn= %ld nkeys= %ld\n",nn,nkeys);
 	if(setverb==999) printf("keys= %s\n",keys);
 	if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld\n",ii,keycols[ii]);

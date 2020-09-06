@@ -147,6 +147,26 @@ int main (int argc, char *argv[]) {
 	setcolx--;
 	setcoly--;
 
+
+
+// /* BUILD THE LIST OF KEYWORDS - THIS IS FOR KEYWORD-SELECTION OF COLUMNS */
+// char **key=NULL;
+// long *keycol=NULL,*start=NULL,nwords,nkeys,nkeysm1,keycolmax;
+// setkeys= argv[2];
+
+// /* key is an array of pointers to portions of setkeys, and hence to the list of keywords stored in argv[] */
+// if((key=(char **)realloc(key,(strlen(setkeys)*sizeof(char *))))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+// /* build a list if indices to the start of each word in the list, and convert the commas to NULLS ('\0') */
+// nkeys=0; start= xf_lineparse2(setkeys,",",&nkeys);
+// /* point each key to the portion of setkeys containing a keyword */
+// for(jj=0;jj<nkeys;jj++) key[jj]=&setkeys[start[jj]];
+// /* ASSIGN SUFFICIENT MEMORY FOR KEY COLUMNS */
+// if((keycol=(long *)realloc(keycol,(nkeys)*sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+// for(ii=0;ii<nkeys;ii++) keycol[ii]=-1;
+// /* IF COLUMN DEFINITION IS NUMERIC, CONVERT LABELS TO NUMBERS... */
+// if(setnumeric==1) for(ii=0;ii<nkeys;ii++) keycol[ii]= atol(setkeys+start[ii])-1;
+
+
 /********************************************************************************/
 /* STORING DATA  */
 /********************************************************************************/
@@ -160,16 +180,37 @@ int main (int argc, char *argv[]) {
 	nn=mm=0;
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
-		/* preserve header and leading blank lines if required */
-		if(sethead==1) { if(mm==0) { printf("%s",line); if(strlen(line)>1) mm++; continue; }}
-		/* make a temporary copy of the line before parsing it */
+
+		/* PRESERVE HEADER AND LEADING BLANK LINES IF REQUIRED */
+		if(sethead==1) { if(nn==0) { printf("%s",line); if(strlen(line)>1) nn++; continue; }}
+
+		/* MAKE A TEMPORARY COPY OF THE LINE BEFORE PARSING IT */
 		if(maxlinelen>prevlinelen) {
 			prevlinelen= maxlinelen;
 			templine= realloc(templine,(maxlinelen+1)*sizeoftempline);
 			if(templine==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		}
 		strcpy(templine,line);
-		/* parse the line */
+
+		// /* IF THIS IS THE FIRST LINE, LOOK FOR THE LABELS (KEYS) */
+		// if(nn++==0 && setnumeric==0) {
+		// 	start= xf_lineparse2(line,delimiters,&nwords);
+		// 	/* look for matches between words and keys */
+		// 	for(ii=0;ii<nwords;ii++) {
+		// 		pword= (line+start[ii]);
+		// 		for(jj=0;jj<nkeys;jj++) if(strcmp(key[jj],pword)==0) keycol[jj]= ii;
+		// 	}
+		// 	/* readjust key columns - drop if it doesn't exist - exit if no key columns were found */
+		// 	mm=nkeys; kk=nkeys-1; for(ii=0;ii<nkeys;ii++) { if(keycol[ii]<0) { mm--; for(jj=ii;jj<kk;jj++) { keycol[jj]=keycol[(jj+1)]; }}}
+		// 	nkeys=mm; if(nkeys<1) exit(0);
+		// 	/* output a new header line containing the labels that matched keys */
+		// 	printf("%s",line+start[keycol[0]]);
+		// 	for(ii=1;ii<nkeys;ii++) printf("%s%s",delimout,line+start[keycol[ii]]);
+		// 	printf("\n");
+		// 	nn++;
+		// }
+
+		/* PARSE NON-HEADER LINES (TWO OPTIONS) */
 		// iword= xf_lineparse1(line,&nwords); // whitespace delimited, multiple delimiters treated as one
 		iword= xf_lineparse2(line,"\t",&nwords); // user-defined delimited
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};

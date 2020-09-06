@@ -9,20 +9,20 @@ DEPENDENCIES:
 	xf_lineparse2()
 
 ARGUMENTS:
-	double *data : input holding data
-	size_t nn : size of data array
-	double interval:  the interval between samples, for integrating area
-	double *result : pre-allocated array to hold results - must allow at least 6 elements
-	char *message : pre-allocated array to hold error message
+	char *line1       ; input: the input line
+	char *d1          : input: the delimiter separating words in line1  - typically "\t" (tab)
+	char *keys1       : input: a list of keywords to find in line1
+	char *d2          : input: the delimiter for list keys1 - typically ","
+	long *nkeys1      : output: the number of keys found in line1 (pass as address to variable)
+	char *message     : output: pre-allocated array to hold error message
 
 RETURN VALUE:
-	0 on success, -1 on error
-	result array will hold statistics
+	pointer to array of indices to the keys (key-column), NULL error
+	nkeys1 will be updates to say how many of the keys were found in the line
 	message array will hold explanatory text (if any)
 
 SAMPLE CALL:
-	x= xf_auc1_d(data, nn, interval, result, );
-	if(x!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	
 
 <TAGS> string </TAGS>
 */
