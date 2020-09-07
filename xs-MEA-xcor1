@@ -80,7 +80,7 @@ if [ ! -e $inmap ] ; then { echo ; echo "--- Error ["$thisprog"]: file '$inmap' 
 
 # IF TRIAL DURATION IS NOT SET, USE THE TIME OF THE LAST EVENT FROM ANY CHANNEL
 # NOTE THAT ACTUAL TRIAL LENGTH MIGHT BE LONGRER, BUT IF AT LEAST ONE CHANNEL HAS A LOT OF DETECTION, IT SHOULD BE CLOSE
-if [ "$setdur" == "" ] ; then setdur=$(xe-ldas5-readclub1 $inclu1 $inclu2 | tail -n 1 | cut -f 1 | xe-math_div1 stdin -v $setrate) ; fi
+if [ "$setdur" == "" ] ; then setdur=$(xe-ldas5-readclub1 $inclu1 $inclu2 | tail -n 1 | cut -f 1 | xe-math_mod1 stdin div -v $setrate) ; fi
 
 # BUILD A LIST OF CHANNELS FROM THE MAP FILE - ENSURES OUTPUT ORDER IS CORRECT
 clulist=$(cat $inmap | tr '\n' '\t')

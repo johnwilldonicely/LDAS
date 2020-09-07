@@ -272,7 +272,7 @@ if [ "$setplot" == "1" ] ; then
 	# PLOT SPECTRAL TIMECOURSE
 	echo "	...plotting the power timecourse"
 	# get the total duration
-	timetot=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -cy 1 -v $binrate )
+	timetot=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_mod1 stdin div -c  1 -v $binrate )
 	# get the lines
 	vlines=$(xe-ldas5-readssp1 $tempfile"_trials.ssp" -com 1 -div $binrate | cut -f 1 | tail -n +2 | paste -s | tr '\t' ',')
 	if [ "$vlines" != "" ] ; then vlines="-vline "$vlines ; fi

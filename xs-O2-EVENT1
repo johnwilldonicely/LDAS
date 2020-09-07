@@ -286,13 +286,13 @@ awk '$2>'$sprelen'  {print $0}' $tempfile.0 > $tempfile.evt.2
 outfile=$outbase"events.txt"
 echo "block start peak stop length" | xe-delimit stdin > $outfile
 cat $tempfile.evt.1 |
-	xe-math_div1 stdin -cy -1 -v $sample_freq | # convert to seconds
-	xe-math_add1 stdin -cy -1 -v -$set_pre | # adjust by pre-start time
+	xe-math_mod1 stdin div -c -1 -v $sample_freq | # convert to seconds
+	xe-math_mod1 stdin add -c -1 -v -$set_pre | # adjust by pre-start time
 	awk '{print "1",$1,$2,$3,($3-$1)}' | # calculate length of event
 	xe-delimit stdin >> $outfile
 cat $tempfile.evt.2 |
-	xe-math_div1 stdin -cy -1 -v $sample_freq | # convert to seconds
-	xe-math_add1 stdin -cy -1 -v -$set_pre | # adjust by start-signal time
+	xe-math_mod1 stdin div -c -1 -v $sample_freq | # convert to seconds
+	xe-math_mod1 stdin add -c -1 -v -$set_pre | # adjust by start-signal time
 	awk '{print "2",$1,$2,$3,($3-$1)}' | # calculate length of event
 	xe-delimit stdin >> $outfile
 
@@ -353,7 +353,7 @@ xe-fftpow2 $outbase"trace_aligned.txt" -sf $sample_freq -w $sample_freq -s 1 -t 
 # ALIGN THE THETA TIME-COURSE TO EVENT PEAKS
 ################################################################################
 # convert event-samples (200Hz) to event-times (s) offset from zero, rounded to nearest second
-cat $tempfile.evt.? | cut -f 2 | xe-math_div1 stdin -cy -1 -v $sample_freq | xe-math_round1 stdin > $tempfile
+cat $tempfile.evt.? | cut -f 2 | xe-math_mod1 stdin div -c -1 -v $sample_freq | xe-math_round1 stdin > $tempfile
 # align theta power to event-times
 outfile=$outbase"theta_average.txt"
 xe-align2 $outbase"trace_power_theta.txt" $tempfile -dt -1 -sf 1 -pre 300 -post 300 -norm 0 -nbins 101  > $outfile
@@ -409,7 +409,7 @@ if [ $set_plot != "0" ] ; then
 	if [ $set_plot != "1" ] ; then
 
 		# build an event peak list, converting to minutes
-		elist=$(xe-cut1 $outbase"events.txt" peak -o 1 | xe-math_div1 stdin -v 60 | tr '\n' ',' | xe-delimitkiller stdin)
+		elist=$(xe-cut1 $outbase"events.txt" peak -o 1 | xe-math_mod1 stdin div -v 60 | tr '\n' ',' | xe-delimitkiller stdin)
 
 		# set the plot options
 		plotopts="-line 1 -ps 0 -xmin $preminutes -xmax $postminutes -xscale 1 -xpad 0 -colour 1 -vline $elist"

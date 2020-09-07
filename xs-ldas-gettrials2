@@ -231,13 +231,13 @@ if [ "$setadj" != "" ] ; then
 	if [ "$adjsign" == "-" ] ; then
 		echo "start" > $tempfile".1a"
 		xe-cut1 $tempfile".1" $colxname,stop -o 1 |
-		xe-math_mult1 stdin -cy 1 -v $sr1 |
+		xe-math_mod1 stdin mult -c 1 -v $sr1 |
 		xe-math_doublet stdin -t 2 -out 0 |
 		xe-math_round2 stdin -c 1 -b 1 >> $tempfile".1a"
 	elif [ "$adjsign" == "+" ] ; then
 		echo "stop" > $tempfile".1a"
 		xe-cut1 $tempfile".1" $colxname,start -o 1 |
-		xe-math_mult1 stdin -cy 1 -v $sr1 |
+		xe-math_mod1 stdin mult -c 1 -v $sr1 |
 		xe-math_doublet stdin -t 1 -out 0 |
 		xe-math_round2 stdin -c 1 -b 1 >> $tempfile".1a"
 	fi
@@ -274,8 +274,8 @@ let postsamps=$(echo "scale=0; $setpost*$sr1" | bc | xe-math_round1 stdin )
 # echo "nsampstot="$nsampstot
 
 xe-cut1 $tempfile".1" $listcols2 -o 1 |
-	xe-math_add1 stdin -cy $colstart -v $presamps -long 1 |
-	xe-math_add1 stdin -cy $colstop -v $postsamps -long 1 |
+	xe-math_mod1 stdin add -c $colstart -v $presamps -long 1 |
+	xe-math_mod1 stdin add -c $colstop -v $postsamps -long 1 |
 	awk '
 	BEGIN{n=0}
 	{
@@ -336,16 +336,16 @@ if [ "$setout" == "table" ] ; then
 	colstart=$(head -n 1 $tempfile".2" | xe-getkeycol stdin start)
 	colstop=$(head -n 1 $tempfile".2" | xe-getkeycol stdin stop)
 	cat $tempfile".2" |
-		xe-math_div1 stdin -cy $colstart -v $setdown -long 1 |
-		xe-math_div1 stdin -cy $colstop -v $setdown -long 1
+		xe-math_mod1 stdin div -c $colstart -v $setdown -long 1 |
+		xe-math_mod1 stdin div -c $colstop -v $setdown -long 1
 
 # OUTPUT START-STOP PAIRS AS A COMMA-DELIMITED LIST - APPLY DOWNSAMPLING CORRECTION IF REQUESTED
 elif [ "$setout" == "list" ] ; then
-	echo $list1 | tr ',' '\n' | xe-math_div1 stdin -long 1 -v $setdown | paste -s | tr '\t' ','
+	echo $list1 | tr ',' '\n' | xe-math_mod1 stdin div -long 1 -v $setdown | paste -s | tr '\t' ','
 
 # OUTPUT A BINARY SSP - APPLY DOWNSAMPLING CORRECTION IF REQUESTED
 elif [ "$setout" == "ssp" ] ; then
-	echo $list1 | tr ',' '\n' | xe-math_div1 stdin -long 1 -v $setdown | xe-writebinary1 stdin -dt 7
+	echo $list1 | tr ',' '\n' | xe-math_mod1 stdin div -long 1 -v $setdown | xe-writebinary1 stdin -dt 7
 
 # PULL TRIAL-SPECIFIC DATA FROM A FILE
 elif [ "$setout" == "file" ] ; then
@@ -371,8 +371,8 @@ elif [ "$setout" == "file" ] ; then
 	# FOR BIN (EEG/LFP) FILES
 	elif [ "$ext" == "bin" ] ; then
 		for ii in $list2 ; do
-			x=$(echo $ii|cut -f 1 -d . | xe-math_div1 stdin -v $bindec -cy 1 -long 1)
-			y=$(echo $ii|cut -f 2 -d . | xe-math_div1 stdin -v $bindec -cy 1 -long 1)
+			x=$(echo $ii|cut -f 1 -d . | xe-math_mod1 stdin div -v $bindec -c 1 -long 1)
+			y=$(echo $ii|cut -f 2 -d . | xe-math_mod1 stdin div -v $bindec -c 1 -long 1)
 			if [ $setverb == "1" ] ; then (>&2 echo "	- start: $x n: $y") ; fi
 			xe-readbinary3 $in1 -dt 8 -s $x -n $y -out 8 >> $outfile1
 		done

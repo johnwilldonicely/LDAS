@@ -310,7 +310,7 @@ for region in $listregions ; do
 		xe-strxmlparse1 $filenotes TRIALS |
 			xe-cut1 stdin start,stim,target -s 1 -d '\t' |
 			awk '{s=$2; if($3=="-")s=0; if(s=='$stim') print $1"\tSTART"}' |
-			xe-math_div1 stdin -cy 1 -v $bindec -long 1 > $tempfile".cmt"
+			xe-math_mod1 stdin div -c  1 -v $bindec -long 1 > $tempfile".cmt"
 
 		# align the data, then average while aligning - this binary read is faster than running xe-statsgrp1 on the aligned text-output
 		# the output is "block time signal"

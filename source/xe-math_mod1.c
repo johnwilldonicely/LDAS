@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"	-v value to apply using [mode] [%g]\n",setvd);
 		fprintf(stderr,"	-long: assume input is long-integers (0=NO 1=YES) [%d]\n",setlong);
 		fprintf(stderr,"Examples:\n");
-		fprintf(stderr,"	%s datafile.txt add -cy 2 -v 100\n",thisprog);
-		fprintf(stderr,"	cat datafile.txt | %s stdin add -cy 1 -v 25\n",thisprog);
+		fprintf(stderr,"	%s datafile.txt add -c 2 -v 100\n",thisprog);
+		fprintf(stderr,"	cat datafile.txt | %s stdin add -c 1 -v 25\n",thisprog);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
 					else if(mode==3) printf("%f",(aa*setvd));
 					else if(mode==4) printf("%f",(aa/setvd));
 					else if(mode==5) printf("%f",pow(aa,setvd));
-					else if(mode==6) { if(aa<=0.0) printf("%f",aa); else printf("%f",(0.0-aa)); }
+					else if(mode==6) { if(aa>=0.0) printf("%f",aa); else printf("%f",(0.0-aa)); }
 				}
 				else {
 					if(sscanf(pcol,"%ld",&ii)!=1) {printf("%s",pcol);continue;}
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 					else if(mode==3) printf("%ld",(ii*setvl));
 					else if(mode==4) printf("%ld",(ii/setvl));
 					else if(mode==5) printf("%ld",(long)(pow((double)ii,(double)setvl)));
-					else if(mode==6) { if(ii<=0) printf("%ld",ii); else printf("%ld",(0-ii)); }
+					else if(mode==6) { if(ii>=0) printf("%ld",ii); else printf("%ld",(0-ii)); }
 				}
 			}
 			else printf("%s",pcol);

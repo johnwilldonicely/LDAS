@@ -273,7 +273,7 @@ if [ "$setanalysis" != "summary" ] ; then
 		let found=$found+1
 		# RUN EVENT DETECTION (4 POSSIBLE MODES) - APPLY Z-SCORE DURING DETECTION
 		# calculate proportion of peak threshold that is edge threshold (required for xe-detectevents1)
-		setthresh3=$(echo $setthresh1 $setthresh2 | awk '{print $2/$1}' | xe-math_abs1 stdin )
+		setthresh3=$(echo $setthresh1 $setthresh2 | awk '{print $2/$1}' | xe-math_mod1 stdin abs )
 		detopts="-dt 8 -sf $samprate -base1 $bla -base2 $blz -notchw 1 -notchf 50 -low $setfiltlow -high $setfilthigh -ref $refract -pre $pre -post $post -u 10 -e $setthresh3 -verb 1"
 		echo
 		if [ "$setsign" == "auto" ] ; then

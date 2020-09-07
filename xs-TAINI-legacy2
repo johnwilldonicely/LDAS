@@ -236,7 +236,7 @@ for filedat in $list ; do
 	# - note that a +1 correction is applied to stops - so it is not the sample at which the stop sync was received, but the one after
 	# - note that we do not use awk to perform long-integer arithmetic!
 	starts=$(awk '$0!~/^#/ && $2~"'$setstart'"{print $1}' $filesyn)
-	stops=$(awk '$0!~/^#/ && $2~"'$setstop'"{print $1}' $filesyn | xe-math_add1 stdin -cy 1 -v 1 -long 1)
+	stops=$(awk '$0!~/^#/ && $2~"'$setstop'"{print $1}' $filesyn | xe-math_mod1 stdin add -c 1 -v 1 -long 1)
 	let nstarts=$(echo $starts | wc -w)
 	let nstops=$(echo $stops | wc -w)
 	if [ $nstarts != $nstops ] ; then { echo ; echo "--- Error ["$thisprog"]: unequal no. of start and stop sync signals in $filesyn " ; echo ; exit ; } fi
@@ -445,7 +445,7 @@ for filedat in $list ; do
 				xe-writebinary1 stdin -dt 8 -v 1 >> $base"-nose.xyd" 2> $tempfile
 			# extract the number of records from the tempfile, which records the total number of binary numbers written
 			# this must be divided by 3, because each entry in the .xyd file is the triplet corresponding to a single tracking sample
-			ntracks=$(xe-getkey $tempfile n= | xe-math_div1 stdin -v 3 -long 1)
+			ntracks=$(xe-getkey $tempfile n= | xe-math_mod1 stdin div -v 3 -long 1)
 			# calculate the tracking interval, in ephys-samples, = nephys-1 / ntracks-1
 			calc="($nephys -1)/($ntracks -1)"
 			trackint=$(echo "scale=12; $calc" | bc)

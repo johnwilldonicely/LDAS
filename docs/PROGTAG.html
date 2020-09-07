@@ -10497,7 +10497,7 @@ Valid arguments - defaults in []:
 	-v value to add to this column [0]
 	-long: assume input is long-integers (0=NO 1=YES) [0]
 Examples:
-	cat datafile.txt | xe-math_add1 stdin -cy 1 -v 25
+	cat datafile.txt | xe-math_mod1 stdin add -c  1 -v 25
 	xe-math_add1 datafile.txt -cy 2 -v 1
 ----------------------------------------------------------------------
 
@@ -10519,7 +10519,7 @@ VALID OPTIONS (defaults) in []:
 	-v value to divide this column by [1]
 	-long: assume input is long-integers (0=NO 1=YES) [0]
 EXAMPLES:
-	cat datafile.txt | xe-math_div1 stdin -cy 1 -v 3.14
+	cat datafile.txt | xe-math_mod1 stdin div -c  1 -v 3.14
 	xe-math_div1 datafile.txt -cy 2 -v 7
 ----------------------------------------------------------------------
 
@@ -10592,7 +10592,7 @@ Valid arguments - defaults in []:
 	-v value to multiply this column by [1]
 	-long: assume input and value are long-integers (0=NO 1=YES) [0]
 Examples:
-	cat datafile.txt | xe-math_mult1 stdin -cy 1 -v 0.001
+	cat datafile.txt | xe-math_mod1 stdin mult -c  1 -v 0.001
 	xe-math_mult1 datafile.txt -cy 2 -v 100
 ----------------------------------------------------------------------
 

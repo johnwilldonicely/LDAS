@@ -1,0 +1,14 @@
+xs-ldas5-plotdata1:			xe-math_mod1 stdin add -c  2 -v $yoff >> $tempfile
+xs-ldas5-plotdata1:			xe-math_mod1 stdin add -c  2 -v $yoff >> $tempfile
+xs-ldas5-XREMAP1:		xe-math_mod1 stdin add -c  2 -v $setwin1c -long 1 |
+xs-ldas5-XREMAP1:		xe-math_mod1 stdin add -c  2 -v $setwin1c -long 1 |
+xs-ldas-gettrials2:	xe-math_mod1 stdin add -c  $colstart -v $presamps -long 1 |
+xs-ldas-gettrials2:	xe-math_mod1 stdin add -c  $colstop -v $postsamps -long 1 |
+xs-MAESTRO_e1:	xe-math_add1 stdin -v $setadj |
+xs-MEA-plotflip:		start=$(echo $event |xe-math_add1 stdin -v -$halfwin -long 1)
+xs-MEA-pow1:	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_add1 stdin -long 1 -v -$ref > jj1
+xs-MEA-pow1:	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_add1 stdin -long 1 -v  $ref > jj2
+xs-O2-EVENT1:	xe-math_mod1 stdin add -c  -1 -v -$set_pre | # adjust by pre-start time
+xs-O2-EVENT1:	xe-math_mod1 stdin add -c  -1 -v -$set_pre | # adjust by start-signal time
+xs-TAINI-laser1:			xe-math_mod1 stdin add -c  2 -v $trial_dur -long 1 >> $tempfile"_sync_all"
+xs-TAINI-legacy2:	stops=$(awk '$0!~/^#/ && $2~"'$setstop'"{print $1}' $filesyn | xe-math_mod1 stdin add -c  1 -v 1 -long 1)

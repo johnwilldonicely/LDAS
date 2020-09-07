@@ -174,11 +174,11 @@ if [ "$listfiles" != "" ] ; then
 		# SAVE INVERTED AND NORMALIZED TIMECOURSE FOR MEASURE
 		echo "block seconds $measure" | xe-delimit stdin > $progbase1"_"$measure".txt"
 		xe-cut1 $progbase1"_results.txt" block,seconds,$measure -o 1 |
-			xe-math_div1 stdin -cy 2 -v 60 |
-			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-math_mod1 stdin div -c 2 -v 60 |
+			xe-math_mod1 stdin mult -c 3 -v -1 |
 			xe-checkisnum2 stdin -t 1 -f 2,3 |
 			xe-norm2 stdin -cy 3 -n 4 -start 0 -stop $linezero |
-			xe-math_mult1 stdin -cy 3 -v 100 >> $progbase1"_"$measure".txt"
+			xe-math_mod1 stdin mult -c  3 -v 100 >> $progbase1"_"$measure".txt"
 		# calculate baseline
 		bl=$(xe-dbmatch1 $progbase1"_"$measure".txt" block BASE | xe-cut1 stdin $measure -o 1 | tail -n 5 | xe-statsd1 stdin | xe-getkey stdin MEAN)
 		# calculate baseline stability (probability for correlation with time - should be >.05)
@@ -193,7 +193,7 @@ if [ "$listfiles" != "" ] ; then
 	done
 
 	# PLOT LTP DATA
-	vlines=$(xe-dbmatch1 $filenotes filename .T0 -m 1 -xml LTP -oc seconds -o 1 | xe-math_div1 stdin -v 60 | paste -s | tr '\t' ',')
+	vlines=$(xe-dbmatch1 $filenotes filename .T0 -m 1 -xml LTP -oc seconds -o 1 | xe-math_mod1 stdin div -v 60 | paste -s | tr '\t' ',')
 	plotopts="-cx 2 -cy 3  -line 1 -xint 10 -ymin 75 -xscale .45 -font 8 -colour 2 -hline 100 -vline $vlines"
 	xl="Time (minutes)"
 	yl="%Change from baseline"

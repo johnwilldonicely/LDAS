@@ -239,15 +239,15 @@ if [ $nepochs -gt 0 ] ; then
 	echo "lenms" > $tempfile.rip2
 	xe-cut1 $tempfile.rip1 start,stop -o 1 |
 		xe-math_doublet stdin -long 1 -t 2 |
-		xe-math_div1 stdin -v $binrate |
-		xe-math_mult1 stdin -v 1000 |
+		xe-math_mod1 stdin div -v $binrate |
+		xe-math_mod1 stdin mult -v 1000 |
 		xe-math_round2 stdin -c 1 -b 0.1 >> $tempfile.rip2
 
 	# build the ripple-stats output file, including length from above
 	xe-cut1 $tempfile.rip1 peak,freq,amp |
 		paste - $tempfile.rip2 |               # add the ripple-length
 		xe-cut1 stdin peak,lenms,freq,amp |    # reorder the output
-		xe-math_mult1 stdin -cy 1 -v $bindec | # convert peak from .bin samples to .dat samples
+		xe-math_mod1 stdin mult -c  1 -v $bindec | # convert peak from .bin samples to .dat samples
 		xe-math_round2 stdin -c 1 -b 1 |       # round peak to integer
 		xe-math_round2 stdin -c 4 -b 0.001 > $progbase1"_ripples.txt" # screen on amplitude
 else

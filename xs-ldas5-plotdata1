@@ -330,11 +330,11 @@ if [ "$filetype" == "dat" ] ; then
 			xe-filter_butterworth1 stdin -sf $samprate -low $setfiltlow -high $setfilthigh -m 1 |
 			xe-filter_notch1 stdin -sf $samprate -int 0 -n 50 -w $setnotchwidth |
 			xe-decimate1 stdin $decimate |
-			xe-math_abs1 stdin -cy $setrect |
+			xe-math_mod1 stdin abs -c $setrect |
 			xe-smoothbox1 stdin $setbox |
 			xe-norm2 stdin -n $setnorm |
 	 		xe-timestamp1 stdin -sf $newrate -o $offset |
-			xe-math_add1 stdin -cy 2 -v $yoff >> $tempfile
+			xe-math_mod1 stdin add -c 2 -v $yoff >> $tempfile
 	done
 
 
@@ -351,11 +351,11 @@ elif [ "$filetype" == "bin" ] ; then
 			xe-filter_notch1 stdin -sf $samprate -int 0 -n 50 -w $setnotchwidth |
 			xe-filter_butterworth1 stdin -sf $samprate -low $setfiltlow -high $setfilthigh -m 1 |
 			xe-decimate1 stdin $decimate |
-			xe-math_abs1 stdin -cy $setrect |
+			xe-math_mod1 stdin abs -c $setrect |
 			xe-smoothbox1 stdin $setbox |
 			xe-norm2 stdin -n $setnorm |
 	 		xe-timestamp1 stdin -sf $newrate -o $offset |
-			xe-math_add1 stdin -cy 2 -v $yoff >> $tempfile
+			xe-math_mod1 stdin add -c 2 -v $yoff >> $tempfile
 	done
 fi
 

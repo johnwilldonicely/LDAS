@@ -347,7 +347,7 @@ for infile in $listinfiles ; do
 			tr ' ' '\t' |
 			sort -n -k1,1n |
 			xe-cut1 stdin 1,1,2 -n 1 |
-			xe-math_add1 stdin -cy 2 -v $trial_dur -long 1 >> $tempfile"_sync_all"
+			xe-math_mod1 stdin add -c 2 -v $trial_dur -long 1 >> $tempfile"_sync_all"
 
 		# check here to make sure total trial count matches
 		let synctot=$(tail -n +2 $tempfile"_sync_all" | wc -l)

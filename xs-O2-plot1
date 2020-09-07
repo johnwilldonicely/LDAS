@@ -44,7 +44,7 @@ else { echo ; echo "--- Error ["$thisprog"]: invalid units ("$setunits") - must 
 # IF VLINES HAVE BEEN DEFINED< ADJUST ACCORDING TO THE UNITS SPECIFIED
 x=$(echo $plotextras | xe-getkeycol stdin -vline)
 if [ $x ] ; then
-	vlines2=$(echo $plotextras | xe-getkey stdin -vline  | xe-math_div1 stdin -v $timedivisor -cy -1 | xe-delimit stdin -d "comma")
+	vlines2=$(echo $plotextras | xe-getkey stdin -vline  | xe-math_mod1 stdin div -v $timedivisor -c -1 | xe-delimit stdin -d "comma")
 	plotextras=$(echo $plotextras | xe-keyupdate1 stdin -vline $vlines2)
 	echo $plotextras
 fi

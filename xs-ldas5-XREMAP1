@@ -241,14 +241,14 @@ else
 		xe-cut1 stdin xyd_t,vel -o 1 |
 		xe-bin2 stdin -t $setwin1b  |
 		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |
-		xe-math_add1 stdin -cy 2 -v $setwin1c -long 1 |
+		xe-math_mod1 stdin add -c 2 -v $setwin1c -long 1 |
 		xe-writebinary1 stdin -dt 7 > $tempfile".1.ssp"
 
 	xe-readxydt $filexydt $filexyd -scrf $tempfile"_trial2.ssp" |
 		xe-cut1 stdin xyd_t,vel -o 1 |
 		xe-bin2 stdin -t $setwin1b  |
 		awk '$2>='$setvelmin' && $2<='$setvelmax'{print $1,$1}' |
-		xe-math_add1 stdin -cy 2 -v $setwin1c -long 1 |
+		xe-math_mod1 stdin add -c 2 -v $setwin1c -long 1 |
 		xe-writebinary1 stdin -dt 7 > $tempfile".2.ssp"
 
 	xe-ldas5-cofiring1 $fileclubt $fileclub $tempfile".1.ssp" -clu $listpyr1b -win $setwin2c -ms $setminspikes > $tempfile.cofir.1

@@ -218,8 +218,8 @@ for chan in $listchans ; do
 
 	# BUILD THE SSP FILE FOR THE GAPS BETWEEN EVENTS - FIXED SIZE WINDOWS
 	# read event times for the channel - specified trial only
-	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_add1 stdin -long 1 -v -$ref > jj1
-	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_add1 stdin -long 1 -v  $ref > jj2
+	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_mod1 stdin add -long 1 -v -$ref > jj1
+	xe-ldas5-readclub1 $fileclub $fileclub2 -clu $chan -scrl $start,$stop | cut -f 1 | xe-math_mod1 stdin add -long 1 -v  $ref > jj2
 	# save an ssp file holding the non-event periods in this trial, broken into $win sized windows
 	paste jj1 jj2 |
 	xe-writebinary1 stdin -dt 7 |

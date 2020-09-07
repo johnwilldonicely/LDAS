@@ -103,25 +103,25 @@ if [ "$setnames" != "" ] ; then
 	fi
 else
 	in1=$(echo $listinfiles | cut -f 1 -d ' ')
-	xe-cut2 $in1 "Well Information" -s3 "Analysis" | 
+	xe-cut2 $in1 "Well Information" -s3 "Analysis" |
 		awk -F , '$1=="Treatment"{for(i=2;i<=NF;i++) {if($i!="") print $i}}' |
 		tr ' ' '_' > $tempfile
-	
-	# make two sorted lists, with vehicles or controls at the top 
+
+	# make two sorted lists, with vehicles or controls at the top
 	grep -Ei 'vehicle|control' $tempfile | sort -u > $tempfile.1
 	grep -Eiv 'vehicle|control' $tempfile | sort -u > $tempfile.2
-	
+
 	cat $tempfile.1 $tempfile.2 |
 		awk 'BEGIN{grp=0; print "group\tname"}
 		{
 		print ++grp"\t"$1
 		}' > "out_"$thisprog"_groups.txt"
 fi
-if [ "$setverb" == "1" ] ; then 
+if [ "$setverb" == "1" ] ; then
 	echo -e "\n\tTreatment Groups:"
-	cat "out_"$thisprog"_groups.txt" | awk '{print "\t"$0}' ; 
-	echo 
-fi 
+	cat "out_"$thisprog"_groups.txt" | awk '{print "\t"$0}' ;
+	echo
+fi
 
 ########################################################################################
 # PROCESS EACH INPUT FILE
@@ -131,7 +131,7 @@ outlist=""
 for in1 in $listinfiles ; do
 
 	let count=$count+1
-	if [ "$setverb" == "1" ] ; then echo -e "\t"$in1 ; fi 
+	if [ "$setverb" == "1" ] ; then echo -e "\t"$in1 ; fi
 	dos2unix -q $in1
 
 	# build wells file
@@ -225,7 +225,7 @@ xe-dbmatch1 $in1 good 1 |
 	sort -k1,1n -k2,2nr |
 	awk '{if($1!=prev) print ""; prev=$1; print $0;}' |
 	cut -f 2- |
-	xe-math_add1 stdin -v $setadj |
+	xe-math_mod1 stdin add -v $setadj |
 	awk '{if($1!="")print $0; else for(i=0;i<3;i++) print "'$blank'"}' > $tempfile".matrix1"
 
 # MAKE NORMALIZED MATRICES

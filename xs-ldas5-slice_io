@@ -171,19 +171,19 @@ if [ "$listfiles" != "" ] ; then
 	fileplot=$tempfile"_FV.ps"
 	listplot=$listplot" "$fileplot
 	xe-cut1 $outresults stim,fvmv |
-		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-math_mod1 stdin mult -c  2 -v -1 |
 		xe-checkisnum2 stdin -t 1 |
 		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Fv amplitude (uV)" -title "DATE= $date  SUBJECT= $subject" -out $fileplot
 	fileplot=$tempfile"_fEPSP.ps"
 	listplot=$listplot" "$fileplot
 	xe-cut1 $outresults stim,epspslope |
-		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-math_mod1 stdin mult -c  2 -v -1 |
 		xe-checkisnum2 stdin -t 1 |
 		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "fEPSP slope (mV/ms)" -out $fileplot
 	fileplot=$tempfile"_POP.ps"
 	listplot=$listplot" "$fileplot
 	xe-cut1 $outresults stim,popamp |
-		xe-math_mult1 stdin -cy 2 -v -1 |
+		xe-math_mod1 stdin mult -c  2 -v -1 |
 		xe-checkisnum2 stdin -t 1 |
 		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "POP-spike amp. (uV)" -out $fileplot
 
@@ -194,7 +194,7 @@ if [ "$listfiles" != "" ] ; then
 	yl="fEPSP slope (mV/ms)"
 	title=$(xe-dbmatch1 $progbase1"_summary.txt" measure fv_epsp | xe-cut1 stdin slope,prob -o 1 | awk '{print "grad= "$1"  p="$2}')
 	xe-cut1 $outresults fvmv,epspslope |
-		xe-math_mult1 stdin -cy -1 -v -1 |
+		xe-math_mod1 stdin mult -c  -1 -v -1 |
 		xe-checkisnum2 stdin -t 1 |
 		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" -out $fileplot
 	fileplot=$tempfile"_EvP.ps"
@@ -203,7 +203,7 @@ if [ "$listfiles" != "" ] ; then
 	yl="POP-spike amp. (uV)"
 	title=$(xe-dbmatch1 $progbase1"_summary.txt" measure epsp_pop | xe-cut1 stdin slope,prob -o 1 | awk '{print "grad= "$1"  p="$2}')
 	xe-cut1 $outresults epspslope,popamp |
-		xe-math_mult1 stdin -cy -1 -v -1 |
+		xe-math_mod1 stdin mult -c  -1 -v -1 |
 		xe-checkisnum2 stdin -t 1 |
 		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" -out $fileplot
 

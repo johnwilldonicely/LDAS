@@ -210,15 +210,15 @@ if [ -f $in2 ] ; then
 	if [ $z -gt 0 ] ; then
 		# CALCULATE GROUP AVERAGES AND SEM
 		xe-cut1 $in2 group,stim,fvmv |
-			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-math_mod1 stdin mult -c  3 -v -1 |
 			xe-statsgrp2 stdin |
 			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.1
 		xe-cut1 $in2 group,stim,epspslope |
-			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-math_mod1 stdin mult -c  3 -v -1 |
 			xe-statsgrp2 stdin |
 			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.2
 		xe-cut1 $in2 group,stim,popamp |
-			xe-math_mult1 stdin -cy 3 -v -1 |
+			xe-math_mod1 stdin mult -c  3 -v -1 |
 			xe-statsgrp2 stdin |
 			xe-cut1 stdin grp1,grp2,mean,sem > $tempfile.3
 

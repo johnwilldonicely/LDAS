@@ -186,13 +186,13 @@ if [ $nevents -gt 0 ] ; then
 	let count=0;
 	for event in $listevents ; do
 		let count=$count+1
-		start=$(echo $event |xe-math_add1 stdin -v -$halfwin -long 1)
+		start=$(echo $event | xe-math_mod1 stdin add -v -$halfwin -long 1)
 		plotfile="temp_$count.ps"
 		plotlist=$plotlist" "$plotfile
 		trialtime=$(echo "scale=12; $event/$sf" | bc | xe-timeconv1 stdin -f 2)
 		for index in $listindex ; do
 			xe-ldas5-readdat1 $filedat -nch $nchans -ch $index -s $start -n $win |
-			xe-math_mult1 stdin -v $volts_per_unit |
+			xe-math_mod stdin mult -v $volts_per_unit |
 			xe-filter_notch1 stdin -sf $sf -n 50 -w $setnotch |
 			xe-filter_butterworth1 stdin -sf $sf -low $setfiltlow -high $setfilthigh |
 			xe-timestamp1 stdin -dt -1 -sf $sfms -o $offsetms |

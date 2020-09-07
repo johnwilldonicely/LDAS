@@ -326,7 +326,7 @@ elif [ "$setssp" != "" ]; then
 elif [ "$setsecs" != "" ]; then
 	z=$(echo $setsecs | tr ',' '\n' | sort -nu | tail -n 1)
 	if [ $(echo "$z>$dursecs" | bc) -eq 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: --secs ($z) out of range for file duration ($dursecs)\n" ; exit ; } fi
-	echo $setsecs | tr ',' ' ' | xe-math_mult1 stdin -cy -1 -v $binrate -long 1 | xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
+	echo $setsecs | tr ',' ' ' | xe-math_mod1 stdin mult -c  -1 -v $binrate -long 1 | xe-writebinary1 stdin -dt 7 > $tempfile".ssp.1"
 fi
 
 # print trials table

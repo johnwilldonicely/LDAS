@@ -142,7 +142,7 @@ fi
 # APPLY THE DIVISOR IF REQUIRED
 ################################################################################
 if  [ "$setdiv" != "" ] ; then
-	a=$(echo $screenlist | tr ' ' '\n' | xe-math_div1 stdin -cy -1 -long 1 -v $setdiv)
+	a=$(echo $screenlist | tr ' ' '\n' | xe-math_mod1 stdin div -c  -1 -long 1 -v $setdiv)
 	screenlist=$(echo $a | paste -s | tr '\t' ' ')
 fi
 

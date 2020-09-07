@@ -170,16 +170,16 @@ velmed=$(echo $z | xe-getkey stdin vmedian=)
 echo "	...calculating time spent running or immobile"
 
 if [ -s "times_running.ssp" ] ; then
-	running1=$(xe-ldas5-readssp1 times_running.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -v $sf)
+	running1=$(xe-ldas5-readssp1 times_running.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_mod1 stdin div -v $sf)
 	running2=$(echo $running1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
 else
 	running1="0"
 	running2="0.000"
 fi
 if [ -s "times_immobile.ssp" ] ; then
-	immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_div1 stdin -v $sf)
+	immobile1=$(xe-ldas5-readssp1 times_immobile.ssp | xe-math_doublet stdin -t 2 -long 1 | xe-math_sum1 stdin -long 1 | xe-math_mod1 stdin div -v $sf)
 	immobile2=$(echo $immobile1 $duration | awk '{printf("%.3f",(100*$1/$2))}')
-	immobile3=$(xe-ldas5-readssp1 times_immobile.ssp | xe-getdelta2 stdin -t 1 | xe-math_div1 stdin -v $sf | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | xe-math_round2 stdin -b .001)
+	immobile3=$(xe-ldas5-readssp1 times_immobile.ssp | xe-getdelta2 stdin -t 1 | xe-math_mod1 stdin div -v $sf | xe-statsd1 stdin -per 1 | xe-getkey stdin PERCENTILE_50 | xe-math_round2 stdin -b .001)
 else
 	immobile1="0"
 	immobile2="0.00"

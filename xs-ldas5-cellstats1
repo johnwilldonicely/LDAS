@@ -132,7 +132,7 @@ xe-ldas5-wavestats1 $filewfm |
 	xe-cut1 stdin cluster,peak,width |
 	xe-strsub1 stdin peak w.amp |
 	xe-strsub1 stdin width w.width |
-	xe-math_abs1 stdin -cy 2 |
+	xe-math_mod1 stdin abs -c 2 |
 	xe-dbmatch1 stdin cluster 0 -m -2 > $tempfile"_wave.txt"
 
 ################################################################################
