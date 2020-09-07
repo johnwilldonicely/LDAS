@@ -1,0 +1,121 @@
+#!/bin/bash
+# <TAGS> transform </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+allopts=$@
+tempfile="temp_"$thisprog"_"$$
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+date0=$(date)
+
+setverb="0"
+setclean="1"
+setid="id"
+setmeasure="measure"
+setvalue="value"
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 4 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": transpose data to \"wide\" format for repeated-measures analysis"
+	echo "- some stats software requires one column per repeated measure"
+	echo "- this script is something like dcast in R"
+	echo "USAGE: $thisprog [input] [i] [m] [v]"
+	echo "	[input]: input file - a data-frame with one row per measurement"
+	echo "		- NOTE: there should only be one row per id / measure"
+	echo "	[i]: column defining subject ID"
+	echo "	[m]: column defining the repeated measure (eg. day, dose, etc) "
+	echo "	[v]: column defining value for the combination of id / measure"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "EXAMPLE: "
+	echo "	"$thisprog" data.txt  subject treatment score"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setid=$1 ; shift
+setmeasure=$1 ; shift
+setvalue=$1; shift
+
+# check file exists & isn't empty
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+
+vs="abs:v:c:" ; vl="verb:,clean:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+
+################################################################################
+# RUN THE JOB
+################################################################################
+xe-cut1 $infile "$setid,$setmeasure,$setvalue" -o 1 > $tempfile
+let z=$(head -n 1 $tempfile | wc -w)
+if [ $z -ne 3 ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is missing one or all of columns labelled $setid, $setmeasure, or $setvalue\n" ;  exit; } ; fi
+
+listid=$(cut -f 1 $tempfile | sort -u)
+listmeasure=$(cut -f 2 $tempfile | sort -u)
+
+echo -e "$setid\n$listmeasure" | paste -s
+
+for id in $listid ; do
+	echo -en $id
+	for measure in $listmeasure ; do
+		z=$(awk '$1=="'$id'" && $2=="'$measure'"{print $3}' $tempfile)
+		if [ "$z" == "" ] ; then z="-" ; fi
+		echo -en "\t"$z
+	done
+	echo -e ""
+done
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
