@@ -93,10 +93,10 @@ if [ $z -ne 3 ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is missing 
 listid=$(cut -f 1 $tempfile | sort -u)
 listmeasure=$(cut -f 2 $tempfile | sort -u)
 
-echo -e "$setid\n$listmeasure" | paste -s
+echo -e "$setid\nvalue\t$listmeasure" | paste -s
 
 for id in $listid ; do
-	echo -en $id
+	echo -en $id"\t"$setvalue
 	for measure in $listmeasure ; do
 		z=$(awk '$1=="'$id'" && $2=="'$measure'"{print $3}' $tempfile)
 		if [ "$z" == "" ] ; then z="-" ; fi
