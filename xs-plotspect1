@@ -5,7 +5,7 @@
 # INTIAL VARIABLE DEFINITIONS
 ################################################################################
 thisprog=`basename "$0"`
-tempfile="temp_"$thisprog"_"$$
+tempfile="temp_"$thisprog #"_"$$
 progpath=$(dirname $(readlink -f "$0"))
 startdir=$(pwd)
 progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
@@ -24,11 +24,12 @@ setxcol="freq"
 setycol="amp"
 setsubj="subj"
 setgrp="grp"
+setout="plot_"$thisprog".ps"
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
 ################################################################################
-if [ $# -lt 1 ]; then
+if [ $# -lt 5 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": Plot average power spectra data from subjects,groups"
@@ -39,11 +40,15 @@ if [ $# -lt 1 ]; then
 	echo "	[s]: column holding subject identifier"
 	echo "	[g]: column holding group identifier"
 	echo "VALID OPTIONS (defaults in []):"
-	echo "	-x: x-axis column [$setverb]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--out: output file name [$setout]"
+	echo "	-A: top-plot options, in quotes [$setA]"
+	echo "	-B: bottom-plot options, in quotes [$setB]"
 	echo "EXAMPLE: "
-	echo "	"$thisprog" data.txt  2>&1|tee log"$thisprog".txt"
+	echo "	"$thisprog" eeg.txt freq amp sub grp -A \"-ymin .5 -ymax 1.5\""
+	echo "OUTPUT: "
+	echo "	$setout"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -61,7 +66,7 @@ if [ ! -e "$setinfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing fi
 if [ ! -s "$setinfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $setinfile is empty\n" ;  exit; } ; fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:" ; vl="verb:,clean:"
+vs="v:c:A:B:" ; vl="verb:,clean:,out:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -69,6 +74,9 @@ while [ $# -gt 0 ] ; do
 	case $1 in
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
+		--out ) setout=$2 ; shift ;;
+		-A ) setA=$2 ; shift ;;
+		-B ) setB=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -85,33 +93,63 @@ fi
 # START THE JOB
 ################################################################################
 out1="out_"$thisprog"_norm"
-plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -line 1 -ps 0 -xscale .7 -yscale .4 -legend 2 -ew 0 -xint 10 -vline 4,12,30,100 -lwa .5 -xpad 0 -xmax 120"
-xl="Frequency (Hz)"
+plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -line 1 -ps 0 -xscale .85 -yscale .4 -legend 0 -ew 0 -xint 10 -vline 4,12,30,100 -lwa .5 -xpad 0 -ypad 0"
+mergeopts="-xmax 1 -yinc 260 -yo 580"
+xl="$setxcol (Hz)"
+yl="$setycol"
+title="$setinfile"
 
 xe-cut1 $setinfile $setscol,$setgcol,$setxcol,$setycol > $tempfile".0"
 # ??? inset check for all columns being found, because xe-cut won't complain
+listgroups=$(tail -n +2 $tempfile".0" | cut -f 2 | sort -nu)
+refgroup=$(echo $listgroups | awk '{print $1}')
+refgroupname=$(xe-dbmatch1 table_groupnames.txt group $refgroup -oc name -o 1)
 
-echo " ??? IN PROGRESS ???"
 
-xe-norm2 $tempfile".0" -cy 4 -n -1 |
+################################################################################
+# MAKE THE FRON-PAGE PLOT: SPECTUM BY GROUP, RAW AND NORMALISED
+################################################################################
+xe-norm2 $tempfile".0" -cy 4 -n -1 | # keep the option for log10 transform
 	xe-statsgrp2 stdin -cg1 2 -cg2 3 -cy 4 |
-	xe-plottable1 stdin $plotopts -ylabel "Amplitude (uV)" -out $tempfile".1.ps"
-xs-plotmod1 $tempfile".1.ps" --out 1 --legend table_groupnames.txt
-
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl" -title "$title" $setA -out $tempfile"_a.ps"
 xe-cut1 $tempfile".0" sub,freq,grp,amp |
 	sort -k1n -k2n -k3n |
 	xe-repeated1 stdin sub,freq grp amp -norm 4 -n1 0 -n2 0 |
-	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 > $out1
+	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 |
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl (ratio)" -title "Normalised to $refgroupname" -legend 1 -hline 1 $setB -out $tempfile"_b.ps"
+xs-plotmod1 $tempfile"_b.ps" --out 1 --legend table_groupnames.txt
 
-xe-plottable1 $out1 $plotopts -xlabel "$xl" -ylabel "Amplitude ratio (vs. Vehicle)" -legend 0 -out $tempfile".2.ps"
-xe-plotmerge1 $tempfile".1.ps" $tempfile".2.ps" -xmax 1 -yinc 250 -yo 600 -out "plot_spect0.ps"
+let count=0
+plotlist=""
+plotfile=$tempfile"_"$count
+plotlist=$plotlist" "$plotfile".001.ps"
+xe-plotmerge1 $tempfile"_a.ps" $tempfile"_b.ps" $mergeopts -out $plotfile
 
-# per animal spectra, one group
-xe-dbmatch1 temp_XTP-EEG1.spect0 grp 1 |
- 	xe-plottable1 stdin -cg 1 -cx 3 -cy 4 -line 1 -ps 0 -lb 2 -xscale .7 -legend 2 -ymax 60 -xint 10 -vline 4,12,30,100
+yl="$setycol"
 
+for group in $listgroups ; do
 
+	let count=$count+1
+	plotfile=$tempfile"_"$count
+	plotlist=$plotlist" "$plotfile".001.ps"
+	groupname=$(xe-dbmatch1 table_groupnames.txt group $group -oc name -o 1)
 
+	xe-dbmatch1 $tempfile".0" $setgcol $group |
+	xe-statsgrp2 stdin -cg1 1 -cg2 3 -cy 4 |
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title : group $groupname" -ce -1 -legend 2 $setA -out $tempfile"_a.ps"
+
+	xe-cut1 $tempfile".0" sub,freq,grp,amp |
+	xe-dbmatch1 stdin $setgcol $refgroup,$group |
+	sort -k1n -k2n -k3n |
+	xe-repeated1 stdin sub,freq grp amp -norm 4 -n1 0 -n2 0 |
+	xe-statsgrp2 stdin -cg1 1 -cg2 2 -cy 4 |
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl (ratio)" -title "Normalised to $refgroupname" -ce -1 -legend 0 -hline 1 $setB -out $tempfile"_b.ps"
+
+	xe-plotmerge1 $tempfile"_a.ps" $tempfile"_b.ps" $mergeopts -out $plotfile
+done
+
+xe-plotmerge2 $plotlist > $setout
+echo -e "\n- ouput sent to $setout \n"
 
 ################################################################################
 # REPORT, CLEANUP AND EXIT

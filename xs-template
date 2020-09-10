@@ -216,12 +216,18 @@ if [ "$(echo $setskip | grep -v x)" ] ; then
 		session=$(xe-getkey $filenotes session=)
 		subject=$(xe-getkey $filenotes subject=)
 		base=$date"-"$session"_"$subject
+
+		# OMIT CERTAIN SUBJECTS IF REQUESTED
+		if [ "$setomit" != "" ] ; then
+			z=$(echo $setomit | tr ',' '\n' | grep -w $id | wc -l)
+			if [ $z -gt 0 ] ; then continue ; fi
+		fi
+
 		# RUN PROGRAMS
 		xs-ldas-$progbase1 $base $setregion -c "$setfilecmt" -s "$set_start" -p "$set_pre" -d "$set_post" -w "$set_window" -F "$setfftopts"
 	done
 	cd $startdir
 fi
-
 
 ################################################################################
 # COLLATE THE DATA FROM THE OUTPUT FILES
