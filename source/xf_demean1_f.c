@@ -38,7 +38,7 @@ RETURN VALUE:
 
 int xf_demean1_f(float *input, long nn, long nwin1, char *message) {
 
-	char *thisfunc="xf_demean1_s\0";
+	char *thisfunc="xf_demean1_f\0";
 	float *output=NULL;
 	size_t ii,jj,mm,nwin2,start,stop,oddnwin1=0;
 	double sum,scale1;
