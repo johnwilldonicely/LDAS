@@ -25,6 +25,7 @@ setycol="amp"
 setsubj="subj"
 setgrp="grp"
 setout="plot_"$thisprog".ps"
+settable=""
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -33,8 +34,11 @@ if [ $# -lt 5 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": Plot average power spectra data from subjects,groups"
+	echo "- plots mean spectra for treatment groups and individual subjects"
+	echo "- also plots spectral change relative to a control group"
+	echo "	- assumes the control group is the lowest, numerically (typically 0)"
 	echo "USAGE: $thisprog [in] [x] [y] [s] [g] [options]"
-	echo "	[in]: input file, format= <time> <data>"
+	echo "	[in]: a file with columns defining subject, group, frequency, & amplitude"
 	echo "	[x]: column holding x-variable (typically freq or time)"
 	echo "	[y]: column holding y-variable (typically amp or pow)"
 	echo "	[s]: column holding subject identifier"
@@ -42,13 +46,15 @@ if [ $# -lt 5 ]; then
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--table: text file with columns defining <group> and <name> [$settable]"
+	echo "		- this is used to replace group-numbers with labels in plots"
 	echo "	--out: output file name [$setout]"
 	echo "	-A: top-plot options, in quotes [$setA]"
 	echo "	-B: bottom-plot options, in quotes [$setB]"
 	echo "EXAMPLE: "
 	echo "	"$thisprog" eeg.txt freq amp sub grp -A \"-ymin .5 -ymax 1.5\""
-	echo "OUTPUT: "
-	echo "	$setout"
+	echo "OUTPUT: a multi-page postscript file"
+	echo "	- $setout"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -66,7 +72,7 @@ if [ ! -e "$setinfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing fi
 if [ ! -s "$setinfile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $setinfile is empty\n" ;  exit; } ; fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:A:B:" ; vl="verb:,clean:,out:"
+vs="v:c:A:B:" ; vl="verb:,clean:,table:,out:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -74,6 +80,7 @@ while [ $# -gt 0 ] ; do
 	case $1 in
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
+		--table ) settable=$2 ; shift ;;
 		--out ) setout=$2 ; shift ;;
 		-A ) setA=$2 ; shift ;;
 		-B ) setB=$2 ; shift ;;
@@ -84,6 +91,11 @@ while [ $# -gt 0 ] ; do
 done
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$settable" != "" ] ; then
+	if [ ! -e "$settable" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $settable\n" ;  exit; } ; fi
+	if [ ! -s "$settable" ] ; then { echo -e "\n--- Error ["$thisprog"]: $settable is empty\n" ;  exit; } ; fi
+fi
+
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
 	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
@@ -94,17 +106,20 @@ fi
 ################################################################################
 out1="out_"$thisprog"_norm"
 plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -line 1 -ps 0 -xscale .85 -yscale .4 -legend 0 -ew 0 -xint 10 -vline 4,12,30,100 -lwa .5 -xpad 0 -ypad 0"
-mergeopts="-xmax 1 -yinc 260 -yo 580"
+mergeopts="-xmax 1 -yinc 260 -xo 70 -yo 580"
 xl="$setxcol (Hz)"
 yl="$setycol"
 title="$setinfile"
 
 xe-cut1 $setinfile $setscol,$setgcol,$setxcol,$setycol > $tempfile".0"
-# ??? inset check for all columns being found, because xe-cut won't complain
-listgroups=$(tail -n +2 $tempfile".0" | cut -f 2 | sort -nu)
-refgroup=$(echo $listgroups | awk '{print $1}')
-refgroupname=$(xe-dbmatch1 table_groupnames.txt group $refgroup -oc name -o 1)
+if [ $(head -n 1 $tempfile".0" | wc -w) -lt 4 ] ; then { echo -e "\n--- Error ["$thisprog"]: not all specified columns found in $setinfile\n" ;  exit; } ; fi
 
+listgroups=$(tail -n +2 $tempfile".0" | cut -f 2 | sort -nu)
+
+# define reference group as the first group in the numerically sorted list (usually zero)
+refgroup=$(echo $listgroups | awk '{print $1}')
+# define the reference group-name
+if [ "$settable" != "" ] ; then	refgroupname=$(xe-dbmatch1 $settable group $refgroup -oc name -o 1) ; else refgroupname="Group_"$refgroup ; fi
 
 ################################################################################
 # MAKE THE FRON-PAGE PLOT: SPECTUM BY GROUP, RAW AND NORMALISED
@@ -117,7 +132,9 @@ xe-cut1 $tempfile".0" sub,freq,grp,amp |
 	xe-repeated1 stdin sub,freq grp amp -norm 4 -n1 0 -n2 0 |
 	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 |
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl (ratio)" -title "Normalised to $refgroupname" -legend 1 -hline 1 $setB -out $tempfile"_b.ps"
-xs-plotmod1 $tempfile"_b.ps" --out 1 --legend table_groupnames.txt
+if [ "$settable" != "" ] ; then
+	xs-plotmod1 $tempfile"_b.ps" --out 1 --legend $settable
+fi
 
 let count=0
 plotlist=""
@@ -132,11 +149,11 @@ for group in $listgroups ; do
 	let count=$count+1
 	plotfile=$tempfile"_"$count
 	plotlist=$plotlist" "$plotfile".001.ps"
-	groupname=$(xe-dbmatch1 table_groupnames.txt group $group -oc name -o 1)
+	if [ "$settable" != "" ] ; then	groupname=$(xe-dbmatch1 $settable group $group -oc name -o 1) ; else groupname="Group_"$group ; fi
 
 	xe-dbmatch1 $tempfile".0" $setgcol $group |
 	xe-statsgrp2 stdin -cg1 1 -cg2 3 -cy 4 |
-	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title : group $groupname" -ce -1 -legend 2 $setA -out $tempfile"_a.ps"
+	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title :  $groupname" -ce -1 -legend 2 $setA -out $tempfile"_a.ps"
 
 	xe-cut1 $tempfile".0" sub,freq,grp,amp |
 	xe-dbmatch1 stdin $setgcol $refgroup,$group |
