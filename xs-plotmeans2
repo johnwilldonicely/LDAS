@@ -10,16 +10,18 @@ if [ $# -lt 5 ]; then
 	echo
 	echo "----------------------------------------------------------------"
 	echo $thisprog": plot group means for a an x/y line-plot"
-	echo "- USAGE: "$thisprog" [infile] [grp] [x] [y] [mult] [options]"
+	echo "- if all column specifiers are numeric, no header-line expected"
+	echo "USAGE: "$thisprog" [infile] [grp] [x] [y] [mult] [options]"
 	echo "- 	[infile]: data file"
-	echo "- 	[grp]: column holding group-ids"
-	echo "- 	[x]: column holding a predictor (-1 to omit)"
-	echo "- 	[y]: column holding raw data"
+	echo "- 	[grp]: column name or number holding group-ids"
+	echo "- 	[x]: x-axis column"
+	echo "- 	[y]: y-axis column"
 	echo "- 	[mult]: multiply x by this to convert to integers"
 	echo "- 		- sets decimal precision of x-data"
 	echo "- 		- eg. if mult=100, precision=2 decimal places"
 	echo "- 	[options]: xe-plottable1 options"
-	echo "- EXAMPLE: "$thisprog" data.txt  1 2 3 1000 -colour 3"
+	echo "EXAMPLES:"
+	echo "	$thisprog data.txt  group freq amp 1000 -colour 3"
 	echo "----------------------------------------------------------------"
 	echo
 	exit
@@ -52,7 +54,7 @@ grouplist=$(xe-cut1 $infile $gcol -s 1 -o 1 -n $colnumeric | sort -nu)
 if [ -z "$grouplist" ]  ; then { echo ; echo "--- Error ["$thisprog"]: no groups in "$infile" column "$gcol ; echo ; echo ; exit ; } ; fi
 
 # build a list of all the predictors
-xlist=$(xe-cut1 $infile $gcol -s 1 -o 1 -n $colnumeric | xe-checkisnum2 stdin | sort -nu)
+xlist=$(xe-cut1 $infile $xcol -s 1 -o 1 -n $colnumeric | xe-checkisnum2 stdin | sort -nu)
 if [ -z "$xlist" ]  ; then { echo ; echo "--- Error ["$thisprog"]: no x-values in "$infile" column "$xcol ; echo ; echo ; exit ; } ; fi
 
 # find the minimum x-value - to temporarily adjust values before calculating group means
