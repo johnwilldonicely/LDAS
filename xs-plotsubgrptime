@@ -6,7 +6,7 @@ allopts=$@
 tempfile="temp_"$thisprog ;
 
 setsubject="subject"
-setgroup="setgroup"
+setgroup="group"
 setxlabel=""
 settitle=""
 setplotopts=""
@@ -19,20 +19,20 @@ setout="plot_"$thisprog
 if [ $# -lt 3 ]; then
 	echo
 	echo "----------------------------------------------------------------"
-	echo $thisprog": plot time-series by subject/grp/mean"
+	echo $thisprog": plot tx-y series by subject, group, and group-mean"
 	echo "- use to fully explore data by subject and by group"
-	echo "- for each measure, shows three times-course plots"
+	echo "- for each measure, shows three plots"
 	echo "	- subject (colour-coded by subject)"
 	echo "	- subject (colour-coded by group)"
 	echo "	- group means (colour-coded by group, with error-bars)"
-	echo "- USAGE: "$thisprog" [infile] [time] [measures]"
+	echo "- USAGE: "$thisprog" [infile] [x] [y1,y2,y3...]"
 	echo "- 	[infile]: data file"
-	echo "- 	[time]: column holding the time-variable"
-	echo "- 	[measures]: CSV list of measures to plot against time"
+	echo "- 	[x]: column holding the x-variable (e.g. time)"
+	echo "- 	[y1,y2,y3...]: CSV list of measures to plot against x"
 	echo "VALID OPTIONS (defaults in []):"
 	echo "	--subject: column defining subject [$setsubject]"
 	echo "	--group: column defining group [$setgroup]"
-	echo "	--norm: by-time normalisation (see xe-normrow2) [$setnorm]"
+	echo "	--norm: by-x normalisation (see xe-normrow2) [$setnorm]"
 	echo "	--xlabel: plot x-label [default= same as --time]"
 	echo "	--title: top-of-page plot title [$settitle]"
 	echo "	--plotopts: options to apply to all plots [$setplotopts]"
@@ -94,12 +94,12 @@ for measure in $(echo $setmeasures | tr ',' ' ') ; do
 
 	if [ $measure == "$firstmeasure" ] ; then title="$settitle" ; else title="" ; fi
 	if [ $measure == "$lastmeasure" ] ; then legend="1" ; else legend="0" ; fi
-	plotopts0="-cg 1 -cx 2 -cy 3 -lb 2"
-	plotopts1="-line 1 -ew 0 -xscale .2 -yscale .2 -legend $legend"
+	plotopts0="-cg 1 -cx 2 -cy 3"
+	plotopts1="-line 1 -ew 0 -xscale .2 -yscale .2 -lb 2 -legend $legend"
 
 	if [ "$setxlabel" != "" ] ; then xl=$setxlabel; else xl="$settime" ; fi
 	yl="$measure"
-	xe-cut1 $infile subject,group,$settime,$measure -o 1 |
+	xe-cut1 $infile $setsubject,$setgroup,$settime,$measure -o 1 |
 	xe-statsgrp3 stdin |
 	xe-norm3 stdin -head 1 -id1 1 -id2 2 -rep 3 -val 5 -norm $setnorm |
 	sort -k1,1n -k3,3n > $tempfile
@@ -112,7 +112,8 @@ for measure in $(echo $setmeasures | tr ',' ' ') ; do
 	plotfile1=$tempfile"_"$measure"_grp.ps"
 	plotlist1=$plotlist1" "$plotfile1
 	xe-cut1 $tempfile grp2,grp3,mean -o 1 |
-		xe-plottable1 stdin $plotopts1 $setplotopts $plotopts0 -xlabel "$xl" -ylabel "$yl x grp." -out $plotfile1
+		awk 'BEGIN{p1="x";p2="x"}{if($1!=p1 || $2!=p2) print ""; print $0 ; p1=$1;p2=$2;}' |
+		xe-plottable1 stdin $plotopts1 $setplotopts $plotopts0 -lb 1 -xlabel "$xl" -ylabel "$yl x grp." -out $plotfile1
 	if [ $measure == "$lastmeasure" ] ; then xs-plotmod1 $plotfile1 --legend "table_groupnames.txt" --out 1 ; fi
 
 	plotfile1=$tempfile"_"$measure"_grpmean.ps"
@@ -128,7 +129,7 @@ done # end of measure loop
 # MERGE PLOTS AND RENAME
 xe-plotmerge1 $plotlist1 -xo 100 -xmax 3 -xinc 175 -yinc 150 -out $setout
 
-if [ "$setverb" == "1" ] ; then echo "	output sent to $setout.001.ps" ; fi 
+if [ "$setverb" == "1" ] ; then echo "	output sent to $setout.001.ps" ; fi
 
 ################################################################################
 # REPORT, CLEANUP AND EXIT
