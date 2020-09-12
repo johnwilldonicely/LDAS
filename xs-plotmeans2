@@ -14,7 +14,7 @@ if [ $# -lt 5 ]; then
 	echo "USAGE: "$thisprog" [infile] [grp] [x] [y] [mult] [options]"
 	echo "- 	[infile]: data file"
 	echo "- 	[grp]: column name or number holding group-ids"
-	echo "- 	[x]: x-axis column"
+	echo "- 	[x]: x-axis column (-1 to omit)"
 	echo "- 	[y]: y-axis column"
 	echo "- 	[mult]: multiply x by this to convert to integers"
 	echo "- 		- sets decimal precision of x-data"
