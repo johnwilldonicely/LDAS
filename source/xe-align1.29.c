@@ -289,7 +289,7 @@ int main (int argc, char *argv[]) {
 	if(setverb!=0&&setverb!=1) {fprintf(stderr,"\n--- Error[%s]: -verb (%d) must be 0 or 1\n\n",thisprog,setverb);exit(1);};
 
 	/* check if start/stop signals could be the same */
-	if(setstop==0) { sprintf(stopword,startword); setambig=1; } /* stopword is undefined but functionally treated as if they are the same */
+	if(setstop==0) { strcpy(stopword,startword); setambig=1; } /* stopword is undefined but functionally treated as if they are the same */
 	if(strstr(startword,stopword)!=NULL) setambig=1; /* stopword is in startword - when you find start, you have also found a stop */
 	if(strstr(stopword,startword)!=NULL) setambig=1; /* startword is in stopword - finding start does not guarantee finding stop */
 
@@ -307,7 +307,7 @@ int main (int argc, char *argv[]) {
 		if(sscanf(line,"%lf %f",&aa,&b)!=2) continue;
 		time= realloc(time,(n+1)*sizeof(*time));
 		data1= realloc(data1,(n+1)*sizeof(*data1));
-		if(time==NULL | data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		if(time==NULL || data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		time[n]=aa;
 		if(!isfinite(b)) {
 			data1[n]=b;
