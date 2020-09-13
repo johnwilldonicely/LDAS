@@ -758,7 +758,12 @@ The default palette is a 32-colour repeating scale with 8 colours in each repeat
 #### The rainbow palette (-pal rainbow)
 - this is the default LDAS palette for heat-maps, where low values are "cool" colours and high values are "hot"
 - most colours except purple are represented
-- for groups 0-max, colours range from blue-cyan-green-yellow-orange-red
+- for groups 0-max, colours range from blue-cyan-green-yellow-orange-red  
+
+![LDAS colours - rainbow](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_colours_rainbow.jpg)  
+![LDAS colours - rainbow](file://docs/figures//LDAS_colours_rainbow.jpg)
+![LDAS colours - rainbow](file://docs/LDAS_colours1.jpg)
+![LDAS colours - rainbow](file://LDAS_colours1.jpg)  
 
 #### The Viridis palettes (-pal viridis, plasma, magma or inferno)
 - [Link to source](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html)

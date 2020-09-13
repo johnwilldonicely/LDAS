@@ -35,7 +35,7 @@ seq 0 31 | awk '{print $1,1}' | xe-plottable1 stdin $plotopts -xlabel "LDAS colo
 
 
 # MAKE A MATRIX SHOWING PROGRESSION OF COLOURS
-plotopts="-cg 3 -xmin 0 -xint 8 -ps 15 -xscale .1 -frame 0 -font 8 -tics 0 -ylabel BASE -xlabel ADD"
+plotopts="-cg 3 -xmin 0 -xint 8 -ps 15 -xscale .1 -frame 0 -font 8 -tics 0 -ylabel ADD -xlabel BASE -legend 0"
 for i in $(seq 0 3) ;
 	do  for j in $(seq 0 7) ; do
 		echo $i $j | awk '{print $1*8,$2,$1*8+$2}' ;
