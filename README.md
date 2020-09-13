@@ -784,7 +784,7 @@ Colours are assigned based on the group for each case, which is determined by th
  2. for all other palettes, assignment is as per b or c, above. The -colour option is disabled.
 
 
-
+### Plotting tools 
 
 
 
