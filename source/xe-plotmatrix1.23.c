@@ -1,5 +1,5 @@
 #define thisprog "xe-plotmatrix1"
-#define TITLE_STRING thisprog" v 23: 2.April.2020 [JRH]"
+#define TITLE_STRING thisprog" 15.September.2020 [JRH]"
 #define MAXWORDLEN 1000
 
 #include <stdio.h>
@@ -15,6 +15,8 @@ TO DO:
 	???: incorporate simplified xtlaff/ytaloff definition and axis-functions-definitions as per xe-plottable1 (1.January.2019)
 	???: incoporate updated min/max/range calculation as per xe-plottable1 (24.November.2018, 30.September.2018)
 
+v 23: 15.September.2020 [JRH]
+	- add option to reverse the order of the colour-palette
 v 23: 2.April.2020 [JRH]
 	- use new palette-generating function xf_palette7 to create colour scales and to add additional palettes from the viridis collection (viridis,plasma,magma,inferno)
 v 23: 10.March.2020 [JRH]
@@ -46,7 +48,6 @@ v 21: 15.October.2017 [JRH]
 v 21: 9.January.2017 [JRH]
 	- bugfix decimal precision calculation by xf_precision_d
 		- needed to allow max decimal precision due to issues precisely representing floating-point numbers
-
 ...
 
 v 2: 19.July.2012 [JRH]
@@ -63,7 +64,7 @@ int xf_compare1_d(const void *a, const void *b);
 int xf_precision_d(double number, int max);
 long xf_interp3_f(float *data, long ndata);
 double xf_percentile2_d(double *data, long nn, double setper, char *message);
-int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
+int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, int rev);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -88,6 +89,7 @@ int main (int argc, char *argv[]) {
 
 	/* colour-palette variables */
 	char *setrgbpal=NULL;
+	int setpalrev=0;
 	long setrgbn=99;
 	float *red=NULL,*green=NULL,*blue=NULL;
 
@@ -133,6 +135,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		magma: black-purple-cream\n");
 		fprintf(stderr,"		inferno: black-purple-orange-paleyellow\n");
 		fprintf(stderr,"	-paln: number of colours in the palette [%ld]\n",setrgbn);
+		fprintf(stderr,"	-palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
 		fprintf(stderr,"	-xstep -ystep: set interval between matrix values [%g,%g]\n",setxstep,setystep);
 		fprintf(stderr,"		- an alternative methods for data range-setting\n");
 		fprintf(stderr,"		- if \"nan\", uses -x/ymin and -x/ymax instead\n");
@@ -206,8 +209,9 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-tics")==0)    setticsize= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-zx")==0)      zx= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-zy")==0)      zy= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-pal")==0)      setrgbpal= argv[++ii];
-			else if(strcmp(argv[ii],"-paln")==0)      setrgbn= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-pal")==0)     setrgbpal= argv[++ii];
+			else if(strcmp(argv[ii],"-paln")==0)    setrgbn= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-palrev")==0)  setpalrev= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-bw")==0)      setblockwidth= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n\a--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
@@ -218,6 +222,7 @@ int main (int argc, char *argv[]) {
 	if(setulinecolour<-1 || setulinecolour>setrgbn) {fprintf(stderr,"\n\a--- Error[%s]: illegal -uc (%d), should be between -1 and %ld\n\n",thisprog,setulinecolour,setrgbn);exit(1);}
 	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), should be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
 	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -paln (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
+	if(setpalrev!=0&&setpalrev!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -palrev (%d) - should be either 0 or 1\n\n",thisprog,setpalrev);exit(1); }
 	if(setrgbpal==NULL) setrgbpal="rainbow";
 	else if(
 		strcmp(setrgbpal,"grey")!=0
@@ -522,7 +527,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"/c0 {.0 .0 .0} def   %% lowest-value colour\n");
 	/* build the colour palette */
 	for(ii=0;ii<setrgbn;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-	x= xf_palette7(red,green,blue,setrgbn,setrgbpal);
+	x= xf_palette7(red,green,blue,setrgbn,setrgbpal,setpalrev);
 	for(ii=0;ii<setrgbn;ii++) fprintf(fpout,"/c%ld {%.14g %.14g %.14g} def\n",(ii+1),red[ii],green[ii],blue[ii]);
 
 	// TEST RGB COLOUR PALETTE: printf("RGBPAL=%s\n",setrgbpal); for(ii=0;ii<setrgbn;ii++) printf("%ld\t%g\t%g\t%g\n",ii,red[ii],green[ii],blue[ii]);

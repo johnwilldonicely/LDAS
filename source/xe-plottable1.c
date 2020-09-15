@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" 5.May.2020 [JRH]"
+#define TITLE_STRING thisprog" 15.September.2020 [JRH]"
 #define MAXLINELEN 10000
 #define MAXWORDLEN 256
 #define MAXUSERLINES 256
@@ -13,6 +13,9 @@
 
 /*
 <TAGS>plot</TAGS>
+
+15.September.2020 [JRH]
+	- add option to reverse the order of the colour-palette
 
 5.May.2020 [JRH] - major reworking of group-colour handlings
 	- no limit on number of colours for non-default palette
@@ -48,7 +51,7 @@ double *xf_unique_d(double *data, long *nn, char *message);
 double *xf_jitter1_d(double *yval, long nn, double centre, double limit, char *message);
 double xf_rand1_d(double setmax);
 long xf_scale1_l(long old, long min, long max);
-int xf_palette7(float *red, float *green, float *blue, long nn, char *palette);
+int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, int rev);
 long xf_interp3_f(float *data, long ndata);
 void xf_qsortindex1_d(double *data, long *index,long nn);
 /* external functions end */
@@ -86,14 +89,15 @@ int main (int argc, char *argv[]) {
 	float *grpshift=NULL;
 	double *tempdouble=NULL;
 	/* colour-palette variables */
-	char *setpal=NULL;
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* arguments */
+	char *setpal=NULL;
 	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
 	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
 	int pointfill=1, framestyle=3, f1=0,f2=0,f3=0,f4=0,setdatacolour=0,setmaxpoints=10000,setmid=1,setgshift=0;
+	int setpalrev=0;
 	double setxminval,setxmaxval,setyminval,setymaxval,setxint=0.0,setyint=0.0,xint=0.0,yint=0.0,setxpad=-1.0,setypad=-1.0,setdown=0.0,setjitter=0.0;
 	double hline[MAXUSERLINES],vline[MAXUSERLINES],hlinemin,hlinemax,vlinemin,vlinemax;
 	float xscale=.3,yscale=.3; // plot scale - xlimit and ylimit are multiplied by these values
@@ -155,6 +159,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	        plasma: blue-purple-yellow\n");
 		fprintf(stderr,"	        magma: black-purple-cream\n");
 		fprintf(stderr,"	        inferno: black-purple-orange-paleyellow\n");
+		fprintf(stderr,"	-palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
+		fprintf(stderr,"	    NOTE: this does not apply to the default palette\n");
 		fprintf(stderr,"	-bw: box/bar width, as a fraction of xint (above) [%g]\n",boxwidth);
 		fprintf(stderr,"	-ew: error-bar width, fraction of xint (above) [%g]\n",ewidth);
 		fprintf(stderr,"	-bz: boxes and histograms extend to zero? (1=YES,0=NO)[%d]\n",boxyzero);
@@ -203,8 +209,9 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if(ii>=argc) break;
 			if((ii+1)>=argc) {fprintf(stderr,"\n\a--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1); }
-			else if(strcmp(argv[ii],"-colour")==0) 	{ setdatacolour=atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-colour")==0) 	{ setdatacolour =atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-pal")==0)     { setpal= argv[++ii]; }
+			else if(strcmp(argv[ii],"-palrev")==0)     { setpalrev= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-ebright")==0) { setebright=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-cx")==0) 	{ setxcol=atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-cy")==0) 	{ setycol=atoi(argv[++ii]); }
@@ -269,9 +276,10 @@ int main (int argc, char *argv[]) {
 	// automatically determine error-bar width and line width if required
 	if(setewidth==0) ewidth=0.5*boxwidth;
 	if(setelwidth==0) lwerror=0.5*lwdata;
+	if(setpalrev!=0&&setpalrev!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -palrev (%d) - should be either 0 or 1\n\n",thisprog,setpalrev);exit(1); }
 	if(setpal!=NULL) {
 		if(
-		strcmp(setpal,"default")!=0
+		   strcmp(setpal,"default")!=0
 		&& strcmp(setpal,"black2grey")!=0
 		&& strcmp(setpal,"rainbow")!=0
 		&& strcmp(setpal,"viridis")!=0
@@ -281,6 +289,8 @@ int main (int argc, char *argv[]) {
 		) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setpal);exit(1);}
 	}
 	else setpal="default";
+
+	if(setpalrev==1 && strcmp(setpal,"default")==0)  {fprintf(stderr,"\n\a--- Error[%s]: cannot reverse the default palette\n\n",thisprog);exit(1); }
 
 	// build the list of horizontal lines
 	pline=hlineword;
@@ -506,7 +516,7 @@ int main (int argc, char *argv[]) {
 		blue= realloc(blue,kk*sizeof(*blue));
 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,kk,setpal);
+		x= xf_palette7(red,green,blue,kk,setpal,setpalrev);
 	}
 	else {
 		ncolours= 32;

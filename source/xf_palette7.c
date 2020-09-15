@@ -11,6 +11,7 @@ ARGUMENTS:
 	float *blue   : as above for blue
 	long nn       : size of the array to fill (number of colours)
 	char *palette : name of the palette (grey,rainbow,viridis,plasma,magma,inferno)
+	int rev       : reverse the order of palette colours (1=YES,0-NO)
 
 RETURN VALUE:
 	0 on success, -1 on error (invalid palette)
@@ -21,7 +22,7 @@ SAMPLE CALL:
 	#define N 100
 	int ii; float red[N],green[N],blue[N];
 	xf_palette7(red,green,blue,N,"rainbow");
-	for(ii=0;ii<N;ii++)printf("%g\t%g\t%g\n",red[ii]),green[ii],blue[ii]);
+	for(ii=0;ii<N;ii++)printf("%g\t%g\t%g\n",red[ii]),green[ii],blue[ii],0);
 
 TO BUILD EXTRA PALLETES USING R
 	1. in R, print a list of 7 hex values spanning the range
@@ -41,9 +42,9 @@ TO BUILD EXTRA PALLETES USING R
 
 long xf_interp3_f(float *data, long ndata);
 
-int xf_palette7(float *red, float *green, float *blue, long nn, char *palette) {
+int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, int rev) {
 
-	long ii,jj,kk,rgbstart[7];
+	long ii,jj,kk,mm,rgbstart[7];
 	float ct[21];
 
 	/* DEFINE THE TRIPLETS FOR THE CHOSEN PALETTE */
@@ -138,6 +139,19 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette) {
 	xf_interp3_f(green,nn);
 	xf_interp3_f(blue,nn);
 
+	/* REVERSE THE PALLET IF REQUESTED */
+	if(rev==1) {
+		mm= nn-1; // max value to speed up calculations
+		float *swap= malloc(nn*sizeof(*swap));
+		if(swap==NULL) return(-1);
+		for(ii=0;ii<nn;ii++) swap[ii]= red[mm-ii];
+		for(ii=0;ii<nn;ii++) red[ii]= swap[ii];
+		for(ii=0;ii<nn;ii++) swap[ii]= green[mm-ii];
+		for(ii=0;ii<nn;ii++) green[ii]= swap[ii];
+		for(ii=0;ii<nn;ii++) swap[ii]= blue[mm-ii];
+		for(ii=0;ii<nn;ii++) blue[ii]= swap[ii];
+		free(swap);
+	}
 	/* RETURN ALL CLEAR */
 	return(0);
 }
