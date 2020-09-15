@@ -1,0 +1,179 @@
+#!/bin/bash
+# <TAGS> transform</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+allopts=$@
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"_"$$
+progpath=$(dirname $(readlink -f "$0"))
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+setverb="0"
+setclean="1"
+setref="Vehicle"                # the neame of the reference treatment
+settable=""
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": Normalise data to a control group"
+	echo " - calculates results for each subject and group"
+	echo " - each subject's data is normalised to its control-treatment result"
+	echo "USAGE: $thisprog [input] [i] [t] [m]"
+	echo "	[input]: input file - a data-frame with one row per measurement"
+	echo "		- NOTE: there should only be one row per id / treatment"
+	echo "	[i]: column holding the subject-ID"
+	echo "	[t]: column holding the treatment"
+	echo "	[m]: column holding the measure of interest"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--ref: name of the reference treatment [$setref]"
+	echo "	--table: group-name file, to add group-number to output [$settable]"
+	echo "EXAMPLE: "
+	echo "	$thisprog output_XTP-MMN_params.txt ID Treat Amp"
+	echo "OUTPUT: "
+	echo -e "id\tgroup\ttreatment\tmeasure\tnormval"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+setidcol=$1 ; shift
+settcol=$1 ; shift
+setmcol=$1 ; shift
+
+# check file exists & isn't empty
+if [ ! -e "$infile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing file $infile\n"$NC >&2 ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: $infile is empty\n"$NC >&2 ;  exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:" ; vl="verb:,clean:,ref:,table:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		--ref ) setref=$2 ; shift ;;
+		--table ) settable=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n"$NC >&2 ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n"$NC >&2 ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
+fi
+
+if [ "$settable" != "" ] ; then
+	if [ ! -e "$settable" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]: missing group-names file $settable\n"$NC >&2 ;  exit; } ; fi
+	if [ ! -s "$settable" ] ; then { echo -e $ReD"\n--- Error ["$thisprog"]: $settable is empty\n"$NC >&2 ;  exit; } ; fi
+fi
+
+########################################################################################
+# COLUMN-CHECKS
+########################################################################################
+let w=$(head -n 1 $infile | xe-cut1 stdin $setidcol | wc -l)
+let x=$(head -n 1 $infile | xe-cut1 stdin $settcol | wc -l)
+let y=$(head -n 1 $infile | xe-cut1 stdin $setmcol | wc -l)
+let z=$w+$x+$y
+if [ $z -ne 3 ]; then echo "" >&2 ; fi
+if [ $w -eq 0 ] ; then echo -e $RED"--- Error ["$thisprog"]: no column labelled \"$setidcol\" in $infile"$NC >&2 ; fi
+if [ $x -eq 0 ] ; then echo -e $RED"--- Error ["$thisprog"]: no column labelled \"$settcol\" in $infile"$NC >&2 ; fi
+if [ $y -eq 0 ] ; then echo -e $RED"--- Error ["$thisprog"]: no column labelled \"$setmcol\" in $infile"$NC >&2 ; fi
+if [ $z -ne 3 ]; then echo -e "" >&2 ; exit ; fi
+
+listid=$(xe-cut1 $infile $setidcol -o 1 | sort -u)
+listtreat=$(xe-cut1 $infile $settcol -o 1 | sort -u)
+
+if [ "$settable" != "" ] ; then
+	let z=0;
+	for treat in $listtreat ; do
+		group=$(xe-dbmatch1 $settable name $treat -oc group -o 1)
+		if [ "$group" == "" ] ; then let z=$z+1 ; echo -e $RED"--- Error ["$thisprog"]: no tretment group for $treat in $settable"$NC >&2 ; fi
+	done
+	if [ $z -gt 0 ] ; then
+		echo "" ; exit ;
+	else
+		listtreat=$(xe-cut1 $settable  group,name -o 1 | sort -k1n | cut -f 2)
+	fi
+fi
+
+########################################################################################
+# PROCESS THE DATA
+########################################################################################
+echo >&2
+echo "IDs: "$listid >&2
+echo "TREATMENTS: "$listtreat >&2
+echo >&2
+
+if [ "$settable" != "" ] ; then
+	echo -e "id\tgroup\ttreatment\tmeasure\tnormval"
+else
+	echo -e "id\ttreatment\tmeasure\tnormval"
+fi
+
+let count=0
+for id in $listid ; do
+	xe-dbmatch1 $infile $setidcol $id > $tempfile.id
+
+	# save the reference treatment values
+	xe-dbmatch1 $tempfile.id $settcol $setref -oc $setmcol > $tempfile.ref
+	let z=$(cat $tempfile.ref | wc -l)
+	if [ $z -lt 2 ] ; then echo -e $PURPLE"Warning: no reference data for subject $id !!!"$NC >&2 ; continue ; fi
+
+	for treat in $listtreat ; do
+		xe-dbmatch1 $tempfile.id $settcol $treat | xe-cut1 stdin $setmcol > $tempfile.0
+		let z=$(cat $tempfile.0 | wc -l)
+		if [ $z -lt 2 ] ; then echo -e $PURPLE"Warning: no data for subject $id treated with $treat"$NC >&2 ; continue ; fi
+		if [ "$settable" != "" ] ; then
+			let group=$(xe-dbmatch1 $settable name $treat -oc group -o 1)
+			paste $tempfile.ref $tempfile.0 |
+				tail -n +2 |
+				xe-math_doublet stdin -t 2 |
+				awk '{print "'$id'\t'$group'\t'$treat'\t'$setmcol'\t"$0}'
+		else
+			paste $tempfile.ref $tempfile.0 |
+				tail -n +2 |
+				xe-math_doublet stdin -t 2 |
+				awk '{print "'$id'\t'$treat'\t'$setmcol'\t"$0}'
+		fi
+	done # treatment
+done # id
+
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -7,7 +7,7 @@
 #include <string.h>
 
 /*
-<TAGS>signal_processing dt.matrix</TAGS>
+<TAGS>signal_processing dt.matrix transform </TAGS>
 
 v 21.October.2017 [JRH]
 	- update variable naming conventions for ii,jj,kk
