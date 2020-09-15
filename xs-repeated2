@@ -6,7 +6,7 @@
 ################################################################################
 thisprog=`basename "$0"`
 allopts=$@
-tempfile="temp_"$thisprog"_"$$
+tempfile="temp_"$thisprog #"_"$$
 startdir=$(pwd)
 start_time=$(date +'%s.%3N')
 date0=$(date)
@@ -100,6 +100,8 @@ for id in $listid ; do
 	for measure in $listmeasure ; do
 		z=$(awk '$1=="'$id'" && $2=="'$measure'"{print $3}' $tempfile)
 		if [ "$z" == "" ] ; then z="-" ; fi
+		let w=$(echo $z | wc -w)
+		if [ $w -gt 1 ] ; then { echo -e "\n--- Error ["$thisprog"]: $setid:$id $setmeasure:$measure has $w entries (in $infile). Consider screening input before converting\n" >&2 ;  exit; } ; fi
 		echo -en "\t"$z
 	done
 	echo -e ""
