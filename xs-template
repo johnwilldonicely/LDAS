@@ -31,6 +31,7 @@ setverb="0"
 setclean="1"
 setskip="-"
 setbatch=""
+setomit=""
 
 # colours for use with text printed to terminal
 RED='\033[0;31m'	# for errors
@@ -61,7 +62,8 @@ if [ $# -lt 1 ]; then
 	echo "		c: collate analyis results"
 	echo "	--opt1: quoted options to pass to $thatprog [$setopt1]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
-	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
+	echo "	--omit: CSV list of cases to omit [$setomit]"
 	echo "EXAMPLE: "
 	echo "	"$thisprog" data.txt  2>&1|tee log"$thisprog".txt"
 	echo "	"$thisprog" \"*.plan\" --batch dir1,dir2,dir3"
@@ -111,7 +113,7 @@ if [ "$(command -v pandoc)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]:
 # - will throw an error for bad arguments or missing options to arguments
 ########################################################################################
 # define acceptable short (vs) and long (vl) options, colon after options requiring values
-vs="abs:v:c:" ; vl="batch:,skip:,verb:,clean:"
+vs="abs:v:c:" ; vl="batch:,skip:,verb:,clean:,omit:"
 # check for errors
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
@@ -128,6 +130,7 @@ while [ $# -gt 0 ] ; do
 		-s | --skip ) setskip=$2 ; shift ;;
 		-v | --verb ) setverb=$2 ; shift ;;
 		-c | --clean ) setclean=$2 ; shift ;;
+		--omit ) setomit=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -217,11 +220,13 @@ if [ "$(echo $setskip | grep -v x)" ] ; then
 		subject=$(xe-getkey $filenotes subject=)
 		base=$date"-"$session"_"$subject
 
-		# OMIT CERTAIN SUBJECTS IF REQUESTED
+		# OMIT SUBJECTS IF REQUESTED
 		if [ "$setomit" != "" ] ; then
 			z=$(echo $setomit | tr ',' '\n' | grep -w $id | wc -l)
 			if [ $z -gt 0 ] ; then continue ; fi
 		fi
+		# ALTERNATIVE
+		#xe-dbmatch1 stdin id $setomit -m -2
 
 		# RUN PROGRAMS
 		xs-ldas-$progbase1 $base $setregion -c "$setfilecmt" -s "$set_start" -p "$set_pre" -d "$set_post" -w "$set_window" -F "$setfftopts"
@@ -405,7 +410,6 @@ if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
 # for exact matches...
 [[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
 
-
 # PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
 setkeys="one man,two women,three children"
 IFS=$','
@@ -427,16 +431,19 @@ d="_" ; echo _one_two__three___end | tr -s $d $d
 # to also remove leading/trailing delimiters
 d="_" ; echo _one_two__three___end_ | tr -s $d | sed 's/^['$d']//g;s/['$d']*$//g;'
 
-
 # STRING SUBSTITUTION WITH SED
 sed -i 's/OLD/NEW/g' $infile
 cat $infile | sed -e 's/OLD/NEW/g'
+
+# STRING INSERTION WITH SED - ADD A CHARACTER TO EVERY WORD
+seq 1 10 | sed 's/\b\w/aloha-&/g' 
 
 # USING PASTE TO TRANSPOSE A COLUMN INTO A ROW
 paste -s [input]
 
 # PRINT A LIST TO PAIRS OF COLUMNS
 printf "%s\t%s\n" $(cat data.txt)
+
 
 # SET COLOUR FOR BASH ECHO OUTPUT
 RED='\033[0;31m'

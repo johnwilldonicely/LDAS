@@ -36,7 +36,7 @@ int main (int argc, char *argv[]) {
 	FILE *fpin,*fpout;
 
 	/* program-specific variables */
-	char keys[]="Country,Date,Cases,Deaths,GeoID,Code,Pop,Continent\0",countrycode[8];
+	char setkeys[]="Country,Date,Cases,Deaths,GeoID,Code,Pop,Continent\0",countrycode[8];
 	char outfile[64];
 	long *ikeys=NULL,*keycols=NULL,nkeys;
 
@@ -70,7 +70,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"- data: https://opendata.ecdc.europa.eu/covid19/casedistribution/csv\n");
 		fprintf(stderr,"- must be downloaded & processed by xs-CORONA1\n");
 		fprintf(stderr,"Required input columns: \n");
-		fprintf(stderr,"    %s\n",keys);
+		fprintf(stderr,"    %s\n",setkeys);
 		fprintf(stderr,"USAGE: %s [in] [country] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: file name or \"stdin\"\n");
 		fprintf(stderr,"    	- ECDC data pre-processed by xs-CORONA1\n");
@@ -151,11 +151,11 @@ int main (int argc, char *argv[]) {
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
 
-		/* assign keycol numbers: requires *line,*iword,nwords,pword  ...and... *keys,*ikeys,nkeys*,keycol[nkeys] */
+		/* assign keycol numbers: requires *line,*iword,nwords,pword  ...and... *setkeys,*ikeys,nkeys*,keycol[nkeys] */
 		if(nlines==0) {
-			keycols= xf_getkeycol(line,"\t",keys,",",&nkeys,message);
+			keycols= xf_getkeycol(line,"\t",setkeys,",",&nkeys,message);
 			if(keycols==NULL) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
-			if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld keys=%s\n",ii,keycols[ii],keys);
+			if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld setkeys=%s\n",ii,keycols[ii],setkeys);
 		}
 
 		/* parse the line */
@@ -190,7 +190,7 @@ int main (int argc, char *argv[]) {
 
 	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: Country \"%s\" not found in \"%s\"infile\n\n",thisprog,setcountry,infile);exit(1);};
 	if(setverb==999) printf("nn= %ld nkeys= %ld\n",nn,nkeys);
-	if(setverb==999) printf("keys= %s\n",keys);
+	if(setverb==999) printf("setkeys= %s\n",setkeys);
 	if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld\n",ii,keycols[ii]);
 	if(setverb==999) for(ii=0;ii<nn;ii++) printf("deaths0[%ld]= %ld\n",ii,deaths0[ii]);
 

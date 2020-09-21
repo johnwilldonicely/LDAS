@@ -162,7 +162,9 @@ of scripts, programs, and functions.
 <a href="#code-xs-ldas-killbadchans1">xs-ldas-killbadchans1</a><br>
 <a href="#code-xs-ldas-zipexpt">xs-ldas-zipexpt</a><br>
 <a href="#code-xs-manual">xs-manual</a><br>
+<a href="#code-xs-plotspect1">xs-plotspect1</a><br>
 <a href="#code-xs-template">xs-template</a><br>
+<a href="#code-xs-template_minimal">xs-template_minimal</a><br>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-ldas5-clucombine1">xe-ldas5-clucombine1</a><br>
 <a href="#code-xe-ldas5-clucombinelist1">xe-ldas5-clucombinelist1</a><br>
@@ -558,6 +560,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_demean1_d">xf_demean1_d</a><br>
 <a href="#code-xf_demean1_f">xf_demean1_f</a><br>
 <a href="#code-xf_demean1_s">xf_demean1_s</a><br>
+<a href="#code-xf_demean2_f">xf_demean2_f</a><br>
 <a href="#code-xf_detrend1_d">xf_detrend1_d</a><br>
 <a href="#code-xf_detrend1_f">xf_detrend1_f</a><br>
 <a href="#code-xf_filter_bworth1_d">xf_filter_bworth1_d</a><br>
@@ -614,13 +617,9 @@ of scripts, programs, and functions.
 <a href="#code-xe-getdelta2">xe-getdelta2</a><br>
 <a href="#code-xe-getsamplefreq1">xe-getsamplefreq1</a><br>
 <a href="#code-xe-ldas5-datwavemean1">xe-ldas5-datwavemean1</a><br>
-<a href="#code-xe-math_abs1">xe-math_abs1</a><br>
-<a href="#code-xe-math_add1">xe-math_add1</a><br>
-<a href="#code-xe-math_div1">xe-math_div1</a><br>
 <a href="#code-xe-math_doublet">xe-math_doublet</a><br>
 <a href="#code-xe-math_index1">xe-math_index1</a><br>
-<a href="#code-xe-math_mult1">xe-math_mult1</a><br>
-<a href="#code-xe-math_power1">xe-math_power1</a><br>
+<a href="#code-xe-math_mod1">xe-math_mod1</a><br>
 <a href="#code-xe-math_round1">xe-math_round1</a><br>
 <a href="#code-xe-math_round2">xe-math_round2</a><br>
 <a href="#code-xe-math_sum1">xe-math_sum1</a><br>
@@ -738,6 +737,7 @@ of scripts, programs, and functions.
 <a href="#code-xs-manual">xs-manual</a><br>
 <a href="#code-xs-paste1">xs-paste1</a><br>
 <a href="#code-xs-plotcolours">xs-plotcolours</a><br>
+<a href="#code-xs-plotspect1">xs-plotspect1</a><br>
 <a href="#code-xs-progbackup2">xs-progbackup2</a><br>
 <a href="#code-xs-progclean1">xs-progclean1</a><br>
 <a href="#code-xs-progcompile">xs-progcompile</a><br>
@@ -753,6 +753,7 @@ of scripts, programs, and functions.
 <a href="#code-xs-progsync1">xs-progsync1</a><br>
 <a href="#code-xs-progtag">xs-progtag</a><br>
 <a href="#code-xs-template">xs-template</a><br>
+<a href="#code-xs-template_minimal">xs-template_minimal</a><br>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-progdep">xe-progdep</a><br>
 <a href="#code-xe-sizes1">xe-sizes1</a><br>
@@ -900,6 +901,7 @@ of scripts, programs, and functions.
 <a href="#code-xf_demean1_d">xf_demean1_d</a><br>
 <a href="#code-xf_demean1_f">xf_demean1_f</a><br>
 <a href="#code-xf_demean1_s">xf_demean1_s</a><br>
+<a href="#code-xf_demean2_f">xf_demean2_f</a><br>
 <a href="#code-xf_density1_l">xf_density1_l</a><br>
 <a href="#code-xf_density2_l">xf_density2_l</a><br>
 <a href="#code-xf_densitymatrix1_l">xf_densitymatrix1_l</a><br>
@@ -1229,11 +1231,15 @@ of scripts, programs, and functions.
 </td></table></tr>
 <h3 id="tag-transform"><a href="#CODE-LINKS">&#8679</a><font color="SteelBlue"> CATEGORY: transform</font></h3>
 <table><tr>
+<td><b><font color="Black">Scripts</font></b><br><br>
+<a href="#code-xs-normcontrol">xs-normcontrol</a><br>
+<a href="#code-xs-repeated2">xs-repeated2</a><br>
 </td><td><b><font color="Black">Programs</font></b><br><br>
 <a href="#code-xe-align1">xe-align1</a><br>
 <a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-densitymatrix2">xe-densitymatrix2</a><br>
 <a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
+<a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
 <a href="#code-xe-transpose3">xe-transpose3</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_bin1a_d">xf_bin1a_d</a><br>
@@ -4216,12 +4222,12 @@ EXAMPLE:
 xs-manual: view (default) or make LDAS manuals
 USAGE: xs-manual [manual] [options]
 	available manuals: 
-		git
+		taini
+		hargreaves
 		laser
 		mea
 		ldas
-		hargreaves
-		taini
+		git
 VALID OPTIONS (defaults in []):
 	--view: view manual in terminal,pdf,html [terminal]
 		NOTE: only "terminal" will work if logging in remotely
@@ -4229,7 +4235,7 @@ VALID OPTIONS (defaults in []):
 		Format choices: pdf,html
 		NOTE: setting --make cancels viewing
 EXAMPLE: 
-	xs-manual git --view terminal
+	xs-manual taini --view terminal
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4433,13 +4439,13 @@ EXAMPLE:
 <font color="Black"><h3 id="code-xs-MEA-hdf5"><a href="#CODE">&#8679</a> xs-MEA-hdf5</h3></font>
 [<a href="#tag-MEA">MEA</a>][<a href="#tag-file">file</a>]<br>
 <blockquote><pre>
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
 --------------------------------------------------------------------------------
@@ -4467,13 +4473,13 @@ OUTPUT:
 <font color="Black"><h3 id="code-xs-MEA-merge1"><a href="#CODE">&#8679</a> xs-MEA-merge1</h3></font>
 [<a href="#tag-MEA">MEA</a>]<br>
 <blockquote><pre>
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
---- Error [xs-ldas-parsename]: name "regaamc8" must contain exactly one underscore
+--- Error [xs-ldas-parsename]: name "source" must contain exactly one underscore
 
 
 --------------------------------------------------------------------------------
@@ -4498,10 +4504,10 @@ EXAMPLE:
 	xs-MEA-merge1 .raw
 
 OUTPUT: (note base-name is derived from folder name)
-	regaamc8.dat
-	regaamc8.ssp
-	regaamc8-[channel].bin
-	regaamc8.notes
+	source.dat
+	source.ssp
+	source-[channel].bin
+	source.notes
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -4704,6 +4710,32 @@ ADDITIONAL ARGUMENTS:
 	-n: normalize? (-1=NO 1=YES) [1]
 EXAMPLE: 
 	xs-noise1 data.txt
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-normcontrol"><a href="#CODE">&#8679</a> xs-normcontrol</h3></font>
+[<a href="#tag-transform">transform</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-normcontrol: Normalise data to a control group
+ - calculates results for each subject and group
+ - each subject's data is normalised to its control-treatment result
+USAGE: xs-normcontrol [input] [i] [t] [m]
+	[input]: input file - a data-frame with one row per measurement
+		- NOTE: there should only be one row per id / treatment
+	[i]: column holding the subject-ID
+	[t]: column holding the treatment
+	[m]: column holding the measure of interest
+VALID OPTIONS (defaults in []):
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+	--ref: name of the reference treatment [Vehicle]
+	--table: group-name file, to add group-number to output []
+EXAMPLE: 
+	xs-normcontrol output_XTP-MMN_params.txt ID Treat Amp
+OUTPUT: 
+id	group	treatment	measure	normval
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -5075,7 +5107,7 @@ xs-O2-makex5b: set up experiment directories & transfer data
 - extracts the [base].txt file to .time .dat .cmt and .notes files
 - creates a plot of the traces for each channel
 - most problems with the data or folder locations reported immediately
-- other reports will go to the log file: /opt/LDAS/source/regaamc8/log_xs-O2-makex5b_200822.txt
+- other reports will go to the log file: /opt/LDAS/source/log_xs-O2-makex5b_200920.txt
 - for each subject-date...
 		xs-ldas-preproc1
 			xe-ldas-readchart1
@@ -5159,7 +5191,7 @@ EXAMPLE: xs-O2-makex6b "*-??????.txt" -ca -w 4
 
 OUTPUT: 
 	Log file (eg)... 
-		log_xs-O2-makex6b_2020_08_22
+		log_xs-O2-makex6b_2020_09_20
 	LDAS database containing...
 		[base].notes file summarizing recording prameters
 		[base].time file holding the timestamps
@@ -5674,16 +5706,18 @@ Plot options applied to xe-plottable1 :
 <blockquote><pre>
 ----------------------------------------------------------------
 xs-plotmeans2: plot group means for a an x/y line-plot
-- USAGE: xs-plotmeans2 [infile] [grp] [x] [y] [mult] [options]
+- if all column specifiers are numeric, no header-line expected
+USAGE: xs-plotmeans2 [infile] [grp] [x] [y] [mult] [options]
 - 	[infile]: data file
-- 	[grp]: column holding group-ids
-- 	[x]: column holding a predictor (-1 to omit)
-- 	[y]: column holding raw data
+- 	[grp]: column name or number holding group-ids
+- 	[x]: x-axis column (-1 to omit)
+- 	[y]: y-axis column
 - 	[mult]: multiply x by this to convert to integers
 - 		- sets decimal precision of x-data
 - 		- eg. if mult=100, precision=2 decimal places
 - 	[options]: xe-plottable1 options
-- EXAMPLE: xs-plotmeans2 data.txt  1 2 3 1000 -colour 3
+EXAMPLES:
+	xs-plotmeans2 data.txt  group freq amp 1000 -colour 3
 ----------------------------------------------------------------
 
 </blockquote></pre>
@@ -5846,24 +5880,54 @@ EXAMPLE:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xs-plotspect1"><a href="#CODE">&#8679</a> xs-plotspect1</h3></font>
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-plotspect1: Plot average power spectra data from subjects,groups
+- plots mean spectra for treatment groups and individual subjects
+- also plots spectral change relative to a control group
+	- assumes the control group is the lowest, numerically (typically 0)
+USAGE: xs-plotspect1 [in] [x] [y] [s] [g] [options]
+	[in]: a file with columns defining subject, group, frequency, & amplitude
+	[x]: column holding x-variable (typically freq or time)
+	[y]: column holding y-variable (typically amp or pow)
+	[s]: column holding subject identifier
+	[g]: column holding group identifier
+VALID OPTIONS (defaults in []):
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+	--table: text file with columns defining &#60group&#62 and &#60name&#62 []
+		- this is used to replace group-numbers with labels in plots
+	--out: output file name [plot_xs-plotspect1.ps]
+	-A: top-plot options, in quotes []
+	-B: bottom-plot options, in quotes []
+EXAMPLE: 
+	xs-plotspect1 eeg.txt freq amp sub grp -A "-ymin .5 -ymax 1.5"
+OUTPUT: a multi-page postscript file
+	- plot_xs-plotspect1.ps
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xs-plotsubgrptime"><a href="#CODE">&#8679</a> xs-plotsubgrptime</h3></font>
 [<a href="#tag-plot">plot</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------
-xs-plotsubgrptime: plot time-series by subject/grp/mean
+xs-plotsubgrptime: plot tx-y series by subject, group, and group-mean
 - use to fully explore data by subject and by group
-- for each measure, shows three times-course plots
+- for each measure, shows three plots
 	- subject (colour-coded by subject)
 	- subject (colour-coded by group)
 	- group means (colour-coded by group, with error-bars)
-- USAGE: xs-plotsubgrptime [infile] [time] [measures]
+- USAGE: xs-plotsubgrptime [infile] [x] [y1,y2,y3...]
 - 	[infile]: data file
-- 	[time]: column holding the time-variable
-- 	[measures]: CSV list of measures to plot against time
+- 	[x]: column holding the x-variable (e.g. time)
+- 	[y1,y2,y3...]: CSV list of measures to plot against x
 VALID OPTIONS (defaults in []):
 	--subject: column defining subject [subject]
-	--group: column defining group [setgroup]
-	--norm: by-time normalisation (see xe-normrow2) [-1]
+	--group: column defining group [group]
+	--norm: by-x normalisation (see xe-normrow2) [-1]
 	--xlabel: plot x-label [default= same as --time]
 	--title: top-of-page plot title []
 	--plotopts: options to apply to all plots []
@@ -5991,6 +6055,9 @@ USAGE:
           diff: compare local commited changes to remote master
           pull: pull remote master repository (see -c)
           push: add changes, commit, and push to remote master (see -m)
+			...extra repos...
+          pull-bin: pull any repos in the user's ~/bin directory (see -c)
+          push-bin: pull any repos in the user's ~/bin directory (see -c)
 OPTIONS (defaults in []):
     -v: verbose output [unset]
     -c: (pull) compile changed source-code [unset]
@@ -6377,6 +6444,28 @@ USAGE:
 		new: the replacement - can be a single character or a string
 EXAMPLE: 
 	xs-renamespace "Track.*txt"  "_"
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-repeated2"><a href="#CODE">&#8679</a> xs-repeated2</h3></font>
+[<a href="#tag-transform">transform</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-repeated2: transpose data to "wide" format for repeated-measures analysis
+- some stats software requires one column per repeated measure
+- this script is something like dcast in R
+USAGE: xs-repeated2 [input] [i] [m] [v]
+	[input]: input file - a data-frame with one row per measurement
+		- NOTE: there should only be one row per id / measure
+	[i]: column defining subject ID
+	[m]: column defining the repeated measure (eg. day, dose, etc) 
+	[v]: column defining value for the combination of id / measure
+VALID OPTIONS (defaults in []):
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-repeated2 data.txt  subject treatment score
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -6813,7 +6902,7 @@ EXAMPLES:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xs-template"><a href="#CODE">&#8679</a> xs-template</h3></font>
-[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>][<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
 <blockquote><pre>
 --------------------------------------------------------------------------------
 xs-ldas5-XSERIES1b: template BASH script
@@ -6832,10 +6921,27 @@ VALID OPTIONS (defaults in []):
 		c: collate analyis results
 	--opt1: quoted options to pass to xs-templat []
 	--verb: verbose output (0=NO 1=YES) [0]
-	--clean: remove temporary files (0=NO 1=YES) [1]
+	--verb: verbose output (0=NO 1=YES) [0]
+	--omit: CSV list of cases to omit []
 EXAMPLE: 
 	xs-ldas5-XSERIES1b data.txt  2&#62&1|tee logxs-ldas5-XSERIES1b.txt
 	xs-ldas5-XSERIES1b "*.plan" --batch dir1,dir2,dir3
+--------------------------------------------------------------------------------
+
+</blockquote></pre>
+
+<font color="Black"><h3 id="code-xs-template_minimal"><a href="#CODE">&#8679</a> xs-template_minimal</h3></font>
+[<a href="#tag-programming">programming</a>][<a href="#tag-LDAS">LDAS</a>]<br>
+<blockquote><pre>
+--------------------------------------------------------------------------------
+xs-template_minimal: template BASH script
+USAGE: xs-template_minimal [in] [options]
+	[in]: input file, format= &#60time&#62 &#60data&#62
+VALID OPTIONS (defaults in []):
+	--verb: verbose output (0=NO 1=YES) [0]
+	--clean: remove temporary files (0=NO 1=YES) [1]
+EXAMPLE: 
+	xs-template_minimal data.txt  2&#62&1|tee logxs-template_minimal.txt
 --------------------------------------------------------------------------------
 
 </blockquote></pre>
@@ -9548,7 +9654,7 @@ VALID OPTIONS:
 	-con: number of contiguous bins required to keep a bin [0]
 	-vrate: video sample rate (samples/s) [25]
 	-vrange: 4-item CSV list defining xmin,ymin,xmax,ymax [unset]
-	-binsize : size of map-pixels (cm) [1048363095]
+	-binsize : size of map-pixels (cm) [-1133944745]
 	-sx : 2D gaussian smoothing (bins) applied to rate matrix [0]
 	-sy : 2D gaussian smoothing (bins) applied to matrix [0]
 	-st : smoothing type (0,1 or 2) [2]
@@ -10463,68 +10569,6 @@ OUTPUT:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-math_abs1"><a href="#CODE">&#8679</a> xe-math_abs1</h3></font>
-[<a href="#tag-math">math</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-math_abs1 v 1: 9.January.2016 [JRH]
-----------------------------------------------------------------------
-Convert a column of data to its absolute value
-Non-numeric fields will not be modified
-USAGE:
- 	xe-math_abs1 [infile|stdin] [arguments]
-Valid arguments - defaults in []:
-	-cy column containing data (0=none, -1=all) [1]
-Examples:
-	cat datafile.txt | xe-math_abs1 stdin -cy 1
-	xe-math_abs1 datafile.txt -cy 2
-----------------------------------------------------------------------
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xe-math_add1"><a href="#CODE">&#8679</a> xe-math_add1</h3></font>
-[<a href="#tag-math">math</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-math_add1 v 2: 27.November.2017 [JRH]
-----------------------------------------------------------------------
-Add a number to a column of data
-Non-numeric fields will not be modified
-USAGE:
- 	xe-math_add1 [infile|stdin] [arguments]
-Valid arguments - defaults in []:
-	-cy column containing data (0=none, -1=all) [1]
-	-v value to add to this column [0]
-	-long: assume input is long-integers (0=NO 1=YES) [0]
-Examples:
-	cat datafile.txt | xe-math_mod1 stdin add -c  1 -v 25
-	xe-math_add1 datafile.txt -cy 2 -v 1
-----------------------------------------------------------------------
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xe-math_div1"><a href="#CODE">&#8679</a> xe-math_div1</h3></font>
-[<a href="#tag-math">math</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-math_div1 v 2: 27.November.2017 [JRH]
-----------------------------------------------------------------------
-- Divide a column of data by a number
-- Non-numeric fields will not be modified
-- NOTE: safe for input lines &#60 10000 characters
-USAGE:
- 	xe-math_div1 [infile] [options]
-VALID OPTIONS (defaults) in []:
-	-cy column containing data (0=none, -1=all) [1]
-	-v value to divide this column by [1]
-	-long: assume input is long-integers (0=NO 1=YES) [0]
-EXAMPLES:
-	cat datafile.txt | xe-math_mod1 stdin div -c  1 -v 3.14
-	xe-math_div1 datafile.txt -cy 2 -v 7
-----------------------------------------------------------------------
-
-</blockquote></pre>
-
 <font color="Black"><h3 id="code-xe-math_doublet"><a href="#CODE">&#8679</a> xe-math_doublet</h3></font>
 [<a href="#tag-math">math</a>]<br>
 <blockquote><pre>
@@ -10577,43 +10621,26 @@ OUTPUT:
 ----------------------------------------------------------------------
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-math_mult1"><a href="#CODE">&#8679</a> xe-math_mult1</h3></font>
+<font color="Black"><h3 id="code-xe-math_mod1"><a href="#CODE">&#8679</a> xe-math_mod1</h3></font>
 [<a href="#tag-math">math</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-math_mult1 v 2: 27.November.2017 [JRH]
+xe-math_mod1 v 1: 6 September 2020 [JRH]
 ----------------------------------------------------------------------
-Multiply a column of data by a number
-Non-numeric fields will not be modified
+Modify numbers in a table column
+- No line-length limits
+- Non-numeric fields will not be modified
 USAGE:
- 	xe-math_mult1 [infile|stdin] [arguments]
-Valid arguments - defaults in []:
-	-cy column containing data (0=none, -1=all) [1]
-	-v value to multiply this column by [1]
-	-long: assume input and value are long-integers (0=NO 1=YES) [0]
+ 	xe-math_mod1 [in] [mode] [options]
+	[in]: file name or "stdin"
+	[mode]: add,sub,mul,div,pow or abs
+VALID OPTIONS: defaults in []
+	-c column containing data (0=none, -1=all) [1]
+	-v value to apply using [mode] [0]
+	-long: assume input is long-integers (0=NO 1=YES) [0]
 Examples:
-	cat datafile.txt | xe-math_mod1 stdin mult -c  1 -v 0.001
-	xe-math_mult1 datafile.txt -cy 2 -v 100
-----------------------------------------------------------------------
-
-</blockquote></pre>
-
-<font color="Black"><h3 id="code-xe-math_power1"><a href="#CODE">&#8679</a> xe-math_power1</h3></font>
-[<a href="#tag-math">math</a>]<br>
-<blockquote><pre>
-----------------------------------------------------------------------
-xe-math_power1 v 4: 27.November.2017 [JRH]
-----------------------------------------------------------------------
-Raise a column of data by a power eg. square (2), cube (3), square-root (0.5)
-Non-numeric fields will not be modified
-USAGE:
- 	xe-math_power1 [infile|stdin] [arguments]
-Valid arguments - defaults in []:
-	-cy column containing data (0=none, -1=all) [1]
-	-v power to raise this column by [0]
-Examples:
-	cat datafile.txt | xe-math_power1 stdin -cy 1 -v 3
-	xe-math_power1 datafile.txt -cy 2 -v 0.5
+	xe-math_mod1 datafile.txt add -c 2 -v 100
+	cat datafile.txt | xe-math_mod1 stdin add -c 1 -v 25
 ----------------------------------------------------------------------
 
 </blockquote></pre>
@@ -10851,7 +10878,7 @@ OUTPUT:
 </blockquote></pre>
 
 <font color="Black"><h3 id="code-xe-matrixmod1"><a href="#CODE">&#8679</a> xe-matrixmod1</h3></font>
-[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-dt.matrix">dt.matrix</a>][<a href="#tag-transform">transform</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
 xe-matrixmod1 v 21.October.2017 [JRH]
@@ -11072,8 +11099,8 @@ VALID OPTIONS:
 		 5: apply Fisher transform for Pearson's "r"
 		 6: apply reverse Fisher transform for Pearson's "r"
 		 7: log-transform input (log base-10)
-	-start: start of normalization range (-n options 1-4) [-1]
-	-stop:  end of normalization range (-n options 1-4) [-1]
+	-start: start of normalization range (from 0, for options 1-4) [-1]
+	-stop:  end of normalization range (from 1, for options 1-4) [-1]
 		NOTE: stop = sample just AFTER the last to be included
 		-1 = auto (first valid sample, respectively
 			= first valid sample for start
@@ -11411,7 +11438,7 @@ OUTPUT:
 [<a href="#tag-plot">plot</a>][<a href="#tag-dt.matrix">dt.matrix</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-plotmatrix1 v 23: 2.April.2020 [JRH]
+xe-plotmatrix1 15.September.2020 [JRH]
 ----------------------------------------------------------------------
 Produces a postscript "heat-map" plot of a matrix of data
 If some rows of input have fewer values, the blocks on that row will 
@@ -11433,6 +11460,7 @@ VALID OPTIONS (default in [])...
 		magma: black-purple-cream
 		inferno: black-purple-orange-paleyellow
 	-paln: number of colours in the palette [99]
+	-palrev: reverse order of pallette colours (1=YES,0=NO) [0]
 	-xstep -ystep: set interval between matrix values [nan,nan]
 		- an alternative methods for data range-setting
 		- if "nan", uses -x/ymin and -x/ymax instead
@@ -11470,7 +11498,7 @@ OUTPUT: postscript file
 [<a href="#tag-plot">plot</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-plotmerge1 v 1.6: 29.September.2017 [JRH]
+xe-plotmerge1 v 1.6: 23.August.2020 [JRH]
 ----------------------------------------------------------------------
 Merge postscript plot files created by _xe-plottable1
 USAGE:
@@ -11517,7 +11545,7 @@ OUTPUT:
 [<a href="#tag-plot">plot</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-plottable1 5.May.2020 [JRH]
+xe-plottable1 15.September.2020 [JRH]
 ----------------------------------------------------------------------
 Produces a postscript plot of data
 Non-numeric values will be ignored
@@ -11553,6 +11581,8 @@ VALID OPTIONS (default in [])...
 	        plasma: blue-purple-yellow
 	        magma: black-purple-cream
 	        inferno: black-purple-orange-paleyellow
+	-palrev: reverse order of pallette colours (1=YES,0=NO) [0]
+	    NOTE: this does not apply to the default palette
 	-bw: box/bar width, as a fraction of xint (above) [0.75]
 	-ew: error-bar width, fraction of xint (above) [0.375]
 	-bz: boxes and histograms extend to zero? (1=YES,0=NO)[1]
@@ -12019,7 +12049,7 @@ Apply boxcar-averaging to data
 Sliding window averages values to either side of central data-point
 USAGE: xe-smoothbox1 [infile] [s]
 	[infile]: data file or stdin
-	[s]: samples either side of data to use for averaging [140253264228439]
+	[s]: samples either side of data to use for averaging [139917524107351]
 		- total size of averaging window = s+s+1
 EXAMPLES:
 	xe-smoothbox1 data.txt 5
@@ -14420,6 +14450,33 @@ RETURN VALUE:
 
 </blockquote></pre>
 
+<font color="Black"><h3 id="code-xf_demean2_f"><a href="#CODE">&#8679</a> xf_demean2_f</h3></font>
+[<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-filter">filter</a>]<br>
+<blockquote><pre>DESCRIPTION:
+	- for a point in a series, return the point minus the mean of a window centred on the point
+	- acts as a high-pass filter
+	- can be called iteratively to de-mean an entire series
+
+USES:
+	- eliminate long-term trends in the data
+	- adaptive "de-meaning", where the window varies according to the position n the array
+
+DEPENDENCIES:
+	None
+
+ARGUMENTS:
+	float *input   : input: pointer to array of values
+	long nn        : length of input
+	long halfwin   : half-length of averaging window, must be &#620
+	long index     : index to position in input on which the window is centred
+	char *message  : feedback returned to the calling function, which should allocate memory for this array (256 characters)
+
+RETURN VALUE:
+	success: de-meaned value
+	error: NAN
+	message array will hold explanatory text (if any)
+</blockquote></pre>
+
 <font color="Black"><h3 id="code-xf_density1_l"><a href="#CODE">&#8679</a> xf_density1_l</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-stats">stats</a>][<a href="#tag-time">time</a>]<br>
 <blockquote><pre>DESCRIPTION:
@@ -15794,20 +15851,20 @@ DEPENDENCIES:
 	xf_lineparse2()
 
 ARGUMENTS:
-	double *data : input holding data
-	size_t nn : size of data array
-	double interval:  the interval between samples, for integrating area
-	double *result : pre-allocated array to hold results - must allow at least 6 elements
-	char *message : pre-allocated array to hold error message
+	char *line1       ; input: the input line
+	char *d1          : input: the delimiter separating words in line1  - typically "\t" (tab)
+	char *keys1       : input: a list of keywords to find in line1
+	char *d2          : input: the delimiter for list keys1 - typically ","
+	long *nkeys1      : output: the number of keys found in line1 (pass as address to variable)
+	char *message     : output: pre-allocated array to hold error message
 
 RETURN VALUE:
-	0 on success, -1 on error
-	result array will hold statistics
+	pointer to array of indices to the keys (key-column), NULL error
+	nkeys1 will be updates to say how many of the keys were found in the line
 	message array will hold explanatory text (if any)
 
 SAMPLE CALL:
-	x= xf_auc1_d(data, nn, interval, result, );
-	if(x!=0) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	
 
 &#60TAGS&#62 string &#60/TAGS&#62
 </blockquote></pre>
@@ -18172,6 +18229,7 @@ ARGUMENTS:
 	float *blue   : as above for blue
 	long nn       : size of the array to fill (number of colours)
 	char *palette : name of the palette (grey,rainbow,viridis,plasma,magma,inferno)
+	int rev       : reverse the order of palette colours (1=YES,0-NO)
 
 RETURN VALUE:
 	0 on success, -1 on error (invalid palette)
@@ -18182,7 +18240,7 @@ SAMPLE CALL:
 	#define N 100
 	int ii; float red[N],green[N],blue[N];
 	xf_palette7(red,green,blue,N,"rainbow");
-	for(ii=0;ii&#60N;ii++)printf("%g\t%g\t%g\n",red[ii]),green[ii],blue[ii]);
+	for(ii=0;ii&#60N;ii++)printf("%g\t%g\t%g\n",red[ii]),green[ii],blue[ii],0);
 
 TO BUILD EXTRA PALLETES USING R
 	1. in R, print a list of 7 hex values spanning the range

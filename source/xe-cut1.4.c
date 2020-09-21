@@ -149,6 +149,7 @@ int main (int argc, char *argv[]) {
 
  		/* SKIP BLANK OR COMMENTED LINES */
 		if(setskip==1){ if(line[0]=='#' || strlen(line)<2) continue; }
+		
 		/* IF THIS IS THE FIRST LINE, LOOK FOR THE LABELS (KEYS) */
 		if(nn++==0 && setnumeric==0) {
 			/* break up the original line using NULL characters at delimiters, and find indices to the start of each "word" */

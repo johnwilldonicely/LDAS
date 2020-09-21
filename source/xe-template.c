@@ -20,6 +20,7 @@ v 1: 14.August.2012 [JRH]
 
 /* external functions start */
 void xf_err1(char *setfunc, char *setmsg, int space);
+long *xf_getkeycol(char *line1, char *d1, char *keys1, char *d2, long *nkeys1, char *message);
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse1(char *line,long *nwords);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
@@ -43,9 +44,13 @@ double xf_rand1_d(double setmax);
 
 int main (int argc, char *argv[]) {
 
-	/* general variables */
-	char outfile[256],*line=NULL,*templine=NULL,word[256],*pline,*pcol,message[MAXLINELEN];
-	long int ii,jj,kk,ll,mm,nn,nbad,nchars=0,maxlinelen=0,prevlinelen=0;
+	/* line-reading and word/column-parsing */
+	char *line=NULL,*templine=NULL,*pline=NULL,*pword=NULL;
+	long *keycols=NULL,nkeys=0,*iword=NULL,nlines=0,nwords=0,maxlinelen=0,prevlinelen=0;
+
+	/*  common-use variables */
+	char message[MAXLINELEN];
+	long int ii,jj,kk,ll,mm,nn;
 	int v,w,x,y,z,col,colmatch;
 	int vector[] = {1,2,3,4,5,6,7};
 	float a,b,c,d,result_f[64];
@@ -57,9 +62,8 @@ int main (int argc, char *argv[]) {
 	size_t sizeoftempline=sizeof(*templine);
 
 	/* program-specific variables */
-	char *words=NULL;
-	int lenwords=0,*count,grp,bin,bintot,setrange=0,colx=1,coly=2;
-	long nwords=0,*iword=NULL,*start=NULL,*start1=NULL,*stop1=NULL,*list=NULL;
+	int *count,grp,bin,bintot,setrange=0,colx=1,coly=2;
+	long *start=NULL,*start1=NULL,*stop1=NULL,*list=NULL;
 	long *matrix=NULL;
 	off_t sizeofdata,datasize,startbyte,ntoread,nread,bytestoread,parameters[8];
 	float *data1=NULL;
@@ -70,7 +74,7 @@ int main (int argc, char *argv[]) {
 	struct tm *tstruct1;
 
 	/* arguments */
-	char *infile=NULL,*setlist=NULL;
+	char *infile=NULL,*outfile=NULL,*setkeys=NULL;
 	int setformat=1,setbintot=25,coldata=1,setverb=0,sethead=0;
 	long setcolx=1,setcoly=2;
 	float setlow=0.0,sethigh=0.0,setbinwidth=0.0;
@@ -139,7 +143,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-cx")==0)   setcolx=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-cy")==0)   setcoly=atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-t")==0)    setformat=atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-ch")==0)   words=argv[++ii];
+			else if(strcmp(argv[ii],"-keys")==0) setkeys=argv[++ii];
 			else if(strcmp(argv[ii],"-verb")==0) setverb=atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
@@ -147,24 +151,6 @@ int main (int argc, char *argv[]) {
 	setcolx--;
 	setcoly--;
 
-
-
-// /* BUILD THE LIST OF KEYWORDS - THIS IS FOR KEYWORD-SELECTION OF COLUMNS */
-// char **key=NULL;
-// long *keycol=NULL,*start=NULL,nwords,nkeys,nkeysm1,keycolmax;
-// setkeys= argv[2];
-
-// /* key is an array of pointers to portions of setkeys, and hence to the list of keywords stored in argv[] */
-// if((key=(char **)realloc(key,(strlen(setkeys)*sizeof(char *))))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-// /* build a list if indices to the start of each word in the list, and convert the commas to NULLS ('\0') */
-// nkeys=0; start= xf_lineparse2(setkeys,",",&nkeys);
-// /* point each key to the portion of setkeys containing a keyword */
-// for(jj=0;jj<nkeys;jj++) key[jj]=&setkeys[start[jj]];
-// /* ASSIGN SUFFICIENT MEMORY FOR KEY COLUMNS */
-// if((keycol=(long *)realloc(keycol,(nkeys)*sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-// for(ii=0;ii<nkeys;ii++) keycol[ii]=-1;
-// /* IF COLUMN DEFINITION IS NUMERIC, CONVERT LABELS TO NUMBERS... */
-// if(setnumeric==1) for(ii=0;ii<nkeys;ii++) keycol[ii]= atol(setkeys+start[ii])-1;
 
 
 /********************************************************************************/
@@ -177,14 +163,18 @@ int main (int argc, char *argv[]) {
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
 	sizeofdata= sizeof(*data1);
-	nn=mm=0;
+	nlines=mm=nn=0; // nlines= total lines read (for reporting), mm= nonblank/noncomment lines, nn= data stored
+
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
+		// increment line-counter, for reporting
+		nlines++;
+		// preserve leading comments and blank lines if required
+		if(sethead==1) { if(line[0]=='#'||strlen(line)<=1) { printf("%s",line); continue;}}
+		// increment non-comment/blank line counter, to detect column-header line
+		mm++;
 
-		/* PRESERVE HEADER AND LEADING BLANK LINES IF REQUIRED */
-		if(sethead==1) { if(nn==0) { printf("%s",line); if(strlen(line)>1) nn++; continue; }}
-
-		/* MAKE A TEMPORARY COPY OF THE LINE BEFORE PARSING IT */
+		/* OPTIONAL: MAKE A TEMPORARY COPY OF THE LINE BEFORE PARSING IT */
 		if(maxlinelen>prevlinelen) {
 			prevlinelen= maxlinelen;
 			templine= realloc(templine,(maxlinelen+1)*sizeoftempline);
@@ -192,42 +182,39 @@ int main (int argc, char *argv[]) {
 		}
 		strcpy(templine,line);
 
-		// /* IF THIS IS THE FIRST LINE, LOOK FOR THE LABELS (KEYS) */
-		// if(nn++==0 && setnumeric==0) {
-		// 	start= xf_lineparse2(line,delimiters,&nwords);
-		// 	/* look for matches between words and keys */
-		// 	for(ii=0;ii<nwords;ii++) {
-		// 		pword= (line+start[ii]);
-		// 		for(jj=0;jj<nkeys;jj++) if(strcmp(key[jj],pword)==0) keycol[jj]= ii;
-		// 	}
-		// 	/* readjust key columns - drop if it doesn't exist - exit if no key columns were found */
-		// 	mm=nkeys; kk=nkeys-1; for(ii=0;ii<nkeys;ii++) { if(keycol[ii]<0) { mm--; for(jj=ii;jj<kk;jj++) { keycol[jj]=keycol[(jj+1)]; }}}
-		// 	nkeys=mm; if(nkeys<1) exit(0);
-		// 	/* output a new header line containing the labels that matched keys */
-		// 	printf("%s",line+start[keycol[0]]);
-		// 	for(ii=1;ii<nkeys;ii++) printf("%s%s",delimout,line+start[keycol[ii]]);
-		// 	printf("\n");
-		// 	nn++;
-		// }
+		/* ASSIGN KEYCOL NUMBERS: THIS IS FOR KEYWORD-SELECTION OF COLUMNS */
+		if(mm==1) {
+			keycols= xf_getkeycol(line,"\t",setkeys,",",&nkeys,message);
+			if(keycols==NULL) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
+			if(setverb==999) for(ii=0;ii<nkeys;ii++) printf("%ld: keycols=%ld setkeys=%s\n",ii,keycols[ii],setkeys);
+			//TEST: printf("LINE: %s SETKEYS: %s\n",line,setkeys);
+			continue;
+		}
 
 		/* PARSE NON-HEADER LINES (TWO OPTIONS) */
 		// iword= xf_lineparse1(line,&nwords); // whitespace delimited, multiple delimiters treated as one
 		iword= xf_lineparse2(line,"\t",&nwords); // user-defined delimited
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
 		/* make sure required columns are present */
-		if(nwords<setcolx) continue;
+		if(nwords<nkeys) continue;
+
+		/* STORE A DATAUM FROM THE COLUMN DEFINED BY THE FIRST KEY (OR OTHER ANY OTHER USeR VARIABLE IF YOU PREFER) */
+		/* this example requires the column contents to nbe numeric */
 		/* make sure content in x- and y-columns is numeric */
-		if(sscanf(line+iword[setcolx],"%f",&a)!=1 || !isfinite(a)) continue;
+		if(sscanf(line+iword[keycols[0]],"%f",&a)!=1 || !isfinite(a)) continue;
 		/* dynamically allocate memory */
 		data1= realloc(data1,(nn+1)*sizeofdata);  // if not using preallocated size, use sizeof(*data1)
 		if(data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 		/* store the value */
 		data1[nn]= a;
-		/* increment the counter */
+
+		/* INCREMENT THE STORED-DATA */
 		nn++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	//TEST for(ii=0;ii<nn;ii++) printf("data[%ld]= %g\n",ii,data[ii]);
+	//TEST
+	printf("nn=%ld\n",nn);
+	for(ii=0;ii<nn;ii++) printf("data1[%ld]= %g\n",ii,data1[ii]);
 	goto END;
 
 
@@ -299,10 +286,10 @@ int main (int argc, char *argv[]) {
 // 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 // 		if(line[0]=='#') continue;
 // 		pline=line; colmatch=2; // number of columns to match
-// 		for(col=1;(pcol=strtok(pline," ,\t\n\r"))!=NULL;col++) {
+// 		for(col=1;(pword=strtok(pline," ,\t\n\r"))!=NULL;col++) {
 // 			pline=NULL;
-// 			if(col==colx && sscanf(pcol,"%f",&a)==1) colmatch--; // store value - check if input was actually a number
-// 			if(col==coly && sscanf(pcol,"%f",&b)==1) colmatch--; // store value - check if input was actually a number
+// 			if(col==colx && sscanf(pword,"%f",&a)==1) colmatch--; // store value - check if input was actually a number
+// 			if(col==coly && sscanf(pword,"%f",&b)==1) colmatch--; // store value - check if input was actually a number
 // 		}
 // 		if(colmatch!=0 || !isfinite(aa) || !isfinite(bb)) continue;
 // 		if((xdatf=(float *)realloc(xdatf,(nn+1)*sizeoffloat))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
@@ -409,10 +396,10 @@ exit(0);
 	// iwords= xf_lineparse2(line,"\t ,",&nwords);
 
 	// /* PARSE A COMMA-SEPARATED COMAND LINE LIST INTO AN ARRAY */
-	// iword= xf_lineparse2(setlist,",",&nwords);
+	// iword= xf_lineparse2(setkeys,",",&nwords);
 	// xdat=realloc(xdat,nwords*sizeof(float));
 	// if(xdat==NULL) {{fprintf(stderr,"\n--- Error[%s]: memory allocation error\n\n",thisprog);exit(1);}}
-	// for(ii=0;ii<nwords;ii++) xdat[ii]=atof(setlist+iword[ii]);
+	// for(ii=0;ii<nwords;ii++) xdat[ii]=atof(setkeys+iword[ii]);
 	// for(ii=0;ii<nwords;ii++) printf("xdat[%ld]=%g\n",ii,xdat[ii]);
 
 	// /* FIND (EXACT-MATCH) A WORD IN A LINE */
@@ -527,18 +514,10 @@ goto END;
 /* CLEANUP AND EXIT */
 /********************************************************************************/
 END:
-	if(matrix!=NULL) free(matrix);
 	if(data1!=NULL) free(data1);
-	if(xdat!=NULL) free(xdat);
-	if(ydat!=NULL) free(ydat);
-	if(xdatf!=NULL) free(xdatf);
-	if(ydatf!=NULL) free(ydatf);
-	if(words!=NULL) free(words);
-	if(iword!=NULL) free(iword);
 	if(line!=NULL) free(line);
-	if(list!=NULL) free(list);
-	if(start==NULL) free(start);
 	if(templine!=NULL) free(templine);
-	if(setlist!=NULL) free(setlist);
+	if(keycols!=NULL) free(keycols);
+	if(iword!=NULL) free(iword);
 	exit(0);
 }
