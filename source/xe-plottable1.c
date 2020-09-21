@@ -44,7 +44,6 @@ Absolute quantities (insensitive to scaling)
 /* external functions start */
 double xf_trimdigits_d(double number_to_trim, int digits_to_keep);
 char* xf_strsub1 (char *source, char *str1, char *str2);
-long xf_binpeak4(double *time, double *data , long n, double winwidth); // not currently used - to allow future downsampling
 double xf_round1_d(double input, double setbase, int setdown);
 int xf_precision_d(double number, int max);
 double *xf_unique_d(double *data, long *nn, char *message);

@@ -383,7 +383,7 @@ exit(0);
 	// if((data= realloc(data,nn*sizeof(*data)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
 
 /********************************************************************************/
-/* STING OPERATIONS */
+/* STRING OPERATIONS */
 /********************************************************************************/
 
 	// /* SIMPLE STRING CONCATENATION */
