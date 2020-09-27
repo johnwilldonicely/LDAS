@@ -2,7 +2,7 @@
 <TAGS>dt.matrix</TAGS>
 
 DESCRIPTION:
-	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimentional matrix
+	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimensional matrix
 	- unlike xf_matrixrotate1_f, makes an internal copy of data and modifies the original
 	- therefore, safer for memory management and nested functions, but has a heavier computational load
 USES:
@@ -35,7 +35,7 @@ int xf_matrixrotate2_f(float *data1, long *width, long *height, int r) {
 	float *data2=NULL;
 
 	/* MAKE SURE ARRAY CONTAINS ELEMENTS */
-	if(nx1<1||nx1<1) return(-1);
+	if(nx1<1||ny1<1) return(-1);
 
 	/* DETERMINE THE HEIGHT (ny2) AND WIDTH (nx2) OF THE ROTATED MATRIX */
 	if(r==90 || r==270 || r==-90 || r==-270) { nx2=ny1; ny2=nx1; }

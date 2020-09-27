@@ -3,8 +3,14 @@
 
 DESCRIPTION:
 	Rotate a 1-dimensional array of numbers  meant to be interpreted as a 2-dimensional matrix
-	- unlike xf_matrixrotate1_d, makes an internal copy of data and modifies the original
+	- makes an internal copy of data, modifies it, and copies it back to the original
 	- therefore, safer for memory management and nested functions, but has a heavier computational load
+
+	- Example - 90 degree rotation
+		1 2 3                7 4 1
+		4 5 6  --becomes-->  8 5 2
+		7 8 9                9 6 3
+
 USES:
 	- image or map rotation
 	- matrix algebra
@@ -13,40 +19,41 @@ DEPENDENCIES:
 	None
 
 ARGUMENTS:
-	double *data1 : input, pointer to array of numbers representing the original matrix
+	long *data1   : input/output - pointer to array of numbers representing the original matrix
 	long *nx1     : input/output - width of the matrix, to be modified depending on rotation
-	long *ny1     : input/output- height of the matrix, to be modified depending on rotation
+	long *ny1     : input/output - height of the matrix, to be modified depending on rotation
 	int r         : input - rotation (90,180,270,-90,-180,-270)
 
 RETURN VALUE:
 	0 on success
-	-1 for invalid arguments
-	-2 for memory allocation error
+	-1 for invalid size of input
+	-2 for invalid arguments
+	-3 for memory allocation error
 	NOTE: nx1 and ny1 will be also modified according to the rotation
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-int xf_matrixrotate2_d(double *data1, long *width, long *height, int r) {
+int xf_matrixrotate2_l(long *data1, long *width, long *height, int r) {
 
 	long x1,y1,xmax1,ymax1,index1;
 	long ii,jj,kk,nn,x2,y2,nx1=*width,ny1=*height,nx2,ny2,index2;
-	double *data2=NULL;
+	long *data2=NULL;
 
 	/* MAKE SURE ARRAY CONTAINS ELEMENTS */
-	if(nx1<1||ny1<1) return(-1);
+	if(nx1<1||nx1<1) return(-1);
 
 	/* DETERMINE THE HEIGHT (ny2) AND WIDTH (nx2) OF THE ROTATED MATRIX */
 	if(r==90 || r==270 || r==-90 || r==-270) { nx2=ny1; ny2=nx1; }
 	else if(r==180||r==-180) { nx2=nx1; ny2=ny1; }
 	/* IF ROTATION IS NOT A MULTIPLE OF 90, CHANGE NOTHING */
-	else return(-1);
+	else return(-2);
 
 	/* ALLOCATE MEMORY FOR THE NEW ROTATED MATRIX */
 	nn= nx2*ny2;
 	data2= realloc(data2,nn*sizeof(*data2));
-	if(data2==NULL) return(-2);
+	if(data2==NULL) return(-3);
 
 	/* CALCULATE HIGHEST VALUE OF ROW & COLUMN - FOR SPEED IN THE NEXT STEP */
 	xmax1=nx1-1; ymax1=ny1-1;

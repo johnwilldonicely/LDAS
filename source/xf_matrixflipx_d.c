@@ -2,7 +2,7 @@
 <TAGS>dt.matrix</TAGS>
 
 DESCRIPTION:
-	Flip a matrix in the y-dimaension
+	Flip a matrix in the y-dimension
 
 	Example: this matrix...
 
@@ -56,7 +56,7 @@ double *xf_matrixflipx_d(double *data1, long nx, long ny) {
 
 
 	/* MAKE SURE ARRAY CONTAINS ELEMENTS */
-	if(ny<1||nx<1) return(data1);
+	if(ny<1||ny<1) return(data1);
 
 	/* ALLOCATE MEMORY FOR THE NEW ROTATED MATRIX */
 	data2=(double *)realloc(data2,nx*ny*sizeof(double));
