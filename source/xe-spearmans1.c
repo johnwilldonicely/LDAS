@@ -45,7 +45,7 @@ int main (int argc, char *argv[]) {
 	double rho=NAN,fstat,tstat;
 
 	/* arguments */
-	int setverb=0;
+	int setverb=1;
 	long setcolx=1,setcoly=2;
 
 	if((line=(char *)realloc(line,6))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
@@ -152,12 +152,13 @@ int main (int argc, char *argv[]) {
 	fstat= tstat*tstat;
 	prob= xf_prob_F((float)fstat,1,(nn-2));
 
-
-	printf("rho= %g\n",rho);
-	printf("n= %ld\n",nn);
-	printf("F= %g\n",fstat);
-	printf("prob= %.6f\n",prob);
-
+	if(setverb==0) printf("%ld\t%.5f\t%.5f\t%.5f\n",nn,rho,fstat,prob);
+	else {
+		printf("rho= %g\n",rho);
+		printf("n= %ld\n",nn);
+		printf("F= %g\n",fstat);
+		printf("prob= %.6f\n",prob);
+	}
 
 END:
 	if(xdatf!=NULL) free(xdatf);
