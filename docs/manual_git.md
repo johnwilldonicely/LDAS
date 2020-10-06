@@ -48,7 +48,7 @@ cd LDAS
 # CLONING AN EXISTING REPO - requires SSH setup as above
 
 	$ cd [directory_where_all_projects_are_kept]]
-        $ git clone http://github.com/johnwilldonicely/LDAS.git
+        $ git clone http://github.com/feathercode/LDAS.git
 	$ cd LDAS
 
 
@@ -72,7 +72,7 @@ cd LDAS
 
 ## add remote directory
 
-	$ git remote add origin https://github.com/[copmpany]/[repo].git
+	$ git remote add origin https://github.com/[company]/[repo].git
 
 ## specify URL for SSH-key authentication 
 
