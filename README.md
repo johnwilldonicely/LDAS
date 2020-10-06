@@ -1,9 +1,9 @@
-![logo](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_logo_simple.jpg)
+![logo](https://raw.githubusercontent.com/feathercode/LDAS/master/docs/figures/LDAS_logo_simple.jpg)
 
 # Contents
 [* INTRODUCTION](#introduction) [* INSTALLATION](#installation) [* QUICKSTART TEST](#quickstart-test) [* MANUALS](#manuals-and-program-tags) [* GUIDELINES](#use-guidelines) [* EXPERIMENTAL DESIGN](#experimental-design) [* FILE TYPES](#file-types) [* PLOTS ](#plots)
 
-![examples](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
+![examples](https://raw.githubusercontent.com/feathercode/LDAS/master/docs/figures/LDAS_Sample_Plots_2.png)
 
 # Introduction
 * If you're struggling to process the volumes of data you're generating, or if you need to automate analysis and report production, then LDAS is right for you. Designed with speed and customization in mind, LDAS offers a number of advantages:
@@ -85,7 +85,7 @@ It's always a good idea to make sure your Linux components are up to date before
 
 ### 2. Download the install script: *do this in your home directory*:
 ```
- 	$ wget https://raw.github.com/johnwilldonicely/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
+ 	$ wget https://raw.github.com/feathercode/LDAS/master/LDAS_INSTALL.sh -O LDAS_INSTALL.sh
 ```
 
 ### 3. Make the script executable:
@@ -104,7 +104,7 @@ Example install commands:
 	$ ./LDAS_INSTALL.sh global
 	$ ./LDAS_INSTALL.sh global --zip LDAS-2020_01_20.zip
 ```
-Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/johnwilldonicely/LDAS/archive/master.zip
+Note (as in the 3rd example above) that you can install from a previously-saved zip archive. This can be useful if you need to "roll back" to a previous LDAS version, or if you need to install on a machine which is not networked. You can download a zipped archive of LDAS here: https://github.com/feathercode/LDAS/archive/master.zip
 
 Be sure to check for Warnings and Errors when the installation completes. If there were any, There are a few things to check, including:
 * Are you using the most up-to-date installer?
@@ -241,7 +241,7 @@ $ cut -f 2 temp_xs-makesignal1 |
 ```
 	$ evince temp_xe-plotmatrix1.ps &
 ```
-![plotmatrix](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/sample_plotmatrix.jpg)
+![plotmatrix](https://raw.githubusercontent.com/feathercode/LDAS/master/docs/figures/sample_plotmatrix.jpg)
 
 ################################################################################
 # USE GUIDELINES
@@ -399,8 +399,8 @@ The code for LDAS programs and scripts usually has an XML "tag" section defining
 
 A full description of all LDAS components can be found in docs/PROGTAG.html
 
-* [click to preview](https://htmlpreview.github.io/?https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
-* [right-click to download](https://raw.github.com/johnwilldonicely/LDAS/master/docs/PROGTAG.html)
+* [click to preview](https://htmlpreview.github.io/?https://raw.github.com/feathercode/LDAS/master/docs/PROGTAG.html)
+* [right-click to download](https://raw.github.com/feathercode/LDAS/master/docs/PROGTAG.html)
 
 
 ### Preprocessing scripts for particular acquisition systems
@@ -760,7 +760,7 @@ The default palette is a 32-colour repeating scale with 8 colours in each repeat
 - most colours except purple are represented
 - for groups 0-max, colours range from blue-cyan-green-yellow-orange-red  
 
-![LDAS colours - rainbow](https://raw.githubusercontent.com/johnwilldonicely/LDAS/master/docs/figures/LDAS_colours_rainbow.jpg)  
+![LDAS colours - rainbow](https://raw.githubusercontent.com/feathercode/LDAS/master/docs/figures/LDAS_colours_rainbow.jpg)  
 
 #### The Viridis palettes (-pal viridis, plasma, magma or inferno)
 - [Link to source](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html)
@@ -784,7 +784,7 @@ Colours are assigned based on the group for each case, which is determined by th
  2. for all other palettes, assignment is as per b or c, above. The -colour option is disabled.
 
 
-### Plotting tools 
+### Plotting tools
 
 
 

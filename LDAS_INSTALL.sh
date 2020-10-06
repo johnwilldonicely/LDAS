@@ -25,8 +25,8 @@ start_time=$(date +'%s.%3N')
 date0=$(date)
 let previnstall=0
 
-setsource="https://github.com/johnwilldonicely/LDAS/"
-setwget="https://raw.github.com/johnwilldonicely/LDAS/master/"
+setsource="https://github.com/feathercode/LDAS/"
+setwget="https://raw.github.com/feathercode/LDAS/master/"
 listdep="zip unzip wget gcc git ghostscript dos2unix nano pandoc parallel"
 
 setscope="local"
@@ -529,28 +529,28 @@ gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
 
 ################################################################################
-# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES 
+# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES
 ################################################################################
 if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
-		
+
 	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
 	com1='# LDAS: config display for WSL'
 	if ! grep -qEis "$com1" $setrc ; then
-		echo -e "\n$com1" >> $setrc 
+		echo -e "\n$com1" >> $setrc
 		echo -e "[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0" >> $setrc
-# ??? the following is for Ubuntu only - prevents various x11 errors 
+# ??? the following is for Ubuntu only - prevents various x11 errors
 # we probably should find a solution for Fedora/Redhat
 		if [ "$distro" == "Ubuntu" ] ; then
 			echo -e "dbus-launch --exit-with-x11" >> $setrc
 			echo -e "sudo dbus-uuidgen --ensure" >> $setrc
-		fi 
-	fi 
+		fi
+	fi
 fi
 
 
 ################################################################################
-# UPDATE TAGS 
+# UPDATE TAGS
 ################################################################################
 echo -e "\n--------------------------------------------------------------------------------"
 echo -e "UPDATING TAGS-SUMMARY FILE..."
