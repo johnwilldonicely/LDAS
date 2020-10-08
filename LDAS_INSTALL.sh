@@ -529,9 +529,17 @@ gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
 
 ################################################################################
-# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM, SET THE DISPLAY PROPERTIES
+# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM... 
+# - set SET THE DISPLAY PROPERTIES
+# install extra pandocd dependencies 
 ################################################################################
 if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+
+	echo -e "\n--------------------------------------------------------------------------------"
+	echo -e " - installing WSL dependencies for pandoc"
+	sudo apt-get install -y texlive-latex-base
+	sudo apt-get install -y texlive-fonts-recommended
+	sudo apt-get install -y texlive-xetex
 
 	echo -e "\n--------------------------------------------------------------------------------"
 	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
