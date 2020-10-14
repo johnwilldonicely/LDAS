@@ -286,6 +286,9 @@ make
 echo $USER
 # list directories only
 ls -d */
+# case-insensitive list using regex
+ls *[Nn]ame*
+
 # FOR LOOPS
 for i in 1 2 3 4 5 ; do echo $i ; done
 for (( i=1 ; i<=5 ; i++ )) do echo $i ; done
@@ -436,7 +439,7 @@ sed -i 's/OLD/NEW/g' $infile
 cat $infile | sed -e 's/OLD/NEW/g'
 
 # STRING INSERTION WITH SED - ADD A CHARACTER TO EVERY WORD
-seq 1 10 | sed 's/\b\w/aloha-&/g' 
+seq 1 10 | sed 's/\b\w/aloha-&/g'
 
 # USING PASTE TO TRANSPOSE A COLUMN INTO A ROW
 paste -s [input]
@@ -444,10 +447,13 @@ paste -s [input]
 # PRINT A LIST TO PAIRS OF COLUMNS
 printf "%s\t%s\n" $(cat data.txt)
 
+#"
 
 # SET COLOUR FOR BASH ECHO OUTPUT
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+
 
 printf "I ${RED}love${NC} Stack Overflow\n"
 
