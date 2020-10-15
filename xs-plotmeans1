@@ -123,6 +123,7 @@ if [ "$setylabel" == "" ] ; then setylabel="Mean $ycol" ; fi
 ################################################################################
 # GENERATE THE MEANS-PLOT
 ################################################################################
+exit
 # note that only this plot has a frame, labels and title
 xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
 	xe-statsgrp1 stdin |

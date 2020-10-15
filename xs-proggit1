@@ -100,9 +100,9 @@ elif [ $mode == "status" ] ; then
 		"
 	fi
 
-	echo "	"
-	echo "	REMOTE CHANGES - pull to resolve these first"
-	echo "	--------------------------------------------------------------------------------"
+	echo ""
+	echo "REMOTE CHANGES - pull to resolve these first"
+	echo "--------------------------------------------------------------------------------"
 	echo -en $RED
 	git fetch origin
 	git diff HEAD origin/master --compact-summary |
@@ -116,8 +116,8 @@ elif [ $mode == "status" ] ; then
 	}'
 	echo -e "$NC"
 
-	echo "	LOCAL CHANGES - push to update remote origin"
-	echo "	--------------------------------------------------------------------------------"
+	echo "LOCAL CHANGES - push to update remote origin"
+	echo "--------------------------------------------------------------------------------"
 	git -c color.status=always status | awk 'NF>0{print "\t"$0}' | grep -v '(use'
 	echo
 

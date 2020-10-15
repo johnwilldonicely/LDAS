@@ -28,11 +28,6 @@ infile=$1
 if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
 if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
 
-################################################################################
-# GET CONVERSION FACTOR USED FOR ERROR-BARS
-################################################################################
-xfactor=$(grep /xfactor $infile | tr '{' ' ' | tr '}' ' ' | cut -f 3 -d " ")
-yfactor=$(grep /yfactor $infile | tr '{' ' ' | tr '}' ' ' | cut -f 3 -d " ")
 
 ################################################################################
 # GET THE LIST OF GROUP-TAGS, REMOVING LEADING "%"
@@ -52,11 +47,12 @@ for g in $glist ; do
 	# extract the values for points (P), lines (L), y-errorbars (E) and x-errorbars (F)
 	awk '$3=="P"{print $1,$2}' $tempfile.0 > $tempfile".P"
 	awk '$3=="L"{print $1,$2}' $tempfile.0 > $tempfile".L"
-	awk '$4=="E"{print $1/'$yfactor'}' $tempfile.0 > $tempfile".E"
-	awk '$4=="F"{print $1/'$xfactor'}' $tempfile.0 > $tempfile".F"
+	awk '$4=="E"{print $1}' $tempfile.0 > $tempfile".E"
+	awk '$4=="F"{print $1}' $tempfile.0 > $tempfile".F"
 	# make sure one of lines or points is defined
 	if [ ! -s $tempfile".P"  ] && [ ! -s $tempfile".L" ] ; then
-		{ echo -e "\n--- Error ["$thisprog"]: no points or lines defined in $infile\n" ;  exit; }
+			echo -e "\n--- Error ["$thisprog"]: no points or lines defined in $infile\n"
+			exit
 	fi
 	# initialise the header
 	header="group xdata ydata"
