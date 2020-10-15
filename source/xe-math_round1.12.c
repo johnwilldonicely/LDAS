@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"USAGE:\n");
 		fprintf(stderr," 	%s [infile|stdin] [arguments]\n",thisprog);
 		fprintf(stderr,"Valid arguments - defaults in []:\n");
-		fprintf(stderr,"	-cy column containing data (0=none, -1=all)z[%d]\n",dvcol);
+		fprintf(stderr,"	-cy column containing data (0=none, -1=all) [%d]\n",dvcol);
 		fprintf(stderr,"	-b base for rounding to the nearest [%.2f]\n",setbase);
 		fprintf(stderr,"	-d round down instead? (0=NO, 1=YES) [%d]]\n",setdown);
 		fprintf(stderr,"	-o output original values as well (0=NO, 1=YES) [%d]\n",setoriginal);

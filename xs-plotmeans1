@@ -120,15 +120,16 @@ plotoptsA=$plotoptsA" -xmin $xmin1 -xmax $xmax1 -xint $xint -ymin $ymin -ymax $y
 plotoptsB=$plotoptsB" -xmin $xmin1 -xmax $xmax1 -xint -1 -yint -1 -ymin $ymin -ymax $ymax -jitter $limit"
 if [ "$setylabel" == "" ] ; then setylabel="Mean $ycol" ; fi
 
+
 ################################################################################
 # GENERATE THE MEANS-PLOT
 ################################################################################
-exit
 # note that only this plot has a frame, labels and title
 xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
 	xe-statsgrp1 stdin |
 	xe-cut1 stdin grp1,mean,$seterror |
 	xe-plottable1 stdin $plotoptsA -xlabel "$setxlabel" -ylabel "$setylabel" -title "$settitle" $setplotoptsA -out $tempfile".A.ps"
+ls -lt | head -n 3
 
 # Modify the X-axis tics
 if [ "$setname1" != "" ] ; then
@@ -142,13 +143,14 @@ fi
 xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
 	xe-plottable1 stdin $plotoptsB $setplotoptsB -out $tempfile".B.ps"
 
+
 ################################################################################
 # COMBINE THE SCATTER-PLOT AND THE MEANS
 ################################################################################
 # extract the section of postscript relating to the points themselves
-xe-cut2 temp_xs-plotmeans1.B.ps "% DEFINE_DATA_RELATED_VALUES" -s3 "% DRAW_FRAME" > $tempfile
+xe-cut2 $tempfile".B.ps" "% DEFINE_DATA_RELATED_VALUES" -s3 "% DRAW_FRAME" > $tempfile
 # insert the points-data into the box-plot
-xe-insert1 temp_xs-plotmeans1.A.ps $tempfile -start "% DRAW_FRAME" -pos -1 > $setplotout
+xe-insert1 $tempfile".A.ps" $tempfile -start "% DRAW_FRAME" -pos -1 > $setplotout
 
 rm -f $tempfile
 rm -f $tempfile.data
