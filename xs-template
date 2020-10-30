@@ -669,16 +669,21 @@ gs -q -sDEVICE=bbox -dBATCH -dNOPAUSE $infile
 # EXCEL
 # with libre office
 libreoffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":9,34,0,1,1 $infile
-# with gnumeric - requires libreoffice components
-http://manpages.ubuntu.com/manpages/bionic/man1/ssconvert.1.html
-sudo apt install gnumeric # requires libreoffice
-ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix sheet='Day 1'" input.xlsx output.txt
-ssconvert -O "separator=' ' quoting-mode=never format=preserve eol=unix" -S input.xlsx output # all sheets, numbered
+
 # with csvkit (in2csv) - requires python3
 sudo apt install csvkit
 in2csv -n $infile # get the sheet names
 in2csv $infile -q 3 -K 1 --sheet "Day 2" |   # disable quoting (-q 3), skip 1 line on the sheet (-K)
 	csvformat -T > temp.txt              # pipe the output to csvformat to set the delimiter as a tab
+
+# with gnumeric - requires some libreoffice components?
+http://manpages.ubuntu.com/manpages/bionic/man1/ssconvert.1.html
+sudo apt install gnumeric # requires libreoffice
+
+ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix sheet='2020'" in.xlsx out.txt # extract one sheet 
+mkdir temp ; ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix" -S in.xlsx temp/%s.txt  # extract all sheets, naming each file according to the sheet name
+ls -1 temp/ # get list of sheet names - this is actually just as fast as the in2csv command below whichjust extracts the names
+
 
 
 
