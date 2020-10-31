@@ -80,7 +80,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	/* READ THE FILENAME AND OPTIONAL ARGUMENTS */
-	sprintf(infile,"%s\0",argv[1]);
+	sprintf(infile,"%s",argv[1]);
 
 	/* OPEN THE INPUT FILE USING FULL SPECIFIED PATH */
 	if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
@@ -88,8 +88,8 @@ int main (int argc, char *argv[]) {
 
 	/* REMOVE PATH DESIGNATION (IF PRESENT) FROM INPUT FILE NAME - IT'S NOT NEEDED AT THIS POINT */
 	pcol=strrchr(infile,'/');
-	if(pcol!=NULL) sprintf(basename,"%s\0",++pcol);
-	else sprintf(basename,"%s\0",infile);
+	if(pcol!=NULL) sprintf(basename,"%s",++pcol);
+	else sprintf(basename,"%s",infile);
 
 	/* DETERMINE INFILE TYPE - STRIP EVERYTHING AFTER THE FIRST "." FOR  xe- and xf_ FILES */
 	basetype=0;
@@ -141,7 +141,7 @@ int main (int argc, char *argv[]) {
 			/* set pointer to start position (currently, the end of the labels string) */
 			iword[nwords]=lenwords;
 			/* add new word to end of words, adding terminal NULL */
-			sprintf(words+lenwords,"%s\0",pcol);
+			sprintf(words+lenwords,"%s",pcol);
 			/* update length, allowing for terminal NULL - serves as pointer to start of next word */
 			lenwords+=(x+1);
 			/* incriment nwords with check */
