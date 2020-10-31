@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"		* note: tapering inflates coherence (same taper applied to both inputs)\n");
 		fprintf(stderr,"	-p: power calculation method (0=Goertzel, 1=Butterworth+RMS, 2=FIR+RMS) [%d]\n",setpow);
 		fprintf(stderr,"	-m: multiplier for high-freq. energy vector window (wavelengths) [%g]\n",setmult);
-		fprintf(stderr,"	-a: windows accumulated before calculating coherence (0 = auto) [%d]\n",setaccumulate);
+		fprintf(stderr,"	-a: windows accumulated before calculating coherence (0 = auto) [%ld]\n",setaccumulate);
 		fprintf(stderr,"		* note: if not 0, must be at least 2\n");
 		fprintf(stderr,"		* note: if -o 0 (avg.spectrum), auto value is \"all windows\"\n");
 		fprintf(stderr,"		* note: if -o 1 or 2, auto value is smallest of 8 or \"all windows\"\n");
@@ -253,10 +253,10 @@ int main(int argc, char *argv[]) {
 	if(setverb<0&&setverb!=1) { fprintf(stderr,"\n--- Error [%s]: -v [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(setpow<0||setpow>2) { fprintf(stderr,"\n--- Error [%s]: -p [%d] must be 0-2\n\n",thisprog,setpow);exit(1);}
 	if((setgauss<3&&setgauss!=0)||(setgauss%2==0 && setgauss!=0)) { fprintf(stderr,"\n--- Error [%s]: -g [%d] must be 0 or an odd number 3 or larger\n\n",thisprog,setgauss);exit(1);}
-	if(setaccumulate<2&&setaccumulate!=0) { fprintf(stderr,"\n--- Error [%s]: -a [%d] must be 0 or greater than 2\n\n",thisprog,setaccumulate);exit(1);}
+	if(setaccumulate<2&&setaccumulate!=0) { fprintf(stderr,"\n--- Error [%s]: -a [%ld] must be 0 or greater than 2\n\n",thisprog,setaccumulate);exit(1);}
 	if(setntapers!=0&&setntapers!=1) { fprintf(stderr,"\n--- Error [%s]: -t [%d] must be 0 or 1\n\n",thisprog,setntapers);exit(1);}
 	if(FIRbeta<0||FIRbeta>10) {fprintf(stderr,"\n--- Error[%s]: -beta (%g) must be 0-10\n\n",thisprog,FIRbeta);exit(1);}
-	if(FIRshift!=0&&FIRshift!=1) {fprintf(stderr,"\n--- Error[%s]: -shift (%g) must be 0-1\n\n",thisprog,FIRshift);exit(1);}
+	if(FIRshift!=0&&FIRshift!=1) {fprintf(stderr,"\n--- Error[%s]: -shift (%d) must be 0-1\n\n",thisprog,FIRshift);exit(1);}
 	if(setadja<0||setadja>1) { fprintf(stderr,"\n--- Error [%s]: -adj [%d] must be 0 or 1\n\n",thisprog,setadja);exit(1);}
 
 	if(setdatatype==0||setdatatype==1) datasize=(off_t)sizeof(char);
@@ -399,7 +399,7 @@ int main(int argc, char *argv[]) {
 		data_b[i]=0.0;
 	}
 	/* make sure there's enough data for at least one buffer! */
-	if(n<setnbuff) {fprintf(stderr,"\n--- Error [%s]: number of data points [%d] is less than window size [%d]\n\n",thisprog,n,setnbuff);exit(1);}
+	if(n<setnbuff) {fprintf(stderr,"\n--- Error [%s]: number of data points [%ld] is less than window size [%d]\n\n",thisprog,n,setnbuff);exit(1);}
 
 
 	/********************************************************************************
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
 	else if(settimefile==1) {
 		if((fpin1=fopen(timefile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,timefile);exit(1);}
 		nwin=0;
-		while(fscanf(fpin1,"%s",&line)==1) {
+		while(fgets(line,MAXLINELEN,fpin1)!=NULL) {
 			if(sscanf(line,"%ld",&ii)!=1 || !isfinite(aa)) continue;
 			if((windex=(long *)realloc(windex,(nwin+1)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);free(data_a);free(data_b);free(data_b2);exit(1);};
 			windex[nwin++]=ii;
@@ -422,7 +422,6 @@ int main(int argc, char *argv[]) {
 		if(nwin<1) {fprintf(stderr,"\n--- Error[%s]: time-file \"%s\" has no valid entries\n\n",thisprog,timefile);free(data_a);free(data_b);free(data_b2);exit(1);}
 		setstep=1;
 	}
-
 
 	/********************************************************************************
 	CHECK OR AUTO-DEFINE ACCUMULATION
@@ -688,13 +687,13 @@ END2:
 		fprintf(stderr,"	fft_window= %d samples\n",setnbuff);
 		fprintf(stderr,"	fft_step= %d \n",setstep);
 		fprintf(stderr,"	fft_overlap= %g %%\n",a);
-		fprintf(stderr,"	setaccumulate= %d\n",setaccumulate);
+		fprintf(stderr,"	setaccumulate= %ld\n",setaccumulate);
 		fprintf(stderr,"	setntapers= %d\n",setntapers);
 		fprintf(stderr,"	frequency_resolution= %g Hz\n",freqres);
 		fprintf(stderr,"	temporal_resolution= %g seconds\n",(partnbuff/setsfreq));
 		fprintf(stderr,"	temporal_shift= %g seconds\n",((setnbuff/2.0)/setsfreq));
-		fprintf(stderr,"	nwin= %d\n",nwin);
-		fprintf(stderr,"	nout= %d\n",nout);
+		fprintf(stderr,"	nwin= %ld\n",nwin);
+		fprintf(stderr,"	nout= %ld\n",nout);
 
 		fprintf(stderr,"\n");
 	}
