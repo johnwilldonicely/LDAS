@@ -18,7 +18,7 @@ double *xf_wint2_di(double *time, int *group, long n, int g1, int g2, double *wi
 int main (int argc, char *argv[]) {
 
 	/* general variables */
-	char line[256],word[256],*pline;
+	char line[MAXLINE],word[MAXLINE],*pline;
 	int w,x,y,z,result_i[32];
 	int sizeofint=sizeof(int),sizeoffloat=sizeof(float), sizeofdouble=sizeof(double);
 	long ii,jj,kk,nn,result_l[32];
@@ -118,7 +118,7 @@ int main (int argc, char *argv[]) {
 		if((fpin=fopen(winfile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: window list file \"%s\" not found\n\n",thisprog,winfile);exit(1);}
 		while(!feof(fpin)) {
 			if(fscanf(fpin,"%lf %lf",&aa,&bb)!=2) {
-				fscanf(fpin,"%s",pline);
+				if(fscanf(fpin,"%s",pline)!=1) {fprintf(stderr,"\n--- Error[%s]: line-scan error\n\n",thisprog);exit(1);};
 				continue;
 			}
 			winstart= (double *) realloc(winstart,(nwin+1)*sizeofdouble);
