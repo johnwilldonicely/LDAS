@@ -129,7 +129,6 @@ xe-cut1 $tempfile.data $gcol,$ycol -o 1 -s 1 |
 	xe-statsgrp1 stdin |
 	xe-cut1 stdin grp1,mean,$seterror |
 	xe-plottable1 stdin $plotoptsA -xlabel "$setxlabel" -ylabel "$setylabel" -title "$settitle" $setplotoptsA -out $tempfile".A.ps"
-ls -lt | head -n 3
 
 # Modify the X-axis tics
 if [ "$setname1" != "" ] ; then

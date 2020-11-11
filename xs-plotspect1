@@ -122,14 +122,17 @@ refgroup=$(echo $listgroups | awk '{print $1}')
 if [ "$settable" != "" ] ; then	refgroupname=$(xe-dbmatch1 $settable group $refgroup -oc name -o 1) ; else refgroupname="Group_"$refgroup ; fi
 
 ################################################################################
-# MAKE THE FRON-PAGE PLOT: SPECTUM BY GROUP, RAW AND NORMALISED
+# MAKE THE FRONT-PAGE PLOT: SPECTRUM BY GROUP, RAW AND NORMALISED
 ################################################################################
+# regular plot-by-group
 xe-norm2 $tempfile".0" -cy 4 -n -1 | # keep the option for log10 transform
 	xe-statsgrp2 stdin -cg1 2 -cg2 3 -cy 4 |
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl" -title "$title" $setA -out $tempfile"_a.ps"
-xe-cut1 $tempfile".0" sub,freq,grp,amp |
+
+# plot normalised to the control group
+xe-cut1 $tempfile".0" $setscol,$setxcol,$setgcol,$setycol |
 	sort -k1n -k2n -k3n |
-	xe-repeated1 stdin sub,freq grp amp -norm 4 -n1 0 -n2 0 |
+	xe-repeated1 stdin $setscol,$setxcol $setgcol $setycol -norm 4 -n1 0 -n2 0 |
 	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 |
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl (ratio)" -title "Normalised to $refgroupname" -legend 1 -hline 1 $setB -out $tempfile"_b.ps"
 if [ "$settable" != "" ] ; then
@@ -144,6 +147,7 @@ xe-plotmerge1 $tempfile"_a.ps" $tempfile"_b.ps" $mergeopts -out $plotfile
 
 yl="$setycol"
 
+
 for group in $listgroups ; do
 
 	let count=$count+1
@@ -155,10 +159,10 @@ for group in $listgroups ; do
 	xe-statsgrp2 stdin -cg1 1 -cg2 3 -cy 4 |
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title :  $groupname" -ce -1 -legend 2 $setA -out $tempfile"_a.ps"
 
-	xe-cut1 $tempfile".0" sub,freq,grp,amp |
+	xe-cut1 $tempfile".0" $setscol,$setxcol,$setgcol,$setycol |
 	xe-dbmatch1 stdin $setgcol $refgroup,$group |
 	sort -k1n -k2n -k3n |
-	xe-repeated1 stdin sub,freq grp amp -norm 4 -n1 0 -n2 0 |
+	xe-repeated1 stdin $setscol,$setxcol $setgcol $setycol -norm 4 -n1 0 -n2 0 |
 	xe-statsgrp2 stdin -cg1 1 -cg2 2 -cy 4 |
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl (ratio)" -title "Normalised to $refgroupname" -ce -1 -legend 0 -hline 1 $setB -out $tempfile"_b.ps"
 

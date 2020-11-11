@@ -86,7 +86,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-bin: time (rep) over which to average data (0=SKIP) [%g]\n",setbin);
 		fprintf(stderr,"\n");
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"	%s data.txt \"subject,group,day  time volts\"\n",thisprog);
+		fprintf(stderr,"	%s data.txt subject,group,day  time volts\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
 		fprintf(stderr,"	columns [key1] [key2]... [rep] [dat]\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
