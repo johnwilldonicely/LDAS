@@ -34,6 +34,7 @@ if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": process disease data using ECDC and WorldBank datasets"
+	echo " - runs xe-CORONA1 for multiple countries, then plots and compares"
 	echo " - assumes WorldBank data is in folder as .zip files named by measure"
 	echo "USAGE: $thisprog [mode] [options]"
 	echo "	[mode]: operating mode: down | proc | all"
@@ -108,8 +109,9 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "init" ] ; then
 
 	# save the header with renamed variables, convert commas and spaces
 	head -n 1 $basename".csv" |
-		xe-strsub1 stdin dateRep Date |xe-strsub1 stdin cases Cases |
-		xe-strsub1 stdin deaths Deaths |
+		xe-strsub1 stdin dateRep Date |
+		xe-strsub1 stdin cases_weekly Cases |
+		xe-strsub1 stdin deaths_weekly Deaths |
 		xe-strsub1 stdin countriesAndTerritories Country |
 		xe-strsub1 stdin geoId GeoID |
 		xe-strsub1 stdin countryterritoryCode Code |
@@ -234,6 +236,10 @@ if [ "$setmode" == "all" ] || [ "$setmode" == "proc" ] ; then
 		if [ "$setverb" == "1" ] ; then echo -e "\t\txe-CORONA1 $in1 $country $opts" ; fi
 		# special case - eliminate second-peak for China
 		if [ "$country" == "China" ] ; then opts=$opts" -peak2 1" ; fi
+
+		if [ "$setverb" != "0" ] ; then
+			echo "xe-CORONA1 $in1 $country $opts $setopt1"
+		fi
 
 		xe-CORONA1 $in1 $country $opts $setopt1 > $out2a
 
