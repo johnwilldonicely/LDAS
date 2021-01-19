@@ -69,9 +69,6 @@ int main (int argc, char *argv[]) {
 	float *data1=NULL;
 	float *xdatf=NULL,*ydatf=NULL;
 	double *xdat=NULL,*ydat=NULL;
-	char timestring[32];
-	time_t t1;
-	struct tm *tstruct1;
 
 	/* arguments */
 	char *infile=NULL,*outfile=NULL,*setkeys=NULL;
@@ -424,17 +421,23 @@ exit(0);
 	// 	else fprintf(stderr,"divisible\n");
 
 
-	// /* BUILDING TIMESTAMPS */
- 	// // generate the initial timestamp
- 	// t1 = time(NULL);
- 	// // convert to local time and place into a structure
-	// tstruct1 = localtime(&t1);
-	// // create timestamp string
-	// strftime(timestring,sizeof(timestring),"%Y%m%d%H%M%S",tstruct1);
-	// fprintf(stderr,"\trecord %ld timestamp %s\n",ii,timestring);
-	// // increment the time by a number of seconds - next time localtime() is called it will correctly change minutes, hours etc
-	// t1+=200;
-
+	/* DATE AND TIME FUNCTIONS */
+	// required variables & structures
+	char timestring[256];
+	time_t t1,t2;
+	struct tm *tstruct1;
+	// intialise t1 and tstruct1 - this avoids using malloc or memset
+	t1 = time(NULL);
+	tstruct1 = localtime(&t1);
+	// make a new tstruct1 and t1, perhaps from a string read from a file
+	snprintf(timestring,32,"2021/01/19 20:50:00");
+	strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+	t1+= 301; // add 5 minutes and 1 second
+	tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
 
 
 

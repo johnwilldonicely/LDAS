@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
+#define __USE_XOPEN
+#include <time.h>
+
+
 /*
 <TAGS> epidemiology </TAGS>
 
@@ -41,7 +46,7 @@ int main (int argc, char *argv[]) {
 	long *ikeys=NULL,*keycols=NULL,nkeys;
 
 	int sizeofcases0,sizeofdeaths0;
-	long *iword=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
+	long *iword=NULL,*date0=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
 	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun,maxdays;
 	float *weeks1=NULL;
 	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,pop100k=0.0,cmin,cmax,dmin,dmax,smooth,result_d[8];
@@ -109,6 +114,33 @@ int main (int argc, char *argv[]) {
 		exit(0);
 	}
 
+
+	// required variables & structures
+	char timestring[256];
+	time_t t1,t2;
+	struct tm *tstruct1;
+	// intialise t1 and tstruct1 - this avoids using malloc or memset
+	t1 = time(NULL);
+	tstruct1 = localtime(&t1);
+
+	// make a new tstruct1 and t1, perhaps from a string read from a file
+	snprintf(timestring,32,"2021/01/19 20:50:00");
+	strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+
+	t1+= 301; // add 5 minutes and 1 second
+	tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output 
+
+exit(0);
+
+
+
+
+
+
 	/********************************************************************************
 	READ THE FILENAME AND OPTIONAL ARGUMENTS - including comma-separated list item
 	********************************************************************************/
@@ -141,6 +173,7 @@ int main (int argc, char *argv[]) {
 
 	/********************************************************************************
 	STORE DATA - ASSUME WE DON'T KNOW THE LENGTH OF EACH INPUT LINE
+	- assumes the first line is the tab-delimited header defining the column-names
 	********************************************************************************/
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
@@ -151,7 +184,7 @@ int main (int argc, char *argv[]) {
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
 
-		/* assign keycol numbers: requires *line,*iword,nwords,pword  ...and... *setkeys,*ikeys,nkeys*,keycol[nkeys] */
+		/* assign keycol numbers: setkeys[]= Country Date Cases Deaths GeoID Code Pop Continent */
 		if(nlines==0) {
 			keycols= xf_getkeycol(line,"\t",setkeys,",",&nkeys,message);
 			if(keycols==NULL) { fprintf(stderr,"\b\n\t%s/%s\n\n",thisprog,message); exit(1); }
@@ -161,7 +194,8 @@ int main (int argc, char *argv[]) {
 		/* parse the line */
 		iword= xf_lineparse2(line,"\t",&nwords);
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
-		/* select on Country */
+
+		/* if it's not the right country (keycols[0]), continue */
 		if(strcmp(setcountry,line+iword[keycols[0]])!=0) { nlines++; continue; }
 		//TEST CORRECT SELECTION: printf("%ld,%s,%s\n",keycols[0],setcountry,line+iword[keycols[0]]);
 
@@ -171,6 +205,8 @@ int main (int argc, char *argv[]) {
 			sscanf(line+iword[keycols[6]],"%ld",&kk);
 			pop100k= (double)kk/100000.0;
 		}
+
+// ??? ADD THE DATE (LONG INT)
 
 
 		/* load cases */
@@ -199,6 +235,9 @@ int main (int argc, char *argv[]) {
 	/* INITIALISE EXTRA ARRAYS  */
 	/********************************************************************************/
 	/* days: double-version of line-number */
+
+// ??? NO! THIS NEEDS TO BE DERIVED FROM DATE
+
 	days1= malloc(nn*sizeof(*days1));
 	if(days1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	for(ii=0;ii<nn;ii++) days1[ii]= (double)ii;
@@ -452,10 +491,12 @@ END:
 	if(iword!=NULL) free(iword);
 	if(ikeys!=NULL) free(ikeys);
 	if(keycols!=NULL) free(keycols);
-	if(days1!=NULL) free(days1);
-	if(cases0!=NULL) free(cases0);
+
+	if(date0!=NULL) free(date0);
 	if(cases1!=NULL) free(cases1);
 	if(deaths0!=NULL) free(deaths0);
+
+	if(days1!=NULL) free(days1);
 	if(deaths2!=NULL) free(deaths2);
 	if(weeks1!=NULL) free(weeks1);
 	exit(0);
