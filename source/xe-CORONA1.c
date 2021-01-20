@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-#define __USE_XOPEN
+/*  define and include required (in this order!) for time functions */
+#define __USE_XOPEN // required specifically for strptime()
 #include <time.h>
 
 
@@ -49,11 +49,18 @@ int main (int argc, char *argv[]) {
 	long *iword=NULL,*date0=NULL,*cases0=NULL,*deaths0=NULL,*deaths2=NULL,*pdeaths2,nwords;
 	long istart=-1,istop=-1,imax=-1,itrough2=-1,i50,i25,overrun,maxdays;
 	float *weeks1=NULL;
-	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,pop100k=0.0,cmin,cmax,dmin,dmax,smooth,result_d[8];
+	double *days1=NULL,*cases1=NULL,*deaths1=NULL,*pdays1,*pdeaths1,popm=0.0,cmin,cmax,dmin,dmax,smooth,result_d[8];
 
 	long lastdeaths2,slope2deaths2;
 	double lastcases1,slope2cases1,lastdeaths1,slope1deaths1=NAN,slope2deaths1=NAN,dtot1,dtot2;
 
+	/* time/date management variables */
+	char timestring1[256],timestring2[256];
+	time_t t1,t2;
+	struct tm *tstruct1,*tstruct2;
+	// intialise t1 and tstruct1 - this avoids using malloc or memset
+	t1=t2= time(NULL);
+	tstruct1=tstruct2= localtime(&t1);
 
 	/* arguments */
 	char *infile=NULL,*setcountry=NULL;
@@ -86,7 +93,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -pad: add data if maxweeks exceeds data length (0=NO 1=YES) [%d]\n",setpad);
 		fprintf(stderr,"    -smooth: weeks over which to smooth data (0=NONE) [%g]\n",setsmooth);
 		fprintf(stderr,"        - uses Butterworth filter, high-cut= 1/(smooth*2)\n");
-		fprintf(stderr,"    -normd: normalise deaths to population (100K) (0=NO 1=YES) [%d]\n",setnormc);
+		fprintf(stderr,"    -normd: normalise deaths to population (millions) (0=NO 1=YES) [%d]\n",setnormc);
 		fprintf(stderr,"    -normc: normalise cases to the deaths range (0=NO 1=YES) [%d]\n",setnormc);
 		fprintf(stderr,"    -peak2: truncate data if a second larger peak is found (0=NO 1=YES) [%d]\n",setpeak2);
 		fprintf(stderr,"    -out: output format [%d]\n",setout);
@@ -99,7 +106,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    stdout: chunk of data as per -out above\n");
 		fprintf(stderr,"    %s:\n",outfile);
 		fprintf(stderr,"        code: 3-letter country code\n");
-		fprintf(stderr,"        pop100k: country population, in 100,000s\n");
+		fprintf(stderr,"        popm: country population, in millions\n");
 		fprintf(stderr,"        start: day (from start of records) -mindeaths passed\n");
 		fprintf(stderr,"        tmax: days from start to dmax\n");
 		fprintf(stderr,"        t50:  days from tmax to 50%% dmax\n");
@@ -114,27 +121,19 @@ int main (int argc, char *argv[]) {
 		exit(0);
 	}
 
-
-	// required variables & structures
-	char timestring[256];
-	time_t t1,t2;
-	struct tm *tstruct1;
-	// intialise t1 and tstruct1 - this avoids using malloc or memset
-	t1 = time(NULL);
-	tstruct1 = localtime(&t1);
-
-	// make a new tstruct1 and t1, perhaps from a string read from a file
-	snprintf(timestring,32,"2021/01/19 20:50:00");
-	strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
-	t1 = mktime(tstruct1);  // convert broken-down-time to seconds
-	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
-
-	t1+= 301; // add 5 minutes and 1 second
-	tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
-	strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
-	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output 
-
-exit(0);
+//???
+	// // make a new tstruct1 and t1, perhaps from a string read from a file
+	// snprintf(timestring1,32,"2021/01/19 20:50:00");
+	// strptime(timestring1,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	// t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring1,t1); // output
+	//
+	// t1+= 301; // add 5 minutes and 1 second
+	// tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	// strftime(timestring1,sizeof(timestring1),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring1,t1); // output
+	//
+	// exit(0);
 
 
 
@@ -203,7 +202,7 @@ exit(0);
 		if(nn==0) {
 			snprintf(countrycode,4,"%s",line+iword[keycols[5]]);
 			sscanf(line+iword[keycols[6]],"%ld",&kk);
-			pop100k= (double)kk/100000.0;
+			popm= (double)kk/1000000.0;
 		}
 
 // ??? ADD THE DATE (LONG INT)
@@ -317,7 +316,7 @@ exit(0);
 	/* NORMALISE DEATHS1 TO POPULATION (100,000)
 	/********************************************************************************/
 	if(setnormd==1) {
-		for(ii=0;ii<nn;ii++) deaths1[ii]/= pop100k;
+		for(ii=0;ii<nn;ii++) deaths1[ii]/= popm;
 	}
 
 	/********************************************************************************/
@@ -434,9 +433,9 @@ exit(0);
 	/********************************************************************************/
 	/* open output file for saving regression data  */
 	if((fpout=fopen(outfile,"w"))==0) {fprintf(stderr,"\n--- Error[%s]: unable to open file \"%s\" for writing\n\n",thisprog,outfile);exit(1);}
-	fprintf(fpout,"code\tpop100k\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot1\tdtot2	s1\ts2	country\n");
+	fprintf(fpout,"code\tpopm\tstart\ttmax\tt50\tt25	cmax\tdmax\tdtot1\tdtot2	s1\ts2	country\n");
 	fprintf(fpout,"%s\t%.3f\t%ld\t%ld\t%ld\t%ld	%.0f\t%.0f\t%.0f\t%.0f	%.3f\t%.3f	%s\n",
-		countrycode,pop100k,istart,(imax-istart),i50,i25,
+		countrycode,popm,istart,(imax-istart),i50,i25,
 		cmax,dmax,dtot1,dtot2,
 		slope1deaths1,slope2deaths1,setcountry
 	);

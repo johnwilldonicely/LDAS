@@ -421,23 +421,23 @@ exit(0);
 	// 	else fprintf(stderr,"divisible\n");
 
 
-	/* DATE AND TIME FUNCTIONS */
-	// required variables & structures
-	char timestring[256];
-	time_t t1,t2;
-	struct tm *tstruct1;
-	// intialise t1 and tstruct1 - this avoids using malloc or memset
-	t1 = time(NULL);
-	tstruct1 = localtime(&t1);
-	// make a new tstruct1 and t1, perhaps from a string read from a file
-	snprintf(timestring,32,"2021/01/19 20:50:00");
-	strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
-	t1 = mktime(tstruct1);  // convert broken-down-time to seconds
-	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
-	t1+= 301; // add 5 minutes and 1 second
-	tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
-	strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
-	fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+	// /* DATE AND TIME FUNCTIONS */
+	// // required variables & structures
+	// char timestring[256];
+	// time_t t1,t2;
+	// struct tm *tstruct1;
+	// // intialise t1 and tstruct1 - this avoids using malloc or memset
+	// t1 = time(NULL);
+	// tstruct1 = localtime(&t1);
+	// // make a new tstruct1 and t1, perhaps from a string read from a file
+	// snprintf(timestring,32,"2021/01/19 20:50:00");
+	// strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	// t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+	// t1+= 301; // add 5 minutes and 1 second
+	// tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	// strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
 
 
 
