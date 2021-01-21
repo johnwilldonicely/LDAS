@@ -1,6 +1,12 @@
 #!/bin/bash
 # <TAGS> epidemiology </TAGS>
 
+# TODO ???
+# - pull data from new source seturl2 - to get most up to date daily stats - old URL is now only deaths_weekly
+# - country stats are included in this spreadsheet - no need for additional zip files
+# - add controls for new xe-CORONA1 optios to align zero to current date
+# - add option for Rscript plot!
+
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
 ################################################################################

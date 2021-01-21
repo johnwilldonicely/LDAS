@@ -11,6 +11,11 @@
 
 
 /*
+??? TODO:
+	- use time functions to express time in actual days-from-start based on date
+		- instead of assuming record-number = day!
+	- allow time-0 to be current day, peak day, day-of-mindeaths
+
 <TAGS> epidemiology </TAGS>
 
 v 1: 20.May.2020 [JRH]
