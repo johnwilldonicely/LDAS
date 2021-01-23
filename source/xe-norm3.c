@@ -68,7 +68,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"	-head: non-comment lines at top of file to pass unaltered [%ld]\n",sethead);
 		fprintf(stderr,"	-id1: col-no. for id#1 (integer), e.g. subject [%ld]\n",setid1);
-		fprintf(stderr,"	-id2: col-no. for id#2 (integer), e.g. group [%ld]\n",setid1);
+		fprintf(stderr,"	-id2: col-no. for id#2 (integer), e.g. group [%ld]\n",setid2);
 		fprintf(stderr,"	-rep: col-no. for repeated category (float), e.g. time [%ld]\n",setrep);
 		fprintf(stderr,"	-val: col-no. for values (float) [%ld]\n",setval);
 		fprintf(stderr,"	-norm: normalization type: [%d]\n",setnorm);

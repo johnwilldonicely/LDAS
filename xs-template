@@ -388,7 +388,8 @@ subject=${file%%-*}
 base=${clufile%%.clu*}
 ext=${clufile#*clu*.}
 probe=${ext%%.*}
-
+after=${infile#*Day_*} ; echo $after # everything after pattern "Day_"
+before=${infile%*Day_*} ; echo $before # everything before pattern "Day_"
 
 # DYNAMIC STRING ASSIGNMENT - STRING DEFINES A STRING NAME
 # ALSO, SCAN A LIST OF OPTIONS eg "-normc 0 -normd 1" and assign setnormc and setnormd accordingly
@@ -680,7 +681,7 @@ in2csv $infile -q 3 -K 1 --sheet "Day 2" |   # disable quoting (-q 3), skip 1 li
 http://manpages.ubuntu.com/manpages/bionic/man1/ssconvert.1.html
 sudo apt install gnumeric # requires libreoffice
 
-ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix sheet='2020'" in.xlsx out.txt # extract one sheet 
+ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix sheet='2020'" in.xlsx out.txt # extract one sheet
 mkdir temp ; ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix" -S in.xlsx temp/%s.txt  # extract all sheets, naming each file according to the sheet name
 ls -1 temp/ # get list of sheet names - this is actually just as fast as the in2csv command below whichjust extracts the names
 
