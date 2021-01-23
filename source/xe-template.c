@@ -195,7 +195,7 @@ int main (int argc, char *argv[]) {
 		/* make sure required columns are present */
 		if(nwords<nkeys) continue;
 
-		/* STORE A DATUM FROM THE COLUMN DEFINED BY THE FIRST KEY (OR OTHER ANY OTHER USeR VARIABLE IF YOU PREFER) */
+		/* STORE A DATUM FROM THE COLUMN DEFINED BY THE FIRST KEY (OR OTHER ANY OTHER USER VARIABLE IF YOU PREFER) */
 		/* this example requires the column contents to nbe numeric */
 		/* make sure content in x- and y-columns is numeric */
 		if(sscanf(line+iword[keycols[0]],"%f",&a)!=1 || !isfinite(a)) continue;
