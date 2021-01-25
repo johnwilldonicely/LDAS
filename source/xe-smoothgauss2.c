@@ -17,8 +17,8 @@
 
 v 1: 23.January.2021 [JRH]
 	- new version allows selection of a column to modify
+	- also added ability to deal with long lines
 	- built from version of smoothgauss1.3 from 28 March 2016
-
 */
 
 /* external functions start */

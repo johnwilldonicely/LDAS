@@ -515,6 +515,14 @@ sort XRIP1_ripples.txt -k7,7n -k8,8nr
 	0	1145	9014738	9014764	9014804	9014771	140	96.7112
 	0	1098	8961522	8961563	8961608	8961565	140	95.7478
 
+# you can sort using variables todefine columns if you define the sort string in advance
+# example:
+col1="7"
+col2="8"
+sortstring="-k"$col1","$col1"n -k"$col2","$col2"nr"
+sort XRIP1_ripples.txt $sortstring
+
+
 
 # READ BINARY FILES
 hexdump -v -e '1/[bytes] "[format]"' [input]

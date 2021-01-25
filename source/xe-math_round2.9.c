@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Round columns of data to the nearest base (0.1, 15, 230, etc.)\n");
+		fprintf(stderr,"NOTE!! This program is not long-line safe!\n");
 		fprintf(stderr,"Non-numeric fields will not be modified\n");
 		fprintf(stderr,"USAGE:\n");
 		fprintf(stderr," 	%s [infile|stdin] [arguments]\n",thisprog);
