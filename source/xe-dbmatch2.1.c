@@ -1,5 +1,5 @@
 #define thisprog "xe-dbmatch2"
-#define TITLE_STRING thisprog" 29.May.2020 [JRH]"
+#define TITLE_STRING thisprog" 25.Jan.2021 [JRH]"
 #define MAXDELIM 16
 #include <math.h>
 #include <stdio.h>
@@ -9,6 +9,10 @@
 
 /*
 <TAGS>database</TAGS>
+
+25.Jan.2021 [JRH]
+	- bugfix: now skips empty fields in input-2 (containing values to be appended)
+	 	- previously this could cause crashes
 
 29.May.2020 [JRH]
 	- add ability to set the "missing value" string
@@ -154,6 +158,8 @@ int main (int argc, char *argv[]) {
 		}
 		/* for all other lines, store the key and value, if the appropriate columns are present */
 		if(nwords!=nheader) {fprintf(stderr,"\n--- Error[%s]: corrupt keyfile line %ld - number of columns (%ld) does not match number of headers (%ld) in %s\n\n",thisprog,mm,nwords,nheader,keyfile);exit(1);}
+		/* make sure the keycol is not an empty field */
+		if(strlen(line+iwords[keycol])==0) continue;
 		/* build the list of keys, make it tab-delimited */
 		allkeys= xf_strcat1(allkeys,line+iwords[keycol],"\n");
 		/* now as for the header line, unparse the line and select the valid columns */
