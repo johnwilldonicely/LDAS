@@ -25,7 +25,6 @@
 
 /* external functions start */
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
-long *xf_lineparse1(char *line, long *nwords);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 char *xf_strescape1(char *line);
 char *xf_strcat1(char *string1,char *string2,char *delimiter);

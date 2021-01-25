@@ -57,7 +57,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS...\n");
 		fprintf(stderr,"	-c: case sensitive? (0=no, 1=yes, default=%d)\n",setcase);
 		fprintf(stderr,"	-d: characters to use as column-delimiters [ ,\\t\\n])\n");
-		fprintf(stderr,"		- if manually set, every delimiter marks a new column\n");
+		fprintf(stderr,"		- if manually set, every delimiter = new column\n");
 		fprintf(stderr,"		- otherwise, consecutive delimters are collapsed\n");
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s data.txt rate -c 0 -d \'\\t -\'\n",thisprog);
