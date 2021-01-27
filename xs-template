@@ -422,6 +422,9 @@ if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
 # for exact matches...
 [[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
 
+# CHECK IF A NUMBER IS EVEN OR ODD
+z=3; if [ $((z%2)) -eq 0 ] ; then echo "even" ; fi 
+
 # PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
 setkeys="one man,two women,three children"
 IFS=$','
