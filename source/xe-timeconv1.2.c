@@ -1,11 +1,16 @@
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #define thisprog "xe-timeconv1"
 #define TITLE_STRING thisprog" v 2: 21.May.2016 [JRH]"
 #define MAXLINELEN 1000
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+/*  define and include required (in this order!) for time functions */
+#define __USE_XOPEN // required specifically for strptime()
+#include <time.h>
+
 
 /*
 <TAGS>string</TAGS>
@@ -24,14 +29,20 @@ long xf_strstr1(char *haystack,char *needle,int setcase, int firstlast);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
+
+
+	/* time-related  variables & structures */
+	char timestring[256];
+	time_t t1,t2;
+	struct tm *tstruct1;
+
 	/* general variables */
 	char infile[256],line[MAXLINELEN];
-	long int i,j,k,n;
+	long int ii,jj,kk,nn;
 	int v,w,x,y,z,col,colmatch;
 	float a,b,c,d;
 	double aa,bb,cc,dd,ee, result_d[64];
 	FILE *fpin,*fpout;
-	size_t ii,jj,kk,nn,mm;
 	size_t sizeofchar=sizeof(char),sizeofshort=sizeof(short),sizeoflong=sizeof(long),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double);
 
 	/* program-specific variables */
@@ -66,21 +77,34 @@ int main (int argc, char *argv[]) {
 		exit(0);
 	}
 
-
 	/* READ THE FILENAME AND OPTIONAL ARGUMENTS */
 	sprintf(infile,"%s",argv[1]);
-	for(i=2;i<argc;i++) {
-		if( *(argv[i]+0) == '-') {
-			if((i+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
-			else if(strcmp(argv[i],"-f")==0)   setformat=atoi(argv[++i]);
-			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
+	for(ii=2;ii<argc;ii++) {
+		if( *(argv[ii]+0) == '-') {
+			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
+			else if(strcmp(argv[ii],"-f")==0)    setformat= atoi(argv[++ii]);
+			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setformat!=1&&setformat!=2) {fprintf(stderr,"\n--- Error[%s]: invalid format (-f %d) - must be 1 or 2\n\n",thisprog,setformat);exit(1);}
 
 
+	// /* INTIALISE T1 AND TSTRUCT1 - THIS AVOIDS USING MALLOC OR MEMSET */
+	// t1 = time(NULL);
+	// tstruct1 = localtime(&t1);
+	// // make a new tstruct1 and t1, perhaps from a string read from a file
+	// snprintf(timestring,32,"2021/01/19 20:50:00");
+	// strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	// t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+	// t1+= 301; // add 5 minutes and 1 second
+	// tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	// strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+
 	/* READ & CONVERT THE DATA */
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
+
 
 	if(setformat==1) {
 		nn=0;
@@ -90,8 +114,8 @@ int main (int argc, char *argv[]) {
 			nn++;
 
 			/* trim trailing newline off line so that it cannot be detected as an extra field after a delimiter */
-			i=xf_strstr1(line,"\n",1,2);
-			if(i>0)line[i]='\0';
+			ii= xf_strstr1(line,"\n",1,2);
+			if(ii>0)line[ii]='\0';
 
 			/* replace delimiters in line with NULLS and create array of indices to each word (day,month or year) */
 			start= xf_lineparse2(line,":",&nwords);
@@ -123,8 +147,8 @@ int main (int argc, char *argv[]) {
 			nn++;
 
 			/* trim trailing newline off line so that it cannot be detected as an extra field after a delimiter */
-			i=xf_strstr1(line,"\n",1,2);
-			if(i>0)line[i]='\0';
+			ii= xf_strstr1(line,"\n",1,2);
+			if(ii>0)line[ii]='\0';
 
 			/* replace whitespace delimiters in line with NULLS and create array of indices to each word  */
 			start= xf_lineparse1(line,&nwords);
@@ -156,4 +180,4 @@ int main (int argc, char *argv[]) {
 	if(start==NULL) free(start);
 	exit(0);
 
-	}
+}

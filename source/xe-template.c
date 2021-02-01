@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <complex.h>
+/*  define and include required (in this order!) for time functions */
+#define __USE_XOPEN // required specifically for strptime()
 #include <time.h>
 // #include <yaml.h>
 

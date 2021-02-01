@@ -45,7 +45,7 @@ int xf_stats2_d(double *data, long n, int varcalc, double *result_d);
 int main (int argc, char *argv[]) {
 	/* general variables */
 	char infile1[256],infile2[256],outfile[256],*line=NULL,word[256],*matchstring=NULL,*pline,*pcol;
-	long int i,j,k,m,n,row,col,maxlinelen=0;
+	long int ii,jj,kk,mm,nn,row,col,maxlinelen=0;
 	int v,w,x,y,z,colmatch;
 	int sizeofchar=sizeof(char),sizeofshort=sizeof(short),sizeoflong=sizeof(long),sizeofint=sizeof(int),sizeoffloat=sizeof(float),sizeofdouble=sizeof(double);
 	float a,b,c,d;
@@ -91,11 +91,11 @@ int main (int argc, char *argv[]) {
 	/* READ THE FILENAME AND OPTIONAL ARGUMENTS */
 	sprintf(infile1,"%s",argv[1]);
 	sprintf(infile2,"%s",argv[2]);
-	for(i=3;i<argc;i++) {
-		if( *(argv[i]+0) == '-') {
-			if((i+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
-			else if(strcmp(argv[i],"-t")==0) 	{ setformat=atoi(argv[i+1]); i++;}
-			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[i]); exit(1);}
+	for(ii=3;ii<argc;ii++) {
+		if( *(argv[ii]+0) == '-') {
+			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
+			else if(strcmp(argv[ii],"-t")==0)    setformat= atoi(argv[++ii]);
+			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
 
@@ -110,13 +110,15 @@ int main (int argc, char *argv[]) {
 		pline=line;
 		for(col=1;(pcol=strtok(pline," ,\t\n\r"))!=NULL;col++) {
 			pline=NULL; aa=NAN;
-			dat1=(double *)realloc(dat1,(n1+1)*sizeofdouble); if(dat1==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
+			dat1=(double *)realloc(dat1,(n1+1)*sizeofdouble);
+			if(dat1==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
 			sscanf(pcol,"%lf  ",&aa);
 			if(isfinite(aa)) dat1[n1]=aa;
 			else dat1[n1]=NAN;
 			n1++;
 		}
-		ncols1=(long *)realloc(ncols1,(nrows1+1)*sizeoflong); if(ncols1==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
+		ncols1=(long *)realloc(ncols1,(nrows1+1)*sizeoflong);
+		if(ncols1==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
 		ncols1[nrows1]=(col-1);
 		nrows1++;
 
@@ -144,18 +146,19 @@ int main (int argc, char *argv[]) {
 		ncols2[nrows2]=(col-1);
 
 		/* check if column-cout matches template - tolerate minor differences ( +- 1 column ) */
-		k=ncols2[nrows2]-ncols1[nrows2];
-		if(k<0) {
+		kk= ncols2[nrows2]-ncols1[nrows2];
+		if(kk<0) {
 			fprintf(stderr,"\tWarning [%s]: fewer columns column in matrix2 row %ld (%ld) compared to matrix1 (%ld) - adding a NULL value\n",thisprog,(nrows2+1),ncols2[nrows2],ncols1[nrows2]);
-			for(i=k;i<0;i++) {
-				dat2=(double *)realloc(dat2,(n2+1)*sizeofdouble); if(dat2==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
+			for(ii=kk;ii<0;ii++) {
+				dat2= (double *)realloc(dat2,(n2+1)*sizeofdouble);
+				if(dat2==NULL) {fprintf(stderr,"\t\aError[%s]: insufficient memory\n",thisprog);exit(1);}
 				dat2[n2]=NAN;
 				n2++;
 			}
 		}
-		if(k>0) {
+		if(kk>0) {
 			fprintf(stderr,"\tWarning [%s]: extra columns in matrix2 row %ld (%ld) compared to matrix1 (%ld) - dropping extra values\n",thisprog,(nrows2+1),ncols2[nrows2],ncols1[nrows2]);
-			for(i=k;i>0;i--) n2--;
+			for(ii=kk;ii>0;ii--) n2--;
 		}
 
 		/* add up total number of rows */
@@ -169,8 +172,8 @@ int main (int argc, char *argv[]) {
 	if(n1!=n2) {fprintf(stderr,"\t\aError[%s]: total elements in %s (%ld) don't match %s (%ld)\n",thisprog,infile1,n1,infile2,n2);exit(1);}
 
 	row=col=0; // row=line, col=word;
-	for(i=0;i<n1;i++) {
-		aa=dat2[i]-dat1[i];
+	for(ii=0;ii<n1;ii++) {
+		aa=dat2[ii]-dat1[ii];
 		printf("%g",aa);
 		if(++col<ncols1[row]) printf("\t");
 		else {
@@ -180,9 +183,11 @@ int main (int argc, char *argv[]) {
 		}
 	}
 
+	/* CLEANUP AND EXIT */
 	free(dat1);
 	free(dat2);
 	free(ncols1);
 	free(ncols2);
 	exit(0);
+
 	}
