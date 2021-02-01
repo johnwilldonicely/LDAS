@@ -7,6 +7,10 @@
 #include <string.h>
 #include <math.h>
 
+/*  define and include required (in this order!) for time functions */
+#define __USE_XOPEN // required specifically for strptime()
+#include <time.h>
+
 
 /*
 <TAGS>string</TAGS>
@@ -56,7 +60,6 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Convert hh:mm:ss time format to seconds or vice-versa\n");
-		fprintf(stderr,"Seconds output is seconds-past-midnight\n");
 		fprintf(stderr,"Assumes one time per input line\n");
 		fprintf(stderr,"Assumes colon is the delimiter if converting to seconds\n");
 		fprintf(stderr,"USAGE:\n");
@@ -84,9 +87,24 @@ int main (int argc, char *argv[]) {
 	}}
 	if(setformat!=1&&setformat!=2) {fprintf(stderr,"\n--- Error[%s]: invalid format (-f %d) - must be 1 or 2\n\n",thisprog,setformat);exit(1);}
 
+
+	// /* INTIALISE T1 AND TSTRUCT1 - THIS AVOIDS USING MALLOC OR MEMSET */
+	// t1 = time(NULL);
+	// tstruct1 = localtime(&t1);
+	// // make a new tstruct1 and t1, perhaps from a string read from a file
+	// snprintf(timestring,32,"2021/01/19 20:50:00");
+	// strptime(timestring,"%Y/%m/%d %H:%M:%S", tstruct1); // convert string to broken-down-time (Y/M/D etc)
+	// t1 = mktime(tstruct1);  // convert broken-down-time to seconds
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+	// t1+= 301; // add 5 minutes and 1 second
+	// tstruct1= localtime(&t1); // convert seconds to broken-down-time (opposite of mktime)
+	// strftime(timestring,sizeof(timestring),"%Y/%m/%d %H:%M:%S",tstruct1); // convert broken-down-time to string (opposite of strptime)
+	// fprintf(stderr,"\tstring: %s	time: %ld\n",timestring,t1); // output
+
 	/* READ & CONVERT THE DATA */
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
+
 
 	if(setformat==1) {
 		nn=0;
