@@ -159,7 +159,7 @@ int main (int argc, char *argv[]) {
 
 
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	if(start==NULL) free(start);
+	if(start!=NULL) free(start);
 	exit(0);
 
 }
