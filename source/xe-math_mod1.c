@@ -18,10 +18,7 @@ v 1: 6 September 2020
 		-[ ] allow selection of a list of columns
 		-[ ] allow selection of columns by name
 
-
-
-
- */
+*/
 
 /* external functions start */
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);

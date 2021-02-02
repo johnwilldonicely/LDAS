@@ -12,6 +12,9 @@ DESCRIPTION:
 		- all rows must be the same width
 	Stores the preceding and most recent header line (#)
 
+	NOTE: 	multiple whitespace is treated as a single whitespace, so "empty"
+       			words in a line will affect the index to all subsequent columns.
+			
 USES:
 	- Finding matrices for a given subject or group in a multi-matrix file
 

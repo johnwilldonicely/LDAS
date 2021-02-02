@@ -62,7 +62,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	/********************************************************************************
-	READ THE FILENAME AND OPTIONAL ARGUMENTS - including comma-separated list item
+	READ THE FILENAME AND OPTIONAL ARGUMENTS
 	********************************************************************************/
 	infile= argv[1];
 	for(ii=2;ii<argc;ii++) {

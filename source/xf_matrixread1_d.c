@@ -6,9 +6,11 @@ DESCRIPTION:
 		Each matrix should be separated by a blank line or a line whos first character is "#"
 		Data is stored as a continuous array of double-precision floating point numbers
 		Automatically detects the number of rows and columns in the input
-			- the first matrix is taken as the model - discrepencies result in errors
+			- the first matrix is taken as the model - discrepancies result in errors
 		The number of matrices and the number of rows and columns are stored
 
+		NOTE: multiple whitespace is treated as a single whitespace
+			- so "empty" words in a line will affect the index to all subsequent columns.
 USES:
 	storing 2-d blocks of ascii data into memory as a 1d array
 
