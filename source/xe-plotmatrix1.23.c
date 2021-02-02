@@ -1,5 +1,5 @@
 #define thisprog "xe-plotmatrix1"
-#define TITLE_STRING thisprog" 15.September.2020 [JRH]"
+#define TITLE_STRING thisprog" 2.February.2021 [JRH]"
 #define MAXWORDLEN 1000
 
 #include <stdio.h>
@@ -216,13 +216,13 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"\n\a--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
-	if(setblockwidth!=0 && setblockwidth!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -bw (%d), should be 0 or 1\n\n",thisprog,setblockwidth);exit(1);}
-	if(setzclip!=0 && setzclip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -zclip (%d), should be either 0 or 1\n\n",thisprog,setzclip);exit(1);}
-	if(setyflip!=0 && setyflip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -yflip (%d), should be either 0 or 1\n\n",thisprog,setyflip);exit(1);}
-	if(setulinecolour<-1 || setulinecolour>setrgbn) {fprintf(stderr,"\n\a--- Error[%s]: illegal -uc (%d), should be between -1 and %ld\n\n",thisprog,setulinecolour,setrgbn);exit(1);}
-	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), should be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
-	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -paln (%ld), should be at least 2\n\n",thisprog,setrgbn);exit(1);}
-	if(setpalrev!=0&&setpalrev!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -palrev (%d) - should be either 0 or 1\n\n",thisprog,setpalrev);exit(1); }
+	if(setblockwidth!=0 && setblockwidth!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -bw (%d), must be 0 or 1\n\n",thisprog,setblockwidth);exit(1);}
+	if(setzclip!=0 && setzclip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -zclip (%d), must be either 0 or 1\n\n",thisprog,setzclip);exit(1);}
+	if(setyflip!=0 && setyflip!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -yflip (%d), must be either 0 or 1\n\n",thisprog,setyflip);exit(1);}
+	if(setulinecolour<-1 || setulinecolour>setrgbn) {fprintf(stderr,"\n\a--- Error[%s]: illegal -uc (%d), must be between -1 and %ld\n\n",thisprog,setulinecolour,setrgbn);exit(1);}
+	if(setulinestyle!=0 && setulinestyle!=1) {fprintf(stderr,"\n\a--- Error[%s]: illegal -us (%d), must be 0 or 1\n\n",thisprog,setulinestyle);exit(1);}
+	if(setrgbn<2) {fprintf(stderr,"\n\a--- Error[%s]: illegal -paln (%ld), must be at least 2\n\n",thisprog,setrgbn);exit(1);}
+	if(setpalrev!=0&&setpalrev!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -palrev (%d) - must be either 0 or 1\n\n",thisprog,setpalrev);exit(1); }
 	if(setrgbpal==NULL) setrgbpal="rainbow";
 	else if(
 		strcmp(setrgbpal,"grey")!=0

@@ -17,6 +17,7 @@ date0=$(date)
 setmod=""
 setxrange="-60,59"
 setyrange="1,150"
+setzrange="a,a,a,a"
 setsplity="30"
 setopts1=""
 setshift="60"
@@ -39,6 +40,9 @@ if [ $# -lt 1 ]; then
 	echo "	--mod: quoted options for pre-processing with xe-matrixmod1 [$setmod]"
 	echo "	--yrange: CSV min,max [$setyrange]"
 	echo "	--xrange: CSV min,max [$setxrange]"
+	echo "	--zrange: CSV min1,max1,min2,max2 [$setzrange]"
+	echo "		- must be 4 values, or \"a\" for auto"
+	echo "		- min1,max1 refer to to top plot, and min2,max2 the bottom"
 	echo "	--splity: y-value at which to split plot [$setsplity]"
 	echo "	--clean: remove temporary files (0=NO 1=YES) [$setclean]"
 	echo "	--verb: verbose output (0=NO 1=YES) [$setverb]"
@@ -67,7 +71,7 @@ if [ ! -e "$infile" ] ; then { echo ; echo "--- Error ["$thisprog"]: missing fil
 if [ ! -s "$infile" ] ; then { echo ; echo "--- Error ["$thisprog"]: $infile is empty" ; echo ; exit; } ; fi
 
 # OPTIONAL ARGUMENT HANDLING
-vs="v:c:" ; vl="mod:,xrange:,yrange:,splity:,title:,xl:,yl:,shift:,opts1:,out:,clean:,verb:"
+vs="v:c:" ; vl="mod:,xrange:,yrange:,zrange:,splity:,title:,xl:,yl:,shift:,opts1:,out:,clean:,verb:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -75,6 +79,7 @@ while [ $# -gt 0 ] ; do
 	case $1 in
 		--xrange ) setxrange=$2 ; shift ;;
 		--yrange ) setyrange=$2 ; shift ;;
+		--zrange ) setzrange=$2 ; shift ;;
 		--splity ) setsplity=$2 ; shift ;;
 		--mod )    setmod=$2 ; shift ;;
 		--title )  settitle=$2 ; shift ;;
@@ -90,12 +95,30 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
+
+# CHECK OPTIONS
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1" ; echo ; exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1" ; echo ; exit; } ; fi
+let z=$(echo $setzrange | tr ',' ' ' | wc -w)
+if [ $z != 4 ] ; then { echo ; echo "--- Error ["$thisprog"]: invalid --zrange ($setzrange) -  must be 4 values" ; echo ; exit; } ; fi
+
+# CLEANUP TEMPORARY FILES
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
 	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi
 fi
+
+# CONVERT $SETZRANGE to plotoptsz1 and plotoptsz2
+plotoptsz1=""
+z=$(echo $setzrange | cut -f 1 -d ,)
+if [ "$z" != "a" ] ; then plotoptsz1=$plotoptsz1" -zmin $z" ; fi
+z=$(echo $setzrange | cut -f 2 -d ,)
+if [ "$z" != "a" ] ; then plotoptsz1=$plotoptsz1" -zmax $z" ; fi
+plotoptsz2=""
+z=$(echo $setzrange | cut -f 3 -d ,)
+if [ "$z" != "a" ] ; then plotoptsz2=$plotoptsz2" -zmin $z" ; fi
+z=$(echo $setzrange | cut -f 4 -d ,)
+if [ "$z" != "a" ] ; then plotoptsz2=$plotoptsz2" -zmax $z" ; fi
 
 
 # FIRST APPLY MODIFICATIONS TO MATRIX
@@ -143,13 +166,13 @@ for count in 1 2 ; do
 		plotopts1="$plotopts0 -ymin $setsplity -ymax $ymax -out $plotfile "
 		let z=$ybins-$splity
 		head -n $z $tempfile".1" |
-			xe-plotmatrix1 stdin $plotopts1 -xlabel "" -ylabel "$setyl" -title "$settitle"
+			xe-plotmatrix1 stdin $plotopts1 $plotoptsz1 -xlabel "" -ylabel "$setyl" -title "$settitle"
 	fi
 	if [ "$count" == "2" ] ; then
 		plotopts1="$plotopts0 -ymin $ymin -ymax $setsplity -out $plotfile "
 		let z=$splity+1
 		tail -n $z $tempfile".1" |
-			xe-plotmatrix1 stdin $plotopts1 -xlabel "$setxl" -ylabel "$setyl"
+			xe-plotmatrix1 stdin $plotopts1 $plotoptsz2 -xlabel "$setxl" -ylabel "$setyl"
 	fi
 done
 

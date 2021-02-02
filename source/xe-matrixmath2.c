@@ -43,7 +43,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"- Adjust matrix-1 using the corresponding cell in matrix-2\n");
 		fprintf(stderr,"- Both matrices must have identical dimensions\n");
 		fprintf(stderr,"- Both should contain only numerical values - no headers or labels\n");
-		fprintf(stderr,"- Non-numbers in either matrix will result in NAN in output matrix\n");
+		fprintf(stderr,"- Non-numbers in matrix-2 won't affect the corresponding martix-1 cell\n");
 		fprintf(stderr,"- NOTE: consecutive delimiters (tabs or spaces) are treated as one\n");
 		fprintf(stderr,"USAGE: %s [matrix-1] [mode] [matrix-2]  [options]\n",thisprog);
 		fprintf(stderr,"    [matrix1] : original matrix filename or \"stdin\"\n");
@@ -72,11 +72,16 @@ int main (int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
-	if(strcmp(setmode,"add")==0) mode=1;
-	else if(strcmp(setmode,"sub")==0) mode=2;
-	else if(strcmp(setmode,"mul")==0) mode=3;
-	else if(strcmp(setmode,"div")==0) mode=4;
-	else {fprintf(stderr,"\n--- Error[%s]: invalid mode (%s)\n\n",thisprog,setmode);exit(1);}
+
+	if(strcmp(infile2,"stdin")==0) {fprintf(stderr,"\n--- Error[%s]: matrix-2 cannot be \"stdin\"\n\n",thisprog);exit(1);}
+
+	if(
+		strcmp(setmode,"add")!=0 &&
+		strcmp(setmode,"sub")!=0 &&
+		strcmp(setmode,"mul")!=0 &&
+		strcmp(setmode,"div")!=0
+	) {fprintf(stderr,"\n--- Error[%s]: invalid mode (%s)\n\n",thisprog,setmode);exit(1);}
+
 
 	/********************************************************************************
 	STORE DATA FOR MATRIX-1 : NEWLINE DELIMITED INPUT
@@ -92,10 +97,9 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	STORE DATA FOR MATRIX-2 : NEWLINE DELIMITED INPUT
 	********************************************************************************/
-	if(strcmp(infile2,"stdin")==0) fpin2=stdin;
-	else if((fpin2=fopen(infile2,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile2);exit(1);}
+	if((fpin2=fopen(infile2,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile2);exit(1);}
 	dat2= xf_matrixread1_d(&nmatrices,&width2,&height2,message,fpin2);
-	if(strcmp(infile2,"stdin")!=0) fclose(fpin2);
+	fclose(fpin2);
 	if(dat2==NULL) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message);exit(1);}
 	n2= width2*height2;
 	//TEST:	for(ii=0;ii<n2;ii++) printf("%g ",dat2[ii]); exit(0);
@@ -109,10 +113,10 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	ADJUST MATRIX-1 BY MATRIX-2
 	********************************************************************************/
-	if(strcmp(setmode,"add")==0) for(ii=0;ii<n1;ii++) dat1[ii] += dat2[ii];
-	else if(strcmp(setmode,"sub")==0) for(ii=0;ii<n1;ii++) dat1[ii] -= dat2[ii];
-	else if(strcmp(setmode,"mul")==0) for(ii=0;ii<n1;ii++) dat1[ii] *= dat2[ii];
-	else if(strcmp(setmode,"div")==0) for(ii=0;ii<n1;ii++) dat1[ii] /= dat2[ii];
+	if(strcmp(setmode,"add")==0) for(ii=0;ii<n1;ii++)      { aa=dat1[ii];bb=dat2[ii]; if(isfinite(aa)&&isfinite(bb)) dat1[ii]= aa+bb; }
+	else if(strcmp(setmode,"sub")==0) for(ii=0;ii<n1;ii++) { aa=dat1[ii];bb=dat2[ii]; if(isfinite(aa)&&isfinite(bb)) dat1[ii]= aa-bb; }
+	else if(strcmp(setmode,"mul")==0) for(ii=0;ii<n1;ii++) { aa=dat1[ii];bb=dat2[ii]; if(isfinite(aa)&&isfinite(bb)) dat1[ii]= aa*bb; }
+	else if(strcmp(setmode,"div")==0) for(ii=0;ii<n1;ii++) { aa=dat1[ii];bb=dat2[ii]; if(isfinite(aa)&&isfinite(bb)) dat1[ii]= aa/bb; }
 	else {fprintf(stderr,"\n--- Error[%s]: invalid mode (%s)\n\n",thisprog,setmode);exit(1);}
 
 	/********************************************************************************
