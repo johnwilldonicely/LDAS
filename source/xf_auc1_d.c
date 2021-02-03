@@ -6,6 +6,7 @@ DESCRIPTION:
 	- Calculate the area under the curve using the trapezoid method
 		- https://en.wikipedia.org/wiki/Integral
 		- http://en.wikipedia.org/wiki/Trapezoidal_rule
+	- single input array
 	- assumes evenly sampled data
 	- requires at least two valid points for meaningfull results
 	- options:
@@ -13,7 +14,6 @@ DESCRIPTION:
 		0: reference to zero (standard definition of AUC)
 		1: reference to a line joining the ends
 			- distance from this line instead of original y-value
-
 USES:
 	- measuring the effect-size of a drug response
 	- measuring power in a region of an FFT spectrogram

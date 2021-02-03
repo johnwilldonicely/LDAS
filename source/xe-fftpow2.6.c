@@ -510,7 +510,7 @@ int main(int argc, char *argv[]) {
 	/********************************************************************************
 	DEFINE FREQUENCY-BAND INDICES (DELTA,THETA,BETA,GAMMA)
 	********************************************************************************/
-	for(ii=0;ii<=nbands;ii++) {
+	for(ii=0;ii<nbands;ii++) {
 		bandA2[ii]= (long)(bandA1[ii]*(double)setnwin*(double)sample_interval );
 		bandZ2[ii]= (long)(bandZ1[ii]*(double)setnwin*(double)sample_interval);
 		// TEST: printf("band:%ld	A1:%g	Z1:%g	setnwin:%g	sampint:%g	A2:%ld	Z2:%ld\n",ii,bandA1[ii],bandZ1[ii],(double)setnwin,(double)sample_interval,bandA2[ii],bandZ2[ii]);

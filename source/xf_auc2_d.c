@@ -1,12 +1,14 @@
 /*
 <TAGS>stats</TAGS>
 17.January.2017 (JRH)
+
 DESCRIPTION:
 	- Calculate the area under the curve using the trapezoid method
 		- https://en.wikipedia.org/wiki/Integral
 		- http://en.wikipedia.org/wiki/Trapezoidal_rule
-	- requires at least two valid points for meaningfull results
+	- dual input arrays: x (time)  and value (y)
 	- suitable for unevenly sampled data
+	- requires at least two valid points for meaningfull results
 	- options:
 		[ref] defines magnitude (y) at each point
 		0: reference to zero (standard definition of AUC)

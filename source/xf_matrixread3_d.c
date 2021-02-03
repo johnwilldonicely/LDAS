@@ -14,7 +14,7 @@ DESCRIPTION:
 
 	NOTE: 	multiple whitespace is treated as a single whitespace, so "empty"
        			words in a line will affect the index to all subsequent columns.
-			
+
 USES:
 	- Finding matrices for a given subject or group in a multi-matrix file
 
@@ -37,7 +37,7 @@ RETURN VALUE:
 	- on success:
 		- A pointer to an array holding the matrix (NULL at end of file)
 		- header[] contains the header preceeding the matrix
-		- message[] contains the header for the next matrix, if there is one
+		- message[] contains the header for the next matrix, if there there is no preceeding blank line
 	- on error:
 		- ncols and nrows are set to -1
 		- message[] describes the error
