@@ -109,23 +109,11 @@ listsubjects=$(tail -n "+$z" $infile | awk '{print $'$setcg1'}' | sort -nu)
 listgroups=$(tail -n "+$z" $infile | awk '{print $'$setcg2'}' | sort -nu)
 listtimes=$(tail -n "+$z" $infile | awk '{print $'$setcg3'}' | sort -nu)
 
-# make sure all groups are numeric
-let x=$(echo $listsubjects | wc -w)
-let y=$(echo $listsubjects | xe-checkisnum2 stdin | wc -w)
-if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric subjects found in column $setcg1 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
-
-let x=$(echo $listgroups | wc -w)
-let y=$(echo $listgroups | xe-checkisnum2 stdin | wc -w)
-if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric groups found in column $setcg2 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
-
-let x=$(echo $listtimes | wc -w)
-let y=$(echo $listtimes | xe-checkisnum2 stdin | wc -w)
-if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric times found in column $setcg3 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
-
 ################################################################################
 # RUN REPEATED_MEASURES INTEGRITY-CHECK
 ################################################################################
-# ??? NEED A FAST SOLUTION TO THIS!
+xe-checkreplicate1 jjj.0 -head $sethead 2> $tempfile".error"
+if [ -s $tempfile".error" ] ; then cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 ; exit ; fi
 
 ################################################################################
 # TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINES
@@ -150,10 +138,11 @@ for group in $listgroups ; do
 	let count=$count+1
 	out1=$tempfile"."$group
 	list1=$list1" "$out1
-
+	# if name-file is defined, use it to define the name for the current group
 	if [ "$setfilegnames" != "" ] ; then
 		name=$(xe-dbmatch1 $setfilegnames "group" $group -oc "name" -o 1)
 		if [ "$name" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no group $group defined in $setfilegnames\n" >&2 ;  exit; } ; fi
+	# if no name-file is defined, build a fake list of groupnames
 	else name="group:"$group ; fi
 	echo -e "\t"$name >&2
 
