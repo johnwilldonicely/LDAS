@@ -39,7 +39,7 @@ int main (int argc, char *argv[]) {
 
 	/* arguments */
 	char *infile=NULL,*keyword,delimiters[MAXWORDLEN];
-	int setcase=1,setdelimiters=0;
+	int setcase=1,setdelimiters=0,setstart=1;
 
 	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
 	if(argc<3) {
@@ -59,6 +59,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-d: characters to use as column-delimiters [ ,\\t\\n])\n");
 		fprintf(stderr,"		- if manually set, every delimiter = new column\n");
 		fprintf(stderr,"		- otherwise, consecutive delimters are collapsed\n");
+		fprintf(stderr,"	-s: column-numbering starts with zero or one [%d]\n",setstart);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s data.txt rate -c 0 -d \'\\t -\'\n",thisprog);
 		fprintf(stderr,"	cat temp.txt | %s stdin PHONE\n",thisprog);
@@ -80,11 +81,13 @@ int main (int argc, char *argv[]) {
 				sprintf(delimiters,"%s",xf_strescape1(argv[++ii]));
 				setdelimiters=1;
 			}
+			else if(strcmp(argv[ii],"-s")==0)  setstart= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
 	if(setcase!=0&&setcase!=1) {fprintf(stderr,"\n--- Error[%s]: invalid value for -c option (%d) - must be 0 or 1\n\n",thisprog,setcase); exit(1);}
 	if(setdelimiters==0) snprintf(delimiters,MAXWORDLEN,"%s",delimdefault);
+	if(setstart!=0&&setstart!=1) {fprintf(stderr,"\n--- Error[%s]: invalid value for -s option (%d) - must be 0 or 1\n\n",thisprog,setstart); exit(1);}
 
 	/* READ THE INPUT AND OUPUT MATCHING KEYWORD VALUES */
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
@@ -101,13 +104,13 @@ int main (int argc, char *argv[]) {
 		if(setcase==1) {
 			for(ii=0;ii<nwords;ii++) {
 				if(strcmp((line+iword[ii]),keyword)==0) {
-					printf("%ld\n",(ii+1));
+					printf("%ld\n",(ii+setstart));
 					exit(0);
 		}}}
 		else {
 			for(ii=0;ii<nwords;ii++) {
 				if(strcasecmp((line+iword[ii]),keyword)==0) {
-					printf("%ld\n",(ii+1));
+					printf("%ld\n",(ii+setstart));
 					exit(0);
 		}}}
 	}

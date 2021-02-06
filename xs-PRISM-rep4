@@ -1,0 +1,197 @@
+#!/bin/bash
+
+# <TAGS>PRISM transform</TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+allopts=$@
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"_"$$
+progpath=$(dirname $(readlink -f "$0"))
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+z=${thisprog%%.*}
+setoutbase="out_"$z".txt"
+setplotbase="plot_"$z
+
+setverb="0"
+setclean="1"
+setfilegnames=""
+
+setcg1="1"
+setcg2="2"
+setcg3="3"
+setcy="4"
+sethead="0"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert data-fame to GraphPad-Prism repeated-measures format"
+	echo "- converts long-format data to wide-format"
+	echo "- that is, results from a given subject are laid out on a single line"
+	echo "- a header is added for each subject-column"
+	echo "- a block of columns is generated for each group, with a group-header added"
+ 	echo "        - NOTE! assumes each subject has an entry for each treatment & time"
+	echo "        - NOTE! any header-rows must be removed - use the --head option"
+	echo ""
+	echo "USAGE: $thisprog [in] [options]"
+	echo "    [in]: a 4-column input file"
+	echo "        - all 4 columns must be numeric (no letters or non-numeric characters)"
+	echo "        - column-1 : subject-id"
+	echo "        - column-2 : treatment group"
+	echo "        - column-3 : time"
+	echo "        - column-4 : the actual data"
+	echo ""
+	echo "VALID OPTIONS (defaults in []):"
+	echo "    --head: number of header lines to skip [$sethead]"
+	echo "    --names: file defining \"group\" and \"name\" to replace group-number [$setfilegnames]"
+	echo "EXAMPLE: "
+	echo "	$thisprog out_xs-XTP_MMN_params.txt"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+########################################################################################
+# ARGUMENT HANDLING
+########################################################################################
+infile=$1 ; shift
+# check file exists & isn't empty
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" >&2 ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" >&2 ;  exit; } ; fi
+
+vs="v:c:" ; vl="verb:,clean:,head:,names:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		--head ) sethead=$2 ; shift ;;
+		--names ) setfilegnames=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+########################################################################################
+# MAKE SURE GROUPNAME FILE IS PRESENT AND NOT EMPTY
+########################################################################################
+if [ "$setfilegnames" != "" ] ; then
+	if [ ! -e "$setfilegnames" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $setfilegnames\n" >&2 ;  exit; } ; fi
+	if [ ! -s "$setfilegnames" ] ; then { echo -e "\n--- Error ["$thisprog"]: $setfilegnames is empty\n" >&2 ;  exit; } ; fi
+fi
+
+################################################################################
+# BUILD THE SUBJECT-LIST AND GROUP-LIST
+################################################################################
+let z=$(echo $sethead | awk '{print $1+1}')
+listsubjects=$(tail -n "+$z" $infile | awk '{print $'$setcg1'}' | sort -nu)
+listgroups=$(tail -n "+$z" $infile | awk '{print $'$setcg2'}' | sort -nu)
+listtimes=$(tail -n "+$z" $infile | awk '{print $'$setcg3'}' | sort -nu)
+
+# make sure all groups are numeric
+let x=$(echo $listsubjects | wc -w)
+let y=$(echo $listsubjects | xe-checkisnum2 stdin | wc -w)
+if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric subjects found in column $setcg1 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
+
+let x=$(echo $listgroups | wc -w)
+let y=$(echo $listgroups | xe-checkisnum2 stdin | wc -w)
+if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric groups found in column $setcg2 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
+
+let x=$(echo $listtimes | wc -w)
+let y=$(echo $listtimes | xe-checkisnum2 stdin | wc -w)
+if [ $x -ne $y ] ; then { echo -e "\n--- Error ["$thisprog"]: non-numeric times found in column $setcg3 of $infile - have you defined he number of header-lines (--head $sethead) correctly?\n" >&2 ;  exit; } ; fi
+
+################################################################################
+# RUN REPEATED_MEASURES INTEGRITY-CHECK
+################################################################################
+# ??? NEED A FAST SOLUTION TO THIS!
+
+################################################################################
+# TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINES
+################################################################################
+tail -n "+$z" $infile |
+	xe-transpose4 stdin -cg1 $setcg3 -cg2 $setcg2 -cg3 $setcg1 -cy $setcy > $tempfile
+
+################################################################################
+# BUILD THE SUBJECT-HEADER
+# this will go on the second row of each teporary treatment file
+################################################################################
+head2=$(head -n 1 $tempfile | cut -f 3- | sed 's/r_/subject_/g')
+
+################################################################################
+# MAKE A TEMPORARY FILE FOR EACH TREATMENT GROUP
+# - build the treatment-header and attach it and the subject-header to each file
+# - both header lines to be prefixed with a label - treatment and subject
+################################################################################
+list1=""
+let count=0
+for group in $listgroups ; do
+	let count=$count+1
+	out1=$tempfile"."$group
+	list1=$list1" "$out1
+
+	if [ "$setfilegnames" != "" ] ; then
+		name=$(xe-dbmatch1 $setfilegnames "group" $group -oc "name" -o 1)
+		if [ "$name" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no group $group defined in $setfilegnames\n" >&2 ;  exit; } ; fi
+	else name="group:"$group ; fi
+	echo -e "\t"$name >&2
+
+	# build header for this group and output
+	head1="" ; for i in $head2 ; do head1=$head1" "$name ; done
+
+	if [ $count -eq 1 ] ; then
+		# add the header-lines to the temporary treatment file
+		echo "treatment "$head1 | xe-delimit stdin > $out1
+		echo "subject "$head2 | xe-delimit stdin >> $out1
+		# append the data for this group - remove the original header and grp column
+		xe-dbmatch1 $tempfile grp $group -m 3 |
+		tail -n +2 |
+		cut -f 1,3- >> $out1
+	else
+		echo $head1 | xe-delimit stdin > $out1
+		echo $head2 | xe-delimit stdin >> $out1
+		# append the data for this group - remove the original header and subj (actually time) & grp columns
+		xe-dbmatch1 $tempfile grp $group -m 3 |
+		tail -n +2 |
+		cut -f 3- >> $out1
+	fi
+
+done
+# PASTE THE TEMPORARY FILES TOGETHER TO MAKE THE FINAL OUTPUT
+paste $list1
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$setverb" == "1" ] ; then
+	end_time=$(date +'%s.%3N')
+	s=$(echo $end_time $start_time | awk '{print $1-$2}' )
+	m=$(echo $s | awk '{print ($1/60)}')
+	echo "	Time to finish job: "$s" seconds = "$m" minutes"
+fi
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit

@@ -10,6 +10,8 @@
 /*
 <TAGS>file database string</TAGS>
 
+v 5: 6.February.202a [JRH]
+	- add numeric match option (-m 3) 
 v 5: 6.September.2019 [JRH]
 	- show error if requested XML section is not found
 v 5: 15.January.2019 [JRH]
@@ -82,10 +84,11 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[patterns]: comma-separated patterns to detect in column (see -m)\n");
 		fprintf(stderr,"			- at least one pattern must match \n");
 		fprintf(stderr,"VALID OPTIONS:\n");
-		fprintf(stderr,"	[-xml]: XML section containing header-line and data [%s]\n",setxml);
+		fprintf(stderr,"	[-xml]: XML section containing header-line and data []\n");
 		fprintf(stderr,"	[-m]: pattern match mode [%d]\n",setmatch);
 		fprintf(stderr,"		 1= contains at least one pattern\n");
 		fprintf(stderr,"		 2= exact match with at least one pattern\n");
+		fprintf(stderr,"		 3= numeric match (double-precision float)\n");
 		fprintf(stderr,"		-1= contains none of the patterns\n");
 		fprintf(stderr,"		-2= exact match with none of the patterns\n");
 		fprintf(stderr,"	[-cn]: treat [column] as column-number (0=NO, 1=YES) [%d]\n",setcolnum);
@@ -129,7 +132,7 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setcolnum!=0&&setcolnum!=1) {fprintf(stderr,"\n--- Error[%s]: invalid -n (%d) : must be 0 or 1\n\n",thisprog,setcolnum); exit(1);}
-	if(setmatch!=1&&setmatch!=2&&setmatch!=-1&&setmatch!=-2) {fprintf(stderr,"\n--- Error[%s]: invalid -m (%d) : must be -1,1 -2, or 2\n\n",thisprog,setmatch); exit(1);}
+	if(setmatch!=1&&setmatch!=2&&setmatch!=3&&setmatch!=-1&&setmatch!=-2) {fprintf(stderr,"\n--- Error[%s]: invalid -m (%d) : must be 1, -1, 2, -2 or 3\n\n",thisprog,setmatch); exit(1);}
 	if(setdelimiters==0) sprintf(delimout,"\t");
 	else if(setdelimiters==1) sprintf(delimout,"%c",delimiters[0]);
 
@@ -230,6 +233,16 @@ int main (int argc, char *argv[]) {
 			else if(setmatch==2) { // EXACT MATCH
 				for(ii=0;ii<nvalues;ii++) {
 					if(strcmp(line+start[keycolin],setvalues+vstart[ii])==0) {
+						if(setkeyout==NULL) printf("%s",templine);
+						else if(nwords>keycolout) printf("%s\n",line+start[keycolout]);
+						else printf("\n");
+						continue;
+			}}}
+			else if(setmatch==3) { // NUMERIC MATCH
+				aa= atof(line+start[keycolin]);
+				for(ii=0;ii<nvalues;ii++) {
+					bb= atof(setvalues+vstart[ii]);
+					if(bb==aa) {
 						if(setkeyout==NULL) printf("%s",templine);
 						else if(nwords>keycolout) printf("%s\n",line+start[keycolout]);
 						else printf("\n");

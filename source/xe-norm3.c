@@ -10,7 +10,11 @@
 /*
 <TAGS> stats </TAGS>
 
+v 1: 5.February.2021 [JRH]
+	- make id1 and id2 double-precision float, for more flexibility in naming of "groups" 
+
 v 1: 19.April.2019 [JRH]
+	- first version
 */
 
 /* external functions start */
@@ -36,14 +40,14 @@ int main (int argc, char *argv[]) {
 	/* program-specific variables */
 	char *words=NULL;
 	int sizeofid1,sizeofid2,sizeofrep,sizeofval,startfound,stopfound;
-	long *datid1=NULL,*datid2=NULL,*iword=NULL,nwords;
-	long nlines,previd1,previd2,start,stop,indexa,indexb;
-	double *datrep=NULL,*datval=NULL;
+	long *iword=NULL,nwords;
+	long nlines,start,stop,indexa,indexb;
+	double *datid1=NULL,*datid2=NULL,*datrep=NULL,*datval=NULL,previd1,previd2;
 
 	/* arguments */
 	char *infile=NULL;
-	int setnorm=3,sethead=0,setverb=0;
-	long setid1=1,setid2=2,setrep=3,setval=4;
+	int setnorm=3,setverb=0;
+	long setid1=1,setid2=2,setrep=3,setval=4,sethead=0;
 	double setn1=0.0,setn2=1.0;
 
 
@@ -58,8 +62,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"Normalise repeated-measures data, preserving grouping identifiers\n");
 		fprintf(stderr,"- typically used to normalize subject x group x time data\n");
 		fprintf(stderr,"- works on 4 input columns:\n");
-		fprintf(stderr,"- 	id1: identifier (integer, typically subject)\n");
-		fprintf(stderr,"- 	id2: identifier (integer, typically group)\n");
+		fprintf(stderr,"- 	id1: identifier (float, typically subject)\n");
+		fprintf(stderr,"- 	id2: identifier (float, typically group)\n");
 		fprintf(stderr,"- 	rep: repeated-measure (float, typically time)\n");
 		fprintf(stderr,"- 	val: value to be normalized (float)\n");
 		fprintf(stderr,"NOTE! assumes data are sorted by id1,id2 and rep (see below)\n");
@@ -67,8 +71,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[in]: input file name or \"stdin\"\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"	-head: non-comment lines at top of file to pass unaltered [%ld]\n",sethead);
-		fprintf(stderr,"	-id1: col-no. for id#1 (integer), e.g. subject [%ld]\n",setid1);
-		fprintf(stderr,"	-id2: col-no. for id#2 (integer), e.g. group [%ld]\n",setid2);
+		fprintf(stderr,"	-id1: col-no. for id#1 (float), e.g. subject [%ld]\n",setid1);
+		fprintf(stderr,"	-id2: col-no. for id#2 (float), e.g. group [%ld]\n",setid2);
 		fprintf(stderr,"	-rep: col-no. for repeated category (float), e.g. time [%ld]\n",setrep);
 		fprintf(stderr,"	-val: col-no. for values (float) [%ld]\n",setval);
 		fprintf(stderr,"	-norm: normalization type: [%d]\n",setnorm);
@@ -110,7 +114,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
-	if(setnorm<-1||setnorm>4) {fprintf(stderr,"\n--- Error[%s]: -n must be -1 or 0-4\n\n",thisprog,setnorm); exit(1);}
+	if(setnorm<-1||setnorm>4) {fprintf(stderr,"\n--- Error[%s]: -nnorm (%d) : must be -1 or 0-4\n\n",thisprog,setnorm); exit(1);}
 	if(setverb!=0 && setverb!=1 && setverb != 999) { fprintf(stderr,"\n--- Error [%s]: invalid -verb [%d] must be 0,1, or 999\n\n",thisprog,setverb);exit(1);}
 
 	setid1--;
@@ -137,14 +141,16 @@ int main (int argc, char *argv[]) {
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
 		/* preserve header and leading blank lines if required */
 		nlines++;
-		if(sethead>0) { if(line[0]=='#' || nlines<=sethead) { internal_print4(line,iword,setid1,setid2,setrep,setval); if(strlen(line)>1) mm++; continue; }}
+		if(sethead>0) {
+			if(line[0]=='#' || nlines<=sethead) { internal_print4(line,iword,setid1,setid2,setrep,setval); if(strlen(line)>1) mm++; continue; }
+		}
 		/* make sure required columns are present */
 		if(nwords<setrep || nwords<setval) continue;
 		/* make sure content in x- and y-columns is numeric */
-		if(sscanf(line+iword[setid1],"%ld",&ii)!=1) {fprintf(stderr,"\n--- Error[%s]: id1 column contains non-numeric values\n\n",thisprog);exit(1);};
-		if(sscanf(line+iword[setid2],"%ld",&jj)!=1) {fprintf(stderr,"\n--- Error[%s]: id2 column contains non-numeric values\n\n",thisprog);exit(1);};
-		if(sscanf(line+iword[setrep],"%lf",&aa)!=1 || !isfinite(aa)) aa=NAN;
-		if(sscanf(line+iword[setval],"%lf",&bb)!=1 || !isfinite(bb)) bb=NAN;
+		if(sscanf(line+iword[setid1],"%lf",&aa)!=1 || !isfinite(aa)) {fprintf(stderr,"\n--- Error[%s]: id1 column contains non-numeric values\n\n",thisprog);exit(1);};
+		if(sscanf(line+iword[setid2],"%lf",&bb)!=1 || !isfinite(bb)) {fprintf(stderr,"\n--- Error[%s]: id2 column contains non-numeric values\n\n",thisprog);exit(1);};
+		if(sscanf(line+iword[setrep],"%lf",&cc)!=1 || !isfinite(cc)) cc= NAN;
+		if(sscanf(line+iword[setval],"%lf",&dd)!=1 || !isfinite(dd)) dd= NAN;
 		/* dynamically allocate memory */
 		datid1= realloc(datid1,(nn+1)*sizeofid1);
 		datid2= realloc(datid2,(nn+1)*sizeofid2);
@@ -152,10 +158,10 @@ int main (int argc, char *argv[]) {
 		datval= realloc(datval,(nn+1)*sizeofval);
 		if(datid1==NULL || datid2==NULL || datrep==NULL || datval==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 		/* store values */
-		datid1[nn]= ii;
-		datid2[nn]= jj;
-		datrep[nn]= aa;
-		datval[nn]= bb;
+		datid1[nn]= aa;
+		datid2[nn]= bb;
+		datrep[nn]= cc;
+		datval[nn]= dd;
 		/* increment data-counter */
 		nn++;
 	}
@@ -228,7 +234,7 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 OUTPUT:
 	for(ii=0;ii<nn;ii++) {
-		printf("%ld\t%ld\t%lf\t%lf\n",datid1[ii],datid2[ii],datrep[ii],datval[ii]);
+		printf("%g\t%g\t%g\t%lf\n",datid1[ii],datid2[ii],datrep[ii],datval[ii]);
 	}
 
 	/********************************************************************************/
