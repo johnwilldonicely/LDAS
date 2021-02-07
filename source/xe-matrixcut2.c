@@ -29,7 +29,7 @@ int main (int argc, char *argv[]) {
 	/* general variables */
 	char *line=NULL,*templine=NULL,*pline,*pcol,message[256];
 	long ii,jj,kk,nn;
-	double aa; 
+	double aa;
 	FILE *fpin;
 	/* program-specific variables */
 	char header[256],tempheader[256];
@@ -55,11 +55,14 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[matrix]: file or \"stdin\" in (multi)matrix format\n");
 		fprintf(stderr,"		- matrices separated by \"# comment\" lines\n");
 		fprintf(stderr,"VALID OPTIONS (defaults in []):\n");
-		fprintf(stderr,"	-col   : column on comment-lines holding the ID [%ld]\n",setcol);
-		fprintf(stderr,"	-id    : ID to match (if unset, matches all matrices) []\n");
-		fprintf(stderr,"	-match : mode (1=partial 2=exact, 3=integer 4=float) [%d]\n",setmatch);
-		fprintf(stderr,"	-head  : output header line (0=NO 1=YES) [%d]\n",sethead);
-		fprintf(stderr,"	-p output decimal precision (-1=auto (%%f), 0=auto (%%g), >0=precision) [%d]\n",setp);
+		fprintf(stderr,"    -col   : column on comment-lines holding the ID [%ld]\n",setcol);
+		fprintf(stderr,"    -id    : ID to match (if unset, matches all matrices) []\n");
+		fprintf(stderr,"    -match : mode (1=partial 2=exact, 3=integer 4=float) [%d]\n",setmatch);
+		fprintf(stderr,"    -head  : output header line (0=NO 1=YES) [%d]\n",sethead);
+		fprintf(stderr,"    -p output decimal precision [%d]\n",setp);
+		fprintf(stderr,"        -2= %%f\n");
+		fprintf(stderr,"	-1= %%g (minimum required decimals, may truncate)\n");
+		fprintf(stderr,"	0 or greater: value represents decimal precision\n");
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s matrix.txt -col 4 -id dose3 -match 2\n",thisprog);
 		fprintf(stderr,"	%s matrix.txt -col 7 -id 0.50 -match 4\n",thisprog);
