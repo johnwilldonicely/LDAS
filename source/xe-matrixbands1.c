@@ -19,6 +19,8 @@ long *xf_lineparse1(char *line,long *nwords);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 double *xf_matrixread3_d(FILE *fpin, long *ncols, long *nrows, char *header, char *message1);
 int xf_matrixrotate2_d(double *matrix1, long *width, long *height, int r);
+double *xf_matrixtrans1_d(double *data1, long *width, long *height);
+
 int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message1);
 
 /* external functions end */
@@ -45,7 +47,7 @@ int main (int argc, char *argv[]) {
 
 	/* arguments */
 	char *infile1=NULL;
-	int setsign=0,setrotate=0,setnorm=-1;
+	int setsign=0,setrotate=0,settrans=0,setnorm=-1;
 	long setn1=-1,setn2=-1;
 
 	double setxmin=1, setxint=1;
@@ -73,10 +75,11 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Extract bands (eg.frequency) from a matrix representing a timeseries\n");
-		fprintf(stderr,"- assumes each row is a timepoint (but see -r option)\n");
+		fprintf(stderr,"- assumes ascending time in rows and frequency in columns\n");
+		fprintf(stderr,"        - use -rot or -trans options to adjust input accordingly)\n");
 		fprintf(stderr,"- bands (AUC for multiple columns) are defined for each time (row)\n");
 		fprintf(stderr,"- input should have no labels for row & columns\n");
-		fprintf(stderr,"    - hence user defines minimum & interval for rows & columns\n");
+		fprintf(stderr,"        - hence user defines minimum & interval for rows & columns\n");
 		fprintf(stderr,"- blank lines or comments (\"#\") should separate multiple matrices\n");
 		fprintf(stderr,"- non-numeric values will be ignored\n");
 		fprintf(stderr,"\n");
@@ -86,9 +89,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        - missing values require placeholders (NAN, \"-\", etc.)\n");
 		fprintf(stderr,"\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
-		fprintf(stderr,"    -r: rotate matrix before processing (0,-90,90,180) [%d]\n",setrotate);
+		fprintf(stderr,"    -rot: rotate matrix before processing (0,-90,90,180) [%d]\n",setrotate);
+		fprintf(stderr,"    -trans: transpose matrix (swap x and y axes) (0=NO 1=YES) [%d]\n",settrans);
 		fprintf(stderr,"\n");
-		fprintf(stderr,"     OPTIONS FOR DEFINING DATA-RANGES, AFTER ROTATING: \n");
+		fprintf(stderr,"     OPTIONS FOR DEFINING DATA-RANGES, AFTER ROTATING/TRANSLATING:\n");
 		fprintf(stderr,"    -xmin: leftmost column-value [%.3f]\n",setxmin);
 		fprintf(stderr,"    -xint: interval between columns [%.3f]\n",setxint);
 		fprintf(stderr,"    -ymin: topmost row-value [%.3f]\n",setymin);
@@ -127,10 +131,12 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-yint")==0) setyint= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-bands")==0) setbands= argv[++ii];
 			else if(strcmp(argv[ii],"-ids")==0) setheadids= argv[++ii];
-			else if(strcmp(argv[ii],"-r")==0)  setrotate= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-rot")==0)  setrotate= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-trans")==0)  settrans= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
-	if(setrotate!=0 && setrotate!=-90 && setrotate!=90 && setrotate!=180) {fprintf(stderr,"\n--- Error[%s]: invalid -r [%d]: must be 0,-90, 90, or 180\n\n",thisprog,setrotate);exit(1);}
+	if(settrans!=0 && settrans!=1) {fprintf(stderr,"\n--- Error[%s]: invalid -trans [%d]: must be 0 or 1\n\n",thisprog,settrans);exit(1);}
+	if(setrotate!=0 && setrotate!=-90 && setrotate!=90 && setrotate!=180) {fprintf(stderr,"\n--- Error[%s]: invalid -rot [%d]: must be 0,-90, 90, or 180\n\n",thisprog,setrotate);exit(1);}
 
 
 	/********************************************************************************
@@ -209,14 +215,17 @@ int main (int argc, char *argv[]) {
 		/* READ A HEADER + MATRIX  */
 		n1=nrows1=ncols1= 0;
 		matrix1= xf_matrixread3_d(fpin,&ncols1,&nrows1,header,message1);
-		if(ncols1<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message1); exit(1); }
+		if(ncols1<0) { fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message1); exit(1); }
 		else if(matrix1==NULL) break;
 		else nmatrices++;
 		n1= nrows1*ncols1;
 		//TEST: printf("%s\n",header); for(ii=jj=0;ii<n1;ii++) {printf("%g",matrix1[ii]);if(++jj<ncols1) printf(" ");else { jj=0;printf("\n"); }}
 
 		/* APPLY ROTATION IF REQUIRED */
-		if(setrotate!=0) {z= xf_matrixrotate2_d(matrix1,&ncols1,&nrows1,-90); if(z<0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message1); exit(1); }}
+		if(setrotate!=0) {z= xf_matrixrotate2_d(matrix1,&ncols1,&nrows1,-90); if(z<0){ fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message1); exit(1); }}
+
+		/* APPLY TRANSPOSE IF REQUIRED */
+		if(settrans!=0) {matrix1= xf_matrixtrans1_d(matrix1,&ncols1,&nrows1); if(matrix1==NULL) { fprintf(stderr,"\b\n\t--- Error[%s]: memory allocation error in transpose function\n\n",thisprog); exit(1); }}
 
 		/* CHECK MATRIX SIZE IS OK */
 		if(ncols1<bandmax) {fprintf(stderr,"\n--- Error[%s]: matrix too small to accomodate specified bands - consider rotating, or adjusting xmin/xint/ymin/yint or bands\n\n",thisprog);exit(1);};
@@ -243,7 +252,7 @@ int main (int argc, char *argv[]) {
 				mm= bandZ2[band] - bandA2[band];
 				pmatrix= matrix1+(row*ncols1)+bandA2[band];
 				x= xf_auc1_d(pmatrix,mm,setxint,0,result_d,message2);
-				if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message2); exit(1); }
+				if(x!=0) { fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message2); exit(1); }
 				printf("\t%g",result_d[0]);
 			}
 			printf("\n");

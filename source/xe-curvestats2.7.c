@@ -1,5 +1,5 @@
 #define thisprog "xe-curvestats2"
-#define TITLE_STRING thisprog" v 7: 19.September.2017 [JRH]"
+#define TITLE_STRING thisprog" v 7: 7.February.2021 [JRH]"
 #define MAXLINELEN 1000
 
 #include <stdio.h>
@@ -10,6 +10,9 @@
 
 /*
 <TAGS>stats signal_processing</TAGS>
+
+v 7: 7.February.2021 [JRH]
+	- bugfix: if no indices are specified, now does not exclude the last value on the line
 
 v 7: 27.February.2018 [JRH]
 	- add -avg option to output average rather than AUC per se
@@ -96,7 +99,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *setindices=NULL;
 	int setdeltaflag=0,setindicesflag=0,setformat=1,setref=0,setavg=0;
-	double setmin=0.0,setmax=1.0,setdelta=NAN;
+	double setmin=NAN,setmax=NAN,setdelta=NAN;
 
 
 	if((data1=(double *)realloc(data1,(maxwords)*sizeofdouble))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
@@ -118,8 +121,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	%s [input] [options]\n",thisprog);
 		fprintf(stderr,"	[input]: file name or \"stdin\"\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
-		fprintf(stderr,"	-min: presumed minimum x-value of first item on each line [%g]\n",setmin);
-		fprintf(stderr,"	-max: presumed maximum x-value of last item on each line [%g]\n",setmax);
+		fprintf(stderr,"	-min: presumed minimum x-value of first item on each line [0]\n");
+		fprintf(stderr,"	-max: presumed maximum x-value of last item on each line [1]\n");
 		fprintf(stderr,"		- delta inferred as (max - min)/(items_on_line - 1)\n");
 		fprintf(stderr,"	-d: fixed AUC delta for interation on each line [unset by default]\n");
 		fprintf(stderr,"		- if set, overrides -max\n");
@@ -159,10 +162,15 @@ int main (int argc, char *argv[]) {
 
 	if(setavg!=0&&setavg!=1) {fprintf(stderr,"\n--- Error[%s]: invalid -avg (%d): must be 0 or 1\n\n",thisprog,setavg);exit(1);}
 	if(setformat!=1&&setformat!=2) {fprintf(stderr,"\n--- Error[%s]: invalid output format (-f %d): must be 1 or 2\n\n",thisprog,setformat);exit(1);}
+
+	if(!isfinite(setmin)) setmin= 0.0;
+	if(!isfinite(setmax)) setmax= setmin+9.0;
+	else if(isfinite(setdelta)) {fprintf(stderr,"\n--- Error[%s]: cannot set both max (-max %g) and delta (-d %g)\n\n",thisprog,setmax,setdelta);exit(1);}
 	if(isfinite(setdelta)) {
 		setdeltaflag= 1;
 		setmax= setmin+setdelta; // temporary max value
 	}
+
 
 	/********************************************************************************/
 	/* SET UP AN ARRAY OF INDICES WHERE EVEN-ELEMENTS ARE STARTS AND ODD-ELEMENTS ARE STOPS */
@@ -230,15 +238,12 @@ int main (int argc, char *argv[]) {
 		/* parse the line into words */
 		pwords = xf_lineparse1(line,&nwords);
 		if(nwords>maxwords){ maxwords=nwords; if((data1=(double *)realloc(data1,(maxwords)*sizeofdouble))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}}
-
 		/* determine delta or max for this line depending on if setdeltaflag is set  */
 		if(setdeltaflag==1) setmax= setmin + (nwords-1)*setdelta;
 		else setdelta=(setmax-setmin)/(nwords-1);
-
 		/* if no indices were set, then also set index to the max possible value for the line */
-		if(setindices==NULL) {index1[0]=setmin; index1[1]=setmax;}
-
-		// TEST: fprintf(stderr,"nwords=%ld\n",nwords); fprintf(stderr,"setdelta=%g\n",setdelta); fprintf(stderr,"setmin=%g\n",setmin);fprintf(stderr,"setmax=%g\n",setmax);fprintf(stderr,"indices=%g %g\n",index1[0],index1[1]);
+		if(setindices==NULL) {index1[0]= setmin; index1[1]= setmax + setdelta;}
+		// TEST: fprintf(stderr,"nwords=%ld\n",nwords);	fprintf(stderr,"setdelta=%g\n",setdelta); fprintf(stderr,"setmin=%g\n",setmin); fprintf(stderr,"setmax=%g\n",setmax); fprintf(stderr,"indices=%g %g\n",index1[0],index1[1]);
 
 		/* store the words as an array of numbers */
 		z=0; for(ii=0;ii<nwords;ii++) {

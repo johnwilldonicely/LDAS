@@ -60,9 +60,9 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -match : mode (1=partial 2=exact, 3=integer 4=float) [%d]\n",setmatch);
 		fprintf(stderr,"    -head  : output header line (0=NO 1=YES) [%d]\n",sethead);
 		fprintf(stderr,"    -p output decimal precision [%d]\n",setp);
-		fprintf(stderr,"        -2= %%f\n");
-		fprintf(stderr,"	-1= %%g (minimum required decimals, may truncate)\n");
-		fprintf(stderr,"	0 or greater: value represents decimal precision\n");
+		fprintf(stderr,"        -2 : %%f \n");
+		fprintf(stderr,"	-1 : %%g (minimum required decimals, may truncate to 4 places)\n");
+		fprintf(stderr,"      >= 0 : value represents decimal precision\n");
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s matrix.txt -col 4 -id dose3 -match 2\n",thisprog);
 		fprintf(stderr,"	%s matrix.txt -col 7 -id 0.50 -match 4\n",thisprog);
