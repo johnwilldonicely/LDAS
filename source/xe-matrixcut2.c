@@ -1,5 +1,5 @@
 #define thisprog "xe-matrixcut2"
-#define TITLE_STRING thisprog" 24.February.2019 [JRH]"
+#define TITLE_STRING thisprog" 7.February.2021 [JRH]"
 
 #include <math.h>
 #include <stdio.h>
@@ -8,6 +8,9 @@
 
 /*
 <TAGS>dt.matrix</TAGS>
+
+7.February.2021 [JRH]
+	- allow setting of decimal precision for output
 
 24.February.2019 [JRH]
 	- new matrix read program to read matrices one at a time with selection criteria
@@ -26,6 +29,7 @@ int main (int argc, char *argv[]) {
 	/* general variables */
 	char *line=NULL,*templine=NULL,*pline,*pcol,message[256];
 	long ii,jj,kk,nn;
+	double aa; 
 	FILE *fpin;
 	/* program-specific variables */
 	char header[256],tempheader[256];
@@ -33,7 +37,7 @@ int main (int argc, char *argv[]) {
 	double *matrix1=NULL,iddouble=0.0;
 	/* arguments */
 	char *infile,*setid=NULL;
-	int sethead=1,setmatch=2;
+	int sethead=1,setmatch=2,setp=-1;
 	long setcol=1;
 
 	/********************************************************************************/
@@ -55,6 +59,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-id    : ID to match (if unset, matches all matrices) []\n");
 		fprintf(stderr,"	-match : mode (1=partial 2=exact, 3=integer 4=float) [%d]\n",setmatch);
 		fprintf(stderr,"	-head  : output header line (0=NO 1=YES) [%d]\n",sethead);
+		fprintf(stderr,"	-p output decimal precision (-1=auto (%%f), 0=auto (%%g), >0=precision) [%d]\n",setp);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s matrix.txt -col 4 -id dose3 -match 2\n",thisprog);
 		fprintf(stderr,"	%s matrix.txt -col 7 -id 0.50 -match 4\n",thisprog);
@@ -72,6 +77,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-col")==0)   setcol= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-match")==0) setmatch=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-head")==0)  sethead= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-p")==0)     setp=atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setmatch<1 || setmatch>4) { fprintf(stderr,"\n--- Error [%s]: invalid -match [%d] must be 1-4\n\n",thisprog,setmatch);exit(1);}
@@ -116,7 +122,13 @@ int main (int argc, char *argv[]) {
 		if(sethead==1) printf("%s",header);
 		for(ii=0;ii<height;ii++) {
 			kk= ii*width;
-			for(jj=0;jj<width;jj++) { if(jj>0) printf(" ");	printf("%g",matrix1[kk+jj]); }
+			for(jj=0;jj<width;jj++) {
+				if(jj>0) printf(" ");
+				aa= matrix1[kk+jj];
+				if(setp>0) printf("%.*f\t",setp,aa);
+				else if(setp==0) printf("%g\t",aa);
+				else printf("%f\t",aa);
+			}
 			printf("\n");
 		}
 	}

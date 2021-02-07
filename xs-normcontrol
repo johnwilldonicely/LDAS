@@ -1,5 +1,5 @@
 #!/bin/bash
-# <TAGS> transform</TAGS>
+# <TAGS> transform </TAGS>
 
 ################################################################################
 # INTIAL VARIABLE DEFINITIONS
@@ -111,7 +111,7 @@ if [ "$settable" != "" ] ; then
 	let z=0;
 	for treat in $listtreat ; do
 		group=$(xe-dbmatch1 $settable name $treat -oc group -o 1)
-		if [ "$group" == "" ] ; then let z=$z+1 ; echo -e $RED"--- Error ["$thisprog"]: no tretment group for $treat in $settable"$NC >&2 ; fi
+		if [ "$group" == "" ] ; then let z=$z+1 ; echo -e $RED"--- Error ["$thisprog"]: no treatment group for $treat in $settable"$NC >&2 ; fi
 	done
 	if [ $z -gt 0 ] ; then
 		echo "" ; exit ;
