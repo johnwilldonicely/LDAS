@@ -11,7 +11,7 @@
 <TAGS> stats </TAGS>
 
 v 1: 5.February.2021 [JRH]
-	- make id1 and id2 double-precision float, for more flexibility in naming of "groups" 
+	- make id1 and id2 double-precision float, for more flexibility in naming of "groups"
 
 v 1: 19.April.2019 [JRH]
 	- first version
@@ -89,8 +89,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	%s data.txt -t 1\n",thisprog);
 		fprintf(stderr,"	cat temp.txt | %s stdin -t 3\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	1st column: lower limit of each bin\n");
-		fprintf(stderr,"	2nd column: value (eg. counts) in that bin\n");
+		fprintf(stderr,"	four columns od data : id1,id2,rep, and val(normalised)\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);

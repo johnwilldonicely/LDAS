@@ -81,7 +81,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"- input should have no labels for row & columns\n");
 		fprintf(stderr,"        - hence user defines minimum & interval for rows & columns\n");
 		fprintf(stderr,"- blank lines or comments (\"#\") should separate multiple matrices\n");
-		fprintf(stderr,"- non-numeric values will be ignored\n");
+		fprintf(stderr,"- non-numeric values in a band will produce NaN output\n");
 		fprintf(stderr,"\n");
 		fprintf(stderr,"USAGE: %s [infile] [options]\n",thisprog);
 		fprintf(stderr,"    [infile]: file (or \"stdin\") containing data matrix/matrices\n");
@@ -251,9 +251,13 @@ int main (int argc, char *argv[]) {
 			for(band=0;band<nbands;band++) {
 				mm= bandZ2[band] - bandA2[band];
 				pmatrix= matrix1+(row*ncols1)+bandA2[band];
-				x= xf_auc1_d(pmatrix,mm,setxint,0,result_d,message2);
-				if(x!=0) { fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message2); exit(1); }
-				printf("\t%g",result_d[0]);
+				for(kk=0;kk<mm;kk++) if(!isfinite(pmatrix[kk])) break;
+				if(kk==mm) {
+					x= xf_auc1_d(pmatrix,mm,setxint,0,result_d,message2);
+					if(x!=0) { fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message2); exit(1); }
+					printf("\t%g",result_d[0]);
+				}
+				else printf("\tNaN");
 			}
 			printf("\n");
 		}
