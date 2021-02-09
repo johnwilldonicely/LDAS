@@ -107,7 +107,7 @@ int main (int argc, char *argv[]) {
 	 	fprintf(stderr,"	* %s \n",message);
 	}
 	else {
-		fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 		goto END3;
 	}
  	/********************************************************************************
@@ -120,7 +120,7 @@ int main (int argc, char *argv[]) {
 	 	fprintf(stderr,"	* %s \n",message);
 	}
 	else {
-		fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 		free(data2);
 		exit(1);
 	}
@@ -193,7 +193,7 @@ int main (int argc, char *argv[]) {
 	if(setasc==0) {
 		ntowrite=nn;
 		nn = xf_writebinx1(fpout,pdata,params,ntowrite,message);
-		if(nn==0) fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		if(nn==0) fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 	}
 
  	if(strcmp(outfile,"stdout")!=0) fclose(fpout);

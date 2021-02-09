@@ -136,7 +136,7 @@ int main (int argc, char *argv[]) {
 	else if(setscreenfile!=NULL) {
 		setscreen=1;
 		nstart = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nstart==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nstart==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/************************************************************

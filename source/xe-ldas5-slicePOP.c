@@ -135,7 +135,7 @@ int main (int argc, char *argv[]) {
 	/* READ  THE WINLTP FILE  */
 	/********************************************************************************/
 	nn= xf_readwinltp1_f(infile,setchan,&data1,result_d,message);
-	if(nn<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nn<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	sampint= result_d[0];
 	samprate= result_d[1];
 	baseline= result_d[2];
@@ -177,13 +177,13 @@ int main (int argc, char *argv[]) {
 	/* APPLY FILTERING TO THE COPY - start halfway to min1 */
 	/********************************************************************************/
 	z= xf_filter_bworth1_f(data2+filtstart,nfilt,samprate,0,setfilthigh1,1.412,message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/********************************************************************************
 	DETECT INFLECTIONS (NODES) - only detect for times > zero (after stimulation)
 	********************************************************************************/
 	nnodes= xf_detectinflect1_f((data2+zero1),(nn-zero1),&isamp1,&isign1,message);
-	if(nnodes<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nnodes<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	/* build an inflection-times array: milliseconds, relative to zero */
 	itime1= malloc(nnodes*sizeof(*itime1));
 	if(itime1==NULL) { fprintf(stderr,"\b\n\t--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
@@ -232,21 +232,21 @@ int main (int argc, char *argv[]) {
 		/* GET THE POP-SPIKE AUC */
 		/********************************************************************************/
 		z= xf_auc1_f((data1+sampP1),((sampP3-sampP1)+1),sampint,1,result_d,message);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		auc=result_d[0];
 
 		/********************************************************************************/
 		/* GET THE POP-SPIKE RELATIVE-AMPLITUDE */
 		/********************************************************************************/
 		yoff= xf_geom_offset1_d(timeP1,valueP1,timeP3,valueP3,timeP2,valueP2,message);
-		if(!isfinite(yoff)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(!isfinite(yoff)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/********************************************************************************/
 	/* CALCULATE THE POWER  */
 	/********************************************************************************/
 	rms= xf_rms1_f((data1+zero1),nn,message);
-	if(!isfinite(rms)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(!isfinite(rms)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/********************************************************************************/
 	/* OUTPUT THE DATA */

@@ -101,7 +101,7 @@ int main (int argc, char *argv[]) {
 	while(1) {
 		/* grab a matrix, stopping at the subsequent blank or header */
 		matrix1= xf_matrixread3_d(fpin,&width,&height,header,message);
-		if(height<0) {fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);exit(1);}
+		if(height<0) {fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);exit(1);}
 		if(matrix1==NULL) break;
 		/* copy the header to preserve the original form, before parsing */
 		strncpy(tempheader,header,256);

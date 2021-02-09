@@ -133,7 +133,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x=xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==1) {
@@ -149,7 +149,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==2) {
@@ -165,7 +165,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==3) {
@@ -181,7 +181,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==4) {
@@ -197,7 +197,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==5) {
@@ -213,7 +213,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==6) {
@@ -229,7 +229,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==7) {
@@ -245,7 +245,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==8) {
@@ -261,7 +261,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(setdatatype==9) {
@@ -277,7 +277,7 @@ int main (int argc, char *argv[]) {
 		}}
 		x= xf_writebin2_v("stdout",(void *)data,nn,datasize,message);
 		if(x>=0) free(data);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);

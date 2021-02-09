@@ -544,10 +544,10 @@ int main(int argc, char *argv[]) {
 			FIRomegaC= 2.0 * (freq2/setsfreq) ;
 			FIRwidth2= 2.0 * (FIRwidth1/setsfreq) ;
 			FIRcoefs= xf_filter_FIRcoef1(FIRntaps,FIRpass,FIRomegaC,FIRwidth2,FIRWindow,FIRbeta,message);
-			if(FIRcoefs==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(FIRcoefs==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			/* apply the coefficients to the data and output */
 			x= xf_filter_FIRapply2_f(data_b,data_b3,n,FIRcoefs,FIRntaps,FIRshift,message);
-			if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			/* calculate the poswer */
 			ii=(size_t)(setmult*(setsfreq/freq2)); // window size = setmult*wavelength
 			x= xf_rms2_f(data_b3,data_b2,n,ii,message);

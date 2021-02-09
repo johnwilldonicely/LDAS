@@ -62,7 +62,7 @@ SAMPLE CALL:
 
 	while(!feof(fpin)) {
 		x= xf_readbin1_d(fpin,buffer,data,parameters,message);
-		if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		else if(parameters[3]==0)break;
 		else for(ii=0;ii<parameters[3];ii++) printf("%g\n",data[ii]);
 	}

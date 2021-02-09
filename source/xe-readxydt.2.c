@@ -215,7 +215,7 @@ int main (int argc, char *argv[]) {
 	else if(setscreenfile!=NULL) {
 		setscreen=1;
 		nlist1 = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nlist1==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist1==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	else {
 		nlist1=1;
@@ -272,7 +272,7 @@ int main (int argc, char *argv[]) {
 	if(setverb==1) fprintf(stderr,"calculating velocity...\n");
 	velocity= realloc(velocity,nn*sizeof(*velocity)); if(velocity==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 	x= xf_velocity1(xydx,xydy,velocity,nn,setvelint,setvidfreq,message);
-	if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 //for(ii=0;ii<nn;ii++) if(xydt[ii]>=278997 && xydt[ii]<308686) printf("%ld %.2f %.2f	%.3f\n",xydt[ii],xydx[ii],xydy[ii],velocity[ii]); exit(0);
 
@@ -287,7 +287,7 @@ int main (int argc, char *argv[]) {
 		/* detect velocity events */
 		kk=(long)(setveldur*setsampfreq);
 		nlist2= xf_detectevents3_lf(xydt,velocity,nn,setvelmin,setvelmax,kk,&start2,&stop2,message);
-		if(nlist2==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist2==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		if(setverb==1) fprintf(stderr,"total_velocity_SSPs= %ld\n",nlist2);
 	}
 	else {
@@ -307,10 +307,10 @@ int main (int argc, char *argv[]) {
 		if(setverb==1) fprintf(stderr,"extracting screening epochs...\n");
 		/* screen the velocity array */
 		mm= xf_screen_lf(start1,stop1,nlist1,xydt,velocity,nn,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* screen the xydt data  */
 		mm= xf_screen_xydt(start1,stop1,nlist1,xydt,xydx,xydy,xydd,nn,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* update nn */
 		nn= mm;
 
@@ -318,7 +318,7 @@ int main (int argc, char *argv[]) {
 		if(isfinite(setvelmin) || isfinite(setvelmax)) {
 			if(setverb==1) fprintf(stderr,"screening velocity SSPs...\n");
 			mm= xf_screen_ssp1(start1,stop1,nlist1,start2,stop2,nlist2,1,message);
-			if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			nlist2= mm;
 		}
 	}
@@ -335,10 +335,10 @@ int main (int argc, char *argv[]) {
 		if(setverb==1) fprintf(stderr,"extracting velocity epochs...\n");
 		/* screen the velocity array */
 		mm= xf_screen_lf(start2,stop2,nlist2,xydt,velocity,nn,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* screen the xydt data  */
 		mm= xf_screen_xydt(start2,stop2,nlist2,xydt,xydx,xydy,xydd,nn,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* update nn */
 		nn= mm;

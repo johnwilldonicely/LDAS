@@ -29,7 +29,7 @@ RETURN VALUE:
 SAMPLE CALL: keep only start2/stop2 pairs which fall within the boundaries defined by start1/stop1
 
 	mm= xf_screen_ssp1(start1,stop1,nssp1,start2,stop2,nssp2,1,message);
-	if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	nssp2=mm;
 
 */

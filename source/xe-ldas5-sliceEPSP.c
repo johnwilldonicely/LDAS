@@ -194,7 +194,7 @@ int main (int argc, char *argv[]) {
 	/* READ  THE WINLTP FILE  - STORE IN data0 */
 	/********************************************************************************/
 	nn= xf_readwinltp1_f(infile,setchan,&data0,result_d,message);
-	if(nn<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nn<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	sampint= result_d[0];
 	samprate= result_d[1];
 	baseline= result_d[2];
@@ -247,11 +247,11 @@ int main (int argc, char *argv[]) {
 	/* APPLY FILTERING TO THE COPIES */
 	/********************************************************************************/
 	z= xf_filter_bworth1_f(data1,nn,samprate,0,setfilthigh1,1.412,message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	z= xf_filter_bworth1_f(data2,nn,samprate,0,setfilthigh2,1.412,message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	z= xf_filter_bworth1_f(data3,nn,samprate,0,setfilthigh3,1.412,message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 
 	/********************************************************************************
@@ -259,7 +259,7 @@ int main (int argc, char *argv[]) {
 	- only detect for times > zero (after stimulation)
 	********************************************************************************/
 	nnodes1= xf_detectinflect1_f((data1+zero1),(nn-zero1),&isamp1,&isign1,message);
-	if(nnodes1<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nnodes1<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(nnodes1<5) { fprintf(stderr,"--- Warning [%s]: fewer than 5 nodes in %s\n",thisprog,infile); }
 	/* build an inflection-times array: milliseconds, relative to zero */
 	itime1= malloc(nnodes1*sizeof(*itime1));
@@ -270,7 +270,7 @@ int main (int argc, char *argv[]) {
 	//TEST: for(ii=0;ii<nnodes1;ii++) fprintf(stderr,"node:%ld\tsamp:%ld\ttime:%.3f\n",ii,isamp1[ii],itime1[ii]);
 
 	nnodes2= xf_detectinflect1_f((data2+zero1),(nn-zero1),&isamp2,&isign2,message);
-	if(nnodes2<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nnodes2<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	/* build an inflection-times array: milliseconds, relative to zero */
 	itime2= malloc(nnodes2*sizeof(*itime2));
 	if(itime2==NULL) { fprintf(stderr,"\b\n\t--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
@@ -280,7 +280,7 @@ int main (int argc, char *argv[]) {
 	//TEST:for(ii=0;ii<nnodes1;ii++) fprintf(stderr,"node:%ld\tsamp:%ld\ttime:%.3f\n",ii,isamp2[ii],itime2[ii]);
 
 	nnodes3= xf_detectinflect1_f((data3+zero1),(nn-zero1),&isamp3,&isign3,message);
-	if(nnodes3<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nnodes3<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	/* build an inflection-times array: milliseconds, relative to zero */
 	itime3= malloc(nnodes3*sizeof(*itime3));
 	if(itime3==NULL) { fprintf(stderr,"\b\n\t--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
@@ -419,7 +419,7 @@ int main (int argc, char *argv[]) {
 	jj= (long)(samprate * ((baseline+setmax3)/1000.0));
 	kk= jj-ii;
 	mae= xf_mae1_f((data2+ii),(data3+ii),kk,message);
-	if(!isfinite(mae)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(!isfinite(mae)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/* SCAN FOR fEPSP MINIMUM (E1) BETWEEN SETMAX2 AND SETMAX3 - OUTSIDE RANGE OF FIBRE-VOLLEY */
 	jj= kk= 0; // jj= counter, kk= node-number of minimum
@@ -465,7 +465,7 @@ int main (int argc, char *argv[]) {
 		/* note: do not exit on error - for this function it just means the data is too short or contains invalid values */
 		jj= xf_geom_slope2_f((dataslope+sampF2),mm,slopewin,sampint,0,&slopemin,&slopemax,message);
 		if(jj<0) {
-			fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+			fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 		}
 	}
 

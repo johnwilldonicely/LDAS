@@ -171,7 +171,7 @@ int main (int argc, char *argv[]) {
 		if(setverb==1) fprintf(stderr,"\treading screen-file %s\n",setscreenfile);
 		setscreen=1;
 		nlist = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nlist==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	//for(jj=0;jj<nlist;jj++) printf("%ld	%ld	%ld\n",jj,start1[jj],stop1[jj]);free(start1);free(stop1);exit(0);
 

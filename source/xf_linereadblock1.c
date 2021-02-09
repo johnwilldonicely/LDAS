@@ -53,7 +53,7 @@ TEST PROGRAM:
 	while(++nn) {
 		xf_linereadblock1(par,keycurr,keyprev,keycol,rep1,dat1,fpin,message);
 		status= par[0]; ndata= par[1];
-		if(status<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(status<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		for(ii=0;ii<ndata;ii++) {
 			for(jj=0;jj<nkeys;jj++) printf("%g\t",keyprev[jj]);
 			printf("%f\t%f\n",rep1[ii],dat1[ii]);

@@ -25,7 +25,7 @@ SAMPLE CALL:
 	#	- downsample factor is 500/400= 1.25
 
 	n= xf_decimate_f(data,n,1.25,message);
-	if(n<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(n<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	# note that n should be 4000
 

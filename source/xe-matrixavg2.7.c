@@ -169,7 +169,7 @@ int main (int argc, char *argv[]) {
 	else if((fpin=fopen(infile1,"r"))==0) {fprintf(stderr,"\n\a--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile1);exit(1);}
 	data1= xf_matrixread1_d(&nmatrices1,&ncols1,&nrows1,message,fpin);
 	if(strcmp(infile1,"stdin")!=0) fclose(fpin);
-	if(data1==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(data1==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/* GET SOME PARAMETERS */
 	bintot1= nrows1*ncols1;
@@ -180,12 +180,12 @@ int main (int argc, char *argv[]) {
 	for(ii=0;ii<nmatrices1;ii++) {
 		pmatrix= data1+(ii*bintot1);
 
-		if(setrotate==1) {z= xf_matrixrotate2_d(pmatrix,&ncols1,&nrows1,-90); if(z<0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }}
+		if(setrotate==1) {z= xf_matrixrotate2_d(pmatrix,&ncols1,&nrows1,-90); if(z<0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }}
 
 		/* APPLY DE-NOISING IF REQUIRED */
 		if(isfinite(setz)) {
 			mm= xf_spectdenoise1_d(pmatrix,ncols1,nrows1,setclip,setz,setsign,setp,0,message);
-			if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			bb= 100.0*(double)mm/(double)ncols1;
 			fprintf(stderr,"matrix= %ld sd= %g per= %g abs= %d rotate= %d noise= %.2f %% count=%ld\n",(ii+1),setz,setp,setsign,setrotate,bb,mm);
 		}
@@ -200,20 +200,20 @@ int main (int argc, char *argv[]) {
 			for(jj=0;jj<nrows1;jj++) {
 				pmatrix2=data1+(ii*bintot1+jj*ncols1);
 				kk= xf_norm3_d(pmatrix2,ncols1,setnorm,setn1,setn2,message);
-				if(kk==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(kk==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				if(ii==-1) {
-					fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+					fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 					for(kk=0;kk<ncols1;kk++) pmatrix2[kk]= NAN;
 		}}}
 
 		/* APPLY FILTERING IF REQUIRED */
 		if(setflo>0.0 || setfhi>0.0) {
 			z= xf_filter_bworth_matrix1_d(pmatrix,ncols1,nrows1,setfsr,setflo,setfhi,1.4142,message);
-			if(z!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 
 
-		if(setrotate==1) {z= xf_matrixrotate2_d(pmatrix,&ncols1,&nrows1,90); if(z<0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }}
+		if(setrotate==1) {z= xf_matrixrotate2_d(pmatrix,&ncols1,&nrows1,90); if(z<0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }}
 	}
 
 

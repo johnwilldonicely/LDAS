@@ -160,12 +160,12 @@ int main (int argc, char *argv[]) {
 		/* resample the data for this frequency so it spans the entire potential list of times */
 		if(ntempdata2<=maxntimes) {
 			tempdata2= xf_expand1_d(tempdata2 ,ntempdata2,maxntimes,message);
-			if(tempdata2==NULL) {fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(tempdata2==NULL) {fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 		}
 		else {
 			iii=ntempdata2;
 			aa= xf_bin1a_d(tempdata2,&iii,&zero,maxntimes,message);
-			if(aa<=0.0) {fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(aa<=0.0) {fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 		}
 		/* output */
 		i=0; printf("%.3f",tempdata2[i]); for(i=1;i<maxntimes;i++) printf("	%.3f",tempdata2[i]); printf("\n");

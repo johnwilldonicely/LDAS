@@ -52,7 +52,7 @@ SAMPLE CALL:
 
 		matrix= xf_matrixread3_d(fpin,&width,&height,header,message);
 
-		if(height<0) {fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);exit(1);}
+		if(height<0) {fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);exit(1);}
 		if(matrix1==NULL) break;
 		printf("%s",header);
 		for(ii=0;ii<height;ii++) {

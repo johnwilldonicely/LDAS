@@ -193,7 +193,7 @@ int main (int argc, char *argv[]) {
 		xf_linereadblock1(params,keycurr,keyprev,keycol,rep1,dat1,fpin,message);
 		status= params[0];
 		ndata= params[1];
-		if(status<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(status<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* INTERPOLATE INVALID DATA */
 		if(setinterp==1) ii= xf_interp3_d(dat1,ndata);
@@ -202,10 +202,10 @@ int main (int argc, char *argv[]) {
 		if(setlow>0||sethigh>0) {
 			/* get the sample-frequency, assuming repeated-measure is seconds */
 			setsampfreq= xf_samplefreq1_d(rep1,ndata,message);
-			if(setsampfreq==0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(setsampfreq==0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			/* apply the filter  */
 			z= xf_filter_bworth1_d(dat1,ndata,setsampfreq,setlow,sethigh,setresonance,message);
-			if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 
 		/* BIN THE DATA */
@@ -216,7 +216,7 @@ int main (int argc, char *argv[]) {
 			for(ii=0;ii<ndata;ii++) {if(rep1[ii]<=setn1) nstart=ii; if(rep1[ii]> setn2) {nstop=ii;break;}}
 			// TEST: fprintf(stderr,"nstart:%ld\tnstop:%ld\n\n",nstart,nstop);
 			jj= xf_norm3_d(dat1,ndata,setnorm,nstart,nstop,message);
-			if(jj==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(jj==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 		}
 
 		/* OUTPUT THE BLOCK */

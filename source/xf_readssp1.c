@@ -34,7 +34,7 @@ SAMPLE CALL:
 
 	infile="mydata.txt\0";
 	nn = xf_readscore1_s(infile,&start,&stop,0,message);
-	if(nn==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nn==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	for(ii=0;ii<nn;ii++) printf("%ld\t%ld\n",start[ii],stop[ii]);
 
 */

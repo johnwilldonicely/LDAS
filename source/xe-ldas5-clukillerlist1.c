@@ -182,9 +182,9 @@ int main (int argc, char *argv[]) {
 	CREATE NEW CLUB(T) FILES
 	************************************************************/
 	z= xf_writebin2_v(outfileclubt,(void *)clubt,spiketot,(sizeof *clubt),message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 	z= xf_writebin2_v(outfileclub,(void *)club,spiketot,(sizeof *club),message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 
 	/************************************************************
 	IF SPECIFIED, MODIFY WAVEFORMS AND CREATE NEW .WFM FILE
@@ -205,7 +205,7 @@ int main (int argc, char *argv[]) {
 		if(wzero==0 && clun[0]>0) kk=clun[0]; else kk=0;
 		/* write the new waveform file */
 		z= xf_writewave1_f(outfilewfm,wid,wclun,wmean,wchans,result_l,kk,wsfreq,message);
-		if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+		if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 	}
 
 	/************************************************************

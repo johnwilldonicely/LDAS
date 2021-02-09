@@ -128,11 +128,11 @@ if(argc<4) {
 			else if(strcmp(argv[ii],"-gain")==0)   setgain=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-vmax")==0)   setvmax=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-out")==0)    setout=atoi(argv[++ii]);
-			else {fprintf(stderr,"\b\n\t*** %s [ERROR]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
+			else {fprintf(stderr,"\n\t--- %s [ERROR]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 
-	if(strcmp(infile1,"stdin")==0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: this program does not accept stdin input: chose file name instead\n\n",thisprog);exit(1);}
-	if(setout!=1&&setout!=2) {fprintf(stderr,"\b\n\t*** %s [ERROR]: invalid -out (%d) - must be 1 or 2\n\n",thisprog,setout);exit(1);}
+	if(strcmp(infile1,"stdin")==0) {fprintf(stderr,"\n\t--- %s [ERROR]: this program does not accept stdin input: chose file name instead\n\n",thisprog);exit(1);}
+	if(setout!=1&&setout!=2) {fprintf(stderr,"\n\t--- %s [ERROR]: invalid -out (%d) - must be 1 or 2\n\n",thisprog,setout);exit(1);}
 
 	/********************************************************************************************************
 	CALCULATE THE uV/unit VALUE - TO CONVERT THE VALUES BACK TO ORIGINAL (MICRO)VOLTAGES
@@ -147,11 +147,11 @@ if(argc<4) {
 	/* READ THE .DAT FILE
 	/*********************************************************************************************************/
 	fprintf(stderr,"\tReading %s\n",infile1);
-	if((fpin=fopen(infile1,"rb"))==0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: could not open .dat file: %s\n\n",thisprog,infile1);exit(1);}
+	if((fpin=fopen(infile1,"rb"))==0) {fprintf(stderr,"\n\t--- %s [ERROR]: could not open .dat file: %s\n\n",thisprog,infile1);exit(1);}
 	ndat = xf_readbin2_v(fpin,&pdat,0,0,message);
 	fclose(fpin);
-	if(ndat==0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
-	if(ndat%(setnchan*datasize)!=0) { fprintf(stderr,"\b\n\t*** %s [ERROR]: corrupt .dat file %s, is not %d channels of short integers\n\n",thisprog,infile1,setnchan); exit(1); }
+	if(ndat==0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+	if(ndat%(setnchan*datasize)!=0) { fprintf(stderr,"\n\t--- %s [ERROR]: corrupt .dat file %s, is not %d channels of short integers\n\n",thisprog,infile1,setnchan); exit(1); }
 	dat=(short *)pdat;
 	ndat/=(setnchan*datasize);
 	//jj=0; kk=16; for(ii=ndat-10;ii<ndat-20000;ii++) printf("%d\n",dat[ii*kk+jj]);
@@ -168,7 +168,7 @@ if(argc<4) {
 	clumax=0;
 	for(ii=0;ii<nclu;ii++) {
 		if((long)club[ii]>clumax) clumax=(long)club[ii];
-		if(clubt[ii]>=ndat)  { fprintf(stderr,"\b\n\t*** %s [ERROR]: .clubt timestamp (%ld) exceeds samples in .dat file (%ld)\n\n",thisprog,clubt[ii],ndat); exit(1); }
+		if(clubt[ii]>=ndat)  { fprintf(stderr,"\n\t--- %s [ERROR]: .clubt timestamp (%ld) exceeds samples in .dat file (%ld)\n\n",thisprog,clubt[ii],ndat); exit(1); }
 	}
 
 	/********************************************************************************************************
@@ -207,10 +207,10 @@ if(argc<4) {
 
  	/* allocate memory for .dat buffer and multi-cluster waveform storage */
  	wavelen = spklen*setnchan; // total length of compound waveform
- 	if( (wave=(long *)calloc((clumax+1)*wavelen,sizeoflong))==NULL ) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
-	if( (sdev=(double *)calloc((clumax+1)*wavelen,sizeofdouble))==NULL ) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
-	if( (spiketot=(long *)calloc((clumax+1),sizeof(long)))==NULL ) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
- 	if( (sampindex=(long*)malloc(wavelen*sizeof(long)))==NULL ) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
+ 	if( (wave=(long *)calloc((clumax+1)*wavelen,sizeoflong))==NULL ) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
+	if( (sdev=(double *)calloc((clumax+1)*wavelen,sizeofdouble))==NULL ) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
+	if( (spiketot=(long *)calloc((clumax+1),sizeof(long)))==NULL ) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
+ 	if( (sampindex=(long*)malloc(wavelen*sizeof(long)))==NULL ) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);};
 
 	/************************************************************
  	BUILD INDEX FOR TRANSPOSING .DAT RECORDS INTO wave[clu][wavelen]

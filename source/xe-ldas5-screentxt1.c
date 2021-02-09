@@ -111,7 +111,7 @@ int main (int argc, char *argv[]) {
 	}
 	else if(setscreenfile!=NULL) {
 		nlist = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nlist==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		if(nlist<1) {fprintf(stderr,"\n--- Error[%s]: screening file \"%s\" is empty\n\n",thisprog,setscreenfile);exit(1);}
 	}
 	//TEST: for(jj=0;jj<nlist;jj++) printf("%ld	%ld	%ld\n",jj,start1[jj],stop1[jj]);free(start1);free(stop1);exit(0);

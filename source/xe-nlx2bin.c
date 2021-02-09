@@ -109,7 +109,7 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 	if(setverb==1) fprintf(stderr,"- reading file %s ...\n",infile);
 	nlxdata= xf_readnlx_ncs(infile,setscale,result,message);
-	if(nlxdata==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nlxdata==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	if(setverb==1) {
 		fprintf(stderr,"\tsample_rate= %ld Hz\n",result[3]);

@@ -597,7 +597,7 @@ int main (int argc, char *argv[]) {
 		if(tempindex==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 		/* find unique data */
 		temp_xunique= xf_unique_d(xdata,&mm,message); //TEST: for(ii=0;ii<mm;ii++) printf("%g\n",temp_xunique[ii]);
-		if(temp_xunique==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(temp_xunique==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* for each unique x, get the mean jitter the values */
 		for(ii=0;ii<mm;ii++) {
 			aa= temp_xunique[ii];
@@ -610,7 +610,7 @@ int main (int argc, char *argv[]) {
 			}}
 			/* now generate the jittered x-values */
 			tempjit= xf_jitter1_d(temp_ydata,kk,aa,setjitter,message);
-			if(tempjit==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); } //TEST: for(jj=0;jj<kk;jj++) printf("%ld\t%ld\t%g\t%g\n",jj,tempindex[jj],tempjit[jj],temp_ydata[jj]);
+			if(tempjit==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); } //TEST: for(jj=0;jj<kk;jj++) printf("%ld\t%ld\t%g\t%g\n",jj,tempindex[jj],tempjit[jj],temp_ydata[jj]);
 			/* copy the jittered x-values back to the original xdata array */
 			for(jj=0;jj<kk;jj++) xdata[tempindex[jj]]= tempjit[jj];
 			/*release the memory */

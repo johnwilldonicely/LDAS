@@ -24,7 +24,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	z= xf_writewave1_f(filename,&cluid,&wn,&wmean,&wchans,params,19531.25,0,message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 */
 
 #include <stdlib.h>

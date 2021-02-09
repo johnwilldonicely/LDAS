@@ -210,7 +210,7 @@ int main (int argc, char *argv[]) {
 			/* NOW NORMALIZE THE VALUES INSIDE THIS BLOCK */
 			if(start>=0) {
 				kk= xf_norm3_d((datval+indexa),(indexb-indexa),setnorm,start,stop,message);
-				if(kk==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(kk==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				if(kk==-1 && setverb>0) fprintf(stderr,"\t*** %s/%s\n",thisprog,message);
 			}
 			else { for(jj=indexa;jj<indexb;jj++) datval[jj]= NAN; }

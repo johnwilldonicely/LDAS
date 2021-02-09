@@ -150,7 +150,7 @@ int main (int argc, char *argv[]) {
 		data1= xf_readbin2_f(infile,parameters,message);
 
 		if(data1!=NULL) n1=parameters[3];
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	//TEST:	for(ii=0;ii<1000;ii++) printf("%ld	%g\n",ii,data1[ii]);free(data1);exit(0);
 	n2=n1;
@@ -255,7 +255,7 @@ int main (int argc, char *argv[]) {
 	}
 	else {
 		ii= xf_writebin2_v("stdout",(void *)(data1+start),n1,sizeof(float),message);
-		if(ii!=0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(ii!=0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	free(data1);

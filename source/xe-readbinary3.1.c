@@ -172,7 +172,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_d(fpin,buffer1,data9,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -196,7 +196,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_s(fpin,buffer1,data3,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -206,14 +206,14 @@ int main (int argc, char *argv[]) {
 				jj=nreadtot-nread; // this is what was read in the previous iterration
 				kk=setntoread-jj; // this is how much extra is needed to make up setntoread
 				x= xf_writebin1_v(stdout,data3,kk,sizeof(short),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				nreadtot=jj+kk; // modify the reported amount actually read
 				break;
 			}
 			/* if we still havent read enough data (or if there is no limit), output everything and continue */
 			else {
 				x= xf_writebin1_v(stdout,data3,nread,sizeof(short),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 	/* read data and output int  */
@@ -223,7 +223,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_i(fpin,buffer1,data5,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -233,14 +233,14 @@ int main (int argc, char *argv[]) {
 				jj=nreadtot-nread; // this is what was read in the previous iterration
 				kk=setntoread-jj; // this is how much extra is needed to make up setntoread
 				x= xf_writebin1_v(stdout,data5,kk,sizeof(int),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				nreadtot=jj+kk; // modify the reported amount actually read
 				break;
 			}
 			/* if we still havent read enough data (or if there is no limit), output everything and continue */
 			else {
 				x= xf_writebin1_v(stdout,data5,nread,sizeof(int),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 	/* read data and output long   */
@@ -250,7 +250,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_l(fpin,buffer1,data7,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -260,14 +260,14 @@ int main (int argc, char *argv[]) {
 				jj=nreadtot-nread; // this is what was read in the previous iterration
 				kk=setntoread-jj; // this is how much extra is needed to make up setntoread
 				x= xf_writebin1_v(stdout,data7,kk,sizeof(long),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				nreadtot=jj+kk; // modify the reported amount actually read
 				break;
 			}
 			/* if we still havent read enough data (or if there is no limit), output everything and continue */
 			else {
 				x= xf_writebin1_v(stdout,data7,nread,sizeof(long),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 	/* read data and output float   */
@@ -277,7 +277,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_f(fpin,buffer1,data8,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -287,14 +287,14 @@ int main (int argc, char *argv[]) {
 				jj=nreadtot-nread; // this is what was read in the previous iterration
 				kk=setntoread-jj; // this is how much extra is needed to make up setntoread
 				x= xf_writebin1_v(stdout,data8,kk,sizeof(float),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				nreadtot=jj+kk; // modify the reported amount actually read
 				break;
 			}
 			/* if we still havent read enough data (or if there is no limit), output everything and continue */
 			else {
 				x= xf_writebin1_v(stdout,data8,nread,sizeof(float),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 
@@ -305,7 +305,7 @@ int main (int argc, char *argv[]) {
 			/* read a block of data */
 			x= xf_readbin1_d(fpin,buffer1,data9,parameters,message);
 			/* check for error (fail to read, bad number of byytes read) */
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* update the number of data read this time, and the total */
 			nread=parameters[3]; nreadtot+=nread;
 			/* if no data was read this time, that's the end of the file! */
@@ -315,14 +315,14 @@ int main (int argc, char *argv[]) {
 				jj=nreadtot-nread; // this is what was read in the previous iterration
 				kk=setntoread-jj; // this is how much extra is needed to make up setntoread
 				x= xf_writebin1_v(stdout,data9,kk,sizeof(double),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				nreadtot=jj+kk; // modify the reported amount actually read
 				break;
 			}
 			/* if we still havent read enough data (or if there is no limit), output everything and continue */
 			else {
 				x= xf_writebin1_v(stdout,data9,nread,sizeof(double),message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);

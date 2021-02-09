@@ -38,7 +38,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	x=  xf_correlate_d(x,y,n,-1,result,message);
-	if(x==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	else if (result[1]==0) { fprintf(stderr,"*** %s/%s\n\n",thisprog,message);}
 */
 

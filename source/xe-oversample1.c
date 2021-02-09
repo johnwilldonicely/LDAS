@@ -128,7 +128,7 @@ int main (int argc, char *argv[]) {
 	if(setverb==1) fprintf(stderr,"\texpanding to %ld points, samplerate= %g Hz...\n",n2,sr2);
 	if(setmul>1.0) {
 		data1= xf_expand1_f(data1,nn,n2,message);
-		if(data1==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(data1==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/********************************************************************************/

@@ -199,7 +199,7 @@ int main (int argc, char *argv[]) {
 	OUTPUT MODIFIED CLU FILE
 	*********************************************************************************/
 	z= xf_writebin2_v(outfileclub,(void *)club1,spiketot,sizeof(short),message);
-	if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(setverb==1) printf("	- new cluster id's sent to %s\n",outfileclub);
 
 	/************************************************************
@@ -215,7 +215,7 @@ int main (int argc, char *argv[]) {
 	result_l[4]=wprobe;
 	/* write the new waveform file */
 	z= xf_writewave1_f(outfilewfm,wid,wclun,wmean,wlistc,result_l,0,wsfreq,message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 	if(setverb==1) printf("	- new waveforms sent to %s\n",outfilewfm);
 
 	free(clubt1);

@@ -145,7 +145,7 @@ int main (int argc, char *argv[]) {
 	CALCULATE SPEARMAN'S RANK CORRELATION
 	********************************************************************************/
 	rho= xf_spearmans1_f(xdatf,ydatf,nn,message);
-	if(!isfinite(rho)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(!isfinite(rho)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/* calculate statistics */
 	tstat= rho * sqrt((nn-2)/(1-rho*rho));

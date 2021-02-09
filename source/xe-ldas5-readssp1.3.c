@@ -157,7 +157,7 @@ int main (int argc, char *argv[]) {
 	/* READ THE MAIN SSP FILE  */
 	/************************************************************/
 	nssp= xf_readssp1(infile,&start1,&stop1,message);
-	if(nssp==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nssp==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(nssp==0) {
 		if(setverb==1) fprintf(stderr,"\n--- Warning[%s]: no SSP records in %s\n\n",thisprog,infile);
 		goto END;
@@ -189,7 +189,7 @@ int main (int argc, char *argv[]) {
 	else if(setscreenfile!=NULL) {
 		if(setscreen==0) setscreen=1;
 		nscreen = xf_readssp1(setscreenfile,&start2,&stop2,message);
-		if(nscreen==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nscreen==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		if(setverb==1) fprintf(stderr,"read %ld screening pairs\n\n",nscreen);
 	}
 	//for(ii=0;ii<nscreen;ii++) printf("%ld	%ld	%ld\n",ii,start2[ii],stop2[ii]);exit(0);
@@ -200,7 +200,7 @@ int main (int argc, char *argv[]) {
 	/************************************************************/
 	if(setscreen!=0) {
 		kk= xf_screen_ssp1(start2,stop2,nscreen,start1,stop1,nssp,setscreen,message);
-		if(kk<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(kk<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		else nssp=kk;
 	}
 

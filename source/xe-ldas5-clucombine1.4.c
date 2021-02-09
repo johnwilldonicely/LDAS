@@ -296,7 +296,7 @@ int main (int argc, char *argv[]) {
 			index1=ii*wtotlen;
 			/* find the channel (kk) containing the peak at the spike-detection sample (wspkpre) */
 			kk= xf_wavepeak2_f((wmean+index1),wnchans,wspklen,wspkpre,setsign,resultf,message);
-			if(kk==-1){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(kk==-1){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			kk-= (long)(ncorchan/2); // look back half the number of channels specified for correlation
 			if(kk<0) kk=0; // wavecorchan cannot be less than zero
 			if(kk>(wnchans-ncorchan)) kk= (wnchans-ncorchan); // wavecorchan can't be too close to end of multichannel waveform
@@ -389,7 +389,7 @@ int main (int argc, char *argv[]) {
 					for(kk=0;kk<histbintot;kk++) histx[kk]/=wsfreq;
 					// get the refractoriness score (1=perfect refractoriness) & t-stats
 					aa= xf_histratio2_d(histy,histbintot,setxcorcentre,setxcorside,resulthist1,message);
-					if(aa<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(aa<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 					//TEST:	for(kk=0;kk<histbintot;kk++) printf("%g	%g\n",histx[kk],histy[kk]); exit(0);
 				}
 				else {
@@ -418,7 +418,7 @@ int main (int argc, char *argv[]) {
 				index2= (jj*wtotlen + wavecorchan[ii]*wspklen) ;
 				/* get the correlation */
 				bb= xf_wavecor2_f((wmean+index1),(wmean+index2),wnchans,wspklen,wspkpre,message);
-				if(!isfinite(bb)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(!isfinite(bb)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				r2= bb*bb; // r-squared
 				if(bb<0) r2= (0.0-r2); // apply a sign to r2 to signify anti-correlation
 				if(r2>setwavecor) combine_flag+=2;
@@ -497,7 +497,7 @@ int main (int argc, char *argv[]) {
 	*********************************************************************************/
 	if(setverb!=0) {
 		z= xf_writebin2_v(outfileclub,(void *)club1,spiketot,sizeof(short),message);
-		if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/************************************************************
@@ -513,7 +513,7 @@ int main (int argc, char *argv[]) {
 	resultl[4]=wprobe;
 	/* write the new waveform file */
 	z= xf_writewave1_f(outfilewfm,wid,wclun,wmean,wlistc,resultl,0,wsfreq,message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 
 
 

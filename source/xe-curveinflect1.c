@@ -133,7 +133,7 @@ int main (int argc, char *argv[]) {
 	if(setverb==1) fprintf(stderr,"\texpanding to %ld points, samplerate= %g Hz...\n",n2,sr2);
 	if(setmul>1.0) {
 		data1= xf_expand1_f(data1,nn,n2,message);
-		if(data1==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(data1==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	//TEST:	for(ii=0;ii<n2;ii++) printf("%g\n",data1[ii]);goto END;
 
@@ -150,7 +150,7 @@ int main (int argc, char *argv[]) {
 	DETECT INFLECTIONS (NODES) - only detect for times > zero (after stimulation)
 	********************************************************************************/
 	nnodes= xf_detectinflect1_f(data1,n2,&isamp1,&isign1,message);
-	if(nnodes<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nnodes<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 
 	/********************************************************************************

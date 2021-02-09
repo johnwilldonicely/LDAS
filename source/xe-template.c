@@ -51,6 +51,7 @@ int main (int argc, char *argv[]) {
 	long *keycols=NULL,nkeys=0,*iword=NULL,nlines=0,nwords=0,maxlinelen=0,prevlinelen=0;
 
 	/*  common-use variables */
+	char defaultstring[]= "dog,cat,pig";
 	char message[MAXLINELEN];
 	long int ii,jj,kk,ll,mm,nn;
 	int v,w,x,y,z,col,colmatch;
@@ -86,7 +87,7 @@ int main (int argc, char *argv[]) {
 	// nn=100;
 	// for(ii=0;ii<nn;ii++) yval[ii]=(double)ii;
 	// xval= xf_jitter1_d(yval,nn,5,0.25,message);
-	// if(xval==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	// if(xval==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	// for(ii=0;ii<nn;ii++) printf("%g\t%g\n",xval[ii],yval[ii]);
 	// exit(0);
 
@@ -333,7 +334,7 @@ while(1) {
 	x= xf_readbin1_f(fpin,parameters,data1,message);
 	nread=parameters[2];
 	//TEST:fprintf(stdout,"x=%d\n",x);
-	if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	else if(nread==0)break;
 	else for(ii=0;ii<nread;ii++) printf("%g\n",data1[ii]);
 }
@@ -408,7 +409,7 @@ exit(0);
  	// list= xf_parselist1_l("1,21,30-40",",",min,max,&nn,message);
 
 	// /* REPORTING ERRORS USING THE MESSAGE STRING */
-	// if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	// if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 /********************************************************************************/
 /* MATHS OPERATIONS */
@@ -476,7 +477,7 @@ exit(0);
 // 	// for(ii=0;ii<nn;ii++) printf("new: %ld\n",list[ii]); printf("\n");
 // 	// // realign
 // 	// x= xf_blockrealign2(list,nn,start1,stop1,nblocks,message);
-// 	// if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+// 	// if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 // 	// for(ii=0;ii<nn;ii++) printf("original: %ld\n",list[ii]);
 //
 // 	nn=4;
@@ -486,7 +487,7 @@ exit(0);
 // 	start1[1]=102; stop1[1]=106;
 // 	for(ii=0;ii<nn;ii++) printf("new: %ld\n",list[ii]);
 // 	x= xf_blockrealign2(list,nn,start1,stop1,nblocks,message);
-// 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+// 	if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 // 	for(ii=0;ii<nn;ii++) printf("old: %ld\n",list[ii]);
 //
 // 	exit(0);
@@ -498,7 +499,7 @@ exit(0);
 // 	for(ii=0;ii<ntoread;ii++) data1[ii]=(float)ii;
 // 	// roll the buffer three places
 // 	x= xf_rollbuffer1_f(data1,ntoread,3,1,message);
-// 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+// 	if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 // 	// print the rolled buffer
 // 	for(ii=0;ii<10;ii++) printf("%ld	%g\n",ii,data1[ii]);
 // 	exit(0);
@@ -507,7 +508,7 @@ exit(0);
 // 	jj=3;kk=5; /* desired dimensions of matrix */
 // 	mm=jj*kk; /* tot matrix elements */
 // 	matrix= xf_densitymatrix1_l(xdatf,ydatf,nn,jj,kk,message);
-// 	if(matrix==NULL)  { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+// 	if(matrix==NULL)  { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 // 	for(ii=0;ii<mm;ii++) {
 // 		printf("%ld\t",matrix[ii]);
 // 		if((ii+1)%jj==0) printf("\n");

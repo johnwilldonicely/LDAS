@@ -140,7 +140,7 @@ int main (int argc, char *argv[]) {
 
 		data1= xf_readbin2_f(infile,parameters,message);
 		if(data1!=NULL) nn=parameters[3];
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		//TEST:	for(ii=0;ii<nn;ii++) printf("%ld	%g\n",ii,data1[ii]);free(data1);exit(0);
 

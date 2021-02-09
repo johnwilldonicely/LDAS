@@ -31,7 +31,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	density= xf_density2_l(start1,stop1,nn,0,-1,winsize,&nwin,message);
-	if(density==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(density==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 */
 

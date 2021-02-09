@@ -71,7 +71,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		- use \"1\" to specify no smoothing\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"	-cy : column-number containing data [%ld]\n",setdatacol);
-		fprintf(stderr,"	-head : number of header-lines to preserve [%ld]\n",sethead);
+		fprintf(stderr,"	-head : number of header-lines to pass unaltered [%ld]\n",sethead);
 		fprintf(stderr,"	-p output precision (-1=auto (%%f), 0=auto (%%g), >0=decimals) [%d]\n",setp);
 
 		fprintf(stderr,"----------------------------------------------------------------------\n");

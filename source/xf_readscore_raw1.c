@@ -26,7 +26,7 @@ SAMPLE CALL:
 	int samplefreq=400, duration=10, ndata=samplefreq*duration;
 	while(!feof(fpin)) {
 		x= xf_readscore_raw1(fpin,header,nheader,data,ndata,data,message);
-		if(x<0) {fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);)
+		if(x<0) {fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);)
 	}
 
 */

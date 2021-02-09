@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 	if(setval>setmax) {fprintf(stderr,"\n--- Error[%s]: [val] %g is greater than [max] %g\n\n",thisprog,setval,setmax);exit(1);}
 
 	jj= xf_getindex1_d(setmin,setmax,setn,setval,message);
-	if(jj<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);exit(1);}
+	if(jj<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);exit(1);}
 
 	printf("%ld\n",jj);
 	exit(0);

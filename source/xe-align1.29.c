@@ -624,7 +624,7 @@ int main (int argc, char *argv[]) {
 
 		/* CALCULATE THE AUC AND WRITE TO FILE */
 		x= xf_auc1_f((data2+sampspre),(n2-sampspre),(double)sampint,0,result_d,message);
-		if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		else fprintf(fpout,"%ld\t%lf\t%lf\t%lf\n",i,result_d[0],result_d[1],result_d[2]);
 
 		/* BIN THE DATA AND OUTPUT - FORMAT: [block=i] [time] [data] */

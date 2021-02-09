@@ -97,7 +97,7 @@ int main (int argc, char *argv[]) {
 		/* replace delimiters in line with NULLS and create array of indices to each word (day,month or year) */
 		words= xf_lineparse2(line,":",&nwords);
 		/* there should be three fields */
-		if(nwords!=6) {fprintf(stderr,"\b\n\t*** %s [ERROR]: start date/time should have 6 fields, YY:MM:DD:hh:mm:ss\n",thisprog);exit(1);}
+		if(nwords!=6) {fprintf(stderr,"\n\t--- %s [ERROR]: start date/time should have 6 fields, YY:MM:DD:hh:mm:ss\n",thisprog);exit(1);}
 		/* set up pointers to words */ 
 		indate[0]= atoi(line+words[0]);
 		indate[1]= atoi(line+words[1]);
@@ -107,7 +107,7 @@ int main (int argc, char *argv[]) {
 		indate[5]= atoi(line+words[5]);
 
 		x= xf_datemod1(indate,sampsecs_l,"sec",message);
-		if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		printf("%d",indate[0]); 
 		for(ii=1;ii<6;ii++) printf(":%d",indate[ii]); 

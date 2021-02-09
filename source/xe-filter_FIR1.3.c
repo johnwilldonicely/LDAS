@@ -170,7 +170,7 @@ int main (int argc, char *argv[]) {
 	*/
 
 	coefs= xf_filter_FIRcoef1(NumTaps,PassType,OmegaC,BW,WindowType,WinBeta,message);
-	if(coefs==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(coefs==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/********************************************************************************
 	OUTPUT THE COEFFICIENTS ...
@@ -183,7 +183,7 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 	else if(setout==1) {
 		x= xf_filter_FIRapply1_f(data1,nn,coefs,NumTaps,setshift,message);
-		if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		for(ii=0; ii<nn; ii++) printf("%g\n",data1[ii]);
 	}

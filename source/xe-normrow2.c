@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 		ncheck=0;
 		if(setnorm>=0) {
 			ncheck= xf_norm3_d((data1+setskip),(nwords-setskip),setnorm,setstart,setstop,message);
-			if(ncheck==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(ncheck==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			if(ncheck==-1) fprintf(stderr,"\t*** %s/%s\n",thisprog,message);
 		}
 

@@ -116,7 +116,7 @@ int main (int argc, char *argv[]) {
 	mm=0; bb=0.0;
 	if(isfinite(setz)) {
 		mm= xf_spectdenoise1_d(matrix,width,height,setclip,setz,setsign,setp,setrotate,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		bb= 100.0*(double)mm/(double)width;
 	}
 	fprintf(stderr,"sd= %g per= %g noise= %.2f %% count=%ld\n",setz,setp,bb,mm);

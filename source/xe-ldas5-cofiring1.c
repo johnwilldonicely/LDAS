@@ -117,13 +117,13 @@ int main (int argc, char *argv[]) {
 	***********************************************************/
 	if(setverb==1) fprintf(stderr,"Reading start-stop pairs...\n");
 	nwin = xf_readssp1(filessp,&winstart,&winstop,message);
-	if(nwin==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nwin==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(nwin==0) {fprintf(stderr,"\n--- Error[%s]: no SSPs in %s\n\n",thisprog,filessp);exit(1);}
 	if(setverb==1) fprintf(stderr,"	- total %ld SSPs\n",nwin);
 	/* break into discrete smaller windows */
 	if(setwin!=-1.0) {
 		kk= xf_sspsplit1_l(winstart,winstop,nwin,setwin,&winstart2,&winstop2,message);
-		if(kk<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(kk<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		if(setverb==1) fprintf(stderr,"	- total %ld SSPs after windowing\n",kk);
 		free(winstart);
 		free(winstop);

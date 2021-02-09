@@ -25,7 +25,7 @@ SAMPLE CALL:
 	char *date1="12/31/2000\0"
 	int year,month,day;
 	z= xf_dateparse1(date1,2,year,month,day,message);
-	if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 <TAGS> string time </TAGS>
 */

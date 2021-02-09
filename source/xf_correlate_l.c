@@ -41,7 +41,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	x=  xf_correlate_i(x,y,n,-1,result,message);
-	if(x==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	else if (!isfinite(result[1])) { fprintf(stderr,"*** %s/%s\n\n",thisprog,message);}
 */
 

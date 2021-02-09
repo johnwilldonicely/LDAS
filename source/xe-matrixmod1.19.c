@@ -215,20 +215,20 @@ int main (int argc, char *argv[]) {
 		/* if matrix is to be downsampled (binned)... */
 		if(setwidth<width1) {
 			z= xf_matrixbin1_d(matrix1,width1,height1,setwidth,height1,message);
-			if(z!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			width1=setwidth;
 			matrix1=(double *)realloc(matrix1,((width1*height1)*sizeof(double)));
 		}
 		if(setheight<height1) {
 			z= xf_matrixbin1_d(matrix1,width1,height1,width1,setheight,message);
-			if(z!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			height1=setheight;
 			matrix1=(double *)realloc(matrix1,((width1*height1)*sizeof(double)));
 		}
 		/* if matrix is to be expanded... */
 		if(setwidth>width1 || setheight>height1) {
 			matrix1= xf_matrixexpand1_d(matrix1,width1,height1,setwidth,setheight,message);
-			if(matrix1==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(matrix1==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			if(setwidth>width1) width1=setwidth;
 			if(setheight>height1) height1=setheight;
 		}

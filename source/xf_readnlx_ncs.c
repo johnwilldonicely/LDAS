@@ -26,7 +26,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	x= xf_auc1_d(data, nn, interval, result, );
-	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 <TAGS> file NLX</TAGS>
 */

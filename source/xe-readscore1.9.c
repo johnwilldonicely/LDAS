@@ -205,7 +205,7 @@ int main (int argc, char *argv[]) {
 			nn++;
 			// read a block
 			x= xf_readscore_raw1(fpin,header,setnhead,data0,ndata,message);
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 
 			// determine the start time (or sample) of the current block
 			if(startmode==0) start=nn;
@@ -247,7 +247,7 @@ int main (int argc, char *argv[]) {
 		while(!feof(fpin)) {
 			nn++;
 			x= xf_readscore_raw1(fpin,header,setnhead,data0,ndata,message); // read a record header and data
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			if(nn>=setstart) {
 			 	if(setnrecords==0||mm++<setnrecords) {
 					/* check record number against list */
@@ -259,7 +259,7 @@ int main (int argc, char *argv[]) {
 		while(!feof(fpin)) {
 			nn++;
 			x= xf_readscore_raw1(fpin,header,setnhead,data0,ndata,message); // read a record header and data
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* determine the timestamp for this record  */
 			sprintf(startchar,"%02d%02d%02d%02d%02d%02d",atoi(header+15),atoi(header+9),atoi(header+12),atoi(header+18),atoi(header+21),atoi(header+24));
 			start=atol(startchar);
@@ -277,20 +277,20 @@ int main (int argc, char *argv[]) {
 		while(!feof(fpin)) {
 			nn++;
 			x= xf_readscore_raw1(fpin,header,setnhead,data0,ndata,message); // read a record header and data
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			if(nn>=setstart) {
 			 	if(setnrecords==0||mm++<setnrecords) {
 					/* check record number against list */
 					if(nlist>0) {if(nn>=nlist) continue; else if(list[nn]==0) continue; }
 					x= xf_writebin1_v(stdout,data0,ndata,sizeof(unsigned char),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}}
 	else if(setout==2 && startmode==1) { // start at yy:mm:dd:hh:mm:ss
 		nn=-1; mm=0;
 		while(!feof(fpin)) {
 			nn++;
 			x= xf_readscore_raw1(fpin,header,setnhead,data0,ndata,message); // read a record header and data
-			if(x<0)	{fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1);}
+			if(x<0)	{fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1);}
 			/* determine the timestamp for this record  */
 			sprintf(startchar,"%02d%02d%02d%02d%02d%02d",atoi(header+15),atoi(header+9),atoi(header+12),atoi(header+18),atoi(header+21),atoi(header+24));
 			start=atol(startchar);
@@ -300,7 +300,7 @@ int main (int argc, char *argv[]) {
 					/* check record number against list */
 					if(nlist>0) {if(nn>=nlist) continue; else if(list[nn]==0) continue; }
 					x= xf_writebin1_v(stdout,data0,ndata,sizeof(unsigned char),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}}
 
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);

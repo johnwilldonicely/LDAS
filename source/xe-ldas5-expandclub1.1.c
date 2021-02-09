@@ -128,7 +128,7 @@ int main (int argc, char *argv[]) {
 	}}
 	else if(setscrfile!=NULL) {
 		nlist = xf_readssp1(setscrfile,&start1,&stop1,message);
-		if(nlist==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	//for(jj=0;jj<nlist;jj++) printf("%ld	%ld	%ld\n",jj,start1[jj],stop1[jj]);free(start1);free(stop1);exit(0);
@@ -144,7 +144,7 @@ int main (int argc, char *argv[]) {
 	APPLY THE CORRECTION TO THE SAMPLE NUMBERS USING THE SSPs
 	***********************************************************/
  	x= xf_blockrealign2(clubt,nn,start1,stop1,nlist,message);
- 	if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+ 	if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/************************************************************
 	OUTPUT THE DATA, SCREENING IF REQUIRED

@@ -29,7 +29,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	noisecount= xf_spectdenoise1_d(matrix,nn,width,height,-1,3,25,0,0,message);
-	if(noisecount==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(noisecount==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 <TAGS>dt.matrix,signal_processing,spectra</TAGS>
 */

@@ -316,11 +316,11 @@ int main (int argc, char *argv[]) {
 		if(setverb==1) fprintf(stderr,"\tde-meaning with a %ld-sample window\n",setmean);
 		if(setfloat==0) {
 			z= xf_demean1_s(data1,nn,setmean,message);
-			if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 		else{
 			z= xf_demean1_f(data2,nn,setmean,message);
-			if(z<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 	}
 
@@ -337,18 +337,18 @@ int main (int argc, char *argv[]) {
 		fomega=  2.0 * (nyquist/setsfreq) ;
 		/* ... calculate filter coefficients */
 		coefs= xf_filter_FIRcoef1(ftaps,fpass,fomega,fbandwidth,fwin,fbeta,message);
-		if(coefs==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(coefs==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* ... apply the filters using shift=2 to adjust for phase-shift and pad */
 		if(setverb==1) fprintf(stderr,"\tapplying anti-aliasing filter (Nyquist=%g Hz)\n",nyquist);
 		if(setfloat==0) x= xf_filter_FIRapply1_s(data1,nn,coefs,ftaps,2,message);
 		else            x= xf_filter_FIRapply1_f(data2,nn,coefs,ftaps,2,message);
-		if(x!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(x!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* now decimate */
 		if(setverb==1) fprintf(stderr,"\tdecimating by %g (downsampling from %g to %g Hz)\n",setdecimate,setsfreq,(setsfreq/setdecimate));
 		if(setfloat==0) nn= xf_decimate_s(data1,nn,setdecimate,message);
 		else            nn= xf_decimate_f(data2,nn,setdecimate,message);
-		if(nn<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nn<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/************************************************************/

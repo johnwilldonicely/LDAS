@@ -40,9 +40,9 @@ RETURN VALUE:
 SAMPLE CALL
 	type=3; start=-1; stop=-1;
 	ii= xf_norm3_d(data,ndata,type,start,stop,message);
-	if(ii==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(ii==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(ii==-1) {
-		if(setverb>0) fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		if(setverb>0) fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 		for(jj=0;jj<ndata;jj++) datval[jj]=NAN;
 	}
 

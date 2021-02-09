@@ -27,7 +27,7 @@ SAMPLE CALL:
 	long matrix[15];
 	width=3; height=5;
 	z= xf_matrixcontig1_l(matrix,width,height,1,message);
-	if(z=-1)  { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z=-1)  { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 */
 
 #include <stdio.h>

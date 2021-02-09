@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
 
 		/* read block file */
 		blocktot = xf_readssp1(setblockfile,&blockstart,&blockstop,message);
-		if(blocktot==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(blocktot==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; fprintf(stderr,"block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
 
 		/* reject out-of-range blocks and blocks that are smaller than the FFT window size */

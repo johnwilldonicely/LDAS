@@ -109,7 +109,7 @@ int main (int argc, char *argv[]) {
 	/************************************************************/
 	if(setverb>0) fprintf(stderr,"\treading input...");
 	nn= xf_readssp1(infile,&start1,&stop1,message);
-	if(nn==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nn==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	if(setverb>0) fprintf(stderr,"\tread %ld start-stop pairs\n",nn);
 	if(setverb==999) { for(ii=0;ii<nn;ii++) fprintf(stderr,"INPUT %ld: %ld\t%ld\n",ii,start1[ii],stop1[ii]); }
 
@@ -132,7 +132,7 @@ int main (int argc, char *argv[]) {
 		if(setverb>0) fprintf(stderr,"\treading screen-file %s\n",setscreenfile);
 		setscreen=2;
 		nscreen= xf_readssp1(setscreenfile,&start2,&stop2,message);
-		if(nscreen==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nscreen==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	else {
 		if(setverb>0) fprintf(stderr,"\tno screen file or list defined - use all lost-packet pairs\n");
@@ -151,7 +151,7 @@ int main (int argc, char *argv[]) {
 	if(setscreen>=2){
 		if(setverb>0) fprintf(stderr,"\tscreening the data...\n");
 		mm= xf_screen_ssp1(start2,stop2,nscreen,start1,stop1,nn,1,message);
-		if(mm==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(mm==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		nn=mm;
 		if(setverb>0) fprintf(stderr,"\t%ld start-stop pairs after screening\n",nn);
 	}
@@ -177,7 +177,7 @@ int main (int argc, char *argv[]) {
 		winsize= setwin*setsf;
 		if(setverb>0) fprintf(stderr,"\tbuilding density array (%gs window= %ld samples)...\n",setwin,winsize);
 		density= xf_density2_l(start1,stop1,nn,setmin,setmax,winsize,&nwin,message);
-		if(density==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(density==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* update setmin,setmax - internally, this is what the density function does */
 		if(setmin<0) setmin= start1[0];
 		if(setmax<0) setmax= stop1[(nn-1)];

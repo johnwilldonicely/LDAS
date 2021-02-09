@@ -269,7 +269,7 @@ int main (int argc, char *argv[]) {
 			else {
 				/* get start-sample */
 				jj= xf_getindex1_d(setmin,setmax,nwords,aa,message);
-				if(jj<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);exit(1);}
+				if(jj<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);exit(1);}
 
 				/* get stop-sample (this point will not be included) */
 				if(bb>setmax) {
@@ -278,7 +278,7 @@ int main (int argc, char *argv[]) {
 				}
 				else {
 					kk= xf_getindex1_d(setmin,setmax,nwords,bb,message);
-					if(kk<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);exit(1);}
+					if(kk<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);exit(1);}
 				}
 				/* calculate size of chunk to process - this will exclude stop-sample kk */
 				nn= (kk-jj);

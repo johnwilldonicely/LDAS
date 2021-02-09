@@ -271,7 +271,7 @@ int main (int argc, char *argv[]) {
 					/* calculate burstiness based on downsampled,smoothed,spline-interpolated autocorrelogram */
 					z= xf_histburst1_d(histx,histy,histbintot,result_d,message);
 					burst1= result_d[2];
-					if(z==-3) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(z==-3) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 					else if(z<0 && setverb==1) fprintf(stderr,"\t*** %s/%s\n",thisprog,message);
 				}
 				printf("%d	%ld	%ld	%ld	%ld	%.3f	%.3f	%.3f\n",

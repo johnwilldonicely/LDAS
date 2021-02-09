@@ -37,7 +37,7 @@ RETURN VALUE:
 
 SAMPLE CALL: GET NEGATIVE-ONLY AUC FOR 100 POINTS, REFERENCED TO ZERO
 	x= xf_auc2_d(datax,datay,100,0,result,message)
-	if(x!=0) fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x!=0) fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	else auc=result[2];
 */
 

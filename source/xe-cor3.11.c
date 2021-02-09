@@ -284,10 +284,10 @@ int main(int argc, char *argv[]) {
 			bb= 2.0 * (bb/sample_freq) ;
 
 			coefs= xf_filter_FIRcoef1(101,3,aa,bb,"kaiser",0,message);
-			if(coefs==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(coefs==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 			i=xf_filter_FIRapply2_f(xdat1,xdat2,n2,coefs,101,1,message);
-			if(i!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(i!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		}
 // 		// THIS IS THE OLD CODE USING THE REGULAR BUTTER WORTH FILTER

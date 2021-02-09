@@ -104,7 +104,7 @@ int main (int argc, char *argv[]) {
 	 	fprintf(stderr,"	* %s \n",message);
 	}
 	else {
-		fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 		exit(1);
 	}
 	/* if only headers are output, nothing else to do */
@@ -152,7 +152,7 @@ int main (int argc, char *argv[]) {
 	if(setasc==0) {
 		ntowrite=nn;
 		nn = xf_writebinx1(fpout,pdata,params,ntowrite,message);
-		if(nn==0) fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message);
+		if(nn==0) fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message);
 	}
 
  	if(strcmp(outfile,"stdout")!=0) fclose(fpout);

@@ -182,10 +182,10 @@ int main (int argc, char *argv[]) {
 		wavep0= wtemp+(ii*wtotlen);
 		/* apply Butterworth filter (interpolate,demean,filter,rezero) */
 		z= xf_wavefilt1_f(wavep0,wnchans,wspklen,wsfreq,setfiltlow,setfilthigh,message);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* find the channel with the largest value at the peak-time (wspkpre) */
 		kk= xf_wavepeak2_f(wavep0,wnchans,wspklen,wspkpre,setsign,resultf,message);
-		if(kk==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(kk==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		maxchan[ii]= kk;
 	}
 
@@ -210,7 +210,7 @@ int main (int argc, char *argv[]) {
 	************************************************************/
 	for(ii=0;ii<spiketot;ii++) club[ii]= rank[club[ii]];
 	z= xf_writebin2_v(outfileclub,(void *)club,spiketot,(sizeof *club),message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 
 	/************************************************************
 	MODIFY WAVEFORMS AND CREATE NEW .WFM FILE
@@ -228,7 +228,7 @@ int main (int argc, char *argv[]) {
 	resultl[4]=wprobe;
 	/* write the new waveform file */
 	z= xf_writewave1_f(outfilewfm,wid,wclun,wmean,wchans,resultl,0,wsfreq,message);
-	if(z!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+	if(z!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 
 
 	/************************************************************

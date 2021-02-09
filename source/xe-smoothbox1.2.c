@@ -83,7 +83,7 @@ int main (int argc, char *argv[]) {
 	/* APPLY THE BOXCAR AVERAGING */
 	if(sethalfwin>0) {
 		z= xf_smoothbox2_d(data1,(size_t)nn,(size_t)sethalfwin,message);
-		if(z!=0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 
 	/* OUTPUT THE SMOOTHED DATA */

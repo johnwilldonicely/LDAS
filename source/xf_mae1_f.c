@@ -20,7 +20,7 @@ RETURN VALUE:
 	char array will hold message (if any)
 SAMPLE CALL:
 	mae= xf_mae1_d(data1,data2,nn,message);
-	if(!isfinite(mae)) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(!isfinite(mae)) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 */
 
 

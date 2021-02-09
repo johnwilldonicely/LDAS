@@ -24,7 +24,7 @@ SAMPLE CALL:
 	char *header=NULL,message[256];
 	header= xf_getheader1(data.wfm,"WAVES_START",message );
 	ifheader!=NULL) printf("%s\n",header);
-	else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 */
 

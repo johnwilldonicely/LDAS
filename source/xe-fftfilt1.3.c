@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
 		/* read the data - treat as 1-dimensional */
 		n = xf_readbinx1(fpin,&data0,params,message);
 		/* check for errors */
-		if(n<1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(n<1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		/* allocate memory for floating-point output */
 		if((data=(float *)realloc(data,n*sizeof(float)))==NULL) { fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); return(-1); }
 		/* assign appropriate pointer to data0, and convert nummbers */

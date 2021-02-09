@@ -30,7 +30,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	x= xf_velocity1(posx,posy,velocity,10000,0.4,25,message);
-	if(x==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 */
 

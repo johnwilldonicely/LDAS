@@ -30,7 +30,7 @@ SAMPLE CALL:
 	nn=13; offset=3; type=1;
 	for(ii=0;ii<nn;ii++) data[ii]=(float)ii;
 	x= xf_rollbuffer1(data,nn,offset,type,message);
-	if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	for(ii=0;ii<13;ii++) printf("%ld\t%g\n",ii,data_f[ii]);
 
 	0	10

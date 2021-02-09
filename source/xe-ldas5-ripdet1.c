@@ -362,7 +362,7 @@ int main(int argc, char *argv[]) {
 	/************************************************************/
 	else if(setscreenfile!=NULL) {
 		nssp = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nssp==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nssp==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		if(setverb==1) fprintf(stderr,"\tread %ld screening pairs\n",nssp);
 		//convert stop1 array to n
 		for(ii=0;ii<nssp;ii++) stop1[ii]-=start1[ii];
@@ -478,7 +478,7 @@ int main(int argc, char *argv[]) {
 	else if(setntaps==1) {
 		/* create a modified hann taper */
 		taper= xf_taperhann_d(fftwin,1,1,message);
-		if(taper==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(taper==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	else {
 		if((lambda= (double*)malloc(setntaps*sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds the vector of eigenvalues for taper calculation and adaptive spectrum estimation
@@ -605,13 +605,13 @@ int main(int argc, char *argv[]) {
 		/* FILTER DATA0 STRICTLY IN THE RIPPLE FREQUENCY BAND */
 		if(setverb==1) fprintf(stderr,"\t\tfiltering for event detection (%g-%g Hz)\n",riplow,riphigh);
 		z= xf_filter_bworth1_f(data0,(nn+npad*2),setsfreq,riplow,riphigh,1.4142,message);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST: for(ii=0;ii<nn;ii++) printf("%ld\t%g\t%g\n",chan,(ii/setsfreq),(data0+npad)[ii]); continue;
 
 		/* FILTER DATA2 WITH MORE RELAXED CRITERIA FOR ARTEFACT REJECTION  */
 		if(setverb==1) fprintf(stderr,"\t\tfiltering for validation (%g-%g Hz)\n",setfiltlow,setfilthigh);
 		z= xf_filter_bworth1_f(data2,(nn+npad*2),setsfreq,setfiltlow,setfilthigh,1.4142,message);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST: for(ii=0;ii<nn;ii++) printf("%ld\t%g\t%g\n",chan,(ii/setsfreq),(data0+npad)[ii]); continue;
 
 		/* SHIFT THE POINTERS TO DATA0 & DATA2 FOR CONVENIENCE */
@@ -629,20 +629,20 @@ int main(int argc, char *argv[]) {
 		/* APPLY UNIFORM SMOOTHER TO DATA1 (BUZSAKI = 2.4MS, HERE DEFAULT IS 15MS (7.5MS HALF-WINDOW) */
 		if(setverb==1) fprintf(stderr,"\t\tsmoothing: %ld samples\n",setsmoothbox);
 		z= xf_smoothbox2_f(data1,nn,setsmoothbox,message);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST:for(ii=0;ii<nn;ii++) printf("%ld\t%g\t%g\n",chan,(ii/setsfreq),data1[ii]); exit(0);
 
 		/* CONVERT DATA1 TO Z-SCORES */
 		if(setverb==1) fprintf(stderr,"\t\tnormalizing\n");
 		z= xf_norm2_f(data1,nn,1);
-		if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,"xf_norm2: memory allocation error"); exit(1); }
-		if(z==-2) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,"xf_norm2: no finite numbers in data"); exit(1); }
+		if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,"xf_norm2: memory allocation error"); exit(1); }
+		if(z==-2) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,"xf_norm2: no finite numbers in data"); exit(1); }
 		//TEST: for(ii=0;ii<nn;ii++) printf("%ld\t%g\t%g\n",chan,(ii/setsfreq),data1[ii]); exit(0);
 
 		/* DETECT EVENTS IN DATA1 */
 		if(setverb==1) fprintf(stderr,"\t\tdetecting events\n");
 		nevents= xf_detectevents2_f(data1,nn,setemin,setemax,eedge,1,enmin,enmax,&estart,&epeak,&estop,message);
-		if(nevents==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nevents==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST:printf("nevents=%ld\n",nevents); for(ii=0;ii<nevents;ii++) printf("%ld\t%ld\t%ld\t%ld\n",ii,estart[ii],epeak[ii],estop[ii]); //data0-=npad; continue; exit(0);
 
 		/* ADJUST EVENT PEAK TO ALIGN WITH NEAREST POSITIVE INFLECTION */
@@ -653,7 +653,7 @@ int main(int argc, char *argv[]) {
 
 		/* REJECT EVENTS SPANNING READ-BLOCK BOUNDARIES - impossible to reconstitute the timestamps */
 		nevents= xf_screen_ssp2(start2,stop2,nssp,estart,epeak,estop,nevents,1,message);
-		if(nevents==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nevents==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* ALLOCATE & INITIALIZE MEMORY FOR STORING IF EACH EVENT IS GOOD OR NOT : FREE AT THE END OF EACH EVENT LOOP */
 		if((eventgood= (short*)calloc(nevents,sizeof(short)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdata
@@ -750,9 +750,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		/* CORRECT THE EVENT START/PEAK/STOP TIMES */
-		if(xf_blockrealign2(estart,nevents,start1,stop1,nssp,message)<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
-		if(xf_blockrealign2(epeak,nevents,start1,stop1,nssp,message)<0)  { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
-		if(xf_blockrealign2(estop,nevents,start1,stop1,nssp,message)<0)  { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(xf_blockrealign2(estart,nevents,start1,stop1,nssp,message)<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+		if(xf_blockrealign2(epeak,nevents,start1,stop1,nssp,message)<0)  { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+		if(xf_blockrealign2(estop,nevents,start1,stop1,nssp,message)<0)  { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		/* OUTPUT RIPPLE STATS */
 		if(setout==3 || setout==4) {

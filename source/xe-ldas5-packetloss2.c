@@ -139,7 +139,7 @@ int main (int argc, char *argv[]) {
 		if(setverb==1) fprintf(stderr,"\treading screen-file %s\n",setscreenfile);
 		setscreen=1;
 		nlist = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nlist==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nlist==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	//for(jj=0;jj<nlist;jj++) printf("%ld	%ld	%ld\n",jj,start1[jj],stop1[jj]);free(start1);free(stop1);exit(0);
 
@@ -242,28 +242,28 @@ int main (int argc, char *argv[]) {
 		z= 0; // flag, =1 if preceeding data is bad
 		ii=0; if(data1[ii]==setbad) {
 			x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-			if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			z=1;
 		}
 		for(ii=1;ii<nn;ii++) {
 			if(data1[ii]==setbad) {
 				if(z==0) {
 					x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				}
 				z= 1;
 			}
 			else {
 				if(z==1) {
 					x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				}
 				z= 0;
 			}
 		}
 		if(z==1) { // if data ends in bad block, output the final stop
 			x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-			if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 	}
 
@@ -271,28 +271,28 @@ int main (int argc, char *argv[]) {
 		z= 1; // flag, =1 if preceeding data is bad
 		ii=0; if(data1[ii]!=setbad) {
 			x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-			if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 			z=0;
 		}
 		for(ii=1;ii<nn;ii++) {
 			if(data1[ii]!=setbad) {
 				if(z==1) {
 					x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				}
 				z= 0;
 			}
 			else {
 				if(z==0) {
 					x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-					if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				}
 				z= 1;
 			}
 		}
 		if(z==0) { // if data ends in good block, output the final stop
 			x= xf_writebin1_v(stdout,&ii,1,sizeof(long),message);
-			if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 	}
 
@@ -301,7 +301,7 @@ int main (int argc, char *argv[]) {
 		for(ii=0;ii<nn;ii++) {
 			if(data1[ii]==setbad) {
 				x= xf_writebin1_v(stdout,&ii,1,sizeoflong,message);
-				if(x<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+				if(x<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}}}
 
 

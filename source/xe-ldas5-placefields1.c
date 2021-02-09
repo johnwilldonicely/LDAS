@@ -243,7 +243,7 @@ int main (int argc, char *argv[]) {
 	else if(setscreenfile!=NULL) {
 		setscreen=1;
 		nssp = xf_readssp1(setscreenfile,&start1,&stop1,message);
-		if(nssp==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(nssp==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	}
 	//for(jj=0;jj<nssp;jj++) printf("%ld	%ld	%ld\n",jj,start1[jj],stop1[jj]);free(start1);free(stop1);exit(0);
 
@@ -295,7 +295,7 @@ int main (int argc, char *argv[]) {
 		b=xydy[ii];
 		if(isfinite(a) && a>=xmin && a<=xmax && isfinite(b) && b>=ymin && b<=ymax) { foundgood=1; break; }
 	}
-	if(foundgood==0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: xyd(t) input contains no valid in-range numbers\n\n",thisprog);exit(1);}
+	if(foundgood==0) {fprintf(stderr,"\n\t--- %s [ERROR]: xyd(t) input contains no valid in-range numbers\n\n",thisprog);exit(1);}
 	// fprintf(stderr,"\n");
 	// fprintf(stderr,"xmin=%f\n",xmin);
 	// fprintf(stderr,"ymin=%f\n",ymin);
@@ -346,16 +346,16 @@ int main (int argc, char *argv[]) {
 	matrix2 = spike-counts
 	matrix3 = spike-rate
 	***********************************************************/
-	if((clubx=realloc(clubx,nn*sizeof(*clubx)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((cluby=realloc(cluby,nn*sizeof(*cluby)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((clubd=realloc(clubd,nn*sizeof(*clubd)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((tempx=realloc(tempx,nn*sizeof(*tempx)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((tempy=realloc(tempy,nn*sizeof(*tempy)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((matrix0=realloc(matrix0,matrixsize*sizeof(*matrix0)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((matrix1=realloc(matrix1,matrixsize*sizeof(*matrix1)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((matrix2=realloc(matrix2,matrixsize*sizeof(*matrix2)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((matrix3=realloc(matrix3,matrixsize*sizeof(*matrix3)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
-	if((mask=realloc(mask,matrixsize*sizeof(*mask)))==NULL) {fprintf(stderr,"\b\n\t*** %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((clubx=realloc(clubx,nn*sizeof(*clubx)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((cluby=realloc(cluby,nn*sizeof(*cluby)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((clubd=realloc(clubd,nn*sizeof(*clubd)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((tempx=realloc(tempx,nn*sizeof(*tempx)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((tempy=realloc(tempy,nn*sizeof(*tempy)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((matrix0=realloc(matrix0,matrixsize*sizeof(*matrix0)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((matrix1=realloc(matrix1,matrixsize*sizeof(*matrix1)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((matrix2=realloc(matrix2,matrixsize*sizeof(*matrix2)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((matrix3=realloc(matrix3,matrixsize*sizeof(*matrix3)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
+	if((mask=realloc(mask,matrixsize*sizeof(*mask)))==NULL) {fprintf(stderr,"\n\t--- %s [ERROR]: insufficient memory\n\n",thisprog);exit(1);}
 
 	/************************************************************
 	DETERMINE SPIKE XYD DATA
@@ -376,18 +376,18 @@ int main (int argc, char *argv[]) {
 	ranges[2]=xmax;
 	ranges[3]=ymax;
 	z= xf_densitymatrix2_l(xydx,xydy,mm,matrix0,xbintot,ybintot,ranges,message);
-	if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	/* apply minimum-dwelltime (samples) to position matrix0 */
 	for(ii=0;ii<matrixsize;ii++) { if(matrix0[ii]<setdwellmin) matrix0[ii]=0; }
 	/* set count in non-contiguous bins to 0 */
 	z= xf_matrixcontig1_l(matrix0,xbintot,ybintot,setcontig,message);
-	if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	/* matrix1: calculate dwelltime (seconds) */
 	for(ii=0;ii<matrixsize;ii++) { if(matrix0[ii]!=0) matrix1[ii]=(double)matrix0[ii]/setvidrate; else matrix1[ii]=NAN; }
 	/* smooth dwell-map if required */
 	if(setsmoothtype==1) {
 		z= xf_smoothgauss2_d(matrix1,xbintot,ybintot,setxsmooth,setysmooth);
-		if(z!=0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
+		if(z!=0) {fprintf(stderr,"\n\t--- %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
 		for(ii=0;ii<matrixsize;ii++) { if(matrix0[ii]==0) matrix1[ii]=NAN; }
 	}
 	// set top left dwelltime to NAN - right now, this bin contains "mistracked" samples
@@ -451,7 +451,7 @@ int main (int argc, char *argv[]) {
 
 			/* calculate spike-count density matrix (matrix2) - use position ranges previously defined for dwell-map */
 			z= xf_densitymatrix2_l(tempx,tempy,clustern[cluster],matrix2,xbintot,ybintot,ranges,message);
-			if(z==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(z==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 			/* convert to to double (matrix3) */
 		 	for(ii=0;ii<matrixsize;ii++) matrix3[ii]= (double)matrix2[ii];
@@ -459,7 +459,7 @@ int main (int argc, char *argv[]) {
 			/* apply smoothing to spike-counts  */
 			if(setsmoothtype==1) {
 				z= xf_smoothgauss2_d(matrix3,(int)xbintot,(int)ybintot,(int)setxsmooth,(int)setysmooth);
-				if(z!=0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
+				if(z!=0) {fprintf(stderr,"\n\t--- %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
 			}
 
 			/* convert spike counts to rates (modify matrix3) */
@@ -468,7 +468,7 @@ int main (int argc, char *argv[]) {
 			/* apply smoothing to rate-map */
 			if(setsmoothtype==2) {
 				z= xf_smoothgauss2_d(matrix3,xbintot,ybintot,setxsmooth,setysmooth);
-	  			if(z!=0) {fprintf(stderr,"\b\n\t*** %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
+	  			if(z!=0) {fprintf(stderr,"\n\t--- %s [ERROR]: smoothing function encountered insufficient memory\n\n",thisprog);exit(1);}
 			}
 
 			/* restore NANs to bins that were unvisited */

@@ -32,7 +32,7 @@ SAMPLE CALL:
 	long matrix[15];
 	width=3; height=5;
 	z= xf_densitymatrix1_f(xdata,ydata,nn,matrix,width,height,message);
-	if(z=-1)  { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(z=-1)  { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	for(ii=0;ii<(width*height);ii++) {
 		printf("%ld\t",matrix[ii]);
 		if((ii+1)%width=0) printf("\n");

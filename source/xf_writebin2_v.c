@@ -23,7 +23,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 		i= xf_writebin2_v("stdout",(void *)data1,nn,sizeof(float),message);
-		if(i!=0) { fprintf(stderr,"\b\n\t*** %s\n\n",message); exit(1); }
+		if(i!=0) { fprintf(stderr,"\n\t--- %s\n\n",message); exit(1); }
 */
 
 #include <stdio.h>

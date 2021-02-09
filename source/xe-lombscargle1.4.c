@@ -291,7 +291,7 @@ int main (int argc, char *argv[]) {
 		// calculate total area in Lomb-Scargle periodogram
 		x= xf_auc2_d(freq,output,nfreq,0,result_d,message);
 		if(x==0) bb= result_d[0];
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 		// calculate area in each zone
 		for(zone=0;zone<nzones;zone++) {
@@ -304,7 +304,7 @@ int main (int argc, char *argv[]) {
 			/* calculate the AUC in the band */
 			x= xf_auc2_d((freq+ii),(output+ii),(size_t)mm,0,result_d,message);
 			if(x==0) aa= result_d[0];
-			else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 			/* repeat to calculate the AUC in an equi-sized band just above the current band  */
 			/* for bands near the upper end of the spectrum, adjust the comparison band */
@@ -316,7 +316,7 @@ int main (int argc, char *argv[]) {
 			/* calculate the AUC in the band */
 			x= xf_auc2_d((freq+ii),(output+ii),(size_t)mm,0,result_d,message);
 			if(x==0) aa= result_d[0];
-			else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 			/* print the ratio to stderr */
 			if(setverb==1) {

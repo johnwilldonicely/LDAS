@@ -144,7 +144,7 @@ int main (int argc, char *argv[]) {
 	if(setedge==2) data= xf_padarray2_f(data,nn,setnpad,setpadtype,message);
 	if(setedge==3) data= xf_padarray3_f(data,nn,setnpad,setpadtype,message);
 	if(setedge==4) { data= xf_padarray4_f(data,&nn,setnpad,setpadtype,message); n2=nn; }
-	if(data==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(data==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 
 	for(ii=0;ii<n2;ii++) printf("%g\n",data[ii]);

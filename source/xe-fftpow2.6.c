@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
 	/********************************************************************************/
 	if(settaper==0) setorder=0;
 	taper= xf_taperhann_d(setnwin,1,setorder,message);
-	if(taper==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(taper==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	/* IF -v IS SET TO -1, JUST OUTPUT THE TAPER */
 	if(setverb==-1) {
@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
 
 		/* read block file */
 		blocktot = xf_readssp1(setblockfile,&blockstart,&blockstop,message);
-		if(blocktot==-1) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		if(blocktot==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; fprintf(stderr,"block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
 
 		/* reject out-of-range blocks and blocks that are smaller than the FFT window size */
@@ -618,7 +618,7 @@ int main(int argc, char *argv[]) {
 				/* if input is binary, output is binary  */
 				else {
 					x= xf_writebin2_v("stdout",(void *)(spect+indexa),((indexb-indexa)+1),sizeof(double),message);
-					if(x<0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+					if(x<0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 				}
 			}
 			/* option-2: (ASCII only) as above but timestamp + entire spectrum */
@@ -665,7 +665,7 @@ int main(int argc, char *argv[]) {
 		}
 		else {
 			x= xf_writebin2_v("stdout",(void *)(spectmean2+indexa),((indexb-indexa)+1),sizeof(double),message);
-			if(x<0){ fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+			if(x<0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 
 	}

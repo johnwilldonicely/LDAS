@@ -28,7 +28,7 @@ RETURN VALUE:
 
 SAMPLE CALL:
 	nn = xf_sspplit1_l(&start,&stop,nssp,25,&start2,&stop2,message);
-	if(nn<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(nn<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 */
 
 #include <stdio.h>

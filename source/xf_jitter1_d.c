@@ -27,7 +27,7 @@ SAMPLE CALL:
 
 	for(ii=0;ii<nn;ii++) yval[ii]= (double)ii;
 	xval= xf_jitter1_d(yval,nn,5,0.25,message);
-	if(xval==NULL) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(xval==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 	for(ii=0;ii<nn;ii++) printf("%g\t%g\n",xval[ii],yval[ii]);
 
 <TAGS> math </TAGS>

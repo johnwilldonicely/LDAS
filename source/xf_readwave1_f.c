@@ -58,7 +58,7 @@ SAMPLE CALL:
 	float *data=NULL;
 
 	samprate= xf_readwave1_f(filename,&cluid,&count,&data,&chanlist,result_l,message);
-	if(samprate<0) { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+	if(samprate<0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 	for(ii=0;ii<result_l[0];ii++) printf("cluster[%ld]= %ld\n",ii,cluid[ii]);
 

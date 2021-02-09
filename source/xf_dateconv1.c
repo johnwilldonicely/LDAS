@@ -27,7 +27,7 @@ SAMPLE CALL:
 		int z,year=2000,month=12,day=31;
 		z= xf_dateconv1(year,month,day,1,message);
 		if(z>0) printf("week-in-year=%d\n",z);
-		else { fprintf(stderr,"\b\n\t*** %s/%s\n\n",thisprog,message); exit(1); }
+		else { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 
 */
 
