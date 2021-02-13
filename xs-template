@@ -354,7 +354,7 @@ fi
 # note thet the error message is sent to stderr ( >&2 )
 xe-checkreplicate1 data.txt -head $sethead 2> $tempfile".error"
 if [ -s $tempfile".error" ] ; then
-	cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 
+	cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2
 	exit
 fi
 
@@ -443,7 +443,7 @@ if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
 # for exact matches...
 [[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
 
-# CHECK IF A NUMBER IS EVEN OR ODD
+# CHECK IF A NUMBER IS EVEN OR ODD (MODULUS OPERATOR) 
 z=3; if [ $((z%2)) -eq 0 ] ; then echo "even" ; fi
 
 # PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
@@ -573,8 +573,8 @@ nsamps=$(echo "scale=12; $bytes/($datasize*$nchans)" |bc| xe-math_round2 stdin)
 tail -n +4 $infile # output the tail starting at line 4
 # delete/trim the bottom 3 lines of a file
 head -n -3 $infile # output the head excluding the last 3 lines
-# print every nth line of a file
-sed -n '0~16p' file.txt
+# print every nth line of an input starting at line x
+x=1 ; n=3 ; seq 1 14 | sed -n "$x~$n"p
 # remove blank lines
 sed '/^\s*$/d' file.txt
 grep '[^[:blank:]]' file.txt

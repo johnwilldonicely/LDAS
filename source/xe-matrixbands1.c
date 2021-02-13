@@ -5,6 +5,7 @@
 
 #define thisprog "xe-matrixbands1"
 #define TITLE_STRING thisprog" v 1: 3.February.2021 [JRH]"
+#define MAXBANDS 16
 
 /*
 <TAGS>math dt.matrix noise</TAGS>
@@ -17,6 +18,7 @@ v 1: 3.February.2021 [JRH]
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse1(char *line,long *nwords);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
+long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
 double *xf_matrixread3_d(FILE *fpin, long *ncols, long *nrows, char *header, char *message1);
 int xf_matrixrotate2_d(double *matrix1, long *width, long *height, int r);
 double *xf_matrixtrans1_d(double *data1, long *width, long *height);
@@ -41,30 +43,20 @@ int main (int argc, char *argv[]) {
 	/* program-specific variables */
 	char header[256],message1[256],message2[256];
 	long *ids=NULL,nids=0,idmax=-1,n1,nrows1,ncols1,nmatrices,bintot1;
-	long *bandA2=NULL,*bandZ2=NULL,nbands,band,bandmax=-1;
-	double *bandA1=NULL,*bandZ1=NULL;
 	double *matrix1=NULL,*pmatrix=NULL;
 
+	/* band definition */
+	char setbandsdefault[]= "delta,.5,4,theta,4,12,beta,12,30,gamma,30,100"; // delta= Buzsaki, theta= Whishaw, beta= Magill (20Hz mean), gamma= mixedreferences
+	long btot=0,*ibands=NULL;
+	float bstart1[16],bstop1[16];
+	long *bstart2=NULL,*bstop2=NULL,band,bandmax=-1;
+
 	/* arguments */
-	char *infile1=NULL;
-	int setsign=0,setrotate=0,settrans=0,setnorm=-1;
+	char *infile1=NULL,*setheadids=NULL,*setbands=NULL,setyunits[256]="time";
+	int setrotate=0,settrans=0;
 	long setn1=-1,setn2=-1;
+	double setxmin=1,setxint=1,setymin=1.0,setyint=1.0;
 
-	double setxmin=1, setxint=1;
-	double setymin=1.0, setyint=1.0;
-	char setyunits[256]="time";
-	char *setheadids=NULL,*setbands=NULL;
-
-	/* PRE-DEFINE PROTOTYPE FREQUENCY BANDS */
-	nbands=4;
-	if((bandA1= (double*)calloc(nbands,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	if((bandZ1= (double*)calloc(nbands,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	if((bandA2= (long*)calloc(nbands,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	if((bandZ2= (long*)calloc(nbands,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	bandA1[0]=0.5;  bandZ1[0]=4.0; // delta - Buzsaki
-	bandA1[1]=4.0;  bandZ1[1]=12.0; // theta - Whishaw
-	bandA1[2]=13.0; bandZ1[2]=30.0; // beta - Magill (20Hz mean)
-	bandA1[3]=30.0; bandZ1[3]=100.0; // gamma (mixed)
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -101,16 +93,13 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -ids: CSV list of fields in matrix-headers to use as IDs [unset]\n");
 		fprintf(stderr,"        - NOTE: ony applies for comment-line (\"#\") matrix separators\n");
 		fprintf(stderr,"        - NOTE: fields should be whitespace delimited\n");
-		fprintf(stderr,"    -bands: CSV band list [%g,%g,%g,%g,%g,%g,%g,%g]\n",bandA1[0],bandZ1[0],bandA1[1],bandZ1[1],bandA1[2],bandZ1[2],bandA1[3],bandZ1[3]);
-		fprintf(stderr,"        - NOTE: default is common EEG bands:\n");
-		fprintf(stderr,"            delta = %g - %g Hz\n",bandA1[0],bandZ1[0]);
-		fprintf(stderr,"            theta = %g - %g Hz\n",bandA1[1],bandZ1[1]);
-		fprintf(stderr,"            beta  = %g - %g Hz\n",bandA1[2],bandZ1[2]);
-		fprintf(stderr,"            gamma = %g - %g Hz\n",bandA1[3],bandZ1[3]);
+		fprintf(stderr,"\n");
+		fprintf(stderr,"    -bands: CSV band-triplets: name,start,stop\n");
+		fprintf(stderr,"        - default: %s\n",setbandsdefault);
 		fprintf(stderr,"\n");
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"    %s matrix.txt -xmin 0.5 -xint 0.5 -ymin 0 -yint 0.01 -ids 2,4,6\n",thisprog);
-		fprintf(stderr,"    %s matrix.txt -bands 0,4,4,12\n",thisprog);
+		fprintf(stderr,"    %s in.txt -xmin 0.5 -xint 0.5 -ids 2,4,6\n",thisprog);
+		fprintf(stderr,"    %s in.txt -bands delta,.5,.4,theta,4,12\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
 		fprintf(stderr,"    A long-format timeseries output:\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
@@ -154,50 +143,42 @@ int main (int argc, char *argv[]) {
 	//TEST	for(ii=0;ii<nids;ii++) printf("ids[%ld]: %ld\n",ii,ids[ii]); exit(0);
 
 	/********************************************************************************
-	PARSE THE USER-DEFINED BANDS LIST
+	PROCESS THE SETBANDS STRING - MAKE NEW LIST OF NAMES, STARTS, STOPS
 	********************************************************************************/
-	if(setbands!=NULL) {
-		kk= nbands; // save original nbands
-		iword= xf_lineparse2(setbands,",",&nbands);
-		if((nbands%2)!=0) {fprintf(stderr,"\n--- Error[%s]: band-list (-bands) does not contain pairs of numbers\n\n",thisprog);exit(1);}
-		nbands/=2;
-		if(nbands>kk) {
-			if((bandA1= (double*)calloc(nbands,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-			if((bandZ1= (double*)calloc(nbands,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-			if((bandA2= (long*)calloc(nbands,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-			if((bandZ2= (long*)calloc(nbands,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-		}
-		for(ii=0;ii<nids;ii++) {
-			bandA1[ii]= atol(setbands+iword[(ii*2)]);
-			bandZ1[ii]= atol(setbands+iword[(ii*2+1)]);
-			if(bandZ1[ii]<0) {fprintf(stderr,"\n--- Error[%s]: invalid band (%g-%g): values must be >=0\n\n",thisprog,bandA1[ii],bandZ1[ii]);exit(1);}
-	}}
+	if(setbands==NULL) setbands= setbandsdefault;
+	ibands= xf_definebands1(setbands,bstart1,bstop1,&btot,message1);
+	if(ibands==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message1); exit(1); }
+	/* build arrays to hold matrix-indices for bands */
+	if((bstart2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+	if((bstop2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+
+	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
 
 	/********************************************************************************
 	DEFINE FREQUENCY-BAND INDICES (DELTA,THETA,BETA,GAMMA)
 	********************************************************************************/
 	kk= (long)(setxmin/setxint);
-	for(ii=0;ii<nbands;ii++) {
-		bandA2[ii]= (long)(bandA1[ii]/setxint) - kk; // start
-		bandZ2[ii]= (long)(bandZ1[ii]/setxint) - kk; // stop - increment below
-		// TEST: printf("band:%ld \tA1:%g \tZ1:%g \tA2:%ld \tZ2:%ld\n",ii,bandA1[ii],bandZ1[ii],bandA2[ii],bandZ2[ii]);
-		if(bandA2[ii]<0) {
-			bandA2[ii]=0;
+	for(ii=0;ii<btot;ii++) {
+		bstart2[ii]= (long)(bstart1[ii]/setxint) - kk; // start
+		bstop2[ii]= (long)(bstop1[ii]/setxint) - kk; // stop - increment below
+		// TEST: printf("band:%ld \tA1:%g \tZ1:%g \tA2:%ld \tZ2:%ld\n",ii,bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]);
+		if(bstart2[ii]<0) {
+			bstart2[ii]=0;
 			fprintf(stderr,"--- Warning[%s]: band-start %ld adjusted to align with edge of matrix\n",thisprog,band);
 		}
-		if(bandA2[ii]>=bandZ2[ii]) {
-			fprintf(stderr,"\n--- Error[%s]: band %ld (%g-%g) too narrow or reverse-order\n\n",thisprog,ii,bandA1[ii],bandZ1[ii]);
+		if(bstart2[ii]>=bstop2[ii]) {
+			fprintf(stderr,"\n--- Error[%s]: band %ld (%g-%g) too narrow or reverse-order\n\n",thisprog,ii,bstart1[ii],bstop1[ii]);
 			exit(1);
 		}
-		bandZ2[ii]++; // increment here to make it a true "stop" value (not included in AUC output)
-		if(bandZ2[ii]>bandmax) bandmax= bandZ2[ii];
+		bstop2[ii]++; // increment here to make it a true "stop" value (not included in AUC output)
+		if(bstop2[ii]>bandmax) bandmax= bstop2[ii];
 	}
-	// TEST:for(ii=0;ii<nbands;ii++) printf("band:%ld \tA1:%g \tZ1:%g \tA2:%ld \tZ2:%ld\n",ii,bandA1[ii],bandZ1[ii],bandA2[ii],bandZ2[ii]);
+	// TEST:for(ii=0;ii<btot;ii++) printf("band:%ld \tA1:%g \tZ1:%g \tA2:%ld \tZ2:%ld\n",ii,bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]);
 
 	/* PRINT HEADER */
 	for(ii=0;ii<nids;ii++) printf("id%ld\t",ids[ii]);
 	printf("%s",setyunits);
-	for(ii=0;ii<nbands;ii++) printf("\tband%ld",ii);
+	for(ii=0;ii<btot;ii++) printf("\tband%ld",ii);
 	printf("\n");
 
 	/* INITIALISE HEADER & MESSAGES ARRAYS - THIS IS REQUIRED FOR THE MATRIX READ FUNCTION */
@@ -222,7 +203,7 @@ int main (int argc, char *argv[]) {
 		//TEST: printf("%s\n",header); for(ii=jj=0;ii<n1;ii++) {printf("%g",matrix1[ii]);if(++jj<ncols1) printf(" ");else { jj=0;printf("\n"); }}
 
 		/* APPLY ROTATION IF REQUIRED */
-		if(setrotate!=0) {z= xf_matrixrotate2_d(matrix1,&ncols1,&nrows1,-90); if(z<0){ fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message1); exit(1); }}
+		if(setrotate!=0) {z= xf_matrixrotate2_d(matrix1,&ncols1,&nrows1,setrotate); if(z<0){ fprintf(stderr,"\b\n\t--- %s/%s\n\n",thisprog,message1); exit(1); }}
 
 		/* APPLY TRANSPOSE IF REQUIRED */
 		if(settrans!=0) {matrix1= xf_matrixtrans1_d(matrix1,&ncols1,&nrows1); if(matrix1==NULL) { fprintf(stderr,"\b\n\t--- Error[%s]: memory allocation error in transpose function\n\n",thisprog); exit(1); }}
@@ -248,9 +229,9 @@ int main (int argc, char *argv[]) {
 			/* print the y-value */
 			printf("%g",(setymin+ setyint*row));
 			/* calculate and print AUC for each band */
-			for(band=0;band<nbands;band++) {
-				mm= bandZ2[band] - bandA2[band];
-				pmatrix= matrix1+(row*ncols1)+bandA2[band];
+			for(band=0;band<btot;band++) {
+				mm= bstop2[band] - bstart2[band];
+				pmatrix= matrix1+(row*ncols1)+bstart2[band];
 				for(kk=0;kk<mm;kk++) if(!isfinite(pmatrix[kk])) break;
 				if(kk==mm) {
 					x= xf_auc1_d(pmatrix,mm,setxint,0,result_d,message2);
@@ -270,6 +251,7 @@ int main (int argc, char *argv[]) {
 END:
 	if(strcmp(infile1,"stdin")!=0) fclose(fpin);
 
+	if(ibands!=NULL) free(ibands);
 	if(matrix1!=NULL) free(matrix1);
 
 	exit(0);
