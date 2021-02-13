@@ -67,7 +67,7 @@ int main (int argc, char *argv[]) {
 	double *grp1=NULL,*grp2=NULL,*grp3=NULL,*listgrp1=NULL,*listgrp2=NULL,*listgrp3=NULL;
 	double *data=NULL,*tempdata=NULL;
 	/* arguments */
-	char *infile=NULL;
+	char *infile=NULL,*setmissing=NULL;
 	int setgint=0,setcolg1=1,setcolg2=2,setcolg3=3,setcoldata=4,setp=-1;
 
 	/* PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED */
@@ -81,24 +81,25 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"- Repeated-measures variable (-cg3) can be NAN\n");
 		fprintf(stderr,"- Max input line length = %d\n",MAXLINELEN);
 		fprintf(stderr,"USAGE:\n");
-		fprintf(stderr,"	%s [input] [g1] [g2] [g3] [data]\n",thisprog);
-		fprintf(stderr,"	[input]: file name or \"stdin\"\n");
+		fprintf(stderr,"    %s [input] [g1] [g2] [g3] [data]\n",thisprog);
+		fprintf(stderr,"    [input]: file name or \"stdin\"\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
-		fprintf(stderr,"	-cg1 column defining subject [%d]\n",setcolg1);
-		fprintf(stderr,"	-cg2 column defining between-subjects groups  [%d]\n",setcolg2);
-		fprintf(stderr,"	-cg3 column defining repeated measure levels  [%d]\n",setcolg3);
-		fprintf(stderr,"	-cy column containing dependent variable [%d]\n",setcoldata);
-		fprintf(stderr,"	-gint: output groups 1 & 2 as integers? (0=NO 1=YES) [%d]\n",setgint);
-		fprintf(stderr,"	-p: group3 (repeated) output precision [%d]\n",setp);
-		fprintf(stderr,"		-1=auto (%%f), 0=auto (%%g), >0=decimals\n");
+		fprintf(stderr,"    -cg1 column defining subject [%d]\n",setcolg1);
+		fprintf(stderr,"    -cg2 column defining between-subjects groups  [%d]\n",setcolg2);
+		fprintf(stderr,"    -cg3 column defining repeated measure levels  [%d]\n",setcolg3);
+		fprintf(stderr,"    -cy column containing dependent variable [%d]\n",setcoldata);
+		fprintf(stderr,"    -gint: output groups 1 & 2 as integers? (0=NO 1=YES) [%d]\n",setgint);
+		fprintf(stderr,"    -m: placeholder for non-numerical or non-finite values [\"-\"]\n");
+		fprintf(stderr,"    -p: group3 (repeated) output precision [%d]\n",setp);
+		fprintf(stderr,"        -1=auto (%%f), 0=auto (%%g), >0=decimals\n");
 		fprintf(stderr,"NOTE: \n");
-		fprintf(stderr,"	- if no between-subjects grouping column, set -cg2 to 0\n");
-		fprintf(stderr,"	- in this case, all subjects are placed in group \"1\"\n");
+		fprintf(stderr,"    - if no between-subjects grouping column, set -cg2 to 0\n");
+		fprintf(stderr,"    - in this case, all subjects are placed in group \"1\"\n");
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"	%s data.txt -cg1 1 -cg2 2 -cg3 3 -cy 7\n",thisprog);
-		fprintf(stderr,"	cat temp.txt | %s stdin \n",thisprog);
+		fprintf(stderr,"    %s data.txt -cg1 1 -cg2 2 -cg3 3 -cy 7\n",thisprog);
+		fprintf(stderr,"    cat temp.txt | %s stdin \n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	subj    grp    r_1    r_2    r_3    r_4    etc...\n");
+		fprintf(stderr,"    subj    grp    r_1    r_2    r_3    r_4    etc...\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -115,9 +116,11 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-cg3")==0)  setcolg3= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-cy")==0)   setcoldata= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-gint")==0) setgint= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-m")==0)    setmissing= argv[++ii];
 			else if(strcmp(argv[ii],"-p")==0)    setp= atoi(argv[++ii]);
 			else {fprintf(stderr,"\t\a--- Error[%s]: invalid command line argument \"%s\"\n",thisprog,argv[ii]); exit(1);}
 	}}
+	if(setmissing==NULL) setmissing="-";
 
 	sizeofdata= sizeof(*data);
 	sizeofgrp1= sizeof(*grp1);
@@ -201,7 +204,7 @@ int main (int argc, char *argv[]) {
 						count++;
 					}
 				}
-				if(count==0) printf("\t-");
+				if(count==0) printf("\t%s",setmissing);
 				//TEST:	fprintf(stderr,"%g	%g	%g	%ld\n",listgrp1[i],listgrp2[j],listgrp3[k],count);
 			}
 			printf("\n");

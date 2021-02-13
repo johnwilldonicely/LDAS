@@ -112,14 +112,14 @@ listtimes=$(tail -n "+$z" $infile | awk '{print $'$setcg3'}' | sort -nu)
 ################################################################################
 # RUN REPEATED_MEASURES INTEGRITY-CHECK
 ################################################################################
-xe-checkreplicate1 jjj.0 -head $sethead 2> $tempfile".error"
+xe-checkreplicate1 $infile -head $sethead 2> $tempfile".error"
 if [ -s $tempfile".error" ] ; then cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 ; exit ; fi
 
 ################################################################################
 # TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINES
 ################################################################################
 tail -n "+$z" $infile |
-	xe-transpose4 stdin -cg1 $setcg3 -cg2 $setcg2 -cg3 $setcg1 -cy $setcy > $tempfile
+	xe-transpose4 stdin -cg1 $setcg3 -cg2 $setcg2 -cg3 $setcg1 -cy $setcy -m "NAN"> $tempfile
 
 ################################################################################
 # BUILD THE SUBJECT-HEADER
@@ -144,7 +144,6 @@ for group in $listgroups ; do
 		if [ "$name" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: no group $group defined in $setfilegnames\n" >&2 ;  exit; } ; fi
 	# if no name-file is defined, build a fake list of groupnames
 	else name="group:"$group ; fi
-	echo -e "\t"$name >&2
 
 	# build header for this group and output
 	head1="" ; for i in $head2 ; do head1=$head1" "$name ; done
