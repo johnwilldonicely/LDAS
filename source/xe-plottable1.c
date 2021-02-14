@@ -877,7 +877,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"	2 copy\n");
 	fprintf(fpout,"\n");
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul xtloff 2 mul moveto\n");
-	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 3 mul moveto\n");
+	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul xtloff 4 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"\tbasefontsize mul -1 mul rmoveto\n");
 	fprintf(fpout,"\t0 basefontsize 1.5 div rlineto\n");
@@ -887,7 +887,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"\n");
 
 	if(setlegend==0) fprintf(fpout,"\tytloff 4 mul pointsize 2 mul add xtloff 2 mul moveto\n");
-	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul basefontsize add xtloff 3 mul moveto\n");
+	if(setlegend==1) fprintf(fpout,"\tytloff 4 mul basefontsize add xtloff 4 mul moveto\n");
 	if(setlegend==2) fprintf(fpout,"\t%g basefontsize add basefontsize add %g basefontsize -.5 mul add moveto\n",xlimit,ylimit);
 	fprintf(fpout,"	basefontsize mul -1 mul rmoveto\n");
 	fprintf(fpout,"	cf setrgbcolor\n");
