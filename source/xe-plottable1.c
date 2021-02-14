@@ -14,6 +14,9 @@
 /*
 <TAGS>plot</TAGS>
 
+14.February.2021 [JRH]
+	- add option to use a .txt palette file
+
 15.September.2020 [JRH]
 	- add option to reverse the order of the colour-palette
 
@@ -130,73 +133,76 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"USAGE...\n");
 		fprintf(stderr,"	%s [filename] [options]\n\n",thisprog);
 		fprintf(stderr,"VALID OPTIONS (default in [])...\n");
-		fprintf(stderr,"	[filename]: file name or \"stdin\"\n");
-		fprintf(stderr,"	-cx: x-data column (-1 to infer x from sample-number) [%d]\n",setxcol);
-		fprintf(stderr,"	-cy: y-data column [%d]\n",setycol);
-		fprintf(stderr,"	-ce: y-error estimate column [%d]\n",setecol);
-		fprintf(stderr,"	-cf: x-error estimate column [%d]\n",setfcol);
-		fprintf(stderr,"	-cg: group ID column [%d]\n",setgcol);
-		fprintf(stderr,"		- ID can be numerical or text (no spaces)\n");
-		fprintf(stderr,"		- if text, group-colour assigned by order of appearance\n");
-		fprintf(stderr,"	-xmin -xmax -ymin -ymax: manually set data range\n");
-		fprintf(stderr,"	-xpad -ypad: pad between data range and plot axes (-1=auto)\n");
-		fprintf(stderr,"	-xint -yint: interval between axis-tics (0=AUTO -1=OMIT) [%g %g]\n",setxint,setyint);
-		fprintf(stderr,"	-jitter: apply this much jitter (max) to x-values [%g]\n",setjitter);
-		fprintf(stderr,"		NOTE: do not use with -line option\n");
-		fprintf(stderr,"	-line: draw line between data points (1=YES,0=NO)[%d]\n",setline);
-		fprintf(stderr,"	-pt: plot type (squ cir tri box bar histo) [%s]\n",plottype);
-		fprintf(stderr,"	-ps: point size (zero to omit) [%g]\n",pointsize);
-		fprintf(stderr,"	-pf: point fill (0=no, -1=white, 1=datacolour) [%d]\n",pointfill);
-		fprintf(stderr,"	-colour: adjust colour for lowest group [%d]\n",setdatacolour);
-		fprintf(stderr,"	-ebright: adjust error-bar colours up (typically 8,16,24) [%d]\n",setebright);
-		fprintf(stderr,"	    NOTE: -colour and -ebright only work with default palette\n");
-		fprintf(stderr,"	-pal: colour palette (default)\n");
-		fprintf(stderr,"	        default: blk-red-magenta-blue-cyan-green-yel-orange\n");
-		fprintf(stderr,"	        black2grey: black-lightgrey\n");
-		fprintf(stderr,"	        rainbow: blue-green-red\n");
-		fprintf(stderr,"	        viridis: purple-green-yellow\n");
-		fprintf(stderr,"	        plasma: blue-purple-yellow\n");
-		fprintf(stderr,"	        magma: black-purple-cream\n");
-		fprintf(stderr,"	        inferno: black-purple-orange-paleyellow\n");
-		fprintf(stderr,"	-palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
-		fprintf(stderr,"	    NOTE: this does not apply to the default palette\n");
-		fprintf(stderr,"	-bw: box/bar width, as a fraction of xint (above) [%g]\n",boxwidth);
-		fprintf(stderr,"	-ew: error-bar width, fraction of xint (above) [%g]\n",ewidth);
-		fprintf(stderr,"	-bz: boxes and histograms extend to zero? (1=YES,0=NO)[%d]\n",boxyzero);
-		fprintf(stderr,"	-gs: group-shift on x-axis (1=YES,0=NO) [%d]\n",setgshift);
-		fprintf(stderr,"		NOTE: suitable for box bar or histo plots only\n");
-		fprintf(stderr,"		NOTE: puts groups side by side centred on x-value\n");
-		fprintf(stderr,"		NOTE: set -bw to 1/(#groups+1) for this to look nice\n");
-		fprintf(stderr,"	-xlabel: x-axis label, in quotes [unset]\n");
-		fprintf(stderr,"	-ylabel: y-ayis label, in quotes [unset]\n");
-		fprintf(stderr,"	-title: plot title (enclose in quotes)\n");
-		fprintf(stderr,"	-legend: display legend (0=NO, 1=bottom-left, 2=top-right)[%d]\n",setlegend);
-		fprintf(stderr,"	-frame: draw frame at bottom(1) left(2) top(4) right(8) [%d]\n",framestyle);
-		fprintf(stderr,"		-NOTE: these are additive, eg full box=15 [%d]\n",framestyle);
-		fprintf(stderr,"	-tics: size of x- and y-tics (negative=outside frame) [%g]\n",setticsize);
-		fprintf(stderr,"	-hline: CSV list of y-values for horizontal lines [unset]\n");
-		fprintf(stderr,"	-vline: CSV list of x-values for vertical lines [unset]\n");
-		fprintf(stderr,"		NOTE: maximum %d lines of each type\n",MAXUSERLINES);
-		fprintf(stderr,"		NOTE: if > data range, plot range will be expanded\n");
-		fprintf(stderr,"	-yzero: draw zero-line if y-data spans zero (0=NO 1=YES) [%d]\n",setyzeroline);
-		fprintf(stderr,"	-xscale: scale plot in x dimension [%g] \n",xscale);
-		fprintf(stderr,"	-yscale: scale plot in y dimension [%g] \n",yscale);
-		fprintf(stderr,"	-font: base font size [%g]\n",fontsize);
-		fprintf(stderr,"	-lwd: line width for data [%g]\n",lwdata);
-		fprintf(stderr,"	-lwe: line width for error-bars [%g]\n",lwerror);
-		fprintf(stderr,"	-lwa: line width for axes [%g]\n",lwaxes);
-		fprintf(stderr,"	-lb: break lines in plot [%d]\n",setlinebreak);
-		fprintf(stderr,"		(0) no line-breaks in plot\n");
-		fprintf(stderr,"		(1) if there is missing data or blank lines\n");
-		fprintf(stderr,"		(2) if a time-series repeats (x[ii]<x[i-1]) \n");
-		fprintf(stderr,"	-zx, -zy: page offset of the plot [%g,%g]\n",zx,zy);
-		fprintf(stderr,"		NOTE: -1 = default A4 top-left\n");
-		fprintf(stderr,"	-out: output file name [%s]\n",outfile);
-		fprintf(stderr,"	-verb: verbose output (0=NO, 1=YES) [%d]\n",setverb);
+		fprintf(stderr,"    [filename]: file name or \"stdin\"\n");
+		fprintf(stderr,"    -cx: x-data column (-1 to infer x from sample-number) [%d]\n",setxcol);
+		fprintf(stderr,"    -cy: y-data column [%d]\n",setycol);
+		fprintf(stderr,"    -ce: y-error estimate column [%d]\n",setecol);
+		fprintf(stderr,"    -cf: x-error estimate column [%d]\n",setfcol);
+		fprintf(stderr,"    -cg: group ID column [%d]\n",setgcol);
+		fprintf(stderr,"        - ID can be numerical or text (no spaces)\n");
+		fprintf(stderr,"        - if text, group-colour assigned by order of appearance\n");
+		fprintf(stderr,"    -xmin -xmax -ymin -ymax: manually set data range\n");
+		fprintf(stderr,"    -xpad -ypad: pad between data range and plot axes (-1=auto)\n");
+		fprintf(stderr,"    -xint -yint: interval between axis-tics (0=AUTO -1=OMIT) [%g %g]\n",setxint,setyint);
+		fprintf(stderr,"    -jitter: apply this much jitter (max) to x-values [%g]\n",setjitter);
+		fprintf(stderr,"        NOTE: do not use with -line option\n");
+		fprintf(stderr,"    -line: draw line between data points (1=YES,0=NO)[%d]\n",setline);
+		fprintf(stderr,"    -pt: plot type (squ cir tri box bar histo) [%s]\n",plottype);
+		fprintf(stderr,"    -ps: point size (zero to omit) [%g]\n",pointsize);
+		fprintf(stderr,"    -pf: point fill (0=no, -1=white, 1=datacolour) [%d]\n",pointfill);
+		fprintf(stderr,"    -colour: adjust colour for lowest group [%d]\n",setdatacolour);
+		fprintf(stderr,"    -ebright: adjust error-bar colours up (typically 8,16,24) [%d]\n",setebright);
+		fprintf(stderr,"        NOTE: -colour and -ebright only work with default palette\n");
+		fprintf(stderr,"    -pal: colour palette (default)\n");
+		fprintf(stderr,"        *.txt: a palette-file with an RGB triplet on each line\n");
+		fprintf(stderr,"            - blank and comment (#) lines allowed\n");
+		fprintf(stderr,"            - triplets are 0-1 and whitespace-delimited e.g. .75 0 1.0\n");
+		fprintf(stderr,"        default: blk-red-magenta-blue-cyan-green-yel-orange\n");
+		fprintf(stderr,"        black2grey: black-lightgrey\n");
+		fprintf(stderr,"        rainbow: blue-green-red\n");
+		fprintf(stderr,"        viridis: purple-green-yellow\n");
+		fprintf(stderr,"        plasma: blue-purple-yellow\n");
+		fprintf(stderr,"        magma: black-purple-cream\n");
+		fprintf(stderr,"        inferno: black-purple-orange-paleyellow\n");
+		fprintf(stderr,"    -palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
+		fprintf(stderr,"        NOTE: this does not apply to the default palette\n");
+		fprintf(stderr,"    -bw: box/bar width, as a fraction of xint (above) [%g]\n",boxwidth);
+		fprintf(stderr,"    -ew: error-bar width, fraction of xint (above) [%g]\n",ewidth);
+		fprintf(stderr,"    -bz: boxes and histograms extend to zero? (1=YES,0=NO)[%d]\n",boxyzero);
+		fprintf(stderr,"    -gs: group-shift on x-axis (1=YES,0=NO) [%d]\n",setgshift);
+		fprintf(stderr,"        NOTE: suitable for box bar or histo plots only\n");
+		fprintf(stderr,"        NOTE: puts groups side by side centred on x-value\n");
+		fprintf(stderr,"        NOTE: set -bw to 1/(#groups+1) for this to look nice\n");
+		fprintf(stderr,"    -xlabel: x-axis label, in quotes [unset]\n");
+		fprintf(stderr,"    -ylabel: y-ayis label, in quotes [unset]\n");
+		fprintf(stderr,"    -title: plot title (enclose in quotes)\n");
+		fprintf(stderr,"    -legend: display legend (0=NO, 1=bottom-left, 2=top-right)[%d]\n",setlegend);
+		fprintf(stderr,"    -frame: draw frame at bottom(1) left(2) top(4) right(8) [%d]\n",framestyle);
+		fprintf(stderr,"        -NOTE: these are additive, eg full box=15 [%d]\n",framestyle);
+		fprintf(stderr,"    -tics: size of x- and y-tics (negative=outside frame) [%g]\n",setticsize);
+		fprintf(stderr,"    -hline: CSV list of y-values for horizontal lines [unset]\n");
+		fprintf(stderr,"    -vline: CSV list of x-values for vertical lines [unset]\n");
+		fprintf(stderr,"        NOTE: maximum %d lines of each type\n",MAXUSERLINES);
+		fprintf(stderr,"        NOTE: if > data range, plot range will be expanded\n");
+		fprintf(stderr,"    -yzero: draw zero-line if y-data spans zero (0=NO 1=YES) [%d]\n",setyzeroline);
+		fprintf(stderr,"    -xscale: scale plot in x dimension [%g] \n",xscale);
+		fprintf(stderr,"    -yscale: scale plot in y dimension [%g] \n",yscale);
+		fprintf(stderr,"    -font: base font size [%g]\n",fontsize);
+		fprintf(stderr,"    -lwd: line width for data [%g]\n",lwdata);
+		fprintf(stderr,"    -lwe: line width for error-bars [%g]\n",lwerror);
+		fprintf(stderr,"    -lwa: line width for axes [%g]\n",lwaxes);
+		fprintf(stderr,"    -lb: break lines in plot [%d]\n",setlinebreak);
+		fprintf(stderr,"        (0) no line-breaks in plot\n");
+		fprintf(stderr,"        (1) if there is missing data or blank lines\n");
+		fprintf(stderr,"        (2) if a time-series repeats (x[ii]<x[i-1]) \n");
+		fprintf(stderr,"    -zx, -zy: page offset of the plot [%g,%g]\n",zx,zy);
+		fprintf(stderr,"        NOTE: -1 = default A4 top-left\n");
+		fprintf(stderr,"    -out: output file name [%s]\n",outfile);
+		fprintf(stderr,"    -verb: verbose output (0=NO, 1=YES) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"	%s data.txt -cx 2 -cy 3 -line 1 -title \"Sample-1\"\n",thisprog);
+		fprintf(stderr,"    %s data.txt -cx 2 -cy 3 -line 1 -title \"Sample-1\"\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	- postscript file, default name \"%s\"\n",outfile);
+		fprintf(stderr,"    - postscript file, default name \"%s\"\n",outfile);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -278,7 +284,8 @@ int main (int argc, char *argv[]) {
 	if(setpalrev!=0&&setpalrev!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -palrev (%d) - should be either 0 or 1\n\n",thisprog,setpalrev);exit(1); }
 	if(setpal!=NULL) {
 		if(
-		   strcmp(setpal,"default")!=0
+		strstr(setpal,".txt")==NULL
+		&& strcmp(setpal,"default")!=0
 		&& strcmp(setpal,"black2grey")!=0
 		&& strcmp(setpal,"rainbow")!=0
 		&& strcmp(setpal,"viridis")!=0
@@ -504,20 +511,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	if(setverb==999) printf("*** STARTING: CREATE COLOUR PALETTE\n");
 	/* ...if a colour-palette is defined... */
-	if(strcmp(setpal,"default")!=0) {
-		setdatacolour= 0;
-		setebright= 0;
-		ncolours= ngrps;
-		/* adjust number of colours (kk) slightly for palettes where the top is close to white */
-		kk=ncolours; if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) kk+=1;
-		red= realloc(red,kk+ncolours*sizeof(*red));
-		green= realloc(green,kk*sizeof(*green));
-		blue= realloc(blue,kk*sizeof(*blue));
-		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,kk,setpal,setpalrev);
-	}
-	else {
+	if(strcmp(setpal,"default")==0) {
 		ncolours= 32;
 		red= realloc(red,ncolours*sizeof(*red));
 		green= realloc(green,ncolours*sizeof(*green));
@@ -559,11 +553,47 @@ int main (int argc, char *argv[]) {
 		red[30]=1.0; green[30]=1.0; blue[30]=.75;
 		red[31]=1.0; green[31]=.90; blue[31]=.50;
 	}
+	/* READ A PALETTE FILE IF SETPAL ENDS IN ".TXT" */
+	else if(strstr(setpal,".txt")!=NULL) {
+		if((fpin=fopen(setpal,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: palette file \"%s\" not found\n\n",thisprog,setpal);exit(1);}
+		jj=kk= 0; // jj=linecounter, kk=colour-counter
+		while(fgets(line,MAXLINELEN,fpin)!=NULL) {
+			jj++;
+			if(line[0]=='#') continue; // allow some comments
+			if(strlen(line)<2) continue; // allow blank lines
+	 		if(sscanf(line,"%f %f %f",&a,&b,&c)!=3) {fprintf(stderr,"\n--- Error[%s]: palette file %s line %ld does not contain an RGB triplet\n\n",thisprog,setpal,jj);exit(1);}
+			red= realloc(red,(kk+1)*sizeof(*red));
+			green= realloc(green,(kk+1)*sizeof(*green));
+			blue= realloc(blue,(kk+1)*sizeof(*blue));
+			if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+			red[kk]= a;
+			green[kk]= b;
+			blue[kk]= c;
+			kk++;
+	 	}
+	 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
+		if(kk<ngrps)  {fprintf(stderr,"\n--- Error[%s]: palette file %s defines too few colours (%ld) for the number of groups (%ld) \n\n",thisprog,setpal,kk,ngrps);exit(1);}
+		ncolours= ngrps;
+	}
+	/* USE XF_PALETTE7 IF SETPAL IS NEITHER DEFAULT NOR A FILE */
+	else {
+		setdatacolour= 0;
+		setebright= 0;
+		ncolours= ngrps;
+		/* adjust number of colours (kk) slightly for palettes where the top is close to white */
+		kk=ncolours; if(strcmp(setpal,"magma")==0||strcmp(setpal,"inferno")==0) kk+=1;
+		red= realloc(red,kk*sizeof(*red));
+		green= realloc(green,kk*sizeof(*green));
+		blue= realloc(blue,kk*sizeof(*blue));
+		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
+		x= xf_palette7(red,green,blue,kk,setpal,setpalrev);
+	}
 
 	/******************************************************************************/
 	/******************************************************************************/
 	// DETERMINE GROUP-RANKS, FOR COLOURS AND STACKED-PLOT POSITIONING
-	// -  at this point we have define gdata[], gwords[], igword[], ngrps
+	// -  at this point we have defined gdata[], gwords[], igword[], ngrps
 	// - calculate the rank for each group
 	/******************************************************************************/
 	/******************************************************************************/
