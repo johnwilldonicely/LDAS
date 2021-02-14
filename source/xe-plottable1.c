@@ -573,7 +573,7 @@ int main (int argc, char *argv[]) {
 	 	}
 	 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 		if(kk<ngrps)  {fprintf(stderr,"\n--- Error[%s]: palette file %s defines too few colours (%ld) for the number of groups (%ld) \n\n",thisprog,setpal,kk,ngrps);exit(1);}
-		ncolours= ngrps;
+		ncolours= kk;
 	}
 	/* USE XF_PALETTE7 IF SETPAL IS NEITHER DEFAULT NOR A FILE */
 	else {
