@@ -30,7 +30,7 @@ int main (int argc, char *argv[]) {
 	/* program-specific variables */
 	int sizeofgrp1,sizeofgrp2,sizeofgrp3,sizeofdata;
 	long *iword=NULL,nwords,colmatch;
-	long nlistgrp1=0,nlistgrp2=0,nlistgrp3=0;
+	long nlistgrp1=0,nlistgrp2=0,nlistgrp3=0,count=0;
 	double *grp1=NULL,*grp2=NULL,*grp3=NULL,*listgrp1=NULL,*listgrp2=NULL,*listgrp3=NULL;
 	double *data=NULL;
 
@@ -51,7 +51,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"- requires 3 columns defining groupings, and a fourth data-column\n");
 		fprintf(stderr,"    - example: repeated-measures study: subject,treatment,time,data\n");
 		fprintf(stderr,"    - column-numbering starts at \"1\"\n");
-		fprintf(stderr,"    - there must be data for every combination of groups\n");
+		fprintf(stderr,"    - there must be 1 datum for every combination of groups\n");
 		fprintf(stderr,"    - grouping columns must only contain finite numbers\n");
 		fprintf(stderr,"    - header-lines must be excluded (see -head option below)\n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
@@ -191,10 +191,12 @@ int main (int argc, char *argv[]) {
 			bb= listgrp2[jj];
 			for(kk=0;kk<nlistgrp3;kk++) {
 				cc= listgrp3[kk];
+				count=0;
 				for(mm=0;mm<=nn;mm++) {
-					if(grp1[mm]==aa && grp2[mm]==bb && grp3[mm]==cc) break;
+					if(grp1[mm]==aa && grp2[mm]==bb && grp3[mm]==cc) count++;
 				}
-				if(mm>=nn) fprintf(stderr,"--- Error[%s]: missing data for combination:  [%g] [%g] [%g]\n",thisprog,aa,bb,cc);
+				if(count==0) fprintf(stderr,"--- Error[%s]: missing data for combination:  [%g] [%g] [%g]\n",thisprog,aa,bb,cc);
+				if(count>1) fprintf(stderr,"--- Error[%s]: %ld duplicates of combination:  [%g] [%g] [%g]\n",thisprog,count,aa,bb,cc);
 	}}}
 
 	goto END;
