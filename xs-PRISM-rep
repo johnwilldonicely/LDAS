@@ -23,11 +23,6 @@ setplotbase="plot_"$z
 setverb="0"
 setclean="1"
 setfilegnames=""
-
-setcg1="1"
-setcg2="2"
-setcg3="3"
-setcy="4"
 sethead="0"
 
 
@@ -38,26 +33,35 @@ if [ $# -lt 1 ]; then
 	echo
 	echo "--------------------------------------------------------------------------------"
 	echo $thisprog": convert data-fame to GraphPad-Prism repeated-measures format"
-	echo "- converts long-format data to wide-format"
-	echo "- that is, results from a given subject are laid out on a single line"
-	echo "- a header is added for each subject-column"
 	echo "- a block of columns is generated for each group, with a group-header added"
- 	echo "        - NOTE! assumes each subject has an entry for each treatment & time"
-	echo "        - NOTE! any header-rows must be removed - use the --head option"
+	echo "- that is..."
+	echo "    - results from a given subject are laid out on a single line"
+	echo "    - a header is added for each treatment "
+	echo "    - a sub-header is added for each subject-within-treatment"
+ 	echo "- NOTE! assumes each subject has an entry for each condition"
+	echo "- NOTE! header-rows must be removed - use the --head option"
 	echo ""
 	echo "USAGE: $thisprog [in] [options]"
-	echo "    [in]: a 4-column input file"
-	echo "        - all 4 columns must be numeric (no letters or non-numeric characters)"
-	echo "        - column-1 : subject-id"
-	echo "        - column-2 : treatment group"
-	echo "        - column-3 : time"
-	echo "        - column-4 : the actual data"
-	echo ""
+	echo "    [in]: a 3- or 4-column input file (automatically detected)"
+	echo "        - 3-column files: subject  group  data"
+	echo "        - 4-column files: subject  group  time  data"
+	echo "        - all columns must be numeric (no letters or non-numeric characters)"
 	echo "VALID OPTIONS (defaults in []):"
 	echo "    --head: number of header lines to skip [$sethead]"
 	echo "    --names: file defining \"group\" and \"name\" to replace group-number [$setfilegnames]"
+	echo ""
 	echo "EXAMPLE: "
-	echo "	$thisprog out_xs-XTP_MMN_params.txt"
+	echo -e "    cut -f 1-4 data.txt > new.txt \n    $thisprog new.txt --head 1"
+	echo ""
+	echo "OUTPUT: group-header, subject-header, and data-row"
+	echo "    - for 4-column input, one data-row per \"time\" in column-3"
+	echo "    - example for subjects 10,11,12, groups 1,2, and times 1.0,1.5,2.0..."
+	echo ""
+	echo "    treatment     group1   group1   group1   group2   group2   group2"
+	echo "    subject       10       11       12       10       11       12"
+	echo "    1.0           166.8    173.0    438.8    361.3    180.9    184.4"
+	echo "    1.5           374.7    289.6    174.2    91.8     153.6    191.3"
+	echo "    2.0           178.1    283.0    547.3    303.4    236.8    438.8"
 	echo "--------------------------------------------------------------------------------"
 	echo
 	exit
@@ -102,30 +106,48 @@ if [ "$setfilegnames" != "" ] ; then
 fi
 
 ################################################################################
+# DETERMINE NUMBER OF COLUMNS
+################################################################################
+let z=$(echo $sethead | awk '{print $1+1}')
+ncols=$(tail -n "+$z" $infile | head -n 1 | wc -w)
+
+################################################################################
+# MAKE TEMP-FILE, ADDING FAKE "TIME" COLUMN IF REQUIRED
+################################################################################
+if [ $ncols -eq 4 ] ; then
+ 	tail -n "+$z" $infile > $tempfile".1"
+elif [ $ncols -eq 3 ] ; then
+	tail -n "+$z" $infile |
+	awk 'BEGIN{OFS="\t"}{print $1,$2,"1",$3}'> $tempfile".1"
+else
+ 	echo -e "\n--- Error ["$thisprog"]: input $infile has $ncols columns - must be 3 or 4\n" >&2
+	exit
+fi
+
+################################################################################
 # BUILD THE SUBJECT-LIST AND GROUP-LIST
 ################################################################################
 let z=$(echo $sethead | awk '{print $1+1}')
-listsubjects=$(tail -n "+$z" $infile | awk '{print $'$setcg1'}' | sort -nu)
-listgroups=$(tail -n "+$z" $infile | awk '{print $'$setcg2'}' | sort -nu)
-listtimes=$(tail -n "+$z" $infile | awk '{print $'$setcg3'}' | sort -nu)
+listsubjects=$(cut -f 1 $tempfile".1" | sort -nu)
+listgroups=$(cut -f 2 $tempfile".1" | sort -nu)
+listtimes=$(cut -f 3 $tempfile".1" | sort -nu)
 
 ################################################################################
 # RUN REPEATED_MEASURES INTEGRITY-CHECK
 ################################################################################
-xe-checkreplicate1 $infile -head $sethead 2> $tempfile".error"
+xe-checkreplicate1 $tempfile".1" -head 0 -cg1 1 -cg2 2 -cg3 3 -cy 4 2> $tempfile".error"
 if [ -s $tempfile".error" ] ; then cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 ; exit ; fi
 
 ################################################################################
-# TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINES
+# TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINE (SUBJECT=REPEATED MEASURE)
 ################################################################################
-tail -n "+$z" $infile |
-	xe-transpose4 stdin -cg1 $setcg3 -cg2 $setcg2 -cg3 $setcg1 -cy $setcy -m "NAN"> $tempfile
+xe-transpose4 $tempfile".1" -cg1 3 -cg2 2 -cg3 1 -cy 4 -m "NAN"> $tempfile".2"
 
 ################################################################################
 # BUILD THE SUBJECT-HEADER
 # this will go on the second row of each teporary treatment file
 ################################################################################
-head2=$(head -n 1 $tempfile | cut -f 3- | sed 's/r_/subject_/g')
+head2=$(head -n 1 $tempfile".2" | cut -f 3- | sed 's/r_/subject_/g')
 
 ################################################################################
 # MAKE A TEMPORARY FILE FOR EACH TREATMENT GROUP
@@ -136,7 +158,7 @@ list1=""
 let count=0
 for group in $listgroups ; do
 	let count=$count+1
-	out1=$tempfile"."$group
+	out1=$tempfile"_grp"$group
 	list1=$list1" "$out1
 	# if name-file is defined, use it to define the name for the current group
 	if [ "$setfilegnames" != "" ] ; then
@@ -153,14 +175,14 @@ for group in $listgroups ; do
 		echo "treatment "$head1 | xe-delimit stdin > $out1
 		echo "subject "$head2 | xe-delimit stdin >> $out1
 		# append the data for this group - remove the original header and grp column
-		xe-dbmatch1 $tempfile grp $group -m 3 |
+		xe-dbmatch1 $tempfile".2" grp $group -m 3 |
 		tail -n +2 |
 		cut -f 1,3- >> $out1
 	else
 		echo $head1 | xe-delimit stdin > $out1
 		echo $head2 | xe-delimit stdin >> $out1
 		# append the data for this group - remove the original header and subj (actually time) & grp columns
-		xe-dbmatch1 $tempfile grp $group -m 3 |
+		xe-dbmatch1 $tempfile".2" grp $group -m 3 |
 		tail -n +2 |
 		cut -f 3- >> $out1
 	fi
