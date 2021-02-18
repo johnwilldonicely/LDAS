@@ -136,7 +136,7 @@ for mov in immobile running ; do
 		xe-dbmatch1 $infile move $mov |
 		xe-dbmatch1 stdin group $grp | xe-dbmatch1 stdin subject $sub |
 		xe-cut1 stdin freq,amp -o 1 |
-		xe-ldas5-spectproc1 stdin -out 1 -div $spdiv -filt $sphp |
+		xe-spectproc1 stdin -out 1 -div $spdiv -filt $sphp |
 		tail -n +2 | awk '{print "'$sub' '$grp' '$mov' ",$1,$2}' | xe-delimit stdin >> $outfile
 	done
 	# determine the corrected bands
@@ -145,7 +145,7 @@ for mov in immobile running ; do
 	xe-cut1 stdin freq,amp -o 1 |
 	xe-statsgrp1 stdin |
 	xe-cut1 stdin grp1,mean -o 1 |
-	xe-ldas5-spectproc1 stdin -div 0 -filt 0 -out 2 > $progbase1"_bands_"$mov".txt"
+	xe-spectproc1 stdin -div 0 -filt 0 -out 2 > $progbase1"_bands_"$mov".txt"
 done
 
 # EXTRACT AUC FROM INDIVIDUAL SMOOTHED SPECTRA - DO NOT RE-SMOOTH OR FILTER
@@ -161,7 +161,7 @@ for mov in immobile running ; do
 		xe-dbmatch1 $infile move $mov |
 		xe-dbmatch1 stdin group $grp | xe-dbmatch1 stdin subject $sub |
 		xe-cut1 stdin freq,amp -o 1 |
-		xe-ldas5-spectproc1 stdin -bands $newbands1 -div 0 -filt 0 -out 2 |
+		xe-spectproc1 stdin -bands $newbands1 -div 0 -filt 0 -out 2 |
 		tail -n +2 | awk '{print "'$sub' '$grp' '$mov' ",$0}' | xe-delimit stdin >> $outfile
 	done
 done
