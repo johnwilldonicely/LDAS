@@ -117,10 +117,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        max: high-frequency boundary for the band\n");
 		fprintf(stderr,"        peak: absolute amplitude at the peak\n");
 		fprintf(stderr,"        relpeak: amplitude relative to line joining min-max\n");
-		fprintf(stderr,"        auc: half-width area-under-the-curve (maximises info)\n");
-		fprintf(stderr,"        aucpos: as above, positive-values only\n");
-		fprintf(stderr,"        aucneg: as above, negative-values only\n");
-		fprintf(stderr,"        aucful: complete AUC between min and max\n");
+		fprintf(stderr,"        auc: half-width area-under-the-curve relative to min-max line\n");
+		fprintf(stderr,"        aucpos: full AUC relative to zero-  positive-values only\n");
+		fprintf(stderr,"        aucneg: full AUC relative to zero-  negative-values only\n");
+		fprintf(stderr,"        aucful: full AUC relative to zero- -ive and +ive combined\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(1);
@@ -312,7 +312,7 @@ int main (int argc, char *argv[]) {
 			peakamp= xf_geom_offset1_d(freq1[min1],amp2[min1],freq1[max1],amp2[max1],freq1[mid1],amp2[mid1],message);
 
 			/* calcualte the full AUC */
-			z= xf_auc2_f((freq1+min1),(amp2+min1),(1+max1-min1),1,result_d,message);
+			z= xf_auc2_f((freq1+min1),(amp2+min1),(1+max1-min1),0,result_d,message);
 			if(z<0) { fprintf(stderr,"\n*** %s/%s\n\n",thisprog,message); exit(1); }
 			auc1a= result_d[0];
 			auc1b= result_d[1];
@@ -329,7 +329,7 @@ int main (int argc, char *argv[]) {
 
 			/* output options 0/2: bands and stats to file or stdout */
 			fprintf(fpout,"%g\t%g\t%g	%.4f\t%.4f	%.4f\t%.4f\t%.4f	%.4f\n",
-			freq1[min1],freq1[mid1],freq1[max1], amp2[mid1],peakamp, auc2a,auc2b,auc2c, auc1a);
+			freq1[min1],freq1[mid1],freq1[max1], amp2[mid1],peakamp, auc2a,auc1b,auc1c, auc1a);
 		}
 		if(setout==0) fclose(fpout);
 	}
