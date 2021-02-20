@@ -8,7 +8,7 @@
 #define MAXLINELEN 1000
 
 /*
-<TAGS>math signal_processing</TAGS>
+<TAGS>math signal_processing time</TAGS>
 */
 
 /* external functions start */
