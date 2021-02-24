@@ -29,52 +29,50 @@
 # INSTALLATION
 
 --------------------------------------------------------------------------------
-## 3-step installation on Windows 10 (estimated time: 15 minutes)
-This section explains how to quickly set up the Windows Subsytem for Linux (WSL-1).
-The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**.
-Once you complete this, *proceed to the "Installation on Linux" section*.
+## Installation on Windows 10 (estimated time: 20 minutes)  
+This section explains how to quickly set up the Windows Subsytem for Linux (WSL). 
 
+### 1. Install the Windows Subsystem for Linux (WSL) and a Linux distribution  
+  
+* The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**.
 
+	* Use **manual installation** steps
+	* Read the instructions carefully - **don't forget to reboot** when required
+	* If you opt for WSL-2, you will need to **enable virtualization** in your computer BIOS 
+	* Select **Ubuntu** when installing your Linux distribution from the Microsoft Store
 
-### 1. Enable the Windows Subsystem for Linux (WSL-1)
-Open Windows Powershell as Administrator and  run this command:
-```
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-```
-
-### 2. Now restart your PC,  and install the free Ubuntu distribution from Microsoft Store
-Don't worry - this is easy and will not affect your Windows operating system :)  
-https://www.microsoft.com/store/apps/9N9TNGVNDL3Q
-
-### 3. Initialise the distribution
-Click on the Ubuntu icon in the Start menu to launch, and follow these steps to set up your username and password.
-https://docs.microsoft.com/en-us/windows/wsl/user-support
-
-#### That's it! Now proceed with the **Installation on Linux**  instructions below.
-
-A few extra notes on LDAS under Windows...
-* In the Ubuntu window, your Windows drives will be accessible from **/mnt/c**, **/mnt/d**, etc.  
-* The Windows Subsystem will likely be slower than native-Linux. If you like the benefits of LDAS and want to do some serious number-crunching, we recommend installing a free Linux distribution like Ubuntu or Fedora on a dedicated PC or hard drive.  
-* To view native LDAS plots in the Windows file explorer, you will need the free *ghostscript* and *GS-View* tools. Alternatively, LDAS provides tools to convert your plots to jpg or pdf format.
-
+### 2. Install Windows tools for viewing postscript files  
+* LDAS produces plots in postscript format 
+* LDAS also provides the **xs-plotconvert1** tool to convert plots to jpg or pdf format.
+* However, to view postscript plots in Windows, you will need the free *ghostscript* and *GS-View* tools: 
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
+### 3. Install a free X-Windows server to handle graphical output 
+If you want "live" graphical output from Linux image-viewers, text editors etc. to display in Windows, you can install one of several free X-windows servers: 
+	* [VcXsrv](https://sourceforge.net/projects/vcxsrv/),
+	* [Xming](https://sourceforge.net/projects/xming/files/latest/download).
 
-* If you want "live" graphical output frim Linux image-viewers, text editors etc to display in Windows, you can install a free X-windows server like
-[Vcxsrv](https://sourceforge.net/projects/vcxsrv/),
-or
-[Xming](https://sourceforge.net/projects/xming/files/latest/download).
- Vcxsrv is easy to install, and you will just need to run it before launching a Linux session.
+VcxSrv is easy to install, and you will just need to run it before launching a WSL Linux session. **NOTE** that under WSL-2, you may need to select the "**Disable access control**" option when starting the server. 
+
+### 4. In Linux, set grpahical output to the correct display 
+Start Ubuntu and run this command: 
+```
+sudo /etc/init.d/dbus start &> /dev/null
+```
+Then set the default display. You will be prompted for your Linux password.  
+For WSL-2, run these two commands...
+```
+z=$(awk '/nameserver / {print $2":0.0"; exit}' /etc/resolv.conf)
+echo -e "\n# SET DISPLAY FOR WSL-2\nexport DISPLAY=$z \nexport LIBGL_ALWAYS_INDIRECT=1" | sudo tee -a /etc/profile
+```
 
 
-
+#### That's it! Now proceed with the **Installation on Linux**  instructions below.
 
 
 --------------------------------------------------------------------------------
 ## Installation on Linux
-
-
 
 ### 1. Make sure your Linux distribution is updated
 It's always a good idea to make sure your Linux components are up to date before starting, especially if you are freshly installing on the Windows Subsystem for Linux.
