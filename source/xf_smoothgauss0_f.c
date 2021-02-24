@@ -52,7 +52,7 @@ int xf_smoothgauss0_f(float *original,size_t arraysize,size_t index,int smooth,f
 		kk++;
 	}
 	if(bb>0.0) *result= (float)(aa/bb);  // if any weights were added, new value = weighted mean corrected by sum of weights - to account for missing bins
-	else *result= original[ii];          // otherwise use the original value
+	else *result= original[index];       // otherwise use the original value
 
 	/* free memory and return */
 	free(wt);

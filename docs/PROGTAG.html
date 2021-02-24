@@ -554,7 +554,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-readdat2">xe-ldas5-readdat2</a><br>
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
-<a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
+<a href="#code-xe-spectproc1">xe-spectproc1</a><br>
 <a href="#code-xe-oversample1">xe-oversample1</a><br>
 <a href="#code-xe-smoothbox1">xe-smoothbox1</a><br>
 <a href="#code-xe-smoothgauss1">xe-smoothgauss1</a><br>
@@ -918,7 +918,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-ldas5-ripdet1">xe-ldas5-ripdet1</a><br>
 <a href="#code-xe-ldas5-sliceEPSP">xe-ldas5-sliceEPSP</a><br>
 <a href="#code-xe-ldas5-slicePOP">xe-ldas5-slicePOP</a><br>
-<a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
+<a href="#code-xe-spectproc1">xe-spectproc1</a><br>
 <a href="#code-xe-lombscargle1">xe-lombscargle1</a><br>
 <a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
 <a href="#code-xe-matrixsplit1">xe-matrixsplit1</a><br>
@@ -1068,7 +1068,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-fftcoh3">xe-fftcoh3</a><br>
 <a href="#code-xe-fftpow1">xe-fftpow1</a><br>
 <a href="#code-xe-fftpow2">xe-fftpow2</a><br>
-<a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
+<a href="#code-xe-spectproc1">xe-spectproc1</a><br>
 <a href="#code-xe-spectdenoise1">xe-spectdenoise1</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
 <a href="#code-xf_spectdenoise1_d">xf_spectdenoise1_d</a><br>
@@ -1292,7 +1292,7 @@ of scripts, programs, and functions.
 <a href="#code-xe-align1">xe-align1</a><br>
 <a href="#code-xe-align2">xe-align2</a><br>
 <a href="#code-xe-densitymatrix2">xe-densitymatrix2</a><br>
-<a href="#code-xe-ldas5-spectproc1">xe-ldas5-spectproc1</a><br>
+<a href="#code-xe-spectproc1">xe-spectproc1</a><br>
 <a href="#code-xe-matrixmod1">xe-matrixmod1</a><br>
 <a href="#code-xe-transpose3">xe-transpose3</a><br>
 </td><td><b><font color="Black">Functions</font></b><br><br>
@@ -10180,18 +10180,18 @@ FILE OUTPUT:
 
 </blockquote></pre>
 
-<font color="Black"><h3 id="code-xe-ldas5-spectproc1"><a href="#CODE">&#8679</a> xe-ldas5-spectproc1</h3></font>
+<font color="Black"><h3 id="code-xe-spectproc1"><a href="#CODE">&#8679</a> xe-spectproc1</h3></font>
 [<a href="#tag-signal_processing">signal_processing</a>][<a href="#tag-spectra">spectra</a>][<a href="#tag-filter">filter</a>][<a href="#tag-transform">transform</a>]<br>
 <blockquote><pre>
 ----------------------------------------------------------------------
-xe-ldas5-spectproc1 v 1: 30.May.2018 [JRH]
+xe-spectproc1 v 1: 30.May.2018 [JRH]
 ----------------------------------------------------------------------
 Process neurophysiological power spectra 
 - adaptive smoothing (more smoothing at higher frequencies)
 - FIR filtering to flatten the spectrum and reduce -ive AUC results
 - calculates AUC for peaks, relative to line connecting valleys
 USAGE: 
-	xe-ldas5-spectproc1 [infile]
+	xe-spectproc1 [infile]
 	[infile]: file or stdin in format [freq] [power]
 VALID OPTIONS: defaults in []
 	-bands: CSV band-triplets (start,mid,stop) [unset=auto]
@@ -10202,8 +10202,8 @@ VALID OPTIONS: defaults in []
 ...filter options (high-pass FIR, 101 taps)...
 	-filt: HP filter frequency (0=SKIP) [0.0125]
 OUTPUT:
-	temp_xe-ldas5-spectproc1_spect.txt: the modified spectrum
-	temp_xe-ldas5-spectproc1_bands.txt: stats for each detected band
+	temp_xe-spectproc1_spect.txt: the modified spectrum
+	temp_xe-spectproc1_bands.txt: stats for each detected band
 		min mid max peak relpeak  auc aucpos aucneg  aucfull
 		min: low-frequency boundary for the band
 		mid: frequency at the band-peak
