@@ -27,53 +27,14 @@
 
 ################################################################################
 # INSTALLATION
+## Installation on Windows10 (or higher)
 
---------------------------------------------------------------------------------
-## Installation on Windows 10 (estimated time: 20 minutes)  
-This section explains how to quickly set up the Windows Subsytem for Linux (WSL). 
+This process should take ~20 minutes and will require: 
+* installation of the Windows Subsystem for Linux
+* installation of tools for viewing postscript files
+* a few tweaks to the Linux installation to enable graphical output to Windows system
 
-### 1. Install the Windows Subsystem for Linux (WSL) and a Linux distribution  
-  
-* The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL.md)**.
-
-	* Read the instructions carefully - **don't forget to reboot** when required
-	* If you opt for WSL-2, you will need to **enable virtualization** in your computer BIOS 
-	* Select **Ubuntu** when installing your Linux distribution from the Microsoft Store
-
-### 2. Install Windows tools for viewing postscript files  
-* LDAS produces plots in postscript format, and provides the **xs-plotconvert1** tool to convert plots to jpg or pdf format.
-* However, if you want to view postscript plots in Windows, install the free *ghostscript* and *GS-View* tools: 
-	* http://www.ghostscript.com/download/gsdnld.html
-	* http://www.ghostgum.com.au/software/gsview.htm
-
-### 3. Install a free X-Windows server to handle graphical output 
-If you want "live" graphical output from Linux image-viewers, text editors etc. to display in Windows, you can install one of several free X-windows servers: 
-	* [VcXsrv](https://sourceforge.net/projects/vcxsrv/),
-	* [Xming](https://sourceforge.net/projects/xming/files/latest/download).
-
-VcxSrv is easy to install, and you will just need to run it before launching a WSL Linux session. **NOTE** that under WSL-2, you may need to select the "**Disable access control**" option when starting the server. 
-
-### 4. In Linux, set grpahical output to the correct display 
-Start Ubuntu and run this command: 
-```
-sudo /etc/init.d/dbus start &> /dev/null
-```
-
-Then set the default display. You will be prompted for your Linux password.  
-**Option1: for For WSL-1**...
-```
-echo -e "\n# SET DISPLAY FOR WSL-1\nexport DISPLAY=localhost:0.0" | sudo tee -a /etc/profile 
-```
-
-**Option2: for For WSL-2**...
-```
-z=$(awk '/nameserver / {print $2":0.0"; exit}' /etc/resolv.conf)
-echo -e "\n# SET DISPLAY FOR WSL-2\nexport DISPLAY=$z \nexport LIBGL_ALWAYS_INDIRECT=1" | sudo tee -a /etc/profile
-```
-
-
-#### That's it! Now proceed with the **Installation on Linux**  instructions below.
-
+Instructions can be found **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_1.md)**.. 
 
 --------------------------------------------------------------------------------
 ## Installation on Linux
