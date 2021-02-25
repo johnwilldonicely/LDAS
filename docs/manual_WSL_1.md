@@ -2,7 +2,7 @@
 # Installing the Windows Subsystem for Linux (WSL) 
 This manual explains how to set up the Windows Subsytem for Linux (WSL), which will enable you to run a Linux operating system on your Windows PC.    
 
-NOTE that this does **not** include installation of LDAS. Once the steps below are completed, you will need to return to the LDAS installation guide and continue with **Installation on Linux**.  
+NOTE that this does **not** include installation of LDAS. Once the steps below are completed, you will need to return to the LDAS installation guide and continue with **[Installation on Linux](https://github.com/feathercode/LDAS/blob/master/README.md#installation-on-linux)**.  
 
 ## 1. Install the Windows Subsystem for Linux (WSL) and a Linux distribution  
 * The official documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_2.md)**.
