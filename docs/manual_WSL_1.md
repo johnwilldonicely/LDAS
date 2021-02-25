@@ -1,15 +1,28 @@
 --------------------------------------------------------------------------------
-# Installing the Windows Subsystem for Linux (WSL) 
+# Installing and configuring the Windows Subsystem for Linux (WSL) 
 This manual explains how to set up the Windows Subsytem for Linux (WSL), which will enable you to run a Linux operating system on your Windows PC.    
 
 NOTE that this does **not** include installation of LDAS. Once the steps below are completed, you will need to return to the LDAS installation guide and continue with **[Installation on Linux](https://github.com/feathercode/LDAS/blob/master/README.md#installation-on-linux)**.  
 
-## 1. Install the Windows Subsystem for Linux (WSL) and a Linux distribution  
-* The official documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_2.md)**.
+## 1. Install WSL and a Linux distribution  
+* The official full documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_2.md)**.
 
 	* Read the instructions carefully - **don't forget to reboot** when required
 	* If you opt for WSL-2, you will need to **enable virtualization** in your computer BIOS 
 	* Select **Ubuntu** when installing your Linux distribution from the Microsoft Store
+
+	* This is a very concise summary of the steps for reference: 
+```
+		1. [Windows Power Shell - as admin]: dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+		2. [restart]
+		3. [ms-settings]:windowsupdate
+		4. [Windows Power Shell - as admin]: dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+		5. [restart]
+		6. https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+		7. [Windows Power Shell - as admin]: wsl --set-default-version 2
+		8. https://www.microsoft.com/store/apps/9n6svws3rx71
+```
+
 
 ## 2. Install Windows tools for viewing postscript files  
 * LDAS produces plots in postscript format, and provides the **xs-plotconvert1** tool to convert plots to jpg or pdf format.

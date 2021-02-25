@@ -30,9 +30,9 @@
 ## Installation on Windows10 (or higher)
 
 This process should take ~20 minutes and will require: 
-* installation of the Windows Subsystem for Linux
+* installation of the Windows Subsystem for Linux (WSL)  
+* a few tweaks to Ubuntu to enable graphical output to the Windows system
 * installation of tools for viewing postscript files
-* a few tweaks to the Linux installation to enable graphical output to Windows system
 
 Instructions can be found **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_1.md)**. Once complete, continue with the installation instructions below. 
 
