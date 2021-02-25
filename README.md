@@ -34,7 +34,7 @@ This process should take ~20 minutes and will require:
 * installation of tools for viewing postscript files
 * a few tweaks to the Linux installation to enable graphical output to Windows system
 
-Instructions can be found **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_1.md)**.. 
+Instructions can be found **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_1.md)**. Once complete, continue with the installation instructions below. 
 
 --------------------------------------------------------------------------------
 ## Installation on Linux
