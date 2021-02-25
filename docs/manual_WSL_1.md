@@ -37,7 +37,7 @@ If you want "live" graphical output from Linux image-viewers, text editors etc. 
 
 VcxSrv is easy to install, and you will just need to run it before launching a WSL Linux session. **NOTE** that under WSL-2, you may need to select the "**Disable access control**" option when starting the server. 
 
-## 4. In Linux, set grpahical output to the correct display 
+## 4. In Linux, set graphical output to the correct display 
 Start Ubuntu and run this command: 
 ```
 sudo /etc/init.d/dbus start &> /dev/null
