@@ -1,11 +1,11 @@
 --------------------------------------------------------------------------------
 # Installing and configuring the Windows Subsystem for Linux (WSL) 
-This manual explains how to set up the Windows Subsytem for Linux (WSL), which will enable you to run a Linux operating system on your Windows PC.    
+This manual explains how to install and configure the Windows Subsytem for Linux (WSL), which will enable you to run a Linux operating system on your Windows PC.  
 
 NOTE that this does **not** include installation of LDAS. Once the steps below are completed, you will need to return to the LDAS installation guide and continue with **[Installation on Linux](https://github.com/feathercode/LDAS/blob/master/README.md#installation-on-linux)**.  
 
 ## 1. Install WSL and a Linux distribution  
-* The official full documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_2.md)**.
+* Detailed instructions for this step can be found **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL_2.md)**.
 
 	* Read the instructions carefully - **don't forget to reboot** when required
 	* If you opt for WSL-2, you will need to **enable virtualization** in your computer BIOS 
@@ -58,3 +58,6 @@ echo -e "\n# SET DISPLAY FOR WSL-2\nexport DISPLAY=$z \nexport LIBGL_ALWAYS_INDI
 
 You should now be able to invoke a Ubuntu terminal window from the Windows Start Menu. If you need to view graphical output as well, make sure you start VcXSrv first, with the access-controls disabled.
 
+Now you can can return to the LDAS installation guide and continue with **[Installation on Linux](https://github.com/feathercode/LDAS/blob/master/README.md#installation-on-linux)**. 
+
+---
