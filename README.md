@@ -34,17 +34,15 @@ This section explains how to quickly set up the Windows Subsytem for Linux (WSL)
 
 ### 1. Install the Windows Subsystem for Linux (WSL) and a Linux distribution  
   
-* The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**.
+* The original documentation is **[here](https://docs.microsoft.com/en-us/windows/wsl/install-win10)**. If the  link is broken, there is a copy **[here](https://github.com/feathercode/LDAS/blob/master/docs/manual_WSL.md)**.
 
-	* Use **manual installation** steps
 	* Read the instructions carefully - **don't forget to reboot** when required
 	* If you opt for WSL-2, you will need to **enable virtualization** in your computer BIOS 
 	* Select **Ubuntu** when installing your Linux distribution from the Microsoft Store
 
 ### 2. Install Windows tools for viewing postscript files  
-* LDAS produces plots in postscript format 
-* LDAS also provides the **xs-plotconvert1** tool to convert plots to jpg or pdf format.
-* However, to view postscript plots in Windows, you will need the free *ghostscript* and *GS-View* tools: 
+* LDAS produces plots in postscript format, and provides the **xs-plotconvert1** tool to convert plots to jpg or pdf format.
+* However, if you want to view postscript plots in Windows, install the free *ghostscript* and *GS-View* tools: 
 	* http://www.ghostscript.com/download/gsdnld.html
 	* http://www.ghostgum.com.au/software/gsview.htm
 
@@ -60,8 +58,14 @@ Start Ubuntu and run this command:
 ```
 sudo /etc/init.d/dbus start &> /dev/null
 ```
+
 Then set the default display. You will be prompted for your Linux password.  
-For WSL-2, run these two commands...
+**Option1: for For WSL-1**...
+```
+echo -e "\n# SET DISPLAY FOR WSL-1\nexport DISPLAY=localhost:0.0" | sudo tee -a /etc/profile 
+```
+
+**Option2: for For WSL-2**...
 ```
 z=$(awk '/nameserver / {print $2":0.0"; exit}' /etc/resolv.conf)
 echo -e "\n# SET DISPLAY FOR WSL-2\nexport DISPLAY=$z \nexport LIBGL_ALWAYS_INDIRECT=1" | sudo tee -a /etc/profile
