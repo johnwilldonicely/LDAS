@@ -533,28 +533,6 @@ cd $inpath
 gcc regaamc8.c xnsubs.c -o ../../bin/regaamc8 -lm -lX11 -L /usr/X11R6/lib -w
 
 
-################################################################################
-# IF LINUX IS RUNNING UNDER WINDOWS SUBSYSTEM... 
-# - set SET THE DISPLAY PROPERTIES
-# install extra pandocd dependencies 
-################################################################################
-if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null ; then
-
-	echo -e "\n--------------------------------------------------------------------------------"
-	echo -e "CONFIGURING DISPLAY FOR USE ON WINDOWS SUBSYSTEM (WSL)..."
-	com1='# LDAS: config display for WSL'
-	if ! grep -qEis "$com1" $setrc ; then
-		echo -e "\n$com1" >> $setrc
-		echo -e "[ -z localhost:0 ] && export DISPLAY=127.0.0.1:0.0" >> $setrc
-# ??? the following is for Ubuntu only - prevents various x11 errors
-# we probably should find a solution for Fedora/Redhat
-		if [ "$distro" == "Ubuntu" ] ; then
-			echo -e "dbus-launch --exit-with-x11" >> $setrc
-			echo -e "sudo dbus-uuidgen --ensure" >> $setrc
-		fi
-	fi
-fi
-
 
 ################################################################################
 # UPDATE TAGS

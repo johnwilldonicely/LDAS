@@ -48,6 +48,14 @@ Then set the default display. You will be prompted for your Linux password.
 ```
 echo -e "\n# SET DISPLAY FOR WSL-1\nexport DISPLAY=localhost:0.0" | sudo tee -a /etc/profile 
 ```
+* legacy note: for WSL-1, the following commands may be also required. However, that may only apply to older versions of the subsystem or older Ubuntu distributions....
+```
+	dbus-launch --exit-with-x11
+	sudo dbus-uuidgen --ensure
+```
+
+
+
 **Option2: for For WSL-2**...
 ```
 z=$(awk '/nameserver / {print $2":0.0"; exit}' /etc/resolv.conf)
