@@ -53,7 +53,7 @@ int main (int argc, char *argv[]) {
 	long ncdata=0,*icdata=NULL;
 	int setdebug=0,winwidth=-1,smooth=-1,setp=-1;
 	long sethead=0,setdatacol=1,setcblock=1;
-	long setdec=0,setbin=0,setauc=0,setnorm1=0; // modes
+	long setgwin=3;
 
 	// DEFINE OUTPUT FILE NAME (ONLY USED IF INPUT IS PIPED IN)
 	snprintf(outfile,MAXWORDLEN,"temp_%s_%d",thisprog,getpid());
@@ -75,11 +75,12 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    [mode]: how to process each block. Choose one of:\n");
 		fprintf(stderr,"        diff: difference from first sample\n");
 		fprintf(stderr,"        ratio: calculate ratio to first sample\n");
-		fprintf(stderr,"        gauss: apply a 3-sample gausian smoother\n");
+		fprintf(stderr,"        gauss: apply a gausian smoother\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"    -head : number of header-lines to pass unaltered [%ld]\n",sethead);
 		fprintf(stderr,"    -cblock : column (>0) defining block [%ld]\n",setcblock);
 		fprintf(stderr,"    -cdata :  column-list (CSV, >0) to be modified [2]\n");
+		fprintf(stderr,"    -gwin : half-size of Gaussian window (samples, 0=none) [%ld]\n",setgwin);
 		fprintf(stderr,"    -p output precision (-2=auto(%%f), -1=auto(%%g), >0=decimals) [%d]\n",setp);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
@@ -97,6 +98,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-cblock")==0) setcblock= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-cdata")==0) setcdata= argv[++ii];
 			else if(strcmp(argv[ii],"-head")==0) sethead= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-gwin")==0) setgwin= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-p")==0) setp= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-debug")==0) setdebug= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
@@ -229,8 +231,8 @@ int main (int argc, char *argv[]) {
 				kk= xf_norm3_d(pdata,blocksizeline[jj],4,0,1,message);
 				if(kk==-2) { fprintf(stderr,"\b\n\t--- Error [%s]/%s\n\n",thisprog,message); exit(1); }
 			}
-			else if(strcmp(setmode,"gauss")==0) {
-				z= xf_smoothgauss1_d(data,blocksizeline[jj],3);
+			else if(strcmp(setmode,"gauss")==0 && setgwin>0) {
+				z= xf_smoothgauss1_d(pdata,blocksizeline[jj],setgwin);
 				if(z<0-2) { fprintf(stderr,"\b\n\t--- Error [%s]/xf_smoothgauss1_d: problem in smoothing function \n\n",thisprog); exit(1); }
 			}
 
