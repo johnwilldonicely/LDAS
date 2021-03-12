@@ -82,7 +82,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	[input]: file name or \"stdin\"\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"	-sf: sample frequency (Hz) [%g]\n",setsf);
-		fprintf(stderr,"	-nch: total number of channels [%d]\n",setchtot);
+		fprintf(stderr,"	-nch: total number of channels [%ld]\n",setchtot);
 		fprintf(stderr,"	-bad: invalid value (0,-1, or 1=SHRT_MAX) [%d]\n",setbad);
 		fprintf(stderr,"	-scrf: screen-file (binary ssp) defining inclusion bounds []\n");
 		fprintf(stderr,"	-scrl: screen-list (CSV) defining inclusion bounds []\n");
@@ -252,7 +252,7 @@ int main (int argc, char *argv[]) {
 	/* COPY THE BINNED DATA TO DOUBLE FOR CALCULATING STATS */
 	/* divide by 10 because the original values ranged from 0-1000, not 0-100 */
 	/************************************************************/
-	if(setverb==1) fprintf(stderr,"\tconverting binned data to double for stats\n",binsize);
+	if(setverb==1) fprintf(stderr,"\tconverting binned data to double for stats\n");
 	data2=(double *)realloc(data2,nn*sizeof(double));
 	if(data2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n",thisprog);exit(1);}
 	for(ii=0;ii<nn;ii++) data2[ii]=(double)data1[ii]/10.0;
@@ -268,7 +268,7 @@ int main (int argc, char *argv[]) {
 
 	if(setverb==1) fprintf(stderr,"\tcalculating median\n");
 	z=xf_percentile1_d(data2,nbins,result_d);
-	if(z!=0) {fprintf(stderr,"\t\aError[%s]: insufficient memory for calculation of percentiles%s\n",thisprog);exit(1);}
+	if(z!=0) {fprintf(stderr,"\n--- Error[%s]: insufficient memory for calculation of percentiles\n",thisprog);exit(1);}
 
 	printf("NBINS= %ld\n",nbins);
 	printf("MIN=  %.9f\n",min);

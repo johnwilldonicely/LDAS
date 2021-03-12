@@ -169,7 +169,7 @@ int main (int argc, char *argv[]) {
 		/* allocate memory for block-value and data-values  */
 		data= realloc(data,(nn+ncdata)*sizeofdouble);
 		if(data==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog);exit(1);}
-		/* find datacolumn and save value  */
+		/* find data-column and save value  */
 		kk= colmatch;
 		for(ii=0;ii<nwords;ii++) {
 			pword= (line+iword[ii]);

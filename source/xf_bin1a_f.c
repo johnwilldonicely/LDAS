@@ -1,9 +1,3 @@
-/* LICENCE INFORMATION:
-Copyright (c) 2005, John Huxter, j.r.huxter@gmail.com.
-Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
-THE SOFTWARE IS PROVIDED "AS IS" AND THE COPYRIGHT OWNERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE COPYRIGHT OWNERS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN COsetnECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-*/
-
 /*
 <TAGS>signal_processing transform</TAGS>
 DESCRIPTION:
@@ -115,7 +109,6 @@ double xf_bin1a_f(float *data, size_t *setn, size_t *setz, size_t setbins, char 
 	else binsize= n1d/bb; // if all else fails, this will be close
 
 
-
 	/* IF "ZERO" IS SET, CALCULATE THE NUMBER OF BINS BEFORE "ZERO" (PREBINS) */
 	/* note that if prebins is not an integer, a portion will be combined with another bin */
 	if(zero==0) prebins=0.0;
@@ -124,11 +117,11 @@ double xf_bin1a_f(float *data, size_t *setn, size_t *setz, size_t setbins, char 
 
 	/* CALCULATE THE LIMIT FOR THE FIRST BIN - MAY BE FRACTIONAL */
 	/* if there is at least one full bin before "zero", the first limit comes before "zero" as well */
-	/* otherwise accumulate data up to "binsize" samples, excluding the fractional (or non-existent) pre-zero bin */
 	if(prebins>=1.0) {
-		limit= (double)(zero) - ( (size_t)(prebins-1.0) * binsize );
+		limit= ((double)(zero)-1.0) - ((long)(prebins-1.0)*binsize);
 		start=0;
 	}
+	/* otherwise, exclude the fractional (or non-existent) pre-zero bin */
 	else {
 		start=zero;
 		limit=zero+binsize;
@@ -165,5 +158,6 @@ double xf_bin1a_f(float *data, size_t *setn, size_t *setz, size_t setbins, char 
 	(*setz)= prebins;
 	(*setn)= n2;
 
+	sprintf(message,"%s [STATUS]: binsize= %g",thisfunc,binsize);
 	return(binsize);
 }

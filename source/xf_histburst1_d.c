@@ -60,11 +60,11 @@ void xf_spline1_d(double xin[],double yin[],long nin,double xout[],double yout[]
 
 int xf_histburst1_d(double *histx1, double *histy1, long nbins1, double *result_d, char *message) {
 
-	char *thisfunc="xf_histburst1_d\0", *message2;
+	char *thisfunc="xf_histburst1_d\0", message2[256];
 	long ii,jj,kk,nbins2=0,nbinsmin,nbins3,setz,startbin;
 	double aa,bb,cc,*histx2=NULL,*histx3=NULL,*histy2=NULL,*histy3=NULL;
 	double width,binwidth3,x1,x2,x3,y1,y2,y3;
-	double peak_time=-1.0,peak_value=-1.0,drop_time=-1.0,drop_value;
+	double peak_time=-1.0,peak_value=-1.0,drop_time=-1.0,drop_value=0.0;
 
 	nbinsmin=50; // number of bins in downsampled version of input histogram - also the minimum bins permitted in the input
 	nbins3=200; // number of bins in spline-interpolated histogram used for peak & valley detection
