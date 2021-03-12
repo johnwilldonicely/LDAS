@@ -21,7 +21,6 @@ long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long xf_scale1_l(long data, long min, long max);
 /* external functions end */
 
-
 int main (int argc, char *argv[]) {
 
 	/* general variables */
@@ -84,14 +83,17 @@ int main (int argc, char *argv[]) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
 		iword= xf_lineparse2(line,"\t",&nwords);
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
-		if(sscanf(line+iword[2],"%f",&a)!=1 || !isfinite(a)) continue;
+		if(nwords<1) continue;
+		if(sscanf(line+iword[0],"%f",&a)!=1 || !isfinite(a)) continue;
 		data1= realloc(data1,(nn+1)*sizeofdata);
 		if(data1==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 		data1[nn]= a;
 		nn++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	//TEST for(ii=0;ii<nn;ii++) printf("data[%ld]= %g\n",ii,data[ii]);
+	//TEST
+	for(ii=0;ii<nn;ii++) printf("data1[%ld]= %g\n",ii,data1[ii]);
+
 	goto END;
 
 	/********************************************************************************/

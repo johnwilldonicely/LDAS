@@ -173,7 +173,7 @@ int main (int argc, char *argv[]) {
 		kk= colmatch;
 		for(ii=0;ii<nwords;ii++) {
 			pword= (line+iword[ii]);
-			/* deermine if this is the start of a new block */
+			/* determine if this is the start of a new block */
 			if(ii==setcblock) {
 				kk--;
 				/* if contents of block-column have changed, store the start of a new block and size of previous */
@@ -233,10 +233,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(setmode,"ratio")==0) {
 				kk= xf_norm3_d(pdata,blocksizeline[jj],4,0,1,message);
 				if(kk==-2) { fprintf(stderr,"\b\n\t--- Error [%s]/%s\n\n",thisprog,message); exit(1); }
-				if(setr100==1) {
-					for(kk=0;kk<blocksizeline[jj];kk++) pdata[kk]*=100.0;
-
-				}
+				if(setr100==1) { for(kk=0;kk<blocksizeline[jj];kk++) pdata[kk]*=100.0; }
 			}
 			else if(strcmp(setmode,"gauss")==0 && setgwin>0) {
 				z= xf_smoothgauss1_d(pdata,blocksizeline[jj],setgwin);
@@ -271,9 +268,9 @@ int main (int argc, char *argv[]) {
 		iword= xf_lineparse2(line,"\t",&nwords); // user-defined delimited
 		if(nwords<0) {fprintf(stderr,"\n--- Error [%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
 
+		/* set pointer to data corresponding to this line */
 		pdata= (data+(mm*ncdata));
 		mm++;
-
 		/* deal with first column - no preceeding tab */
 		if(cdatzero==0) printf("%s",(line+iword[0]));
 		else {
@@ -295,6 +292,8 @@ int main (int argc, char *argv[]) {
 			}
 		}
 		printf("\n");
+
+
 	}
 	fclose(fpin1);
 
