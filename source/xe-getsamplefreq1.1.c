@@ -100,7 +100,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	if(xf_percentile1_d(data,nn,result_d)!=0) {
-		fprintf(stderr,"\n--- Error[%s]: insufficient memory for calculation of percentiles%s\n\n",thisprog);
+		fprintf(stderr,"\n--- Error[%s]: insufficient memory for calculation of percentiles\n\n",thisprog);
 		exit(1);
 	}
 

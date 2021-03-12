@@ -51,7 +51,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *setinfile=NULL,*setmode=NULL,*setcdata=NULL;
 	long ncdata=0,*icdata=NULL;
-	int setdebug=0,winwidth=-1,smooth=-1,setp=-1;
+	int setdebug=0,winwidth=-1,smooth=-1,setp=-1,setr100=0;
 	long sethead=0,setdatacol=1,setcblock=1;
 	long setgwin=3;
 
@@ -81,6 +81,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -cblock : column (>0) defining block [%ld]\n",setcblock);
 		fprintf(stderr,"    -cdata :  column-list (CSV, >0) to be modified [2]\n");
 		fprintf(stderr,"    -gwin : half-size of Gaussian window (samples, 0=none) [%ld]\n",setgwin);
+		fprintf(stderr,"    -r100 : convert ratio output to percent (0=NO 1=YES) [%d]\n",setr100);
 		fprintf(stderr,"    -p output precision (-2=auto(%%f), -1=auto(%%g), >0=decimals) [%d]\n",setp);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
@@ -100,6 +101,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-head")==0) sethead= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-gwin")==0) setgwin= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-p")==0) setp= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-r100")==0) setr100= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-debug")==0) setdebug= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
@@ -110,6 +112,7 @@ int main (int argc, char *argv[]) {
 		strcmp(setmode,"gauss")!=0 &&
 		strcmp(setmode,"auc")!=0) {fprintf(stderr,"\n--- Error [%s]: invalid mode (%s)\n\n",thisprog,setmode); exit(1);
 	}
+	if(setr100!=0 && setr100!=1) {fprintf(stderr,"\n--- Error [%s]: invalid -r100 (%d) - must be 0 or 1\n\n",thisprog,setr100);exit(1);}
 	/* create variable to represent specification of stdin */
 	if(strcmp(setinfile,"stdin")==0) setstdin=1;
 
@@ -192,7 +195,7 @@ int main (int argc, char *argv[]) {
 					continue;
 			}}
 		}
-		if(kk!=0) {fprintf(stderr,"\n--- Error [%s]: required number of columns (%ld) not found on line %ld of %s\n\n",thisprog,colmatch,nlines,setinfile);exit(1);}
+		if(kk!=0) {fprintf(stderr,"\n--- Error [%s]: some of the required columns not found on line %ld of %s\n\n",thisprog,nlines,setinfile);exit(1);}
 		else mm++; /* data-line counter */
 	}
 	if(setstdin==0) fclose(fpin1);
@@ -230,6 +233,10 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(setmode,"ratio")==0) {
 				kk= xf_norm3_d(pdata,blocksizeline[jj],4,0,1,message);
 				if(kk==-2) { fprintf(stderr,"\b\n\t--- Error [%s]/%s\n\n",thisprog,message); exit(1); }
+				if(setr100==1) {
+					for(kk=0;kk<blocksizeline[jj];kk++) pdata[kk]*=100.0;
+
+				}
 			}
 			else if(strcmp(setmode,"gauss")==0 && setgwin>0) {
 				z= xf_smoothgauss1_d(pdata,blocksizeline[jj],setgwin);
