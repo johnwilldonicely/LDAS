@@ -94,7 +94,7 @@ long xf_bin3_d(double *data1, short *flag1, long n1, long setz, double binsize, 
 	/* otherwise, build a fractional bin and proceed from the first full-bin */
 	else {
 		// define limits for first bin which will include the partial bin + 1 full bin
-		limit= ((double)(setz)-1.0) - ((long)(prebins-1.0)*binsize);
+		limit= (double)(setz-1) - ((long)(prebins-1.0)*binsize);
 		if(limit>=setz) limit= setz-1;
 		// set the theoretical beginning of this first bin - excluding the partial bin
 		binbegin= (long)(limit-binsize);
