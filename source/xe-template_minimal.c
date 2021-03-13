@@ -96,16 +96,6 @@ int main (int argc, char *argv[]) {
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	//TEST
 
-
-short *flag1=NULL;
-flag1= calloc(nn,sizeof(*flag1));
-for(ii=jj=0;ii<nn;ii++) if(data2[ii]==0.0) jj=ii;
-kk= xf_bin3_d(data2,flag1,nn,jj,4.0,message);
-if(kk<0) {fprintf(stderr,"*** %s\n",message); exit(1);}
-printf("\n");
-for(ii=0;ii<nn;ii++) if(flag1[ii]==1) printf("data2[%ld]= %g\n",ii,data2[ii]);
-
-
 goto END;
 
 	/********************************************************************************/

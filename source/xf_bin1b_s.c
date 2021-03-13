@@ -34,8 +34,8 @@ RETURN VALUE:
 int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *message) {
 
 	char *thisfunc="xf_bin1b_s\0";
-	long ii,jj,n1,n2=0,zero,nsums=0,start;
-	double aa,bb,cc,prebins,limit,sum=0.0;
+	long ii,jj,n1,n2=0,zero,sum=0,nsums=0,start;
+	double aa,bb,cc,prebins,limit;
 
 	n1=*setn;
 	zero=*setz;
@@ -78,7 +78,7 @@ int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *mes
 		if(limit>=zero) limit= zero-1;
 		// build the bin
 		for(ii=0;ii<=limit;ii++) { sum+= data[ii]; nsums++;}
-		if(nsums>0) data[n2]= (sum/(double)nsums);
+		if(nsums>0) data[n2]= (short)(sum/nsums);
 		else data[n2]=0;
 		n2++;
 		// set parameters for main loop
@@ -87,18 +87,19 @@ int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *mes
 	}
 	//TEST: fprintf(stderr,"start: %ld	zero: %ld	setbinsize:%.4f	prebins=%g	limit:%.16f\n",start,zero,setbinsize,prebins,limit);
 
-
 	/* START BINNING: LEFTOVER DATA AT THE END IS ADDED TO THE PRECEDING BIN */
+	sum= 0;
+	nsums= 0;
 	for(ii=start;ii<n1;ii++) {
 		/* build runing sum and total data-points */
 		sum+= data[ii]; nsums++;
 		// if the current sample-number is >= the limit defining the right edge of the curent window...
 		if(ii>=limit) {
 			//TEST:	printf("\tii=%ld	bin=%ld nsums=%ld	limits: %f to %f: next=%f\n",ii,n2,nsums,(limit-setbinsize),(limit),(limit+setbinsize));
-			data[n2]= (short)(sum/(double)nsums);
+			data[n2]= (short)(sum/nsums);
 			n2++;
-			sum=0.0;            // reset the running sum
-			nsums=0;            // reset the count within the window
+			sum=0;   // reset the running sum
+			nsums=0; // reset the count within the window
 			limit+= setbinsize; // readjust limit
 		}
 	}
@@ -108,12 +109,12 @@ int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *mes
 	if( ((ii-1)+setbinsize) != limit ) {
 		jj= n1-(long)setbinsize;
 		if(jj<zero) jj=zero; // cannot integrate data from before zero!
-		sum=0.0; nsums=0;
+		sum=0; nsums=0;
 		for(ii=jj;ii<n1;ii++) {
 			sum+= data[ii];
 			nsums++;
 		}
-		if(nsums>=0) data[n2]= sum/(double)nsums;
+		if(nsums>=0) data[n2]= (short)(sum/nsums);
 		else data[n2]=0;
 		n2++;
 	}

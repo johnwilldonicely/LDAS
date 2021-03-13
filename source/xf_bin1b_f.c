@@ -107,8 +107,9 @@ int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *mes
 	}
 	//TEST: fprintf(stderr,"start: %ld	zero: %ld	setbinsize:%.4f	prebins=%g	limit:%.16f\n",start,zero,setbinsize,prebins,limit);
 
-
 	/* START BINNING: LEFTOVER DATA AT THE END IS ADDED TO THE PRECEDING BIN */
+	sum= 0.0;
+	nsums= 0;
 	for(ii=start;ii<n1;ii++) {
 		/* build runing sum and total data-points - good data only */
 		if(isfinite(data[ii])) { sum+= (double)data[ii]; nsums++; }
