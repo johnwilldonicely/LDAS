@@ -94,7 +94,7 @@ int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *mes
 	/* otherwise, build a fractional bin and proceed from the first full-bin */
 	else {
 		// define limits for first bin which will include the partial bin + 1 full bin
-		limit= (zero-1) - (long)((prebins-1.0)*setbinsize));
+		limit= (zero-1) - (long)((prebins-1.0)*setbinsize);
 		if(limit>=zero) limit= zero-1;
 		// build the bin
 		for(ii=0;ii<=limit;ii++) if(isfinite(data[ii])) { sum+= data[ii]; nsums++;}
