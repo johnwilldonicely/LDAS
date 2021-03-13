@@ -34,8 +34,8 @@ RETURN VALUE:
 int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *message) {
 
 	char *thisfunc="xf_bin1b_s\0";
-	long ii,jj,n1,n2,nbins,zero,nsums,start;
-	double aa,bb,cc,prebins,limit,sum;
+	long ii,jj,n1,n2=0,zero,nsums=0,start;
+	double aa,bb,cc,prebins,limit,sum=0.0;
 
 	n1=*setn;
 	zero=*setz;
@@ -65,27 +65,25 @@ int xf_bin1b_s(short *data, long *setn, long *setz, double setbinsize, char *mes
 	if(zero>0) prebins=(double)(zero)/setbinsize;
 	else prebins=0.0;
 
-	/* INITIALISE VARIABLES HERE */
-	sum= 0.0;
-	n2=nsums= 0;
-
-	/* CALCULATE THE LIMIT FOR THE FIRST BIN - MAY BE FRACTIONAL */
-	/* if there is at least one full bin before "zero", the first limit comes before "zero" as well */
-	if(prebins>=1.0) {
-		limit= ((double)(zero)-1.0) - ((long)(prebins-1.0)*setbinsize);
+	/* PRE-BIN AND SET START FOR MAIN BINNING SECTION */
+	/* if prebins is zero or an integer, we can start from sample-zero with no special measures */
+	if(fmod(prebins,1)==0.0) {
 		start= 0;
+		limit= setbinsize - 1.0;
 	}
-	/* otherwise accumulate data up to zero - this is the only instance where a bin can include less than the normal amount of data  */
+	/* otherwise, build a fractional bin and proceed from the first full-bin */
 	else {
-		limit= (double)zero + setbinsize - 1.0;
-		start= zero;
-		for(ii=0;ii<zero;ii++) { sum+= data[ii]; nsums++;}
+		// define limits for first bin which will include the partial bin + 1 full bin
+		limit= ((double)(zero)-1.0) - ((long)(prebins-1.0)*setbinsize);
+		if(limit>=zero) limit= zero-1;
+		// build the bin
+		for(ii=0;ii<=limit;ii++) { sum+= data[ii]; nsums++;}
 		if(nsums>0) data[n2]= (sum/(double)nsums);
 		else data[n2]=0;
-		sum= 0.0;
-		nsums= 0;
-		prebins=1.0; // indicates a part-bin was created - this ensures new zero is element "1"
 		n2++;
+		// set parameters for main loop
+		start= (long)limit+1;
+		limit+= setbinsize;
 	}
 	//TEST: fprintf(stderr,"start: %ld	zero: %ld	setbinsize:%.4f	prebins=%g	limit:%.16f\n",start,zero,setbinsize,prebins,limit);
 

@@ -26,6 +26,7 @@ double *xf_matrixtrans1_d(double *data1, long *width, long *height);
 
 long xf_norm3_d(double *data,long ndata,int normtype,long start,long stop,char *message);
 int xf_smoothgauss1_d(double *original, size_t arraysize,int smooth);
+long xf_bin3_d(double *data1, short *flag1, long n1, long zero, double setbinsize, char *message);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -36,7 +37,7 @@ int main (int argc, char *argv[]) {
 
 	/* general variables */
 	char outfile[MAXWORDLEN],message[MAXLINELEN];
-	long ii,jj,kk,mm,nn, sizeoflong=sizeof(long), sizeofdouble=sizeof(double);
+	long ii,jj,kk,mm,nn,pp, sizeoflong=sizeof(long), sizeofdouble=sizeof(double);
 	int v,w,x,y,z;
 	float a,b,c,d;
 	double aa,bb,cc,dd,result_d[16];
@@ -44,8 +45,9 @@ int main (int argc, char *argv[]) {
 
 	/* program specific variables */
 	char prevblock[MAXWORDLEN],setcdatadefault[]= "2";
+	short *flag1=NULL,*pflag1=NULL;
 	int setstdin=0;
-	long *blockstart=NULL,*blocksizeline=NULL,nblocks,colmatch,ncols,nrows,cdatzero=0;;
+	long *blockstart=NULL,*blocksize=NULL,nblocks,colmatch,ncols,nrows,cdatzero=0;;
 	double *data=NULL,*pdata;
 
 	/* arguments */
@@ -54,6 +56,7 @@ int main (int argc, char *argv[]) {
 	int setdebug=0,winwidth=-1,smooth=-1,setp=-1,setr100=0;
 	long sethead=0,setdatacol=1,setcblock=1;
 	long setgwin=3;
+	long setbinsize=2,setbinzero=0; // options for binning
 
 	// DEFINE OUTPUT FILE NAME (ONLY USED IF INPUT IS PIPED IN)
 	snprintf(outfile,MAXWORDLEN,"temp_%s_%d",thisprog,getpid());
@@ -64,9 +67,9 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
-		fprintf(stderr,"Modify columns of data in blocks defined by changes in an index-column\n");
+		fprintf(stderr,"Modify columns of data in blocks defined by changes in an block-column\n");
 		fprintf(stderr," - input should be tab-delimited, with no blank-lines\n");
-		fprintf(stderr," - sort data so \"block\" column hold the fastest-changing variable\n");
+		fprintf(stderr," - sort data so \"block\" column holds the fastest-changing variable\n");
 		fprintf(stderr," - assumes data has a fixed sample-rate\n");
 		fprintf(stderr," - non-numeric data ignored\n");
 		fprintf(stderr,"USAGE: \n");
@@ -74,15 +77,25 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    [in]: input file, or \"stdin\"\n");
 		fprintf(stderr,"    [mode]: how to process each block. Choose one of:\n");
 		fprintf(stderr,"        diff: difference from first sample\n");
+		fprintf(stderr,"            - uses xf_norm3_d.c\n");
 		fprintf(stderr,"        ratio: calculate ratio to first sample\n");
+		fprintf(stderr,"            - uses xf_norm3_d.c\n");
 		fprintf(stderr,"        gauss: apply a gausian smoother\n");
+		fprintf(stderr,"            - uses xf_smoothgauss1_d.c\n");
+		fprintf(stderr,"        bin: average data in non-overlapping bins\n");
+		fprintf(stderr,"            - output represents the start of each bin\n");
+		fprintf(stderr,"            - uses xf_bin3_d.c\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
 		fprintf(stderr,"    -head : number of header-lines to pass unaltered [%ld]\n",sethead);
 		fprintf(stderr,"    -cblock : column (>0) defining block [%ld]\n",setcblock);
 		fprintf(stderr,"    -cdata :  column-list (CSV, >0) to be modified [2]\n");
-		fprintf(stderr,"    -gwin : half-size of Gaussian window (samples, 0=none) [%ld]\n",setgwin);
-		fprintf(stderr,"    -r100 : convert ratio output to percent (0=NO 1=YES) [%d]\n",setr100);
 		fprintf(stderr,"    -p output precision (-2=auto(%%f), -1=auto(%%g), >0=decimals) [%d]\n",setp);
+		fprintf(stderr,"MODE-SPECIFIC OPTIONS:\n");
+		fprintf(stderr,"    -gwin (gauss): window half-size (samples, 0=none) [%ld]\n",setgwin);
+		fprintf(stderr,"    -r100 (ratio): convert ratio output to percent (0=NO 1=YES) [%d]\n",setr100);
+		fprintf(stderr,"    -binsize (bin) : number of samples in each bin [%ld]\n",setbinsize);
+		fprintf(stderr,"    -binzero (bin) : lines in each block before \"zero\" [%ld]\n",setbinzero);
+		fprintf(stderr,"        - the zero-line will always be the start of a bin\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(1);
@@ -96,13 +109,15 @@ int main (int argc, char *argv[]) {
 	for(ii=3;ii<argc;ii++) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error [%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
+			else if(strcmp(argv[ii],"-debug")==0) setdebug= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-cblock")==0) setcblock= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-cdata")==0) setcdata= argv[++ii];
 			else if(strcmp(argv[ii],"-head")==0) sethead= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-gwin")==0) setgwin= atol(argv[++ii]);
 			else if(strcmp(argv[ii],"-p")==0) setp= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-r100")==0) setr100= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-debug")==0) setdebug= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-binsize")==0) setbinsize= atol(argv[++ii]);
+			else if(strcmp(argv[ii],"-binzero")==0) setbinzero= atol(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setcblock<1) {fprintf(stderr,"\n--- Error [%s]: invalid block-column (-cblock %ld) - must be greater than zero\n\n",thisprog,setcblock);exit(1);}
@@ -110,8 +125,11 @@ int main (int argc, char *argv[]) {
 	if(	strcmp(setmode,"ratio")!=0 &&
 		strcmp(setmode,"diff")!=0 &&
 		strcmp(setmode,"gauss")!=0 &&
-		strcmp(setmode,"auc")!=0) {fprintf(stderr,"\n--- Error [%s]: invalid mode (%s)\n\n",thisprog,setmode); exit(1);
-	}
+		strcmp(setmode,"bin")!=0)
+		{
+			fprintf(stderr,"\n--- Error [%s]: invalid mode (%s)\n\n",thisprog,setmode);
+			exit(1);
+		}
 	if(setr100!=0 && setr100!=1) {fprintf(stderr,"\n--- Error [%s]: invalid -r100 (%d) - must be 0 or 1\n\n",thisprog,setr100);exit(1);}
 	/* create variable to represent specification of stdin */
 	if(strcmp(setinfile,"stdin")==0) setstdin=1;
@@ -180,10 +198,10 @@ int main (int argc, char *argv[]) {
 				if(strncmp(pword,prevblock,MAXWORDLEN)!=0) {
 					blockstart= realloc(blockstart,(nblocks+1)*sizeoflong);
 					if(blockstart==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog);exit(1);}
-					blocksizeline= realloc(blocksizeline,(nblocks+1)*sizeoflong);
-					if(blocksizeline==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog);exit(1);}
+					blocksize= realloc(blocksize,(nblocks+1)*sizeoflong);
+					if(blocksize==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog);exit(1);}
 					blockstart[nblocks]= mm;
-					if(nblocks>0) blocksizeline[nblocks-1]= mm-blockstart[nblocks-1];
+					if(nblocks>0) blocksize[nblocks-1]= mm-blockstart[nblocks-1];
 					strncpy(prevblock,pword,MAXWORDLEN);
 					nblocks++;
 			}}
@@ -200,15 +218,22 @@ int main (int argc, char *argv[]) {
 	}
 	if(setstdin==0) fclose(fpin1);
 	else fclose(fpout1);
+
 	/* assume last block ends when file-read ends */
-	if(nblocks>0) blocksizeline[nblocks-1]= mm-blockstart[nblocks-1];
+	if(nblocks>0) blocksize[nblocks-1]= mm-blockstart[nblocks-1];
 	/* make variables reflecting the width and height of the data matrix */
 	nrows= mm;
 	ncols= ncdata;
 	/* debugging */
-	if(setdebug==1) {for(ii=0;ii<nblocks;ii++) printf("\tblock[%ld] start=%ld size=%ld\n",ii,blockstart[ii],blocksizeline[ii]); }
+	if(setdebug==1) {for(ii=0;ii<nblocks;ii++) printf("\tblock[%ld] start=%ld size=%ld\n",ii,blockstart[ii],blocksize[ii]); }
 	if(setdebug==1) {printf("\nORIGINAL DATA:\n"); for(ii=jj=0;ii<nn;ii++) { printf("\t%g",data[ii]); if(++jj==ncols) {jj=0;printf("\n");}}}
 
+	/********************************************************************************
+	FOR BINNING OPERATIONS, ALLOCATE MEMORY FOR THE FLAG ARRAY
+	********************************************************************************/
+	flag1= calloc(mm,sizeof(*flag1));
+	if(flag1==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog);exit(1);}
+	if(setdebug==1) {for(ii=0;ii<mm;ii++) printf("flag1[%ld]= %d\n",ii,flag1[ii]);}
 
 	/********************************************************************************
 	TRANSPOSE THE ENTIRE DATASET
@@ -222,28 +247,37 @@ int main (int argc, char *argv[]) {
 	PROCESS EACH INPUT-COLUMN (ii) BY BLOCK (jj)
 	********************************************************************************/
 	for(ii=0;ii<ncdata;ii++) {
+		/* set up pointers to stored data (and flags, for binning) */
 		pdata= data+(ii*mm);
+
 		for(jj=0;jj<nblocks;jj++) {
-			if(setdebug==1) {printf("\nBLOCK %ld-%ld: SIZE %ld\n",ii,jj,blocksizeline[jj]); for(kk=0;kk<blocksizeline[jj];kk++) { printf("\t%g",pdata[kk]);printf("\n");}}
+			pflag1= flag1+blockstart[jj];
+
+			if(setdebug==1) {printf("\nBLOCK %ld-%ld: SIZE %ld START: %ld\n",ii,jj,blocksize[jj],blockstart[jj]); for(kk=0;kk<blocksize[jj];kk++) { printf("\t%g\tflag=%d",pdata[kk],pflag1[kk]); printf("\n");}}
 
 			if(strcmp(setmode,"diff")==0) {
-				kk= xf_norm3_d(pdata,blocksizeline[jj],3,0,1,message);
+				kk= xf_norm3_d(pdata,blocksize[jj],3,0,1,message);
 				if(kk==-2) { fprintf(stderr,"\b\n\t--- Error [%s]/%s\n\n",thisprog,message); exit(1); }
 			}
 			else if(strcmp(setmode,"ratio")==0) {
-				kk= xf_norm3_d(pdata,blocksizeline[jj],4,0,1,message);
+				kk= xf_norm3_d(pdata,blocksize[jj],4,0,1,message);
 				if(kk==-2) { fprintf(stderr,"\b\n\t--- Error [%s]/%s\n\n",thisprog,message); exit(1); }
-				if(setr100==1) { for(kk=0;kk<blocksizeline[jj];kk++) pdata[kk]*=100.0; }
+				if(setr100==1) { for(kk=0;kk<blocksize[jj];kk++) pdata[kk]*=100.0; }
 			}
 			else if(strcmp(setmode,"gauss")==0 && setgwin>0) {
-				z= xf_smoothgauss1_d(pdata,blocksizeline[jj],setgwin);
+				z= xf_smoothgauss1_d(pdata,blocksize[jj],setgwin);
 				if(z<0-2) { fprintf(stderr,"\b\n\t--- Error [%s]/xf_smoothgauss1_d: problem in smoothing function \n\n",thisprog); exit(1); }
 			}
+			else if(strcmp(setmode,"bin")==0 && setbinsize>0) {
+				kk= xf_bin3_d(pdata,pflag1,blocksize[jj],setbinzero,setbinsize,message);
+				if(kk<0) { fprintf(stderr,"\b\n\t--- Error [%s]/xf_smoothgauss1_d: problem in smoothing function \n\n",thisprog); exit(1); }
+			}
+
+			if(setdebug==1) {printf("\n");	for(kk=0;kk<blocksize[jj];kk++) {printf("\t%g\tflag=%d",pdata[kk],pflag1[kk]);printf("\n");}}
 
 			/* increment pointer to start of next block */
-			pdata+= blocksizeline[jj];
+			pdata+= blocksize[jj];
 	}}
-
 
 	/********************************************************************************
 	DE-TRANSPOSE THE ENTIRE DATASET
@@ -251,7 +285,7 @@ int main (int argc, char *argv[]) {
 	data= xf_matrixtrans1_d(data,&ncols,&nrows);
 	/* debugging */
 	if(setdebug==1) {printf("\nRESTORED DATA:\n"); for(ii=jj=0;ii<nn;ii++) { printf("\t%g",data[ii]); if(++jj==ncols) {jj=0;printf("\n");}}}
-
+	if(setdebug==1) {printf("\n"); for(ii=0;ii<mm;ii++) printf("flag[%ld]= %d\n",ii,flag1[ii]);}
 
 	/********************************************************************************
 	OUTPUT THE DATA
@@ -268,9 +302,12 @@ int main (int argc, char *argv[]) {
 		iword= xf_lineparse2(line,"\t",&nwords); // user-defined delimited
 		if(nwords<0) {fprintf(stderr,"\n--- Error [%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
 
-		/* set pointer to data corresponding to this line */
+		/* set pointer to data & flag corresponding to this line */
 		pdata= (data+(mm*ncdata));
-		mm++;
+
+		/* if data was binned, use the flag-setting to determine whether to output this line */
+		if(strcmp(setmode,"bin")==0 && flag1[mm]==0 && setdebug==0) { mm++; continue; }
+
 		/* deal with first column - no preceeding tab */
 		if(cdatzero==0) printf("%s",(line+iword[0]));
 		else {
@@ -291,9 +328,9 @@ int main (int argc, char *argv[]) {
 				else              printf("\t%.*f",setp,aa);
 			}
 		}
+		if(setdebug!=0) printf("\tflag1=%d",flag1[mm]);
 		printf("\n");
-
-
+		mm++;
 	}
 	fclose(fpin1);
 
@@ -307,11 +344,12 @@ END:
 	if(setstdin==1) remove(outfile);
 
 	if(blockstart!=NULL) free(blockstart);
-	if(blocksizeline!=NULL) free(blocksizeline);
+	if(blocksize!=NULL) free(blocksize);
 	if(data!=NULL) free(data);
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
 	if(icdata!=NULL) free(icdata);
+	if(flag1!=NULL) free(flag1);
 
 	exit(0);
 }

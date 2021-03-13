@@ -19,9 +19,7 @@ v 1: DAY.MONTH.YEAR [JRH]
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 long xf_scale1_l(long data, long min, long max);
-int xf_bin3_d(double *data, short *flag, long *setn, long *setz, double setbinsize, char *message);
-int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *message);
-int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
+int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -98,18 +96,15 @@ int main (int argc, char *argv[]) {
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	//TEST
 
-for(ii=0;ii<nn;ii++) printf("data2[%ld]= %g\n",ii,data2[ii]);
 
 short *flag1=NULL;
-flag1= realloc(flag1,(nn*sizeof(*flag1)));
+flag1= calloc(nn,sizeof(*flag1));
+for(ii=jj=0;ii<nn;ii++) if(data2[ii]==0.0) jj=ii;
+kk= xf_bin3_d(data2,flag1,nn,jj,4.0,message);
+if(kk<0) {fprintf(stderr,"*** %s\n",message); exit(1);}
+printf("\n");
+for(ii=0;ii<nn;ii++) if(flag1[ii]==1) printf("data2[%ld]= %g\n",ii,data2[ii]);
 
-for(ii=0;ii<nn;ii++) if(data2[ii]==0.0) jj=ii;
-fprintf(stderr,"zero-sample=%ld\n",jj);
-
-z= xf_bin3_d(data2,flag1,&nn,&jj,2.0,message);
-if(z<0) {fprintf(stderr,"*** %s\n",message); exit(1);}
-
-fprintf(stderr,"new-zero=%ld\n",jj);
 
 goto END;
 
