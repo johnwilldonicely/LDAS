@@ -53,10 +53,10 @@ SAMPLE CALL:
 double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message) {
 
 	char *thisfunc="xf_bin1a_d\0";
-	size_t ii,jj,mm,n1,n2=0,zero,nsums=0,nprevsums=0,start;
+	size_t ii,jj,mm,n1,n2,zero,nsums,prevnsums,start;
 	double f1,f2,f4,f0; // variables to indicate optimal binsizes
 	double aa,bb,cc,dd,n1d,binsize,prebins,postbins,limit;
-	double sum=0.0,prevsum=0.0;
+	double sum,prevsum;
 
 	n1=*setn;
 	zero=*setz;
@@ -114,60 +114,45 @@ double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char
 	if(zero==0) prebins=0.0;
 	else prebins=(double)(zero)/binsize;
 
-	/* PRE-BIN AND SET START FOR MAIN BINNING SECTION */
-	/* if prebins is zero or an integer, we can start from sample-zero with no special measures */
-	if(fmod(prebins,1)==0.0) {
-		start= 0;
-		limit= binsize - 1.0;
+
+	/* CALCULATE THE LIMIT FOR THE FIRST BIN - MAY BE FRACTIONAL */
+	/* if there is at least one full bin before "zero", the first limit comes before "zero" as well */
+	if(prebins>=1.0) {
+		limit= zero - ((long)(prebins-1.0)*binsize);
+		start=0;
 	}
-	/* otherwise, build a fractional bin and proceed from the first full-bin */
+	/* otherwise, exclude the fractional (or non-existent) pre-zero bin */
 	else {
-		// define limits for first bin which will include the partial bin + 1 full bin
-		limit= ((double)(zero)-1.0) - ((long)(prebins-1.0)*binsize);
-		if(limit>=zero) limit= zero-1;
-		// build the bin
-		for(ii=0;ii<=limit;ii++) if(isfinite(data[ii])) { sum+= data[ii]; nsums++;}
-		if(nsums>0) data[n2]= (sum/(double)nsums);
-		else data[n2]=NAN;
-		n2++;
-		// set parameters for main loop
-		start= (long)limit+1;
-		limit+= binsize;
+		limit=zero+binsize;
+		start=zero;
 	}
-	//TEST: fprintf(stderr,"start: %ld	zero: %ld	binsize:%.4f	prebins=%g	limit:%.16f\n",start,zero,binsize,prebins,limit);
+	//TEST: fprintf(stderr,"start: %ld	zero: %ld	binsize:%g	limit:%g\n",start,zero,binsize,limit);
 
 	/* START BINNING: LEFTOVER DATA AT THE END IS ADDED TO THE PRECEDING BIN */
 	sum=prevsum=0.0;
-	n2=nsums=nprevsums=0;
+	n2=nsums=prevnsums=0;
 	for(ii=start;ii<n1;ii++) {
-		/* build running sum and total data-points */
-		if(isfinite(data[ii])) { sum+=data[ii];	nsums++; }
-		// if the current sample-number is >= the limit defining the right edge of the curent window...
 		if(ii>=limit) {
 			//TEST:	printf("\tii=%ld	bin=%ld nsums=%ld	limits: %f to %f: next=%f\n",ii,n2,nsums,(limit-binsize),(limit),(limit+binsize));
 			if(nsums>0) { data[n2]= sum/nsums;}
 			else { data[n2]=NAN; }
 			prevsum=sum; 			// keep record of current sum in case we need to add data at the end
-			nprevsums=nsums; 		// keep record of current nsums in case we need to add data at the end
+			prevnsums=nsums; 		// keep record of current nsums in case we need to add data at the end
 			sum=0.0; 				// reset the run1ing sum
 			nsums=0;  				// reset the count within the window
 			limit+= binsize; 		// readjust limit
 			n2++;
 		}
+		/* build run1ing sum and total data-points */
+		if(isfinite(data[ii])) { sum+=data[ii];	nsums++; }
 	}
 
-	/* MAKE ONE MORE BIN IF THERE IS LEFTOVER DATA (IE. IF LAST SAMPLE DIDN'T TIP THE LIMIT)  */
-	if( ((ii-1)+binsize) != limit ) {
-		jj= n1-(long)binsize;
-		if(jj<zero) jj=zero; // cannot integrate data from before zero!
-		sum=0.0; nsums=0;
-		for(ii=jj;ii<n1;ii++) {
-			if(isfinite(data[ii])) { sum+= data[ii]; nsums++;}
-		}
-		if(nsums>=0) data[n2]= sum/(double)nsums;
-		else data[n2]=NAN;
-		n2++;
-	}
+	/* if the last data-point doesn't tip over the bin-limit, data is added to the previous bin */
+	if(ii<limit) { n2--; sum+=prevsum; nsums+=prevnsums;}
+
+	/* AVERAGE THE REMAINING DATA FROM THE LAST BIN */
+	if(nsums>=0) data[n2++]= sum/nsums;
+	else data[n2++]=NAN;
 
 	/* REASSIGN SETZ AND N */
 	(*setz)= prebins;
