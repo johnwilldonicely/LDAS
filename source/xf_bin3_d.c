@@ -123,10 +123,7 @@ long xf_bin3_d(double *data1, short *flag1, long n1, long setz, double binsize, 
 	nsums= 0;
 	for(ii=start;ii<n1;ii++) {
 		/* build runing sum and total data-points - good data only */
-		if(isfinite(data1[ii])) {
-			sum+= data1[ii];
-			nsums++;
-		}
+		if(isfinite(data1[ii])) { sum+= data1[ii]; nsums++; }
 		// if the current sample-number is >= the limit defining the right edge of the curent window...
 		if(ii>=limit) {
 			//TEST: printf("ii=%ld data=%g nsums=%ld sum=%g nbins=%ld   binbegin=%ld\n",ii,data1[ii],nsums,sum,nbins,binbegin);

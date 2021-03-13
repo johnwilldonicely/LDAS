@@ -111,10 +111,7 @@ int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *mes
 	/* START BINNING: LEFTOVER DATA AT THE END IS ADDED TO THE PRECEDING BIN */
 	for(ii=start;ii<n1;ii++) {
 		/* build runing sum and total data-points - good data only */
-		if(isfinite(data[ii])) {
-			sum+= (double)data[ii];
-			nsums++;
-		}
+		if(isfinite(data[ii])) { sum+= (double)data[ii]; nsums++; }
 		// if the current sample-number is >= the limit defining the right edge of the curent window...
 		if(ii>=limit) {
 			//TEST:	printf("\tii=%ld	bin=%ld nsums=%ld	limits: %f to %f: next=%f\n",ii,n2,nsums,(limit-setbinsize),(limit),(limit+setbinsize));
@@ -128,19 +125,15 @@ int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *mes
 	}
 	//TEST: fprintf(stderr,"ii: %ld limit:%g	nsums:%ld sum:%g\n",ii,limit,nsums,sum);
 
-
 	/* MAKE ONE MORE BIN IF THERE IS LEFTOVER DATA (IE. IF LAST SAMPLE DIDN'T TIP THE LIMIT)  */
 	if( ((ii-1)+setbinsize) != limit ) {
 		jj= n1-(long)setbinsize;
-		if(jj<0) jj=0;
-		sum=0.0;
-		nsums=0;
+		if(jj<zero) jj=zero; // cannot integrate data from before zero!
+		sum=0.0; nsums=0;
 		for(ii=jj;ii<n1;ii++) {
-			if(isfinite(data[ii])) {
-				sum+= (double)data[ii];
-				nsums++;
-		}}
-		if(nsums>=0) data[n2]= (float)(sum/(double)nsums);
+			if(isfinite(data[ii])) { sum+= data[ii]; nsums++;}
+		}
+		if(nsums>=0) data[n2]= sum/(double)nsums;
 		else data[n2]=NAN;
 		n2++;
 	}
