@@ -29,6 +29,10 @@ int xf_smoothgauss1_d(double *original, size_t arraysize,int smooth);
 long xf_bin3_d(double *data1, short *flag1, long n1, long zero, double setbinsize, char *message);
 /* external functions end */
 
+/* compare-function for qsort */
+int compl (const void *elem1, const void *elem2) { long f=*((long*)elem1); long s=*((long*)elem2); if(f>s) return(1); if(f<s) return(-1); return 0; }
+
+
 int main (int argc, char *argv[]) {
 
 	/* line-reading and word/column-parsing */
@@ -147,7 +151,10 @@ int main (int argc, char *argv[]) {
 		icdata[ii]= jj; // decrement to make values zero-offset
 		if(jj==1) cdatzero=1; // variable to determine if the first column is a data column - simplifies output-stage
 	}
-	/* MAKE SURE ALL DATA COLUMNS ARE UNIQE, AND DIFFERENT FROM SETCBLOCK */
+	/* SORT THE DATA COLUMNS NUMERICALLY */
+	qsort(icdata,ncdata,sizeof(long),compl);
+
+	/* MAKE SURE ALL DATA COLUMNS ARE UNIQUE, AND DIFFERENT FROM SETCBLOCK */
 	for(ii=0;ii<ncdata;ii++) {
 		for(jj=ii+1;jj<ncdata;jj++) {
 			if(icdata[jj]==icdata[ii]) {fprintf(stderr,"\n--- Error [%s]: duplicate data-columns (%ld) - column list must contain unique values\n\n",thisprog,icdata[ii]);exit(1);}
