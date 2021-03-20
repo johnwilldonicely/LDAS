@@ -1,5 +1,5 @@
 # 2-way repeated-measures ANOVA with contrasts against a control group 
-# to use, pipe 4 columns with no headers to this script
+# to use, pipe 4 columns with headers to this script
 # column1= subject-id
 # column2= within-subjects group-number - assumes group "0" is the control group 
 # column3= within-subjects time
