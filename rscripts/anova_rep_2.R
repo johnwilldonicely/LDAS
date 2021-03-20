@@ -19,12 +19,12 @@ nameres=colnames(df1)[4]
 model= aov_ez(namesub, nameres, df1, within=c(namegrp,nametim), na.rm=FALSE)
 cat("\nANOVA\n\n")
 model
+
 # 2. get the estimated marginal means for each group
 emm= emmeans(model,namegrp,by=nametim,model="multivariate")
+
 # 3. run the contrasts against the control group (0) 
 con= contrast(emm, "trt.vs.ctrl", ref="X0",by=nametim,adjust="bon",parens=NULL)
-
-
 cat("\nCONTRASTS\n\n")
 con
 
