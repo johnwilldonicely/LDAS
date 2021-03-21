@@ -25,16 +25,17 @@ nameres=colnames(df1)[4]
 
 # 1 RUN THE ANOVA
 model= aov_ez(namesub, nameres, df1, within=c(namegrp,nametim), na.rm=FALSE)
-cat("\nANOVA\n\n")
-model
 # 2. GET THE ESTIMATED MARGINAL MEANS FOR EACH GROUP
 emm= emmeans(model,namegrp,by=nametim,model="multivariate")
 # 3. RUN THE CONTRASTS AGAINST THE CONTROL GROUP (0)
 con= contrast(emm, "trt.vs.ctrl", ref="X0",by=nametim,adjust="bon",parens=NULL)
 
+# GENERATE FULL REPORT
+cat("\nANOVA\n\n")
+model
+con
 
 # GENERATE BRIEF REPORT
-cat("\nCONTRASTS\n\n")
 brief= as.data.frame(con)
 # replace "X" in time-designations - should be in column 2 of te contrast output
 brief[,2]= gsub('X','',brief[,2])
@@ -43,6 +44,5 @@ brief= brief[brief$p.value<.05,]
 # round t & p values
 brief$p.value= round(brief$p.value,5)
 brief$t.ratio= round(brief$t.ratio,3)
-
-model
+cat("\nCONTRAST-SUMMARY\n\n")
 brief
