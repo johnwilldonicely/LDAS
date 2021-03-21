@@ -43,8 +43,8 @@ fi
 # INPUT FILE(S) AND ARGUMENT HANDLING
 ########################################################################################
 infile=$1 ; shift
-if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
-if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" >&2 ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" >&2 ;  exit; } ; fi
 
 # OPTIONAL ARGUMENT HANDLING
 vs="v:c:" ; vl="verb:,clean:"
@@ -60,8 +60,8 @@ while [ $# -gt 0 ] ; do
 	esac
 	shift
 done
-if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" ;  exit; } ; fi
-if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" ;  exit; } ; fi
+if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
 	if [ "$progbase1" != "" ] ; then rm -f $progbase1* ; fi

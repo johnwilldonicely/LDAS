@@ -3,21 +3,28 @@
 
 # DEPENDENCIES: R, with packages emmeans and afex
 
-# USAGE:
-#    - Pipe 4 columns with headers to Rscript, calling this script
+# USAGE: Rscript [this-script] [input-file] [control-group] [adjustment]
+#    - [input-file] must have four columns with headers (column-name)
 #         - col1= subject-id
 #         - col2= within-subjects group-number - assumes group "0" is the control group
 #         - col3= within-subjects time
 #         - col4= result
-#    - Groups are assumed to be numeric and group 0 is taken as the control
+#    - [control-group] must be one of the groups in column-2
+#    - [adjustment] should be one of dunnettx,sidak,bonferroni
 
 # EXAMPLE:
-# 	awk '{print $5,$1,$2,$3}' data.txt | Rscript [this script]
+# 	awk '{print $5,$1,$2,$3}' data.txt > tempfile
+#	Rscript  anova_rep_2.R  tempfile  Vehicle
 ################################################################################
 suppressMessages(library(afex))
 suppressMessages(library(emmeans))
 
-df1= read.table("stdin", sep="\t", header=T)
+args = commandArgs(trailingOnly=TRUE)
+setinfile= args[1]
+setcontrol= args[2]
+setadjust= args[3]
+
+df1= read.table(setinfile, sep="\t", header=T, row.names=NULL)
 namesub=colnames(df1)[1]
 namegrp=colnames(df1)[2]
 nametim=colnames(df1)[3]
@@ -28,11 +35,13 @@ model= aov_ez(namesub, nameres, df1, within=c(namegrp,nametim), na.rm=FALSE)
 # 2. GET THE ESTIMATED MARGINAL MEANS FOR EACH GROUP
 emm= emmeans(model,namegrp,by=nametim,model="multivariate")
 # 3. RUN THE CONTRASTS AGAINST THE CONTROL GROUP (0)
-con= contrast(emm, "trt.vs.ctrl", ref="X0",by=nametim,adjust="bon",parens=NULL)
+con= contrast(emm, "trt.vs.ctrl", ref=setcontrol,by=nametim,adjust=setadjust,parens=NULL)
 
 # GENERATE FULL REPORT
-cat("\nANOVA\n\n")
+cat("\nANOVA ----------------------------\n\n")
 model
+
+cat("\nCONTRASTS ------------------------\n\n")
 con
 
 # GENERATE BRIEF REPORT
@@ -44,5 +53,5 @@ brief= brief[brief$p.value<.05,]
 # round t & p values
 brief$p.value= round(brief$p.value,5)
 brief$t.ratio= round(brief$t.ratio,3)
-cat("\nCONTRAST-SUMMARY\n\n")
+cat("\nCONTRAST-SUMMARY -----------------\n\n")
 brief

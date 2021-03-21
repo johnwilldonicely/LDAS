@@ -443,7 +443,7 @@ if [[ $haystack = *"$needle"* ]]; then  echo "found" ; fi
 # for exact matches...
 [[ $haystack =~ (^|[[:space:]])$needle($|[[:space:]]) ]] && echo 'yes' || echo 'no'
 
-# CHECK IF A NUMBER IS EVEN OR ODD (MODULUS OPERATOR) 
+# CHECK IF A NUMBER IS EVEN OR ODD (MODULUS OPERATOR)
 z=3; if [ $((z%2)) -eq 0 ] ; then echo "even" ; fi
 
 # PARSE A CSV LIST WITH WHITE-SPACE ELEMENTS - USING INTERNAL FIELD SEPARATOR (IFS)
@@ -470,6 +470,9 @@ d="_" ; echo _one_two__three___end_ | tr -s $d | sed 's/^['$d']//g;s/['$d']*$//g
 # STRING SUBSTITUTION WITH SED
 sed -i 's/OLD/NEW/g' $infile
 cat $infile | sed -e 's/OLD/NEW/g'
+
+# REPLACE ONLY THE FIRST OCCURRENCE
+sed '0,/OLD/s//NEW/' $infile 
 
 # STRING INSERTION WITH SED - ADD A CHARACTER TO EVERY WORD
 seq 1 10 | sed 's/\b\w/aloha-&/g'

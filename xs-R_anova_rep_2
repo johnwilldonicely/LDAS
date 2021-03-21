@@ -1,0 +1,180 @@
+#!/bin/bash
+# <TAGS> R </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+thisprog=`basename "$0"`
+progpath=$(dirname $(readlink -f "$0"))
+companion=$(echo "$progpath/rscripts/$thisprog" | sed 's/xs-R_//')".R"
+tempfile="temp_"$thisprog #"."$$"."
+
+# colours for use with text printed to terminal
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+datafile=$tempfile".txt"
+scriptfile=$tempfile".R"
+setcontrol=""
+setadjust="bon"
+setfilegnames=""
+
+setclean="1"
+plotfile="plot_"$thisprog".pdf"
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 2 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo "Perform ANOVA using R - 2-way repeated measures"
+	echo "- suitable for full crossover studies with a time component"
+	echo "- assumes every subject is given all treatments (group)"
+	echo "- assumes all group results are measured at multiple time-points"
+	echo "- at each time-point, groups are compared with a control-group"
+	echo "     - if not specified, this will be the first group found in the data"
+	echo "DEPENDENCIES:"
+	echo "    - R with packages:  emmeans afex ggplot2"
+	echo "    - companion script: "$companion
+	echo "USAGE: "
+	echo "    $thisprog [file] [cols] [options]"
+	echo "        [file]:  input text file - at least 4 columns"
+	echo "        [cols]: CSV list of columns holding subject,group,time and result"
+	echo "            - if all are numbers, assumes no header (e.g. 4,1,5,6)"
+	echo "            - otherwise, assumes reference is to column-names on first line"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "    --clean: remove temporary files (0=NO 1=YES) [$setclean]"
+	echo "    --gnames: file defining group names [$setfilegnames]"
+	echo "    --control: specify the control group (default= first-found) [$setcontrol]"
+	echo "    --adjust: p-adjustment: one of none,dunnettx,sidak,bonferroni [$setadjust]"
+	echo "EXAMPLE: "
+	echo "    "$thisprog" data.txt  id,treatment,hours,performance --control Vehicle"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+########################################################################################
+# REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1; shift
+setcols=$1; shift
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="c:" ; vl="clean:,control:,adjust:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]"$y"\n"$NC >&2 ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@")
+fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		--clean ) setclean=$2 ; shift ;;
+		--control ) setcontrol=$2 ; shift ;;
+		--adjust ) setadjust=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+########################################################################################
+# CHECK INPUT AND OPTIONS
+########################################################################################
+if [ ! -e "$infile" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing file $infile\n"$NC >&2 ; exit ; fi
+if [ ! -s "$infile" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: $infile is empty\n"$NC >&2 ; exit ; fi
+if [ ! -e "$companion" ] ; then echo $RED-e "\n--- Error ["$thisprog"]: missing companion R-script $companion\n"$NC >&2 ; exit ; fi
+if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
+
+# make sure there were four columns specified
+let x=$(echo $setcols | tr ',' ' ' | wc -w)
+if [ $x -lt 4 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: 4 columns need to be specified - there were only $z ($setcols)\n"$NC >&2 ; exit ; fi
+# check if all column-names are numeric - if so, set option for xe-cut1 accordingly
+let colalpha=$(echo $setcols | tr ',' '\n' | grep '[^-,0-9]' | wc -l)
+if [ $colalpha -gt 0 ] ; then optcut="-n 0" ; else optcut="-n 1" ; fi
+#  check that all four columns were found
+let z=$(xe-cut1 $infile $setcols $optcut -s 1 | head -n 1 | wc -w)
+if [ $z -lt 4 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: some columns ($setcols) missing from input ($infile)\n"$NC >&2 ; exit ; fi
+# check whether file actually has a header - non-numeric in top row of result-column (4)
+foundhead=$(xe-cut1 $infile $setcols $optcut -s 1 | cut -f 4 | head -n 1 | xe-checkisnum2 stdin | wc -l | awk '{print -1*($1-1)}')
+if [ $colalpha -eq 0 ] && [ $foundhead -eq 1 ] ; then echo -e $PURPLE"--- Warning ["$thisprog"]: set-columns ($setcols) are all numeric but input ($infile) appears to have a header. Header will be omitted and columns renamed \"subject,group,time,result\""$NC >&2 ; fi
+
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+
+
+########################################################################################
+# BUILD THE TEMPORARY DATA FILE
+########################################################################################
+# if setcols are names...
+if [ $colalpha -gt 0 ] ; then
+	xe-cut1 $infile $setcols $optcut -s 1 | head -n 1 > $tempfile
+	xe-cut1 $infile $setcols $optcut -o 1 |    # omit header
+		sed 's/nan/NA/I' |                 # convert versions of "NAN" to "NA", which is R's preferred label
+		sed 's/-NA/NA/I' |                 # convert occassion "-nan" as well
+		sed "s/\B-\B/NA/g" >> $tempfile    # replace any "placeholder" hyphens with NA as well
+# otherwise if setcols are numbers...
+else
+	let foundhead=$foundhead+1                            # update $foundhead so it indicates the line from which data-output should start (1=include header, 2=skip it)
+	echo -e "subject\tgroup\ttime\tresult" > $tempfile    # generate a header-line
+	xe-cut1 $infile $setcols $optcut -s 1 |               # get the columns - skip blanks and comments
+		tail -n +$foundhead |                         # omit header if one was found
+		sed 's/nan/NA/I' |                            # convert versions of "NAN" to "NA", which is R's preferred label
+		sed 's/-NA/NA/I' |                            # convert occassion "-nan" as well
+		sed "s/\B-\B/NA/g" >> $tempfile               # replace any "placeholder" hyphens with NA as well
+fi
+
+# check if group column contains non-numerics
+let w=$(xe-cut1 $tempfile $(echo $setcols | cut -f 1 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
+let x=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
+let y=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
+let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 4 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
+skipcheck="0";
+if [ $w -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: subject-column contains non-numerics - skipping replicate-check\""$NC >&2 ; fi
+if [ $x -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: group-column contains non-numerics - skipping replicate-check - consider using a numeric group-colummn in combinaton with the --gnames option\""$NC >&2 ; fi
+if [ $y -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: time-column contains non-numerics - skipping replicate-check\""$NC >&2 ; fi
+if [ $z -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: result-column contains non-numerics that are not NaN - disallowed\n\n"$NC >&2 ; exit ; fi
+
+# CHECK REPLICATES BEFORE CONTINUING
+if [ "$skipcheck" == "0" ] ; then
+	xe-checkreplicate1 $tempfile -head 1 2> $tempfile".error"
+	if [ -s $tempfile".error" ] ; then
+		x=$(grep duplicate $tempfile".error" | wc -l)
+		y=$(grep missing $tempfile".error" | wc -l)
+		if [ $x -gt 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: duplicate treatments in ($infile) - try making a subset of this data - details in $tempfile.error\n"$NC >&2 ; fi
+		if [ $y -gt 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing treatments in ($infile) - details in $tempfile.error\n"$NC >&2 ; fi
+		if [ $x -eq 0 ] && [ $y -eq 0 ] ; then head $tempfile".error" >&2 ; fi
+		exit
+	fi
+fi
+
+# CHECK THAT CONTROL GROUP IS VALID
+if [ "$setcontrol" != "" ] ; then
+	# first check that specified control is vlid!
+	let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep $setcontrol | wc -l)
+	if [ $z -eq 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: control-group (--control $setcontrol) not found in $infile\n\n"$NC >&2 ; exit ; fi
+else
+	setcontrol=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 | head -n 1)
+fi
+
+# IF CONTROL GROUP STARTS WITH A NUMBER, PREFIX IT WITH "X" AS THIS IS WHAT R-EMMEANS WILL DO AUTOMATICALLY
+let z=$(echo $setcontrol | grep ^[0-9] | wc -l)
+if [ $z -ne 0 ] ; then setcontrol="X"$setcontrol ; fi
+
+########################################################################################
+# INVOKE THE COMPANION SCRIPT
+########################################################################################
+Rscript $companion $tempfile $setcontrol $setadjust
+
+################################################################################
+# CLEANUP AND EXIT
+################################################################################
+if [ "$setclean" == "1" ] ; then
+	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+fi
+exit
