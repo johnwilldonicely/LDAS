@@ -1,5 +1,5 @@
 #define thisprog "xe-checkreplicate1"
-#define TITLE_STRING thisprog" 6.February.2021 [JRH]"
+#define TITLE_STRING thisprog" 22.March.2021 [JRH]"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +7,8 @@
 /*
 <TAGS> LDAS </TAGS>
 
+ 22.March.2021 [JRH]
+ 	- add checks for missing columns 
 v 1: DAY.MONTH.YEAR [JRH]
 	- bugfix - changed use of fscanf to read data with fgets/sscanf, to avoid problems related to "-" and "."
 */
@@ -121,9 +123,11 @@ int main (int argc, char *argv[]) {
 	nn=mm=0;
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
+		mm++;
 		iword= xf_lineparse2(line,"\t",&nwords);
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
-		if(mm++<sethead) continue;
+		if(nwords<4) {fprintf(stderr,"\n--- Error[%s]: input contains fewer than 4 columns on line %ld\n\n",thisprog,mm);exit(1);};
+		if(mm<=sethead) continue;
 		colmatch=4;
 		for(ii=0;ii<nwords;ii++) {
 			if(ii==setcolg1) {
@@ -155,14 +159,17 @@ int main (int argc, char *argv[]) {
 		nn++;
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
+	if(nn==0) {fprintf(stderr,"\n--- Error[%s]: input contains no valid lines of data\n\n",thisprog);exit(1);};
+
 	//TEST for(ii=0;ii<nn;ii++) printf("data[%ld]= %g\n",ii,data[ii]);exit(0);
 
+
 	/********************************************************************************
-	ALLOCATE MEMORY FOR the LISTS OF GROUPING-VARIABLES
+	ALLOCATE MEMORY FOR THE LISTS OF GROUPING-VARIABLES
 	********************************************************************************/
-	listgrp1= realloc(listgrp1,(nn+1)*sizeofgrp1);
-	listgrp2= realloc(listgrp2,(nn+1)*sizeofgrp2);
-	listgrp3= realloc(listgrp3,(nn+1)*sizeofgrp3);
+	listgrp1= realloc(listgrp1,nn*sizeofgrp1);
+	listgrp2= realloc(listgrp2,nn*sizeofgrp2);
+	listgrp3= realloc(listgrp3,nn*sizeofgrp3);
 	if(listgrp1==NULL||listgrp2==NULL||listgrp3==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 
 
@@ -179,7 +186,7 @@ int main (int argc, char *argv[]) {
 	qsort(listgrp3,nn,sizeof(double),xf_compare1_d);
 	aa=listgrp3[0]; for(ii=nlistgrp3=1;ii<nn;ii++) {if(listgrp3[ii]!=aa) listgrp3[nlistgrp3++]= listgrp3[ii]; aa= listgrp3[ii]; }
 	//TEST:	for(ii=0;ii<nn;ii++) printf("%g\t%g\t%g\t\t%g\n",listgrp1[ii],listgrp2[ii],listgrp3[ii],data[ii]); exit(0);
-	//TEST:	printf("1:%ld\n2:%ld\n3:%ld\n",nlistgrp1,nlistgrp2,nlistgrp3);exit(0);
+	//TEST: printf("1:%ld\n2:%ld\n3:%ld\n",nlistgrp1,nlistgrp2,nlistgrp3);exit(0);
 
 
 	/********************************************************************************

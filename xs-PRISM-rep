@@ -173,7 +173,7 @@ for group in $listgroups ; do
 	if [ $count -eq 1 ] ; then
 		# add the header-lines to the temporary treatment file
 		echo "treatment "$head1 | xe-delimit stdin > $out1
-		echo "subject "$head2 | xe-delimit stdin >> $out1
+		echo "row "$head2 | xe-delimit stdin >> $out1
 		# append the data for this group - remove the original header and grp column
 		xe-dbmatch1 $tempfile".2" grp $group -m 3 |
 		tail -n +2 |
