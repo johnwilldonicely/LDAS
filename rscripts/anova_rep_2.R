@@ -36,14 +36,14 @@ emm= emmeans(model,namegrp,by=nametim,model="multivariate")
 con= contrast(emm, "trt.vs.ctrl", ref=setcontrol,by=nametim,adjust=setadjust,parens=NULL)
 
 # GENERATE FULL REPORT
-cat("\nANOVA ----------------------------\n")
+cat("\nANOVA --------------------------------------------------------------------------\n")
 model
 
-cat("\nCONTRASTS ------------------------\n")
+cat("\nCONTRASTS ----------------------------------------------------------------------\n")
 con
 
 # GENERATE BRIEF REPORT
-cat("\nCONTRAST-SUMMARY -----------------\n")
+cat("\nCONTRAST-SUMMARY ---------------------------------------------------------------\n")
 brief= as.data.frame(con)
 # replace spaces beteween contrast levels
 brief[,1]= gsub(' - ','_-_',brief[,1])
