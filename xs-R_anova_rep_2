@@ -130,10 +130,10 @@ else
 fi
 
 # check if group column contains non-numerics
-let w=$(xe-cut1 $tempfile $(echo $setcols | cut -f 1 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
-let x=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
-let y=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
-let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 4 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v NA | wc -l)
+let w=$(xe-cut1 $tempfile $(echo $setcols | cut -f 1 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
+let x=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
+let y=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
+let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 4 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
 skipcheck="0";
 if [ $w -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: subject-column contains non-numerics - skipping replicate-check\""$NC >&2 ; fi
 if [ $x -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: group-column contains non-numerics - skipping replicate-check - consider using a numeric group-colummn in combinaton with the --gnames option\""$NC >&2 ; fi
@@ -169,7 +169,7 @@ if [ $z -ne 0 ] ; then setcontrol="X"$setcontrol ; fi
 ########################################################################################
 # INVOKE THE COMPANION SCRIPT
 ########################################################################################
-Rscript $companion $tempfile $setcontrol $setadjust
+cat $tempfile | Rscript $companion $setcontrol $setadjust
 
 ################################################################################
 # CLEANUP AND EXIT

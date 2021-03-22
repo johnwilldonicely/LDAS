@@ -3,7 +3,7 @@
 
 # DEPENDENCIES: R, with packages emmeans and afex
 
-# USAGE: Rscript [this-script] [input-file] [control-group] [adjustment]
+# USAGE: cat [input-file] | Rscript [this-script] [control-group] [adjustment]
 #    - [input-file] must have four columns with headers (column-name)
 #         - col1= subject-id
 #         - col2= within-subjects group-number - assumes group "0" is the control group
@@ -13,18 +13,16 @@
 #    - [adjustment] should be one of dunnettx,sidak,bonferroni
 
 # EXAMPLE:
-# 	awk '{print $5,$1,$2,$3}' data.txt > tempfile
-#	Rscript  anova_rep_2.R  tempfile  Vehicle
+#     cat data.txt | Rscript  /opt/LDAS/rscripts/anova_rep_2.R  Vehicle sidak
 ################################################################################
 suppressMessages(library(afex))
 suppressMessages(library(emmeans))
 
 args = commandArgs(trailingOnly=TRUE)
-setinfile= args[1]
-setcontrol= args[2]
-setadjust= args[3]
+setcontrol= args[1]
+setadjust= args[2]
 
-df1= read.table(setinfile, sep="\t", header=T, row.names=NULL)
+df1= read.table("stdin", sep="\t", header=T, row.names=NULL)
 namesub=colnames(df1)[1]
 namegrp=colnames(df1)[2]
 nametim=colnames(df1)[3]
@@ -45,7 +43,10 @@ cat("\nCONTRASTS ------------------------\n\n")
 con
 
 # GENERATE BRIEF REPORT
+cat("\nCONTRAST-SUMMARY -----------------\n\n")
 brief= as.data.frame(con)
+# replace spaces beteween contrast levels
+brief[,1]= gsub(' - ','_-_',brief[,1])
 # replace "X" in time-designations - should be in column 2 of te contrast output
 brief[,2]= gsub('X','',brief[,2])
 # select only significant contrasts
@@ -53,5 +54,4 @@ brief= brief[brief$p.value<.05,]
 # round t & p values
 brief$p.value= round(brief$p.value,5)
 brief$t.ratio= round(brief$t.ratio,3)
-cat("\nCONTRAST-SUMMARY -----------------\n\n")
-brief
+print(brief[c(1,2,7)],row.names=FALSE)
