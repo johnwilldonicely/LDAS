@@ -39,11 +39,8 @@ con= contrast(emm, "trt.vs.ctrl", ref=setcontrol,by=nametim,adjust=setadjust,par
 cat("\nANOVA --------------------------------------------------------------------------\n")
 model
 
-cat("\nCONTRASTS ----------------------------------------------------------------------\n")
-con
-
 # GENERATE BRIEF REPORT
-cat("\nCONTRAST-SUMMARY ---------------------------------------------------------------\n")
+cat("\nSIGNIFICANT-CONTRASTS ----------------------------------------------------------\n")
 brief= as.data.frame(con)
 # replace spaces beteween contrast levels
 brief[,1]= gsub(' - ','_-_',brief[,1])
@@ -55,3 +52,6 @@ brief= brief[brief$p.value<.05,]
 brief$p.value= round(brief$p.value,5)
 brief$t.ratio= round(brief$t.ratio,3)
 print(brief[c(1,2,7)],row.names=FALSE)
+
+cat("\nALL-CONTRASTS ------------------------------------------------------------------\n")
+con
