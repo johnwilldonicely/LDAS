@@ -838,6 +838,7 @@ int main (int argc, char *argv[]) {
 	/* basic variables */
 	fprintf(fpout,"/Helvetica findfont 12.00 scalefont setfont\n");
 	fprintf(fpout,"/basefontsize {%g} def\n",fontsize);
+	fprintf(fpout,"/starfont {basefontsize 1 add} def\n");
 	fprintf(fpout,"/ticsize {%g} def\n",setticsize);
 
 	/* DEFINE COLOUR SET */
@@ -1026,6 +1027,22 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"	fwidth 2 div neg 0 exch rmoveto 0 fwidth rlineto\n");  // draw right of errorbar
 	fprintf(fpout,"	stroke\n");
 	fprintf(fpout,"	} def\n");
+	/* define plot commands for stars (significance levels) */
+	fprintf(fpout,"/S	{ %% Add stars: call [nstars] [error] [x] [y] S\n");
+	fprintf(fpout,"	newpath\n");
+	fprintf(fpout,"	newpoint moveto\n");    // move to x/y coordinates - f remains
+	fprintf(fpout,"	0 exch rmoveto\n");     // move to top of errorbar
+	fprintf(fpout,"	starfont -5.4 div 0 rmoveto\n"); // x-shift based on fraction of font-size to align "*" to middle of x-position
+	fprintf(fpout,"	{ gsave (*) show  grestore 0 starfont 2 div rmoveto } repeat\n"); // last remaining argument (nstars) used for loop
+	fprintf(fpout,"	stroke\n");
+	fprintf(fpout,"	} def\n");
+
+// SAMPLE CALL TO STAR-CODE 
+///Helvetica findfont starfont scalefont setfont
+//1 8 0 20 S
+//4 8 1 102.99 S
+//2 8 2 25 S
+
 
 
 	/* SHIFT COORDINATES FOR THIS PLOT */
