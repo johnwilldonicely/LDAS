@@ -92,12 +92,17 @@ int main (int argc, char *argv[]) {
 	double *tempdouble=NULL;
 	/* colour-palette variables */
 	float *red=NULL,*green=NULL,*blue=NULL;
+	/* variables for significance-stars */
+	long *starsg=NULL,nstarlines=0;
+	double *starsx=NULL;
+	short *starsn=NULL;
+
 
 	/* arguments */
 	char *setpal=NULL,*setstars=NULL;
 	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
-	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
+	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0,setstartype=1;
 	int pointfill=1, framestyle=3, f1=0,f2=0,f3=0,f4=0,setdatacolour=0,setmaxpoints=10000,setmid=1,setgshift=0;
 	int setpalrev=0;
 	double setxminval,setxmaxval,setyminval,setymaxval,setxint=0.0,setyint=0.0,xint=0.0,yint=0.0,setxpad=-1.0,setypad=-1.0,setdown=0.0,setjitter=0.0;
@@ -480,11 +485,8 @@ int main (int argc, char *argv[]) {
 
 	/******************************************************************************/
 	/* READ A STARS FILE IF ONE WAS SPECIFIED */
+	/* save parallel arrays for group-index, x, and number-of-stars */
 	/******************************************************************************/
-long *starsg=NULL,nstarlines=0;
-double *starsx=NULL;
-short *starsn=NULL;
-
 	if(setstars!=NULL) {
 		if((fpin=fopen(setstars,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: stars-file not found (-stars %s)\n\n",thisprog,setstars);exit(1);}
 		nstarlines= 0;
@@ -502,15 +504,17 @@ short *starsn=NULL;
 			starsg[nstarlines]= grp;
 			starsx[nstarlines]= bb;
 			starsn[nstarlines]= cc;
+			if(cc<.0001) starsn[nstarlines]=4;
+			else if(cc<.001) starsn[nstarlines]=3;
+			else if(cc<.01) starsn[nstarlines]=2;
+			else if(cc<.05) starsn[nstarlines]=1;
+			else starsn[nstarlines]=0;
 			nstarlines++;
 	 	}
 	 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	}
-	if(setverb==999) {
-		printf("\nGROUP\tX\tSTARS\n");
-		for(ii=0;ii<nstarlines;ii++) printf("%ld\t%g\t%d\n",starsg[ii],starsx[ii],starsn[ii]);
-	}
-exit(0);
+	if(setverb==999) {printf("\nGROUP\tX\tSTARS\n");for(ii=0;ii<nstarlines;ii++) printf("%ld\t%g\t%d\n",starsg[ii],starsx[ii],starsn[ii]);}
+
 
 	/******************************************************************************/
 	/******************************************************************************/
@@ -1063,28 +1067,26 @@ exit(0);
 	fprintf(fpout,"	stroke\n");
 	fprintf(fpout,"	} def\n");
 	/* define plot commands for stars (significance levels) */
-	fprintf(fpout,"/S	{ %% Add stars: call [nstars] [error] [x] [y] S\n");
+	fprintf(fpout,"/HSTARS	{ %% Add horizontal stars: call [nstars] [x] [y] S\n");
 	fprintf(fpout,"	newpath\n");
 	fprintf(fpout,"	newpoint moveto\n");    // move to x/y coordinates - f remains
-	fprintf(fpout,"	0 exch rmoveto\n");     // move to top of errorbar
+	fprintf(fpout,"	dup\n"); 		// duplicate the value for number-of-stars
+	fprintf(fpout,"	starfont -5.4 div mul 0 rmoveto\n"); // x-shift based on fraction of font-size to align "*" to middle of x-position
+	fprintf(fpout,"	{ (*) show } repeat\n"); // last remaining argument (nstars) used for loop
+	fprintf(fpout,"	} def\n");
+	fprintf(fpout,"/VSTARS	{ %% Add vertical stars: call [nstars] [x] [y] S\n");
+	fprintf(fpout,"	newpath\n");
+	fprintf(fpout,"	newpoint moveto\n");    // move to x/y coordinates - f remains
 	fprintf(fpout,"	starfont -5.4 div 0 rmoveto\n"); // x-shift based on fraction of font-size to align "*" to middle of x-position
 	fprintf(fpout,"	{ gsave (*) show  grestore 0 starfont 2 div rmoveto } repeat\n"); // last remaining argument (nstars) used for loop
-	fprintf(fpout,"	stroke\n");
 	fprintf(fpout,"	} def\n");
-
-// SAMPLE CALL TO STAR-CODE
-///Helvetica findfont starfont scalefont setfont
-//1 8 0 20 S
-//4 8 1 102.99 S
-//2 8 2 25 S
-
-
 
 	/* SHIFT COORDINATES FOR THIS PLOT */
 	fprintf(fpout,"\n%% SHIFT_COORDINATES\n");
 	fprintf(fpout,"%.14g %.14g translate\n",zx,zy);
 
  	fprintf(fpout,"\n%% PLOT_CODE_START\n");
+
 	/* DEFINE PLOT-SPECIFIC PARAMETERS */
 	fprintf(fpout,"\n%% DEFINE_PLOT_PARAMETERS\n");
 	fprintf(fpout,"/xoffset {%.14g} def\n",(setxpad-xmin)*xfactor);
@@ -1104,6 +1106,8 @@ exit(0);
 	fprintf(fpout,"/L { line } def \n");
 	if(pointfill==-1) fprintf(fpout,"/P { %s%c } def\n",plottype,'w');
 	else fprintf(fpout,"/P { %s } def\n",plottype);
+	if(setstartype==1) fprintf(fpout,"/S { HSTARS } def\n");
+	else if(setstartype==2) fprintf(fpout,"/S { VSTARS } def\n");
 	fprintf(fpout,"\n");
 	fprintf(fpout,"/pointsize {%.14g} def\n",pointsize);
 	if(pointfill==0) fprintf(fpout,"/pointdraw { closepath } def\n"); // points are not filled (transparent centre)
@@ -1134,11 +1138,11 @@ exit(0);
 		fprintf(fpout,"\n%% PLOT_VALUES_GROUP_%ld\n",grp);
 		/* make a temporary copy of x,y,z and group variables */
 		nn=0;for(ii=0;ii<n1;ii++) {
-			aa=xdata[ii];
-			bb=ydata[ii];
+			aa= xdata[ii];
+			bb= ydata[ii];
 			if(gdata[ii]==grp) {
-				temp_xdata[nn]=aa+grpshift[grprank[grp]];
-				temp_ydata[nn]=bb;
+				temp_xdata[nn]= aa+grpshift[grprank[grp]];
+				temp_ydata[nn]= bb;
 				if(setecol>0) temp_edata[nn]= edata[ii];
 				if(setfcol>0) temp_fdata[nn]= fdata[ii];
 				temp_linebreak[nn]= linebreak[ii];
@@ -1171,6 +1175,24 @@ exit(0);
 			fprintf(fpout,"	stroke\n");
 			fprintf(fpout,"	closepath\n");
 		}
+
+		fprintf(fpout,"	%% PLOT_STARS\n");
+		if(setstars!=NULL) {
+			fprintf(fpout,"\t\tcf setrgbcolor\n");
+			fprintf(fpout,"\t\t/Helvetica findfont starfont scalefont setfont\n");
+			for(ii=0;ii<nstarlines;ii++) {
+				if(starsg[ii]==grp) {
+					aa= starsx[ii] + grpshift[grprank[starsg[ii]]];
+					for(jj=0;jj<nn;jj++) {
+						bb= temp_xdata[jj];
+						if(aa==bb) {
+							if(setecol>0) cc= temp_ydata[jj] + temp_edata[jj];
+							else cc=  temp_ydata[jj];
+							fprintf(fpout,"\t\t%d %g %g S\n",starsn[ii],bb,cc);
+							break;
+					}}
+		}}}
+
 
 		fprintf(fpout,"\t%% PLOT_LINES\n");
 		/* set colour for data */
@@ -1394,6 +1416,9 @@ END:
 	if(green!=NULL) free(green);
 	if(blue!=NULL) free(blue);
 
+	if(starsg!=NULL) free(starsg);
+	if(starsx!=NULL) free(starsx);
+	if(starsn!=NULL) free(starsn);
 
 	exit(0);
 }
