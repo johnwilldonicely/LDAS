@@ -347,20 +347,20 @@ int main (int argc, char *argv[]) {
 		if(setverb==999) printf("\tline:%s",line);
 
 		aa= bb= cc= 0.0;
-		w= colsmissing;
 		gfound= 0;
 		pline= line;
 		linecount++;
 
+		w= colsmissing;
 		for(col=1;(pcol=strtok(pline," ,\t\n"))!=NULL;col++)	{
 			pline=NULL;
-			if(col==setxcol) {z=sscanf(pcol,"%lf",&aa); if(z==1) w--; }  // temporarily store x-data
-			if(col==setycol) {z=sscanf(pcol,"%lf",&bb); if(z==1) w--; }  // temporarily store y-data
-			if(col==setecol) {z=sscanf(pcol,"%lf",&cc); if(z==1) w--; }  // temporarily store y-error-data
-			if(col==setfcol) {z=sscanf(pcol,"%lf",&dd); if(z==1) w--; }  // temporarily store x-error-data
-			if(col==setgcol) {tempgword=pcol; gfound=1; w--; } /* temporarily store group-label - dont fully process until all columns found */
+			if(col==setxcol) { z=sscanf(pcol,"%lf",&aa); if(z==1) w--; }  // temporarily store x-data
+			if(col==setycol) { z=sscanf(pcol,"%lf",&bb); if(z==1) w--; }  // temporarily store y-data
+			if(col==setecol) { z=sscanf(pcol,"%lf",&cc); if(z==1) w--; }  // temporarily store y-error-data
+			if(col==setfcol) { z=sscanf(pcol,"%lf",&dd); if(z==1) w--; }  // temporarily store x-error-data
+			if(col==setgcol) { tempgword=pcol; gfound=1; w--; } /* temporarily store group-label - dont fully process until all columns found */
 		}
-		if(setverb==999) printf("\t\tw-status:%d\n",w);
+		if(setverb==999) printf("\t\tw-status:%d/%d\n",w,colsmissing);
 		/* if all columns found, store data and indicate this line is not a line-break */
 		if(w==0) {
 			if(setxcol==-1) aa=(double)linecount; /* -f -cx is "-1", sets x to sample-number */
@@ -475,35 +475,42 @@ int main (int argc, char *argv[]) {
 		igword[0]=0;
 		ngrps=1;
 	}
-	//TEST:
-	for(ii=0;ii<n1;ii++) printf("group[%ld]=%ld label=%s\t%g %g\n",ii,gdata[ii],(gwords+igword[gdata[ii]]),xdata[ii],ydata[ii]);
-	//TEST: for(grp=0;grp<ngrps;grp++) {printf("label[%d]=%s\n",grp,gwords+igword[grp]);}
+	if(setverb==999) for(ii=0;ii<n1;ii++) printf("group[%ld]=%ld label=%s\t%g %g\n",ii,gdata[ii],(gwords+igword[gdata[ii]]),xdata[ii],ydata[ii]);
+	if(setverb==999) for(grp=0;grp<ngrps;grp++) {printf("label[%ld]=%s\n",grp,gwords+igword[grp]);}
 
-	// /******************************************************************************/
-	// /* READ A STARS FILE IF ONE WAS SPECIFIED */
-	// /******************************************************************************/
-	// if(setstars=NULL) {
-	// 	if((fpin=fopen(setstars,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: stars-file not found (-stars %s)\n\n",thisprog,setstars);exit(1);}
-	// 	jj=kk= 0; // jj=linecounter, kk=colour-counter
-	// 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
-	// 		jj++;
-	// 		if(line[0]=='#') continue; // allow some comments
-	// 		if(strlen(line)<2) continue; // allow blank lines
-	//  		if(sscanf(line,"%lf %lf %lf",&a,&bb,&cc)!=3) {fprintf(stderr,"\n--- Error[%s]: palette file %s line %ld does not contain an RGB triplet\n\n",thisprog,setpal,jj);exit(1);}
-	// 		red= realloc(red,(kk+1)*sizeof(*red));
-	// 		green= realloc(green,(kk+1)*sizeof(*green));
-	// 		blue= realloc(blue,(kk+1)*sizeof(*blue));
-	// 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-	// 		starsgrp[kk]= a;
-	// 		starsx[kk]= b;
-	// 		starsn[kk]= c;
-	// 		kk++;
-	//  	}
-	//  	if(strcmp(infile,"stdin")!=0) fclose(fpin);
-	// 	if(kk<ngrps)  {fprintf(stderr,"\n--- Error[%s]: palette file %s defines too few colours (%ld) for the number of groups (%ld) \n\n",thisprog,setpal,kk,ngrps);exit(1);}
-	// 	nstars= kk;
-	// }
-	//
+	/******************************************************************************/
+	/* READ A STARS FILE IF ONE WAS SPECIFIED */
+	/******************************************************************************/
+long *starsg=NULL,nstarlines=0;
+double *starsx=NULL;
+short *starsn=NULL;
+
+	if(setstars!=NULL) {
+		if((fpin=fopen(setstars,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: stars-file not found (-stars %s)\n\n",thisprog,setstars);exit(1);}
+		nstarlines= 0;
+		while(fgets(line,MAXLINELEN,fpin)!=NULL) {
+			jj++;
+			if(line[0]=='#') continue; // allow some comments
+			if(strlen(line)<2) continue; // allow blank lines
+	 		if(sscanf(line,"%64s %lf %lf",message,&bb,&cc)!=3) continue;
+			for(grp=0;grp<ngrps;grp++) if(strcmp(message,(gwords+igword[grp]))==0) break;
+			if(grp>=ngrps) {fprintf(stderr,"\n--- Error[%s]: stars file refers to a group (%s) not found in the input\n\n",thisprog,message);exit(1);}
+			starsg= realloc(starsg,(nstarlines+1)*sizeof(*starsg));
+			starsx= realloc(starsx,(nstarlines+1)*sizeof(*starsx));
+			starsn= realloc(starsn,(nstarlines+1)*sizeof(*starsn));
+			if(starsg==NULL||starsx==NULL||starsn==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+			starsg[nstarlines]= grp;
+			starsx[nstarlines]= bb;
+			starsn[nstarlines]= cc;
+			nstarlines++;
+	 	}
+	 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
+	}
+	if(setverb==999) {
+		printf("\nGROUP\tX\tSTARS\n");
+		for(ii=0;ii<nstarlines;ii++) printf("%ld\t%g\t%d\n",starsg[ii],starsx[ii],starsn[ii]);
+	}
+exit(0);
 
 	/******************************************************************************/
 	/******************************************************************************/
