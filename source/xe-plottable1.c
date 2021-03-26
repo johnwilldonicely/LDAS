@@ -94,7 +94,7 @@ int main (int argc, char *argv[]) {
 	float *red=NULL,*green=NULL,*blue=NULL;
 
 	/* arguments */
-	char *setpal=NULL;
+	char *setpal=NULL,*setstars=NULL;
 	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
 	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
@@ -154,9 +154,6 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -ebright: adjust error-bar colours up (typically 8,16,24) [%d]\n",setebright);
 		fprintf(stderr,"        NOTE: -colour and -ebright only work with default palette\n");
 		fprintf(stderr,"    -pal: colour palette (default)\n");
-		fprintf(stderr,"        *.txt: a palette-file with an RGB triplet on each line\n");
-		fprintf(stderr,"            - blank and comment (#) lines allowed\n");
-		fprintf(stderr,"            - triplets are 0-1 and whitespace-delimited e.g. .75 0 1.0\n");
 		fprintf(stderr,"        default: blk-red-magenta-blue-cyan-green-yel-orange\n");
 		fprintf(stderr,"        black2grey: black-lightgrey\n");
 		fprintf(stderr,"        rainbow: blue-green-red\n");
@@ -164,6 +161,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        plasma: blue-purple-yellow\n");
 		fprintf(stderr,"        magma: black-purple-cream\n");
 		fprintf(stderr,"        inferno: black-purple-orange-paleyellow\n");
+		fprintf(stderr,"        *.txt: a palette-file with an RGB triplet on each line\n");
+		fprintf(stderr,"            - triplets are 0-1 - example:  .75  0.0  1.0\n");
 		fprintf(stderr,"    -palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
 		fprintf(stderr,"        NOTE: this does not apply to the default palette\n");
 		fprintf(stderr,"    -bw: box/bar width, as a fraction of xint (above) [%g]\n",boxwidth);
@@ -197,6 +196,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        (2) if a time-series repeats (x[ii]<x[i-1]) \n");
 		fprintf(stderr,"    -zx, -zy: page offset of the plot [%g,%g]\n",zx,zy);
 		fprintf(stderr,"        NOTE: -1 = default A4 top-left\n");
+		fprintf(stderr,"    -stars: add stars to plots using a file defining x, group, and p []\n");
 		fprintf(stderr,"    -out: output file name [%s]\n",outfile);
 		fprintf(stderr,"    -verb: verbose output (0=NO, 1=YES) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
@@ -214,53 +214,54 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if(ii>=argc) break;
 			if((ii+1)>=argc) {fprintf(stderr,"\n\a--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1); }
-			else if(strcmp(argv[ii],"-colour")==0) 	{ setdatacolour =atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-colour")==0) 	{ setdatacolour= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-pal")==0)     { setpal= argv[++ii]; }
 			else if(strcmp(argv[ii],"-palrev")==0)     { setpalrev= atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-ebright")==0) { setebright=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-cx")==0) 	{ setxcol=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-cy")==0) 	{ setycol=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-ce")==0) 	{ setecol=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-cf")==0) 	{ setfcol=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-cg")==0) 	{ setgcol=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-gs")==0) 	{ setgshift=atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-ebright")==0) { setebright= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-cx")==0) 	{ setxcol= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-cy")==0) 	{ setycol= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-ce")==0) 	{ setecol= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-cf")==0) 	{ setfcol= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-cg")==0) 	{ setgcol= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-gs")==0) 	{ setgshift= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-xlabel")==0) 	{ sprintf(xlabel,"%s",(argv[++ii])); }
 			else if(strcmp(argv[ii],"-ylabel")==0) 	{ sprintf(ylabel,"%s",(argv[++ii])); }
 			else if(strcmp(argv[ii],"-title")==0) 	{ sprintf(plottitle,"%s",(argv[++ii])); }
-			else if(strcmp(argv[ii],"-legend")==0) 	{ setlegend=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-font")==0) 	{ fontsize=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-xscale")==0) 	{ xscale=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-yscale")==0) 	{ yscale=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-xmin")==0) 	{ setxminval=atof(argv[++ii]); setxmin=1; }
-			else if(strcmp(argv[ii],"-ymin")==0) 	{ setyminval=atof(argv[++ii]); setymin=1; }
-			else if(strcmp(argv[ii],"-xmax")==0) 	{ setxmaxval=atof(argv[++ii]); setxmax=1; }
-			else if(strcmp(argv[ii],"-ymax")==0) 	{ setymaxval=atof(argv[++ii]); setymax=1; }
-			else if(strcmp(argv[ii],"-xint")==0) 	{ setxint=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-yint")==0) 	{ setyint=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-jitter")==0) 	{ setjitter=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-xpad")==0) 	{ setxpad=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-ypad")==0) 	{ setypad=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-ew")==0) 	{ ewidth=atof(argv[++ii]); setewidth=1; }
-			else if(strcmp(argv[ii],"-bw")==0) 	{ boxwidth=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-bz")==0) 	{ boxyzero=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-line")==0) 	{ setline=atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-legend")==0) 	{ setlegend= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-font")==0) 	{ fontsize= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-xscale")==0) 	{ xscale= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-yscale")==0) 	{ yscale= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-xmin")==0) 	{ setxminval= atof(argv[++ii]); setxmin=1; }
+			else if(strcmp(argv[ii],"-ymin")==0) 	{ setyminval= atof(argv[++ii]); setymin=1; }
+			else if(strcmp(argv[ii],"-xmax")==0) 	{ setxmaxval= atof(argv[++ii]); setxmax=1; }
+			else if(strcmp(argv[ii],"-ymax")==0) 	{ setymaxval= atof(argv[++ii]); setymax=1; }
+			else if(strcmp(argv[ii],"-xint")==0) 	{ setxint= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-yint")==0) 	{ setyint= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-jitter")==0) 	{ setjitter= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-xpad")==0) 	{ setxpad= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-ypad")==0) 	{ setypad= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-ew")==0) 	{ ewidth= atof(argv[++ii]); setewidth=1; }
+			else if(strcmp(argv[ii],"-bw")==0) 	{ boxwidth= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-bz")==0) 	{ boxyzero= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-line")==0) 	{ setline= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-hline")==0) 	{ sprintf(hlineword,"%s",(argv[++ii])); sethline=1; }
 			else if(strcmp(argv[ii],"-vline")==0) 	{ sprintf(vlineword,"%s",(argv[++ii])); setvline=1; }
-			else if(strcmp(argv[ii],"-yzero")==0) 	{ setyzeroline=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-lwd")==0) 	{ lwdata=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-lb")==0) 	{ setlinebreak=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-lwa")==0) 	{ lwaxes=atof(argv[++ii]); }
-			else if(strcmp(argv[ii],"-lwe")==0) 	{ lwerror=atof(argv[++ii]); setelwidth=1; }
-			else if(strcmp(argv[ii],"-frame")==0) 	{ framestyle=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-tics")==0)    { setticsize=atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-yzero")==0) 	{ setyzeroline= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-lwd")==0) 	{ lwdata= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-lb")==0) 	{ setlinebreak= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-lwa")==0) 	{ lwaxes= atof(argv[++ii]); }
+			else if(strcmp(argv[ii],"-lwe")==0) 	{ lwerror= atof(argv[++ii]); setelwidth=1; }
+			else if(strcmp(argv[ii],"-frame")==0) 	{ framestyle= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-tics")==0)    { setticsize= atof(argv[++ii]); }
 			else if(strcmp(argv[ii],"-pt")==0) 	{ sprintf(plottype,"%s",(argv[++ii])); }
-			else if(strcmp(argv[ii],"-ps")==0) 	{ pointsize=atof(argv[++ii]); setpointsize=1; }
-			else if(strcmp(argv[ii],"-pf")==0) 	{ pointfill=atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-ps")==0) 	{ pointsize= atof(argv[++ii]); setpointsize=1; }
+			else if(strcmp(argv[ii],"-pf")==0) 	{ pointfill= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-plot")==0) 	{ sprintf(plottype,"%s",(argv[++ii])); }
 			else if(strcmp(argv[ii],"-out")==0) 	{ snprintf(outfile,MAXWORDLEN,"%s",(argv[++ii])); }
-			else if(strcmp(argv[ii],"-zx")==0) 	{ zx=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-zy")==0) 	{ zy=atoi(argv[++ii]); }
-			else if(strcmp(argv[ii],"-verb")==0) 	{ setverb=atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-zx")==0) 	{ zx= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-zy")==0) 	{ zy= atoi(argv[++ii]); }
+			else if(strcmp(argv[ii],"-stars")==0) 	{ setstars= argv[++ii]; }
+			else if(strcmp(argv[ii],"-verb")==0) 	{ setverb= atoi(argv[++ii]); }
 			else {fprintf(stderr,"\n\a--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1); }
 	}}
 
@@ -408,7 +409,6 @@ int main (int argc, char *argv[]) {
 				ydata= realloc(ydata,(n1+1)*sizeofdouble);
 				gdata= realloc(gdata,(n1+1)*sizeoflong);
 				linebreak= realloc(linebreak,(n1+1)*sizeofint);
-				if(xdata==NULL||ydata==NULL||gdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 				if(xdata==NULL||ydata==NULL||gdata==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 				if(setecol>0) {
 					edata= realloc(edata,(n1+1)*sizeofdouble);
@@ -445,8 +445,15 @@ int main (int argc, char *argv[]) {
 	if(n1<1) {
 		if(setverb==999) printf("*** STARTING: BUILDING FAKE DATA\n");
 		fprintf(stderr,"\n\a--- Warning[%s]: no data! Check input columns and whether input is non-numeric\n\n",thisprog);
-		xdata= realloc(xdata,(1)*sizeofdouble);
-		ydata= realloc(ydata,(1)*sizeofdouble);
+		n1=1;
+		xdata= realloc(xdata,sizeofdouble); if(xdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		ydata= realloc(ydata,sizeofdouble); if(ydata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		gdata= realloc(gdata,sizeoflong); if(gdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		linebreak=(int *)realloc(linebreak,sizeofint); if(linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
+		xdata[0]=0.0;
+		ydata[0]=0.0;
+		gdata[0]=0;
+		linebreak[0]=0;
 		if(setecol>0) {
 			edata= realloc(edata,sizeofdouble);
 			if(edata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
@@ -457,25 +464,46 @@ int main (int argc, char *argv[]) {
 			if(fdata==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 			fdata[0]=0.0;
 		}
-		gdata= realloc(gdata,sizeoflong);
-		linebreak=(int *)realloc(linebreak,sizeofint);
-		if(xdata==NULL||ydata==NULL||gdata==NULL||linebreak==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 		setgcol=-1; // forces the next step - making the fake group-IDs
 	}
 	/* IF GROUP COLUMN WAS UNDEFINED, MAKE A DUMMY GROUP LABEL ARRAY */
 	if(setgcol<0) {
 		if(setverb==999) printf("*** STARTING: BUILDING FAKE GROUPS\n");
-
 		gwords= realloc(gwords,((4)*sizeofchar)); if(gwords==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		igword= realloc(igword,((1)*sizeoflong)); if(igword==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		sprintf(gwords,"0");
 		igword[0]=0;
 		ngrps=1;
 	}
-	//TEST:	for(ii=0;ii<n1;ii++) printf("group[%ld]=%d label=%s	%g %g\n",ii,group[ii],(gwords+igword[group[ii]]),xdata[ii],ydata[ii]);
+	//TEST:
+	for(ii=0;ii<n1;ii++) printf("group[%ld]=%ld label=%s\t%g %g\n",ii,gdata[ii],(gwords+igword[gdata[ii]]),xdata[ii],ydata[ii]);
 	//TEST: for(grp=0;grp<ngrps;grp++) {printf("label[%d]=%s\n",grp,gwords+igword[grp]);}
-
-
+exit(0);
+	// /******************************************************************************/
+	// /* READ A STARS FILE IF ONE WAS SPECIFIED */
+	// /******************************************************************************/
+	// if(setstars=NULL) {
+	// 	if((fpin=fopen(setstars,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: stars-file not found (-stars %s)\n\n",thisprog,setstars);exit(1);}
+	// 	jj=kk= 0; // jj=linecounter, kk=colour-counter
+	// 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
+	// 		jj++;
+	// 		if(line[0]=='#') continue; // allow some comments
+	// 		if(strlen(line)<2) continue; // allow blank lines
+	//  		if(sscanf(line,"%lf %lf %lf",&a,&bb,&cc)!=3) {fprintf(stderr,"\n--- Error[%s]: palette file %s line %ld does not contain an RGB triplet\n\n",thisprog,setpal,jj);exit(1);}
+	// 		red= realloc(red,(kk+1)*sizeof(*red));
+	// 		green= realloc(green,(kk+1)*sizeof(*green));
+	// 		blue= realloc(blue,(kk+1)*sizeof(*blue));
+	// 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+	// 		starsgrp[kk]= a;
+	// 		starsx[kk]= b;
+	// 		starsn[kk]= c;
+	// 		kk++;
+	//  	}
+	//  	if(strcmp(infile,"stdin")!=0) fclose(fpin);
+	// 	if(kk<ngrps)  {fprintf(stderr,"\n--- Error[%s]: palette file %s defines too few colours (%ld) for the number of groups (%ld) \n\n",thisprog,setpal,kk,ngrps);exit(1);}
+	// 	nstars= kk;
+	// }
+	//
 
 	/******************************************************************************/
 	/******************************************************************************/
@@ -1037,7 +1065,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"	stroke\n");
 	fprintf(fpout,"	} def\n");
 
-// SAMPLE CALL TO STAR-CODE 
+// SAMPLE CALL TO STAR-CODE
 ///Helvetica findfont starfont scalefont setfont
 //1 8 0 20 S
 //4 8 1 102.99 S
