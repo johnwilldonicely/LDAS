@@ -478,7 +478,7 @@ int main (int argc, char *argv[]) {
 	//TEST:
 	for(ii=0;ii<n1;ii++) printf("group[%ld]=%ld label=%s\t%g %g\n",ii,gdata[ii],(gwords+igword[gdata[ii]]),xdata[ii],ydata[ii]);
 	//TEST: for(grp=0;grp<ngrps;grp++) {printf("label[%d]=%s\n",grp,gwords+igword[grp]);}
-exit(0);
+
 	// /******************************************************************************/
 	// /* READ A STARS FILE IF ONE WAS SPECIFIED */
 	// /******************************************************************************/
