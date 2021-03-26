@@ -266,6 +266,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-zx")==0) 	{ zx= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-zy")==0) 	{ zy= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-stars")==0) 	{ setstars= argv[++ii]; }
+			else if(strcmp(argv[ii],"-startype")==0)	{ setstartype= atoi(argv[++ii]); }
 			else if(strcmp(argv[ii],"-verb")==0) 	{ setverb= atoi(argv[++ii]); }
 			else {fprintf(stderr,"\n\a--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1); }
 	}}
@@ -283,6 +284,7 @@ int main (int argc, char *argv[]) {
 	if(setlegend<0||setlegend>2) {fprintf(stderr,"\n\a--- Error[%s]: invalid -legend (%d) - should be either 0 1 or 2\n\n",thisprog,setlegend);exit(1); }
 	if(setyzeroline!=0&&setyzeroline!=1) {fprintf(stderr,"\n\a--- Error[%s]: invalid -yzero (%d) - should be either 0 or 1\n\n",thisprog,setyzeroline);exit(1); }
 	if(setverb!=0&&setverb!=1&&setverb!=999) {fprintf(stderr,"\n\a--- Error[%s]: invalid -verb (%d) - should be either 0 or 1\n\n",thisprog,setverb);exit(1); }
+	if(setstartype!=1&&setstartype!=2) {fprintf(stderr,"\n\a--- Error[%s]: invalid --startype (%d) - should be either 0 or 1\n\n",thisprog,setstartype);exit(1); }
 	if(pointfill<0 && (strcmp(plottype,"histo")==0 || strcmp(plottype,"bar")==0)) {fprintf(stderr,"\n\a--- Error[%s]: white-fill (-pf -1) cannnot be used with histograms (-pt histo) or bars (-pt bar) \n\n",thisprog);exit(1); }
 	// automatically determine error-bar width and line width if required
 	if(setewidth==0) ewidth=0.5*boxwidth;
@@ -1178,7 +1180,7 @@ int main (int argc, char *argv[]) {
 
 		fprintf(fpout,"	%% PLOT_STARS\n");
 		if(setstars!=NULL) {
-			fprintf(fpout,"\t\tcf setrgbcolor\n");
+			fprintf(fpout,"\t\tc%ld setrgbcolor\n",tempcolour1);
 			fprintf(fpout,"\t\t/Helvetica findfont starfont scalefont setfont\n");
 			for(ii=0;ii<nstarlines;ii++) {
 				if(starsg[ii]==grp) {
