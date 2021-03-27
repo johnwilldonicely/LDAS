@@ -144,7 +144,7 @@ int main (int argc, char *argv[]) {
 				valcol[jj]=-1;
 				psetval= setval+isetval[jj];
 				for(ii=0;ii<nwords;ii++) if(strcmp(psetval,line+iwords[ii])==0) valcol[jj]= ii;
-				if(valcol[jj]==-1) {fprintf(stderr,"--- Warning[%s]: no value-column matching \"%s\" found in %s\n",thisprog,psetval,keyfile);}
+				if(valcol[jj]==-1) {fprintf(stderr,"\n--- Error[%s]: no value-column matching \"%s\" found in %s\n\n",thisprog,psetval,keyfile);exit(1);}
 			}
 			/* unparse the line (replace all nulls before the end with the primary setdelim) */
 			for(ii=0;ii<linelen;ii++) if(line[ii]=='\0') line[ii]= setdelim[0];

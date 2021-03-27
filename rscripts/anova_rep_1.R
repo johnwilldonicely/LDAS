@@ -40,8 +40,6 @@ model
 # GENERATE BRIEF REPORT
 cat("\nSIGNIFICANT-CONTRASTS ----------------------------------------------------------\n")
 brief= as.data.frame(con)
-# replace spaces beteween contrast levels
-brief[,1]= gsub(' - ','_-_',brief[,1])
 # select only significant contrasts
 brief= brief[brief$p.value<.05,]
 # round t & p values

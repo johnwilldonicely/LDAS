@@ -106,9 +106,9 @@ int main (int argc, char *argv[]) {
 	char *setpal=NULL,*setstars=NULL;
 	char plottype[16],pointtype[16],bigtic[MAXWORDLEN],*hlineword=NULL,*vlineword=NULL;
 	int setverb=0,setxcol=1,setycol=2,setfcol=-1,setecol=-1,setgcol=-1,setxmin=0,setxmax=0,setymin=0,setymax=0,setyzeroline=1,setline=0,sethline=0,setvline=0,setlinebreak=0,setlegend=0;
-	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0,setstartype=1;
+	int setpointsize=0,boxyzero=1,setewidth=0,setelwidth=0,setebright=0;
 	int pointfill=1, framestyle=3, f1=0,f2=0,f3=0,f4=0,setdatacolour=0,setmaxpoints=10000,setmid=1,setgshift=0;
-	int setpalrev=0;
+	int setpalrev=0,setstartype=1;
 	double setxminval,setxmaxval,setyminval,setymaxval,setxint=0.0,setyint=0.0,xint=0.0,yint=0.0,setxpad=-1.0,setypad=-1.0,setdown=0.0,setjitter=0.0;
 	double hline[MAXUSERLINES],vline[MAXUSERLINES],hlinemin,hlinemax,vlinemin,vlinemax;
 	float xscale=.3,yscale=.3; // plot scale - xlimit and ylimit are multiplied by these values
@@ -206,8 +206,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        (2) if a time-series repeats (x[ii]<x[i-1]) \n");
 		fprintf(stderr,"    -zx, -zy: page offset of the plot [%g,%g]\n",zx,zy);
 		fprintf(stderr,"        NOTE: -1 = default A4 top-left\n");
-		fprintf(stderr,"    -stars: add stars to plots using a file defining x, group, and p []\n");
-		fprintf(stderr,"    -startype: horizontal (1) or vertical (2) [%d]\n",startype);
+		fprintf(stderr,"    -stars: name of file defining stars to add (format: group x p) []\n");
+		fprintf(stderr,"    -startype: horizontal (1) or vertical (2) [%d]\n",setstartype);
 		fprintf(stderr,"    -out: output file name [%s]\n",outfile);
 		fprintf(stderr,"    -verb: verbose output (0=NO, 1=YES) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");

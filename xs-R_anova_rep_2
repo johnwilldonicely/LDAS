@@ -8,6 +8,7 @@ thisprog=`basename "$0"`
 progpath=$(dirname $(readlink -f "$0"))
 companion=$(echo "$progpath/rscripts/$thisprog" | sed 's/xs-R_//')".R"
 tempfile="temp_"$thisprog #"."$$"."
+plotfile="plot_"$thisprog".ps"
 
 # colours for use with text printed to terminal
 RED='\033[0;31m'	# for errors
@@ -16,14 +17,12 @@ GREEN='\033[0;32m'	# for interactive text requiring input
 NC='\033[0m' 		# to revert to default text colour
 
 colsneeded="4"
-
+setclean="1"
 setcontrol=""
 setadjust="bon"
 setfilegnames=""
-
-setclean="1"
-plotfile="plot_"$thisprog".pdf"
-
+setplot="1"
+setplotopts=""
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -51,6 +50,8 @@ if [ $# -lt 2 ]; then
 	echo "    --gnames: file defining group names [$setfilegnames]"
 	echo "    --control: specify the control group (default= first-found) [$setcontrol]"
 	echo "    --adjust: p-adjustment: one of none,dunnettx,sidak,bonferroni [$setadjust]"
+	echo "    --plot: generate plot? (0=NO 1=YES) [$setplot]"
+	echo "    --plotopts: extra, quoted plot options to pass to xe-plottable1 [$setplotopts]"
 	echo "EXAMPLE: "
 	echo "    "$thisprog" data.txt  id,treatment,hours,performance --control Vehicle"
 	echo "--------------------------------------------------------------------------------"
@@ -66,7 +67,7 @@ setcols=$1; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="c:" ; vl="clean:,control:,adjust:"
+vs="c:" ; vl="clean:,control:,adjust:,gnames:,plot:,plotopts:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]"$y"\n"$NC >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@")
@@ -76,6 +77,9 @@ while [ $# -gt 0 ] ; do
 		--clean ) setclean=$2 ; shift ;;
 		--control ) setcontrol=$2 ; shift ;;
 		--adjust ) setadjust=$2 ; shift ;;
+		--gnames ) setfilegnames=$2 ; shift ;;
+		--plot ) setplot=$2 ; shift ;;
+		--plotopts ) setplotopts=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -89,6 +93,7 @@ if [ ! -e "$infile" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: missing fil
 if [ ! -s "$infile" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: $infile is empty\n"$NC >&2 ; exit ; fi
 if [ ! -e "$companion" ] ; then echo $RED-e "\n--- Error ["$thisprog"]: missing companion R-script $companion\n"$NC >&2 ; exit ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
+if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
 
 # make sure there enough columns were specified
 let x=$(echo $setcols | tr ',' ' ' | wc -w)
@@ -102,6 +107,9 @@ if [ $z -lt $colsneeded ] ; then echo -e $RED"\n--- Error ["$thisprog"]: some co
 # check whether file actually has a header - non-numeric in top row of result-column
 foundhead=$(xe-cut1 $infile $setcols $optcut -s 1 | cut -f $colsneeded | head -n 1 | xe-checkisnum2 stdin | wc -l | awk '{print -1*($1-1)}')
 if [ $colalpha -eq 0 ] && [ $foundhead -eq 1 ] ; then echo -e $PURPLE"--- Warning ["$thisprog"]: set-columns ($setcols) are all numeric but input ($infile) appears to have a header. Header will be omitted and columns renamed \"subject,group,time,result\""$NC >&2 ; fi
+# check that the groupnames file is present
+if [ "$setfilegnames" != "" ] && [ ! -e "$setfilegnames" ] ; then  echo -e $RED"\n--- Error ["$thisprog"]: missing group-names file (--gnames $setfilegnames)\n"$NC ;  exit ; fi
+if [ "$setfilegnames" != "" ] && [ ! -s "$setfilegnames" ] ; then  echo -e $RED"\n--- Error ["$thisprog"]: empty group-names file (--gnames $setfilegnames)\n"$NC ;  exit ; fi
 
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
@@ -128,16 +136,20 @@ else
 		sed 's/-NA/NA/I' |                            # convert occassion "-nan" as well
 		sed "s/\B-\B/NA/g" >> $tempfile               # replace any "placeholder" hyphens with NA as well
 fi
+# with a header added, determine the name of the group-column
+colnamegroup=$(head -n 1 $tempfile | cut -f 2)
+colnametime=$(head -n 1 $tempfile | cut -f 3)
+colnameresult=$(head -n 1 $tempfile | cut -f 4)
 
-# check if group column contains non-numerics
-let w=$(xe-cut1 $tempfile $(echo $setcols | cut -f 1 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
-let x=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
-let y=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
-let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 4 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
+# check if columns contains non-numerics (w=subject, x=group, y=time, z=result)
+let w=$(xe-cut1 $tempfile $(echo $setcols | cut -f 1 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | wc -l)
+let x=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | wc -l)
+let y=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | wc -l)
+let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 3 -d ,) $optcut -o 1 -s 1 |  grep '[^-,.,0-9]' | grep -v -m 1 NA | wc -l)
 skipcheck="0";
-if [ $w -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: subject-column contains non-numerics - skipping replicate-check\""$NC >&2 ; fi
-if [ $x -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: group-column contains non-numerics - skipping replicate-check - consider using a numeric group-colummn in combinaton with the --gnames option\""$NC >&2 ; fi
-if [ $y -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: time-column contains non-numerics - skipping replicate-check\""$NC >&2 ; fi
+if [ $w -ne 0 ] ; then skipcheck="1" ; echo -e $PURPLE"--- Warning ["$thisprog"]: subject-column contains non-numerics - skipping replicate-check"$NC >&2 ; fi
+if [ $x -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: group-column contains non-numerics- consider using a numeric group-colummn in combinaton with the --gnames option\n\n"$NC >&2 ; exit ; fi
+if [ $y -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: time-column contains non-numerics - disallowed\n\n"$NC >&2 ; exit ; fi
 if [ $z -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: result-column contains non-numerics that are not NaN - disallowed\n\n"$NC >&2 ; exit ; fi
 
 # CHECK REPLICATES BEFORE CONTINUING
@@ -155,21 +167,67 @@ fi
 
 # CHECK THAT CONTROL GROUP IS VALID
 if [ "$setcontrol" != "" ] ; then
-	# first check that specified control is vlid!
+	# first check that specified control is valid!
 	let z=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 |  grep $setcontrol | wc -l)
 	if [ $z -eq 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: control-group (--control $setcontrol) not found in $infile\n\n"$NC >&2 ; exit ; fi
 else
 	setcontrol=$(xe-cut1 $tempfile $(echo $setcols | cut -f 2 -d ,) $optcut -o 1 -s 1 | head -n 1)
 fi
 
-# IF CONTROL GROUP STARTS WITH A NUMBER, PREFIX IT WITH "X" AS THIS IS WHAT R-EMMEANS WILL DO AUTOMATICALLY
-let z=$(echo $setcontrol | grep ^[0-9] | wc -l)
-if [ $z -ne 0 ] ; then setcontrol="X"$setcontrol ; fi
-
 ########################################################################################
 # INVOKE THE COMPANION SCRIPT
+# - save the output for potential use by plotting section
+# -remove any annoying Xs stuck on variable-names by emmeans()
 ########################################################################################
-cat $tempfile | Rscript $companion $setcontrol $setadjust
+# if control group starts with a number, prefix it with "x" as this is what r-emmeans will do automatically
+let z=$(echo $setcontrol | grep ^[0-9] | wc -l)
+if [ $z -ne 0 ] ; then setcontrol="X"$setcontrol ; fi
+# build a string-replacement command for sed based on the group-names table, if specified
+if [ "$setfilegnames" != "" ] ; then
+	optsed=$(xe-cut1 $setfilegnames group,name -o 1 | awk '{print "s#X"$1"#"$2"#g"}'  | tr '\n' ';')
+else
+	optsed="s# X# #g"
+fi
+# call the ANOVA companion-script
+xe-cut1 $tempfile 1,2,3,4 -n 1 |
+	Rscript $companion $setcontrol $setadjust |
+	sed "/=/ s/ X/ /g" |  # first remove Xs from the "by" line listing the time-variables, before substituting Xs in group-names
+	sed "$optsed" > $tempfile".stats"
+# output the stats
+cat $tempfile".stats"
+
+########################################################################################
+# PLOT
+########################################################################################
+# calculate the averages by group - this must use original
+if [ "$setplot" == "1" ] ; then
+
+	# make sed-command to swap-back the original group-numbers if the group-names have been inserted
+	if [ "$setfilegnames" != "" ] ; then
+		optsed=$(xe-cut1 $setfilegnames group,name -o 1 | awk '{print "s#"$2"#"$1"#g"}'  | tr '\n' ';')
+	# otherwise, remove all the Xs appended to the numeric names - because of the way R outputs, these Xs will always be preceded by a space
+	else
+		optsed="s# X# #g"
+	fi
+
+	# make a "stars" file for the plot - swapping names for group-number if required
+	xe-cut2 $tempfile".stats" SIGNIFICANT-CONTRASTS -s1 1 |
+	grep -- " - " |
+	sed 's/ - / /g' |
+	sed "$optsed" |
+	awk 'BEGIN{OFS="\t"}{print $1,$3,$4}' > $tempfile".stars"
+
+	# now make the plot
+	xl="$colnametime"
+	yl="Mean ($colnameresult)"
+	title="$infile"
+	plotopts="-cg 1 -cx 2 -cy 4 -ce 6 -pt box -gs 1 -bw .25 -legend 1 -lwa .5  -stars "$tempfile".stars -xscale .2"
+	xe-statsgrp2 $tempfile -cg1 2 -cg2 3 -cy 4 |
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title $title -out $plotfile $setplotopts
+
+	if [ "$setfilegnames" != "" ] ; then xs-plotmod1 $plotfile --out 1 --legend $setfilegnames ; fi
+
+fi
 
 ################################################################################
 # CLEANUP AND EXIT
