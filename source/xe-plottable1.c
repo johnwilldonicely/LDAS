@@ -14,6 +14,10 @@
 /*
 <TAGS>plot</TAGS>
 
+27.March.2021 [JRH]
+	- add option to use a stars file to put "significance" stars (horizontal or vertical) over datapoints
+	- fixed handling of empty data
+
 14.February.2021 [JRH]
 	- add option to use a .txt palette file
 
@@ -167,7 +171,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        magma: black-purple-cream\n");
 		fprintf(stderr,"        inferno: black-purple-orange-paleyellow\n");
 		fprintf(stderr,"        *.txt: a palette-file with an RGB triplet on each line\n");
-		fprintf(stderr,"            - triplets are 0-1 - example:  .75  0.0  1.0\n");
+		fprintf(stderr,"            - values are 0-1, example:  .75  0.0  1.0\n");
+		fprintf(stderr,"            - assigned to groups in ascendng order (from zero)\n");
 		fprintf(stderr,"    -palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
 		fprintf(stderr,"        NOTE: this does not apply to the default palette\n");
 		fprintf(stderr,"    -bw: box/bar width, as a fraction of xint (above) [%g]\n",boxwidth);
@@ -909,7 +914,7 @@ int main (int argc, char *argv[]) {
 	/* axis-labels */
 	fprintf(fpout,"/xaxislabel { moveto dup stringwidth pop 2 div neg 2 xtloff mul rmoveto show } def\n");
 	fprintf(fpout,"/yaxislabel { 90 rotate moveto dup stringwidth pop 2 div neg ytloff -3 mul rmoveto show -90 rotate } def\n");
-	fprintf(fpout,"/f_plottitle { ct setrgbcolor basefontsize .5 mul add moveto ytloff 4 mul  basefontsize 2 div rmoveto show cf setrgbcolor } def\n");
+	fprintf(fpout,"/f_plottitle { ct setrgbcolor basefontsize .5 mul add moveto ytloff 4 mul basefontsize 2 div rmoveto show cf setrgbcolor } def\n");
 
 	/* DEFINE LEGEND FUNCTION */
 	/* plot-legend function - includes a coloured square and the label for the group */
@@ -1180,8 +1185,8 @@ int main (int argc, char *argv[]) {
 
 		fprintf(fpout,"	%% PLOT_STARS\n");
 		if(setstars!=NULL) {
-			fprintf(fpout,"\t\tc%ld setrgbcolor\n",tempcolour1);
-			fprintf(fpout,"\t\t/Helvetica findfont starfont scalefont setfont\n");
+			fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour1);
+			fprintf(fpout,"\t/Helvetica findfont starfont scalefont setfont\n");
 			for(ii=0;ii<nstarlines;ii++) {
 				if(starsg[ii]==grp) {
 					aa= starsx[ii] + grpshift[grprank[starsg[ii]]];
@@ -1190,7 +1195,7 @@ int main (int argc, char *argv[]) {
 						if(aa==bb) {
 							if(setecol>0) cc= temp_ydata[jj] + temp_edata[jj];
 							else cc=  temp_ydata[jj];
-							fprintf(fpout,"\t\t%d %g %g S\n",starsn[ii],bb,cc);
+							fprintf(fpout,"\t%d %g %g S\n",starsn[ii],bb,cc);
 							break;
 					}}
 		}}}
