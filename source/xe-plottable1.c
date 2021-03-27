@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" 15.September.2020 [JRH]"
+#define TITLE_STRING thisprog" 27.March.2021 [JRH]"
 #define MAXLINELEN 10000
 #define MAXWORDLEN 256
 #define MAXUSERLINES 256
@@ -97,9 +97,9 @@ int main (int argc, char *argv[]) {
 	/* colour-palette variables */
 	float *red=NULL,*green=NULL,*blue=NULL;
 	/* variables for significance-stars */
-	long *starsg=NULL,nstarlines=0;
+	long *starsg=NULL,nstars=0;
 	double *starsx=NULL;
-	short *starsn=NULL;
+	short *starsig=NULL;
 
 
 	/* arguments */
@@ -207,6 +207,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    -zx, -zy: page offset of the plot [%g,%g]\n",zx,zy);
 		fprintf(stderr,"        NOTE: -1 = default A4 top-left\n");
 		fprintf(stderr,"    -stars: add stars to plots using a file defining x, group, and p []\n");
+		fprintf(stderr,"    -startype: horizontal (1) or vertical (2) [%d]\n",startype);
 		fprintf(stderr,"    -out: output file name [%s]\n",outfile);
 		fprintf(stderr,"    -verb: verbose output (0=NO, 1=YES) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
@@ -496,31 +497,31 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	if(setstars!=NULL) {
 		if((fpin=fopen(setstars,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: stars-file not found (-stars %s)\n\n",thisprog,setstars);exit(1);}
-		nstarlines= 0;
+		nstars= 0;
 		while(fgets(line,MAXLINELEN,fpin)!=NULL) {
 			jj++;
 			if(line[0]=='#') continue; // allow some comments
 			if(strlen(line)<2) continue; // allow blank lines
-	 		if(sscanf(line,"%64s %lf %lf",message,&bb,&cc)!=3) continue;
+	 		if(sscanf(line,"%64s %lf %lf",message,&bb,&cc)!=3) continue; // only scan64 characters
 			for(grp=0;grp<ngrps;grp++) if(strcmp(message,(gwords+igword[grp]))==0) break;
 			if(grp>=ngrps) {fprintf(stderr,"\n--- Error[%s]: stars file refers to a group (%s) not found in the input\n\n",thisprog,message);exit(1);}
-			starsg= realloc(starsg,(nstarlines+1)*sizeof(*starsg));
-			starsx= realloc(starsx,(nstarlines+1)*sizeof(*starsx));
-			starsn= realloc(starsn,(nstarlines+1)*sizeof(*starsn));
-			if(starsg==NULL||starsx==NULL||starsn==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-			starsg[nstarlines]= grp;
-			starsx[nstarlines]= bb;
-			starsn[nstarlines]= cc;
-			if(cc<.0001) starsn[nstarlines]=4;
-			else if(cc<.001) starsn[nstarlines]=3;
-			else if(cc<.01) starsn[nstarlines]=2;
-			else if(cc<.05) starsn[nstarlines]=1;
-			else starsn[nstarlines]=0;
-			nstarlines++;
+			starsg= realloc(starsg,(nstars+1)*sizeof(*starsg));
+			starsx= realloc(starsx,(nstars+1)*sizeof(*starsx));
+			starsig= realloc(starsig,(nstars+1)*sizeof(*starsig));
+			if(starsg==NULL||starsx==NULL||starsig==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+			starsg[nstars]= grp;
+			starsx[nstars]= bb;
+			starsig[nstars]= cc;
+			if(cc<.0001) starsig[nstars]=4;
+			else if(cc<.001) starsig[nstars]=3;
+			else if(cc<.01) starsig[nstars]=2;
+			else if(cc<.05) starsig[nstars]=1;
+			else starsig[nstars]=0;
+			nstars++;
 	 	}
 	 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	}
-	if(setverb==999) {printf("\nGROUP\tX\tSTARS\n");for(ii=0;ii<nstarlines;ii++) printf("%ld\t%g\t%d\n",starsg[ii],starsx[ii],starsn[ii]);}
+	if(setverb==999) {printf("\nGROUP\tX\tSIGNIFICANCE-LEVEL\n");for(ii=0;ii<nstars;ii++) printf("%ld\t%g\t%d\n",starsg[ii],starsx[ii],starsig[ii]);}
 
 
 	/******************************************************************************/
@@ -599,7 +600,10 @@ int main (int argc, char *argv[]) {
 		red[30]=1.0; green[30]=1.0; blue[30]=.75;
 		red[31]=1.0; green[31]=.90; blue[31]=.50;
 	}
-	/* READ A PALETTE FILE IF SETPAL ENDS IN ".TXT" */
+	/* READ A PALETTE FILE IF SETPAL ENDS IN ".TXT"
+	- any non-comment, not-blank lines must contain three numbers (0-1) representing red, green and blue
+	- as each triplet is read, it is assignied to groups 0,1,2,3 etc - may differ from the group-label
+	*/
 	else if(strstr(setpal,".txt")!=NULL) {
 		if((fpin=fopen(setpal,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: palette file \"%s\" not found\n\n",thisprog,setpal);exit(1);}
 		jj=kk= 0; // jj=linecounter, kk=colour-counter
@@ -621,7 +625,9 @@ int main (int argc, char *argv[]) {
 		if(kk<ngrps)  {fprintf(stderr,"\n--- Error[%s]: palette file %s defines too few colours (%ld) for the number of groups (%ld) \n\n",thisprog,setpal,kk,ngrps);exit(1);}
 		ncolours= kk;
 	}
-	/* USE XF_PALETTE7 IF SETPAL IS NEITHER DEFAULT NOR A FILE */
+	/* USE XF_PALETTE7 IF SETPAL IS NEITHER DEFAULT NOR A FILE
+	- this allows preset options for palette including grey,black2grey,rainbow,viridis,plasma,magma,inferno
+	*/
 	else {
 		setdatacolour= 0;
 		setebright= 0;
@@ -641,16 +647,20 @@ int main (int argc, char *argv[]) {
 	// DETERMINE GROUP-RANKS, FOR COLOURS AND STACKED-PLOT POSITIONING
 	// -  at this point we have defined gdata[], gwords[], igword[], ngrps
 	// - calculate the rank for each group
+	// - if groups are numeric, ranks are determined by the group-number
+	// - otherwise rank is determined by order of appearance
 	/******************************************************************************/
 	/******************************************************************************/
 	if(setverb==999) printf("*** STARTING: GROUP RANKING\n");
-	for(ii=0;ii<ngrps;ii++) grprank[ii]= ii;
 	if(gnums==1) {
 		if(temprank==NULL||tempdouble==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1); }
 		for(ii=0;ii<ngrps;ii++) temprank[ii]= ii;
 		for(ii=0;ii<ngrps;ii++) tempdouble[ii]= atof(gwords+igword[ii]);
 		xf_qsortindex1_d(tempdouble,temprank,(long)ngrps);
 		for(ii=0;ii<ngrps;ii++) grprank[temprank[ii]]=ii;
+	}
+	else {
+		for(ii=0;ii<ngrps;ii++) grprank[ii]= ii;
 	}
 	if(setverb==999) for(ii=0;ii<ngrps;ii++) printf("\tgrp=%ld\tvalue=%f\tgrprank=%ld\n",ii,atof(gwords+igword[ii]),grprank[ii]);
 
@@ -1187,7 +1197,7 @@ int main (int argc, char *argv[]) {
 		if(setstars!=NULL) {
 			fprintf(fpout,"\tc%ld setrgbcolor\n",tempcolour1);
 			fprintf(fpout,"\t/Helvetica findfont starfont scalefont setfont\n");
-			for(ii=0;ii<nstarlines;ii++) {
+			for(ii=0;ii<nstars;ii++) {
 				if(starsg[ii]==grp) {
 					aa= starsx[ii] + grpshift[grprank[starsg[ii]]];
 					for(jj=0;jj<nn;jj++) {
@@ -1195,7 +1205,7 @@ int main (int argc, char *argv[]) {
 						if(aa==bb) {
 							if(setecol>0) cc= temp_ydata[jj] + temp_edata[jj];
 							else cc=  temp_ydata[jj];
-							fprintf(fpout,"\t%d %g %g S\n",starsn[ii],bb,cc);
+							fprintf(fpout,"\t%d %g %g S\n",starsig[ii],bb,cc);
 							break;
 					}}
 		}}}
@@ -1425,7 +1435,7 @@ END:
 
 	if(starsg!=NULL) free(starsg);
 	if(starsx!=NULL) free(starsx);
-	if(starsn!=NULL) free(starsn);
+	if(starsig!=NULL) free(starsig);
 
 	exit(0);
 }

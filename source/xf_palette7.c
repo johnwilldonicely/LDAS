@@ -10,7 +10,7 @@ ARGUMENTS:
 	float *green  : as above for green
 	float *blue   : as above for blue
 	long nn       : size of the array to fill (number of colours)
-	char *palette : name of the palette (grey,rainbow,viridis,plasma,magma,inferno)
+	char *palette : name of the palette (grey,black2grey,rainbow,viridis,plasma,magma,inferno)
 	int rev       : reverse the order of palette colours (1=YES,0-NO)
 
 RETURN VALUE:
