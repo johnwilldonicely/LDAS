@@ -184,7 +184,7 @@ let z=$(echo $setcontrol | grep ^[0-9] | wc -l)
 if [ $z -ne 0 ] ; then setcontrol="X"$setcontrol ; fi
 # build a string-replacement command for sed based on the group-names table, if specified
 if [ "$setfilegnames" != "" ] ; then
-	optsed=$(xe-cut1 $setfilegnames group,name -o 1 | awk '{print "s#X"$1"#"$2"#g"}'  | tr '\n' ';')
+	optsed=$(xe-cut1 $setfilegnames group,name -o 1 | awk '{print "s# X"$1"# "$2"#g"}'  | tr '\n' ';')
 else
 	optsed="s# X# #g"
 fi

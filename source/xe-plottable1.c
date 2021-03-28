@@ -1,5 +1,5 @@
 #define thisprog "xe-plottable1"
-#define TITLE_STRING thisprog" 27.March.2021 [JRH]"
+#define TITLE_STRING thisprog" 28.March.2021 [JRH]"
 #define MAXLINELEN 10000
 #define MAXWORDLEN 256
 #define MAXUSERLINES 256
@@ -13,6 +13,9 @@
 
 /*
 <TAGS>plot</TAGS>
+
+28.March.2021 [JRH]
+	- finally put in a reliable (if complicated) system for achieving good axis & tic label offsets
 
 27.March.2021 [JRH]
 	- add option to use a stars file to put "significance" stars (horizontal or vertical) over datapoints
@@ -914,16 +917,31 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"ticsize 0 lt {/ticout ticsize def} {/ticout 0 def} ifelse \n");
 	fprintf(fpout,"/xtic { newx dup 0 exch 0 moveto 0 ticsize rlineto stroke xticlabel} def\n");
 	fprintf(fpout,"/ytic { newy 0 exch 1 index 1 index moveto ticsize 0 rlineto stroke yticlabel } def\n");
+	/* label-offsets for tics and axes */
+	if(setxint==-1) {
+		fprintf(fpout,"/xtloff { basefontsize -0.6 mul } def\n");
+		fprintf(fpout,"/xaloff { basefontsize -0.6 mul } def\n");
+	}
+	else {
+		fprintf(fpout,"/xtloff { basefontsize -1.0 mul ticout add } def\n");
+		fprintf(fpout,"/xaloff { basefontsize -1.0 mul ticout add } def\n");
+	}
+	if(setyint==-1) {
+		fprintf(fpout,"/ytloff { basefontsize -0.15 mul } def\n");
+		fprintf(fpout,"/yaloff { (%s) stringwidth pop basefontsize add } def\n",bigtic);
+	}
+	else{
+		fprintf(fpout,"/ytloff { basefontsize -.333 mul ticout add } def\n");
+		fprintf(fpout,"/yaloff { (%s) stringwidth pop basefontsize add neg ticout add neg } def\n",bigtic);
+	}
 	/* tics-labels: offsets determined by font and tic-size, and whether tics are positive or negative */
-	if(setxint==-1) fprintf(fpout,"/xtloff { basefontsize -0.6 mul } def\n");
-	else            fprintf(fpout,"/xtloff { basefontsize -1.0 mul ticout add } def\n");
-	if(setyint==-1) fprintf(fpout,"/ytloff { basefontsize -0.15 mul } def\n");
-	else            fprintf(fpout,"/ytloff { (%s) stringwidth pop -.5 mul ticout add } def\n",bigtic);
 	fprintf(fpout,"/xticlabel { moveto dup stringwidth pop 2 div neg xtloff rmoveto show } def\n");
-	fprintf(fpout,"/yticlabel { moveto dup stringwidth pop neg ytloff add -0.25 basefontsize mul rmoveto show } def\n");
-	/* axis-labels */
-	fprintf(fpout,"/xaxislabel { moveto dup stringwidth pop 2 div neg 2 xtloff mul rmoveto show } def\n");
-	fprintf(fpout,"/yaxislabel { 90 rotate moveto dup stringwidth pop 2 div neg ytloff -3 mul rmoveto show -90 rotate } def\n");
+	fprintf(fpout,"/yticlabel { moveto dup stringwidth pop neg ytloff add -0.333 basefontsize mul rmoveto show } def\n");
+	/* x-axis-label: position based on string-length, then use tic-label-offset, then apply final correction based on label font-size */
+	fprintf(fpout,"/xaxislabel { moveto dup stringwidth pop 2 div neg 0 rmoveto  0 xtloff rmoveto  0 basefontsize 2 add neg rmoveto show } def\n");
+	/* y-axis-label: this requires an additional offset-definition (yaloff) which accounts for the largest y-axis tic label  */
+	fprintf(fpout,"/yaxislabel { 90 rotate  moveto  dup stringwidth pop 2 div neg yaloff rmoveto   show -90 rotate } def\n");
+
 	fprintf(fpout,"/f_plottitle { ct setrgbcolor basefontsize .5 mul add moveto ytloff 4 mul basefontsize 2 div rmoveto show cf setrgbcolor } def\n");
 
 	/* DEFINE LEGEND FUNCTION */
