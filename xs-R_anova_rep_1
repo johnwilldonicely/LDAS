@@ -97,7 +97,7 @@ if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then echo -e "\n--- Error ["
 
 # make sure there enough columns were specified
 let x=$(echo $setcols | tr ',' ' ' | wc -w)
-if [ $x -lt $colsneeded ] ; then echo -e $RED"\n--- Error ["$thisprog"]: $colsneeded columns need to be specified - there were only $z ($setcols)\n"$NC >&2 ; exit ; fi
+if [ $x -lt $colsneeded ] ; then echo -e $RED"\n--- Error ["$thisprog"]: $colsneeded columns need to be specified - there were only $x ($setcols)\n"$NC >&2 ; exit ; fi
 # check if all column-names are numeric - if so, set option for xe-cut1 accordingly
 let colalpha=$(echo $setcols | tr ',' '\n' | grep '[^-,0-9]' | wc -l)
 if [ $colalpha -gt 0 ] ; then optcut="-n 0" ; else optcut="-n 1" ; fi
