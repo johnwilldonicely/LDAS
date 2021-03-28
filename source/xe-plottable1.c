@@ -1095,7 +1095,7 @@ int main (int argc, char *argv[]) {
 	fprintf(fpout,"	newpath\n");
 	fprintf(fpout,"	newpoint moveto\n");    // move to x/y coordinates - f remains
 	fprintf(fpout,"	starfont -5.4 div 0 rmoveto\n"); // x-shift based on fraction of font-size to align "*" to middle of x-position
-	fprintf(fpout,"	{ gsave (*) show  grestore 0 starfont 2 div rmoveto } repeat\n"); // last remaining argument (nstars) used for loop
+	fprintf(fpout,"	{ gsave (*) show  grestore 0 starfont 3 div rmoveto } repeat\n"); // last remaining argument (nstars) used for loop
 	fprintf(fpout,"	} def\n");
 
 	/* SHIFT COORDINATES FOR THIS PLOT */
