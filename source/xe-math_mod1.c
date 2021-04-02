@@ -1,5 +1,5 @@
 #define thisprog "xe-math_mod1"
-#define TITLE_STRING thisprog" v 1: 6 September 2020 [JRH]"
+#define TITLE_STRING thisprog" v 1: 2 April 2021 [JRH]"
 
 #include <stdio.h>
 #include <math.h>
@@ -8,7 +8,11 @@
 
 /*
 <TAGS>math </TAGS>
-v 1: 6 September 2020
+
+2 April 2021 [JRH]
+	- bugfix use of -1 to select "all columns" - do not adjust setc if -1 was used 
+
+6 September 2020
 	- multi-purpose program to replace several math programs
 		-[x] make long-line compatible
 		-[x] update storage for infile (should be dynamic)
@@ -98,7 +102,7 @@ int main(int argc, char *argv[]) {
 	else if(strcmp(setmode,"abs")==0) mode=6;
 	else {fprintf(stderr,"\n--- Error[%s]: invalid mode (%s)\n\n",thisprog,setmode);exit(1);}
 
-	setc--;
+	if(setc>0) setc--; // make selected column zero-offset, UNLESS -1 ("all") was used
 	nn= 0;
 
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
