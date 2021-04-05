@@ -14,14 +14,12 @@ fi
 # strip quotes and has-symbols from the string if they are present
 hex=$(echo $1| tr -d '#' | tr -d '"')
 
-# convert to decimal and divide by 255 to scale from 0-1
-echo $hex |
-	awk '{
-		a= substr($0,1,2)
-		red=   strtonum("0x" substr($0,1,2))/255;
-		green= strtonum("0x" substr($0,3,2))/255;
-		blue=  strtonum("0x" substr($0,5,2))/255;
-		printf("%.2f\t%.2f\t%.2f\n",red,green,blue)
-	}'
+red=$(echo $hex | cut -c 1-2)
+green=$(echo $hex | cut -c 3-4)
+blue=$(echo $hex | cut -c 5-6)
 
-exit
+R=$(echo -e "scale=3 ; $((16"#"$red)) / 255" | bc)
+G=$(echo -e "scale=3 ; $((16"#"$green)) / 255" | bc)
+B=$(echo -e "scale=3 ; $((16"#"$red)) / 255" | bc)
+
+echo -e $R"\t"$G"\t"$B

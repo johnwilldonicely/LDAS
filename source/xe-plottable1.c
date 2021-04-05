@@ -60,6 +60,7 @@ double *xf_unique_d(double *data, long *nn, char *message);
 double *xf_jitter1_d(double *yval, long nn, double centre, double limit, char *message);
 double xf_rand1_d(double setmax);
 long xf_scale1_l(long old, long min, long max);
+int xf_palette3(float *red, float *green, float *blue, long nn, int *anchors, int rev);
 int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, int rev);
 long xf_interp3_f(float *data, long ndata);
 void xf_qsortindex1_d(double *data, long *index,long nn);
@@ -642,7 +643,10 @@ int main (int argc, char *argv[]) {
 		blue= realloc(blue,kk*sizeof(*blue));
 		if(red==NULL||green==NULL||blue==NULL) {fprintf(stderr,"\n\a--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		for(ii=0;ii<kk;ii++) red[ii]=green[ii]=blue[ii]=NAN;
-		x= xf_palette7(red,green,blue,kk,setpal,setpalrev);
+//		x= xf_palette7(red,green,blue,kk,setpal,setpalrev);
+int anchors[9]={0,0,1, 0,1,0, 1,0,0};
+
+		x= xf_palette3(red,green,blue,kk,anchors,setpalrev);
 	}
 
 	/******************************************************************************/
