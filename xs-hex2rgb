@@ -14,12 +14,14 @@ fi
 # strip quotes and has-symbols from the string if they are present
 hex=$(echo $1| tr -d '#' | tr -d '"')
 
-red=$(echo $hex | cut -c 1-2)
-green=$(echo $hex | cut -c 3-4)
-blue=$(echo $hex | cut -c 5-6)
+# pull out the colour components - first 3 pairs of characters
+r1=$(echo $hex | cut -c 1-2)
+g1=$(echo $hex | cut -c 3-4)
+b1=$(echo $hex | cut -c 5-6)
 
-R=$(echo -e "scale=3 ; $((16"#"$red)) / 255" | bc)
-G=$(echo -e "scale=3 ; $((16"#"$green)) / 255" | bc)
-B=$(echo -e "scale=3 ; $((16"#"$red)) / 255" | bc)
+# convert to 0-255 decimal, then to 0-1 using awk
+r1=$(echo $((16"#"$r1)) | awk '{ printf("%.3f",($1/255)) }')
+g1=$(echo $((16"#"$g1)) | awk '{ printf("%.3f",($1/255)) }')
+b1=$(echo $((16"#"$b1)) | awk '{ printf("%.3f",($1/255)) }')
 
-echo -e $R"\t"$G"\t"$B
+echo -e $r1"\t"$g1"\t"$b1

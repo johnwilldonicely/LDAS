@@ -1,6 +1,8 @@
 /*
 DESCRIPTION:
 	Generate a 7-anchor RGB colour-palette (0-1 range)
+	- if fewer than 14 colours are specified, best-matches are chosen from a temporary 100-element version of the palette
+	- this ensures that the coulours are properly distributed for smaller sets
 
 DEPENDENCIES:
 	xf_interp3_f
@@ -44,10 +46,14 @@ long xf_interp3_f(float *data, long ndata);
 
 int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, int rev) {
 
-	long ii,jj,kk,mm,rgbstart[7];
+	long ii,jj,kk,mm=100,rgbstart[7];
 	float ct[21];
+	double aa;
 
+
+	/********************************************************************************/
 	/* DEFINE THE TRIPLETS FOR THE CHOSEN PALETTE */
+	/********************************************************************************/
 	if(strcmp(palette,"grey")==0) {
 		ct[0]=  0.2; ct[1]=  0.2; ct[2]=  0.2; // very dark grey
 		ct[3]=  0.3; ct[4]=  0.3; ct[5]=  0.3;
@@ -111,38 +117,83 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, i
 		ct[15]=0.99; ct[16]=0.71; ct[17]=0.10;
 		ct[18]=0.99; ct[19]=1.00; ct[20]=0.64;
 	}
+	else if(strcmp(palette,"vangough")==0) {
+		ct[0]=0.00; ct[1]=0.247; ct[2]=0.361;
+		ct[3]=0.216; ct[4]=0.298; ct[5]=0.502;
+		ct[6]=0.478; ct[7]=0.318; ct[8]=0.584;
+		ct[9]=0.737; ct[10]=0.314; ct[11]=0.565;
+		ct[12]=0.937; ct[13]=0.337; ct[14]=0.459;
+		ct[15]=1.00; ct[16]=0.463; ct[17]=0.290;
+		ct[18]=1.00; ct[19]=0.651; ct[20]=0.00;
+	}
 
 	else return(-1);
 
-	/* DEFINE THE START-POINTS FOR EACH COLOUR */
-	rgbstart[0]= (long)(nn*.00);
-	rgbstart[1]= (long)(nn*.17);
-	rgbstart[2]= (long)(nn*.34);
-	rgbstart[3]= (long)(nn*.51); // 50%
-	rgbstart[4]= (long)(nn*.68);
-	rgbstart[5]= (long)(nn*.85);
-	rgbstart[6]= (long)(nn-1);
-
-	/* INITIALIZE THE COLOUR ARRAYS TO NAN, SO THE INTERPOLATOR KNOWS WHERE TO INTERPOLATE */
-	for(ii=0;ii<nn;ii++) red[ii]= green[ii]= blue[ii]= NAN;
-
-	/* INSERT THE ANCHOR-COLOUR-TRIPLETS INTO THE RED GREEN AND BLUE ARRAYS */
-	for(ii=0;ii<7;ii++) {
-		kk= ii*3;
-		red[rgbstart[ii]]   = ct[kk];
-		green[rgbstart[ii]] = ct[kk+1];
-		blue[rgbstart[ii]]  = ct[kk+2];
+	/********************************************************************************/
+	/* OPTION1: FEW COLOURS - BUILD 100 RGB TRIPLETS AND PICK BEST FITS  */
+	if(nn<14) {
+		float *tempr=NULL, *tempg=NULL, *tempb=NULL;
+		tempr= malloc( 100 * (sizeof(*tempr)) );
+		tempg= malloc( 100 * (sizeof(*tempg)) );
+		tempb= malloc( 100 * (sizeof(*tempb)) );
+		if(tempr==NULL||tempg==NULL||tempb==NULL) return(-1);
+		/* INITIALIZE THE COLOUR ARRAYS TO NAN, SO THE INTERPOLATOR KNOWS WHERE TO INTERPOLATE */
+		for(ii=0;ii<100;ii++) tempr[ii]= tempg[ii]= tempb[ii]= NAN;
+		/* INSERT THE ANCHORS IN THE TEMP ARRAYS */
+		aa= 99.0/(7-1); // position adjustment, based on 7 anchors
+		for(ii=0;ii<7;ii++) {
+			jj=(long)((double)ii*aa); // index to position in 100-element temp array
+			kk= ii*3; // index to ct array
+			tempr[jj]= ct[kk];
+			tempg[jj]= ct[kk+1];
+			tempb[jj]= ct[kk+2];
+		}
+		/* APPLY INTERPOLATION */
+		xf_interp3_f(tempr,100);
+		xf_interp3_f(tempg,100);
+		xf_interp3_f(tempb,100);
+		/* NOW ASSIGN THE OUTPUT ARRAYS TO THE APPROPRIATE TEMP-RGB VALUES */
+		aa= 99.0/(nn-1); // increment based on 7 anchors
+		for(ii=0;ii<nn;ii++) {
+			jj=(long)((double)ii*aa); // index to position in 100-element temp array
+			red[ii]=   tempr[jj];
+			green[ii]= tempg[jj];
+			blue[ii]=  tempb[jj];
+		}
+		/* FREE THE TEMPORARY RGB ARRAYS */
+		free(tempr);free(tempg);free(tempb);
 	}
-
-	/* APPLY INTERPOLATION */
-	xf_interp3_f(red,nn);
-	xf_interp3_f(green,nn);
-	xf_interp3_f(blue,nn);
+	/********************************************************************************/
+	/* OPTION2: MANY COLOURS (nn >= 14) - just insert the anchors and interpolate */
+	else {
+		/* DEFINE THE START-POINTS FOR EACH COLOUR */
+		rgbstart[0]= (long)(nn*.00);
+		rgbstart[1]= (long)(nn*.17);
+		rgbstart[2]= (long)(nn*.34);
+		rgbstart[3]= (long)(nn*.51); // 50%
+		rgbstart[4]= (long)(nn*.68);
+		rgbstart[5]= (long)(nn*.85);
+		rgbstart[6]= (long)(nn-1);
+		/* INITIALIZE THE COLOUR ARRAYS TO NAN, SO THE INTERPOLATOR KNOWS WHERE TO INTERPOLATE */
+		for(ii=0;ii<nn;ii++) red[ii]= green[ii]= blue[ii]= NAN;
+		/* INSERT THE ANCHOR-COLOUR-TRIPLETS INTO THE RED GREEN AND BLUE ARRAYS */
+		for(ii=0;ii<7;ii++) {
+			kk= ii*3;
+			red[rgbstart[ii]]   = ct[kk];
+			green[rgbstart[ii]] = ct[kk+1];
+			blue[rgbstart[ii]]  = ct[kk+2];
+		}
+		/* APPLY INTERPOLATION */
+		xf_interp3_f(red,nn);
+		xf_interp3_f(green,nn);
+		xf_interp3_f(blue,nn);
+	}
 
 	/* REVERSE THE PALLET IF REQUESTED */
 	if(rev==1) {
 		mm= nn-1; // max value to speed up calculations
-		float *swap= malloc(nn*sizeof(*swap));
+		float *swap;
+		swap= malloc(nn*sizeof(*swap));
 		if(swap==NULL) return(-1);
 		for(ii=0;ii<nn;ii++) swap[ii]= red[mm-ii];
 		for(ii=0;ii<nn;ii++) red[ii]= swap[ii];

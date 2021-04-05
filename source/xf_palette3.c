@@ -33,10 +33,12 @@ SAMPLE CALL:
 
 long xf_interp3_f(float *data, long ndata);
 
-int xf_palette3(float *red, float *green, float *blue, long nn, int *anchors, int rev) {
+int xf_palette3(float *red, float *green, float *blue, long nn, float *anchors, int rev) {
 
 	long ii,jj,kk,mm,rgbstart[3];
 	float ct[21];
+
+	//TEST: printf("\n");for(ii=0;ii<9;ii+=3) printf("%g\t%g\t%g\n",anchors[ii],anchors[ii+1],anchors[ii+2]);
 
 	/* DEFINE THE START-POINTS FOR EACH COLOUR */
 	rgbstart[0]= (long)(nn*.00);
@@ -53,11 +55,14 @@ int xf_palette3(float *red, float *green, float *blue, long nn, int *anchors, in
 		green[rgbstart[ii]] = anchors[kk+1];
 		blue[rgbstart[ii]]  = anchors[kk+2];
 	}
+	//TEST: printf("\n"); for(ii=0;ii<nn;ii++) printf("%g\t%g\t%g\n",red[ii],green[ii],blue[ii]);
+
 
 	/* APPLY INTERPOLATION */
 	xf_interp3_f(red,nn);
 	xf_interp3_f(green,nn);
 	xf_interp3_f(blue,nn);
+	//TEST: printf("\n"); for(ii=0;ii<nn;ii++) printf("%g\t%g\t%g\n",red[ii],green[ii],blue[ii]);
 
 	/* REVERSE THE PALLET IF REQUESTED */
 	if(rev==1) {
