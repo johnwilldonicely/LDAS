@@ -184,10 +184,11 @@ int main (int argc, char *argv[]) {
 			|| nwords<setcolgrp3
 			) continue;
 		/* make sure each group-columns are numeric & finite, and convert non-numeric data to NAN */
-		if(sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1)!=1) continue; else if(!isfinite(tempgrp1)) continue;
-		if(sscanf(line+iword[setcolgrp2],"%lf",&tempgrp2)!=1) continue; else if(!isfinite(tempgrp2)) continue;
-		if(sscanf(line+iword[setcolgrp3],"%lf",&tempgrp3)!=1) continue; else if(!isfinite(tempgrp3)) continue;
-		if(sscanf(line+iword[setcoldata],"%lf",&dd)!=1) dd=NAN; else if(!isfinite(dd)) dd=NAN;
+		if(sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1)!=1 || !isfinite(tempgrp1)) continue;
+		if(sscanf(line+iword[setcolgrp2],"%lf",&tempgrp2)!=1 || !isfinite(tempgrp2)) continue;
+		if(sscanf(line+iword[setcolgrp3],"%lf",&tempgrp3)!=1 || !isfinite(tempgrp3)) continue;
+		if(sscanf(line+iword[setcoldata],"%lf",&dd)!=1) dd=NAN;
+		else if(!isfinite(dd)) dd=NAN;
 		/* reallocate memory */
 		data= realloc(data,(nn+1)*sizeofdata);
 		grp1= realloc(grp1,(nn+1)*sizeofgrp1);

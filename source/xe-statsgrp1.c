@@ -156,8 +156,9 @@ int main (int argc, char *argv[]) {
 			|| nwords<setcolgrp1
 			) continue;
 		/* make sure each group-columns are numeric & finite, and convert non-numeric data to NAN */
-		if(sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1)!=1) continue; else if(!isfinite(tempgrp1)) continue;
-		if(sscanf(line+iword[setcoldata],"%lf",&dd)!=1) dd=NAN; else if(!isfinite(dd)) dd=NAN;
+		if(sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1)!=1 || !isfinite(tempgrp1)) continue;
+		if(sscanf(line+iword[setcoldata],"%lf",&dd)!=1) dd=NAN;
+		else if(!isfinite(dd)) dd=NAN;
 		/* reallocate memory */
 		data= realloc(data,(nn+1)*sizeofdata);
 		grp1= realloc(grp1,(nn+1)*sizeofgrp1);
