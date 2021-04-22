@@ -124,7 +124,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr," -cg1 5");
 		fprintf(stderr," -cg2 7");
 		fprintf(stderr," -cg3 9");
-		fprintf(stderr,"\n",thisprog);
+		fprintf(stderr,"\n");
 		fprintf(stderr,"	cat temp.txt | %s stdin -gint 1\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
 		fprintf(stderr,"\tgrp1");
@@ -184,16 +184,10 @@ int main (int argc, char *argv[]) {
 			|| nwords<setcolgrp3
 			) continue;
 		/* make sure each group-columns are numeric & finite, and convert non-numeric data to NAN */
-		tempgrp1=tempgrp2=tempgrp3=dd= NAN;
-		sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1);
-		sscanf(line+iword[setcolgrp2],"%lf",&tempgrp2);
-		sscanf(line+iword[setcolgrp3],"%lf",&tempgrp3);
-		sscanf(line+iword[setcoldata],"%lf",&dd);
-		if(
-			!isfinite(tempgrp1)
-			|| !isfinite(tempgrp2)
-			|| !isfinite(tempgrp3)
-		) continue;
+		if(sscanf(line+iword[setcolgrp1],"%lf",&tempgrp1)!=1) continue; else if(!isfinite(tempgrp1)) continue;
+		if(sscanf(line+iword[setcolgrp2],"%lf",&tempgrp2)!=1) continue; else if(!isfinite(tempgrp2)) continue;
+		if(sscanf(line+iword[setcolgrp3],"%lf",&tempgrp3)!=1) continue; else if(!isfinite(tempgrp3)) continue;
+		if(sscanf(line+iword[setcoldata],"%lf",&dd)!=1) dd=NAN; else if(!isfinite(dd)) dd=NAN;
 		/* reallocate memory */
 		data= realloc(data,(nn+1)*sizeofdata);
 		grp1= realloc(grp1,(nn+1)*sizeofgrp1);
