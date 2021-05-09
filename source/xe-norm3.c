@@ -8,7 +8,7 @@
 #include <string.h>
 
 /*
-<TAGS> stats </TAGS>
+<TAGS> stats transform </TAGS>
 
 v 1: 5.February.2021 [JRH]
 	- make id1 and id2 double-precision float, for more flexibility in naming of "groups"
@@ -89,7 +89,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	%s data.txt -t 1\n",thisprog);
 		fprintf(stderr,"	cat temp.txt | %s stdin -t 3\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	four columns od data : id1,id2,rep, and val(normalised)\n");
+		fprintf(stderr,"	four columns of data : id1,id2,rep, and val(normalised)\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
