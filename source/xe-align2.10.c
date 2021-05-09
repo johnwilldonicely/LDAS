@@ -1,5 +1,5 @@
 #define thisprog "xe-align2"
-#define TITLE_STRING thisprog" v 11: 24.February.2020 [JRH]"
+#define TITLE_STRING thisprog" v 11: 9.May.2020 [JRH]"
 #define MAXLINELEN 1000
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +9,9 @@
 /* <TAGS> dt.block signal_processing transform filter stats </TAGS> */
 
 /*
+v 11: 9.May.2020 [JRH]
+	- bugfix check for normalisation with -pn setting
+
 v 11: 24.February.2020 [JRH]
 	- move outlier detection to a function (xf_outlier2_f)
 
@@ -184,12 +187,12 @@ int main (int argc, char *argv[]) {
 	if(setpn>setpre) {fprintf(stderr,"\n--- Error[%s]: -pn (%ld) must not exceed -pre (%ld)\n\n",thisprog,setpn,setpre);exit(1);};
 	if(setpnx>setpn) {fprintf(stderr,"\n--- Error[%s]: -pnx (%ld) must not exceed -pn (%ld)\n\n",thisprog,setpnx,setpn);exit(1);};
 	if(setpn==0) setpn=setpre;
+	else if(setnorm==1) {fprintf(stderr,"\n--- Error[%s]: cannot set -pn (%ld) with single-sample normalization (-norm %d)\n\n",thisprog,setpn,setnorm);exit(1);};
 
 	if(setnorm<0||setnorm>5) {fprintf(stderr,"\n--- Error[%s]: -norm (%d) must be 0,1,2,3,4 or 5\n\n",thisprog,setnorm);exit(1);};
 	if(setflip!=0&&setflip!=1) {fprintf(stderr,"\n--- Error[%s]: -flip (%d) must be 0 or 1\n\n",thisprog,setflip);exit(1);};
 	if(setout!=0&&setout!=1) {fprintf(stderr,"\n--- Error[%s]: -out (%d) must be 0 or 1\n\n",thisprog,setout);exit(1);};
 	if(setlast!=-1 && setfirst>setlast) {fprintf(stderr,"\n--- Error[%s]: -first (%ld) is greater than -last (%ld)\n\n",thisprog,setfirst,setlast);exit(1);}
-	else if(setnorm==1) {fprintf(stderr,"\n--- Error[%s]: cannot set -pn (%ld) with single-sample normalization (-norm %d)\n\n",thisprog,setpn,setnorm);exit(1);};
 
 	/* calculate block size (ndat2) */
 	ndat2=setpre+setpost+1;
