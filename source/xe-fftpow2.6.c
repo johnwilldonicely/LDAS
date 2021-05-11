@@ -1,5 +1,5 @@
 #define thisprog "xe-fftpow2"
-#define TITLE_STRING thisprog" v 6: 11.September.2018 [JRH]"
+#define TITLE_STRING thisprog" v 6: 11.May.2021 [JRH]"
 #define MAXLINELEN 1000
 
 #include<math.h>
@@ -15,6 +15,10 @@ REFERENCES:
 http://www.ni.com/white-paper/4278/en/
 http://zone.ni.com/reference/en-XX/help/371361B-01/lvanlsconcepts/compute_amp_phase_spectrums/
 http://zone.ni.com/reference/en-XX/help/371361B-01/lvanlsconcepts/convert_to_log_units/
+
+v 6: 11.May.2021 [JRH]
+	- add -scrl option to define blocks with a CSV list
+	- move block-test outside of -scrf read-condition (this test should be applied regardless of how the blocks are defined)
 
 v 6: 11.September.2018 [JRH]
 	- minor fix to unequal-block-size detection (warning only)
@@ -96,6 +100,7 @@ v 1: 15 September 2014 [JRH]
 */
 
 /* external functions start */
+long *xf_lineparse2(char *line,char *delimiters, long *nwords);
 void *xf_readbin3_v(char *infile, off_t *params, off_t *start, off_t *toread, char *message);
 int xf_writebin2_v(char *outfile, void *data0, size_t nn, size_t datasize, char *message);
 double *xf_taperhann_d(long setn, int setmean, float setpow, char *message);
@@ -127,9 +132,9 @@ int main(int argc, char *argv[]) {
 	int datasize=0;
 	long halfnwin,partnwin,blocksize,windexmem,nbad=0;
 	long window,wintot=0,*windex=NULL,block,blocktot=1,*blockstart=NULL,*blockstop=NULL;
+	long *iword=NULL,nwords;
 	float *buff2=NULL,*data=NULL,*pdata,*freq=NULL,*Fval=NULL,sum=0.0,mean,sample_interval=0.0F,scaling1;
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
-
 	long nbands,*bandA2=NULL,*bandZ2=NULL;
 	double *bandA1=NULL,*bandZ1=NULL;
 
@@ -148,7 +153,7 @@ int main(int argc, char *argv[]) {
 	double *p9=NULL;
 
 	/* arguments */
-	char *setblockfile=NULL;
+	char *setblockfile=NULL,*setscrl=NULL;
 	int indexa=-1,indexb=-1,setnwin=-1,setstep=1,setout=0,setverb=0,setorder=1,setgauss=0,setunits=0;
 	int settaper=1,setmean=1,setdatatype=-1,setbinout=0;
 	long setstart=0,setntoread=0; /// currently undefined - set for whole-file read
@@ -200,6 +205,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"		* if unset, single block for entire input is assumed\n");
 		fprintf(stderr,"		* -o 0: output's mean spectrum for all windows and all blocks\n");
 		fprintf(stderr,"		* -o 1: each matrix will have a block-header\n");
+		fprintf(stderr,"	-scrl: instead, define blocks using CSV list of start-stop pairs [unset]\n");
 		fprintf(stderr,"	-m: mean-correct data in each window (0=NO, 1=YES) [%d]\n",setmean);
 		fprintf(stderr,"	-t: taper type: 0=none, 1=Hann [%d]\n",settaper);
 		fprintf(stderr,"	-p: power to raise the taper, higher values increase slope [%d]\n",setorder);
@@ -245,6 +251,7 @@ int main(int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-dt")==0)     setdatatype=atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-scrf")==0)   setblockfile=argv[++ii];
+			else if(strcmp(argv[ii],"-scrl")==0)   setscrl=argv[++ii];
 			else if(strcmp(argv[ii],"-sf")==0)     setsfreq=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-min")==0)    minfreq=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-max")==0)    maxfreq=atof(argv[++ii]);
@@ -273,6 +280,7 @@ int main(int argc, char *argv[]) {
 	if(setunits<0||setunits>3) { fprintf(stderr,"\n--- Error [%s]: -u [%d] must be 0,1,or 2\n\n",thisprog,setunits);exit(1);}
 	if(setstep<1) { fprintf(stderr,"\n--- Error [%s]: -s [%d] must be >0\n\n",thisprog,setstep);exit(1);}
 	if(setbinout!=0&&setbinout!=1) { fprintf(stderr,"\n--- Error [%s]: -binout [%d] must be 0 or 1\n\n",thisprog,setbinout);exit(1);}
+	if(setblockfile!=NULL && setscrl!=NULL) { fprintf(stderr,"\n--- Error [%s]: cannot set both -scrf and -scrl\n\n",thisprog);exit(1);}
 	/* check data-type options and set data size */
 	if(setdatatype==0||setdatatype==1)      datasize=sizeof(char);
 	else if(setdatatype==2||setdatatype==3) datasize=sizeof(short);
@@ -460,51 +468,67 @@ int main(int argc, char *argv[]) {
 	/* SET UP THE BLOCK START-TIMES (FOR ALIGNING FFT TO BLOCKS OF DATA) */
 	/********************************************************************************/
 	if(setverb>0) fprintf(stderr,"	* Defining blocks...\n");
-	/* If no block time-file was specified, assume a single block spanning the whole record */
-	if(setblockfile==NULL) {
+	if(setscrl!=NULL) {
+		blocktot= 0;
+		iword= xf_lineparse2(setscrl,",",&nwords);
+		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);}
+		if(nwords%2!=0) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) has an odd number of items (%ld)\n\n",thisprog,nwords);exit(1);}
+		if((blockstart=(long *)realloc(blockstart,(nwords/2)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		if((blockstop=(long *)realloc(blockstop,(nwords/2)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		for(jj=1;jj<nwords;jj++) {
+			ii=jj-1;
+			if(sscanf((setscrl+iword[ii]),"%ld",&kk)!=1) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) contains a non-integer (%s)\n\n",thisprog,(setscrl+iword[ii]));exit(1);}
+			blockstart[blocktot]= kk;
+			if(sscanf((setscrl+iword[jj]),"%ld",&kk)!=1) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) contains a non-integer (%s)\n\n",thisprog,(setscrl+iword[jj]));exit(1);}
+			blockstop[blocktot]= kk;
+			blocktot++;
+	}}
+	/* If a block time-file was specified, use the start times listed in it instead */
+	else if (setblockfile!=NULL) {
+		/* read block file */
+		blocktot = xf_readssp1(setblockfile,&blockstart,&blockstop,message);
+		if(blocktot==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+	}
+	/* If no screening file or list was set, assume a single block spanning the whole record */
+	else {
 		blocktot=1;
 		if((blockstart=(long *)realloc(blockstart,1*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		if((blockstop=(long *)realloc(blockstop,1*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
 		blockstart[0]= 0;
 		blockstop[0]= nn;
 	}
-	/* If a block time-file was specified, use the start times listed in it instead */
-	else {
+	//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; fprintf(stderr,"block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
 
-		/* read block file */
-		blocktot = xf_readssp1(setblockfile,&blockstart,&blockstop,message);
-		if(blocktot==-1) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
-		//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; fprintf(stderr,"block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
-
-		/* reject out-of-range blocks and blocks that are smaller than the FFT window size */
-		mm= 0;
-		for(ii=0;ii<blocktot;ii++) {
-			jj= blockstart[ii];
-			kk= blockstop[ii];
-			if( jj>=0 && jj<=nn && kk>=0 && kk<=nn && (kk-jj)>=setnwin ) {
-				blockstart[mm]= jj;
-				blockstop[mm]= kk;
-				mm++;
-		}}
-		if(mm<blocktot) {
-			if(setverb>0) fprintf(stderr,"\t\t-Warning: %ld blocks dropped (out of range or smaller than FFT window)\n",(blocktot-mm));
-			blocktot=mm;
-		}
-		if(blocktot==0) {fprintf(stderr,"\n--- Error[%s]: no valid blocks in %s\n\n",thisprog,setblockfile);exit(1);}
-
-		/* flag if block sizes vary */
-		z= 0;
-		mm= blockstop[0]-blockstart[0];
-		for(ii=1;ii<blocktot;ii++) {
-			jj= blockstart[ii];
-			kk= blockstop[ii];
-			//TEST: fprintf(stderr,"%ld to %ld - mm=%ld  dur=%ld\n",blockstart[ii],blockstop[ii],mm,(kk-jj));
-			if((kk-jj) != mm) z=1;
-		}
-		if(setverb>0 && setout==1 && z!=0) {fprintf(stderr,"\t\t--- Warning[%s]: block size varies. Number of matrix rows will vary as a consequence\n",thisprog);}
-
+	/********************************************************************************/
+	/* REJECT OUT-OF-RANGE BLOCKS AND BLOCKS THAT ARE SMALLER THAN THE FFT WINDOW SIZE */
+	/********************************************************************************/
+	mm= 0;
+	for(ii=0;ii<blocktot;ii++) {
+		jj= blockstart[ii];
+		kk= blockstop[ii];
+		if( jj>=0 && jj<=nn && kk>=0 && kk<=nn && (kk-jj)>=setnwin ) {
+			blockstart[mm]= jj;
+			blockstop[mm]= kk;
+			mm++;
+	}}
+	if(mm<blocktot) {
+		if(setverb>0) fprintf(stderr,"\t\t-Warning: %ld blocks dropped (out of range or smaller than FFT window)\n",(blocktot-mm));
+		blocktot=mm;
 	}
-	//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) fprintf(stderr,"block %ld = [%ld]-[%ld]\n",ii,blockstart[ii],blockstop[ii]); exit(0);
+	if(blocktot==0) {fprintf(stderr,"\n--- Error[%s]: no valid blocks in %s\n\n",thisprog,setblockfile);exit(1);}
+	/* flag if block sizes vary */
+	z= 0;
+	mm= blockstop[0]-blockstart[0];
+	for(ii=1;ii<blocktot;ii++) {
+		jj= blockstart[ii];
+		kk= blockstop[ii];
+		//TEST: fprintf(stderr,"%ld to %ld - mm=%ld  dur=%ld\n",blockstart[ii],blockstop[ii],mm,(kk-jj));
+		if((kk-jj) != mm) z=1;
+	}
+	if(setverb>0 && setout==1 && z!=0) {fprintf(stderr,"\t\t--- Warning[%s]: block size varies. Number of matrix rows will vary as a consequence\n",thisprog);}
+
+	//TEST_OUTPUT_BLOCK_TIMES:
+	for(ii=0;ii<blocktot;ii++) fprintf(stderr,"block %ld = [%ld]-[%ld]\n",ii,blockstart[ii],blockstop[ii]); exit(0);
 
 
 	/********************************************************************************
