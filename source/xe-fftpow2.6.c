@@ -527,8 +527,7 @@ int main(int argc, char *argv[]) {
 	}
 	if(setverb>0 && setout==1 && z!=0) {fprintf(stderr,"\t\t--- Warning[%s]: block size varies. Number of matrix rows will vary as a consequence\n",thisprog);}
 
-	//TEST_OUTPUT_BLOCK_TIMES:
-	for(ii=0;ii<blocktot;ii++) fprintf(stderr,"block %ld = [%ld]-[%ld]\n",ii,blockstart[ii],blockstop[ii]); exit(0);
+	//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) fprintf(stderr,"block %ld = [%ld]-[%ld]\n",ii,blockstart[ii],blockstop[ii]); exit(0);
 
 
 	/********************************************************************************
