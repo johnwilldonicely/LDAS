@@ -473,16 +473,19 @@ int main(int argc, char *argv[]) {
 		iword= xf_lineparse2(setscrl,",",&nwords);
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);}
 		if(nwords%2!=0) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) has an odd number of items (%ld)\n\n",thisprog,nwords);exit(1);}
-		if((blockstart=(long *)realloc(blockstart,(nwords/2)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		if((blockstop=(long *)realloc(blockstop,(nwords/2)*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
-		for(jj=1;jj<nwords;jj++) {
+		kk= nwords/2;
+		if((blockstart=(long *)realloc(blockstart,kk*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		if((blockstop=(long *)realloc(blockstop,kk*sizeoflong))==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);}
+		blocktot= 0;
+		for(jj=1;jj<nwords;jj+=2) {
 			ii=jj-1;
 			if(sscanf((setscrl+iword[ii]),"%ld",&kk)!=1) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) contains a non-integer (%s)\n\n",thisprog,(setscrl+iword[ii]));exit(1);}
 			blockstart[blocktot]= kk;
 			if(sscanf((setscrl+iword[jj]),"%ld",&kk)!=1) {fprintf(stderr,"\n--- Error[%s]: screening-list (-scrl) contains a non-integer (%s)\n\n",thisprog,(setscrl+iword[jj]));exit(1);}
 			blockstop[blocktot]= kk;
 			blocktot++;
-	}}
+		}
+	}
 	/* If a block time-file was specified, use the start times listed in it instead */
 	else if (setblockfile!=NULL) {
 		/* read block file */
@@ -497,7 +500,7 @@ int main(int argc, char *argv[]) {
 		blockstart[0]= 0;
 		blockstop[0]= nn;
 	}
-	//TEST_OUTPUT_BLOCK_TIMES: for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; fprintf(stderr,"block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
+	//TEST_OUTPUT_BLOCK_TIMES:for(ii=0;ii<blocktot;ii++) { jj=blockstart[ii]; kk=blockstop[ii]; printf("block %ld = [%ld]-[%ld]	dur=%ld\n",ii,jj,kk,(kk-jj)); }
 
 	/********************************************************************************/
 	/* REJECT OUT-OF-RANGE BLOCKS AND BLOCKS THAT ARE SMALLER THAN THE FFT WINDOW SIZE */
