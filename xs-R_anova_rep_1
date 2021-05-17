@@ -22,8 +22,11 @@ setcontrol=""
 setadjust="bon"
 setfilegnames=""
 setplot="1"
-
-
+setplotopts=""
+setxl="-"
+setyl="-"
+settitle="-"
+setcheckrep="1"
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -50,7 +53,13 @@ if [ $# -lt 2 ]; then
 	echo "    --gnames: file defining group names [$setfilegnames]"
 	echo "    --control: specify the control group (default= first-found) [$setcontrol]"
 	echo "    --adjust: p-adjustment: one of none,dunnettx,sidak,bonferroni [$setadjust]"
+	echo "    --checkrep: check that design is balanced (0=NO 1=YES) [$setcheckrep]"
+	echo "        - checks that conditions are replicated across groups and subjects"
+	echo "plot options..."
 	echo "    --plot: generate plot? (0=NO 1=YES) [$setplot]"
+	echo "    --title: plot title, in quotes (\"-\"=default) [$settitle]"
+	echo "    --xl: plot x-label, in quotes (\"-\"=default) [$setxl]"
+	echo "    --yl: plot y-label, in quotes (\"-\"=default) [$setyl]"
 	echo "    --plotopts: extra, quoted plot options to pass to xe-plottable1 [$setplotopts]"
 	echo "EXAMPLE: "
 	echo "    "$thisprog" data.txt  id,treatment,hours,performance --control Vehicle"
@@ -67,7 +76,7 @@ setcols=$1; shift
 ########################################################################################
 # OPTIONAL ARGUMENT HANDLING
 ########################################################################################
-vs="c:" ; vl="clean:,control:,adjust:,gnames:,plot:,plotopts:"
+vs="c:" ; vl="clean:,control:,adjust:,gnames:,plot:,plotopts:,title:,xl:,yl:,checkrep:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e $RED"\n--- Error ["$thisprog"]"$y"\n"$NC >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@")
@@ -80,6 +89,10 @@ while [ $# -gt 0 ] ; do
 		--gnames ) setfilegnames=$2 ; shift ;;
 		--plot ) setplot=$2 ; shift ;;
 		--plotopts ) setplotopts=$2 ; shift ;;
+		--title ) settitle=$2 ; shift ;;
+		--xl ) setxl=$2 ; shift ;;
+		--yl ) setyl=$2 ; shift ;;
+		--checkrep ) setcheckrep=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -94,6 +107,7 @@ if [ ! -s "$infile" ] ; then echo -e $RED"\n--- Error ["$thisprog"]: $infile is 
 if [ ! -e "$companion" ] ; then echo $RED-e "\n--- Error ["$thisprog"]: missing companion R-script $companion\n"$NC >&2 ; exit ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
 if [ "$setplot" != "0" ] && [ "$setplot" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --plot ($setplot) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
+if [ "$setcheckrep" != "0" ] && [ "$setcheckrep" != "1" ] ; then echo -e "\n--- Error ["$thisprog"]: invalid --checkrep ($setcheckrep) -  must be 0 or 1\n"$NC >&2 ;  exit ; fi
 
 # make sure there enough columns were specified
 let x=$(echo $setcols | tr ',' ' ' | wc -w)
@@ -150,7 +164,7 @@ if [ $x -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: group-column cont
 if [ $z -ne 0 ] ; then echo -e $RED"\n--- Error ["$thisprog"]: result-column contains non-numerics that are not NaN - disallowed\n\n"$NC >&2 ; exit ; fi
 
 # CHECK REPLICATES BEFORE CONTINUING - we must add a dummy variable for the thrird predictor
-if [ "$skipcheck" == "0" ] ; then
+if [ "$skipcheck" == "0" ] && [ "$setcheckrep" != "0" ] ; then
 	awk '{print $1"\t"$2"\t1\t"$3}' $tempfile |
 	xe-checkreplicate1 stdin -head 1 2> $tempfile".error"
 	if [ -s $tempfile".error" ] ; then
@@ -191,6 +205,9 @@ xe-cut1 $tempfile 1,2,3 -n 1 |
 	Rscript $companion $setcontrol $setadjust |
 	sed "$optsed" > $tempfile".stats"
 # output the stats
+echo "################################################################################"
+echo "# INPUT: "$infile
+echo "################################################################################"
 cat $tempfile".stats"
 
 ########################################################################################
@@ -215,12 +232,13 @@ if [ "$setplot" == "1" ] ; then
 	awk 'BEGIN{OFS="\t"}{print $1,$1,$3}' > $tempfile".stars"
 
 	# now make the plot
-	xl="$colnamegroup"
-	yl="Mean ($colnameresult)"
-	title="$infile"
 	plotopts="-cg 1 -cx 1 -cy 3 -ce 5 -xint 1 -pt box -legend 1 -lwa .5 -stars "$tempfile".stars -xscale .2"
+	if [ "$settitle" != "-" ] ; then title="$settitle" ; else title="$infile" ; fi
+	if [ "$setxl" != "-" ] ; then xl="$setxl" ; else xl="$colnamegroup" ; fi
+	if [ "$setyl" != "-" ] ; then yl="$setyl" ; else yl="Mean ($colnameresult)" ; fi
+
 	xe-statsgrp1 $tempfile -cg1 2 -cy 3 |
-		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title $title -out $plotfile $setplotopts
+		xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "$yl" -title "$title" -out $plotfile $setplotopts
 
 	if [ "$setfilegnames" != "" ] ; then xs-plotmod1 $plotfile --out 1 --legend $setfilegnames ; fi
 
