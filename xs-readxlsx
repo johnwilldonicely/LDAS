@@ -1,0 +1,104 @@
+#!/bin/bash
+# <TAGS>transpharmation transform </TAGS>
+
+################################################################################
+# INTIAL VARIABLE DEFINITIONS
+################################################################################
+allopts=$@
+thisprog=`basename "$0"`
+tempfile="temp_"$thisprog #"_"$$
+tempdir="tempdir_"$tempfile
+progbase1=$(echo $thisprog | awk -F - '{print toupper($NF)}')
+
+progpath=$(dirname $(readlink -f "$0"))
+startdir=$(pwd)
+start_time=$(date +'%s.%3N')
+RED='\033[0;31m'	# for errors
+PURPLE='\033[0;35m'	# for warnings
+GREEN='\033[0;32m'	# for interactive text requiring input
+NC='\033[0m' 		# to revert to default text colour
+
+
+################################################################################
+# PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
+################################################################################
+if [ $# -lt 1 ]; then
+	echo
+	echo "--------------------------------------------------------------------------------"
+	echo $thisprog": convert an Excel .xlsx file to a text table"
+	echo "    - requires gnumeric's ssconvert utility"
+	echo "    - produces one file per sheet in the input"
+	echo "    - output filenames begin with \""$progbase1"_\""
+	echo "    - output is tab-delimited text"
+	echo "USAGE: $thisprog [in] [options]"
+	echo "	[in]: input file, Excel .xlsx file"
+	echo "VALID OPTIONS (defaults in []):"
+	echo "	[none]"
+	echo "EXAMPLE: "
+	echo "	$thisprog dosing.xlsx"
+	echo "--------------------------------------------------------------------------------"
+	echo
+	exit
+fi
+
+
+
+########################################################################################
+# INPUT FILE(S) AND REQUIRED ARGUMENT HANDLING
+########################################################################################
+infile=$1 
+if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" ;  exit; } ; fi
+if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" ;  exit; } ; fi
+
+shift
+
+# CHECK IF DEPENDENCY IS INSTALLED
+if [ "$(command -v ssconvert)" == "" ] ; then { echo -e "\n--- Error ["$thisprog"]: you need to install gnumeric on this machine to be able to convert .xlsx spreadsheets\n" ;  exit; } ; fi
+
+########################################################################################
+# OPTIONAL ARGUMENT HANDLING
+########################################################################################
+vs="v:c:p:" ; vl="verb:,clean:,prefix:"
+y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
+if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
+else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
+while [ $# -gt 0 ] ; do
+	case $1 in
+		-v | --verb ) setverb=$2 ; shift ;;
+		-c | --clean ) setclean=$2 ; shift ;;
+		-p | --prefix ) setprefix=$2 ; shift ;;
+		-- ) shift ; break ;;
+		* ) ;;
+	esac
+	shift
+done
+
+################################################################################
+# NOW, DO THE JOB - save to $outfile1
+################################################################################
+rm -f $outfile1
+
+# MAKE TEMP DIRECTORY TO HOLD CONVERTED SHEETS
+if [ "$tempdir" != "" ] ; then 	rm -rf $tempdir ; mkdir -p $tempdir ; else 	echo -e "\n--- Error ["$thisprog"]: tempdir is underfined\n" >&2 ; exit ; fi
+
+# CONVERT ALL SHEETS - SAVE IN TEMP FOLDER - FILE NAME IS SHEET NAME
+ssconvert -O "separator='	' quoting-mode=never format=preserve eol=unix" -S $infile $tempdir/%n.%s.txt 2> $tempfile.error
+
+# RENAME FILES
+cd $tempdir
+find -name "* *" -type f | rename 's/ /_/g'
+rename "s/^/"$progbase1"_/g" *.txt
+
+mv *.txt ../
+cd ../
+
+echo -e "\n\t...output sent to files beginning \"$progbase1\"\n"
+
+
+################################################################################
+# REPORT, CLEANUP AND EXIT
+################################################################################
+if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
+if [ "$tempdir" != "" ] ; then rm -rf $tempdir ; fi
+
+exit
