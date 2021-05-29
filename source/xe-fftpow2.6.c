@@ -11,10 +11,42 @@
 /*
 <TAGS>signal_processing spectra</TAGS>
 
+--------------------------------------------------------------------------------
 REFERENCES:
+https://github.com/mborgerding/kissfft
 http://www.ni.com/white-paper/4278/en/
 http://zone.ni.com/reference/en-XX/help/371361B-01/lvanlsconcepts/compute_amp_phase_spectrums/
 http://zone.ni.com/reference/en-XX/help/371361B-01/lvanlsconcepts/convert_to_log_units/
+
+--------------------------------------------------------------------------------
+PROCESSING STEPS
+1. Read data
+2. Set min & max frequency IF NOT MANUALLY SET (depends on data-size and sample-freq)
+3. Define appropriate window-size IF NOT MANUALLY SET
+4. Set up FFT-scaling and indices for min-to-max frequencies (indexa, indexb)
+5. Pad data to span integer-number of windows
+6. Initialise KISS_FFT structures (requires only window-size)
+7. Make taper (requires only window-size and taper-order)
+8. Build an array for output frequency-values to span min-to-max frequencies
+9. Set up blocks using list, file, or (default) one big block – trim to data-range
+10. Set up frequency-band indices for FFT-results (A and Z for each band, limited by min-to-max frequencies)
+11. Open output stream
+12. Process: for each block…
+    a. define windows spanning the block
+    b. for each window
+	i.   copy the data to a buffer and de-mean
+	ii.  call FFT
+	iii. make units-adjustment (power, dB, etc)
+	iv.  output - one of these options:
+	    0. build spectmean - binary option (no frequencydata)
+	    1. print spectrum for this window (builds matrices, one per block with header) – binary option (no header?)
+	    2. as above but with timestamps (ASCII only)
+	    3. time AUC1 AUC2 AUC3 etc. (ASCII ONLY)
+13. Average spectmeanif required and output
+14. Send report to STDERR
+
+--------------------------------------------------------------------------------
+REVISION HISTORY (SIGNIFICANT REVISIONS)
 
 v 6: 11.May.2021 [JRH]
 	- add -scrl option to define blocks with a CSV list
