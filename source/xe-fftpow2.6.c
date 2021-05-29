@@ -27,7 +27,7 @@ v 6: 11.September.2018 [JRH]
 v 6: 17.November.2017 [JRH]
 	- change windowing to ensure entirety of each data block is spanned
 	- if last window(s) extend beyond the end of the block, adjust accordingly
-	- this may duplicate FFT results at the end of the block but improves consistency ni the number of output windows
+	- this may duplicate FFT results at the end of the block but improves consistency in the number of output windows
 
 v 6: 17.July.2017 [JRH]
 	- add header to ASCII mean-spectrum output
@@ -354,6 +354,7 @@ int main(int argc, char *argv[]) {
 
 	/********************************************************************************
 	AUTO-DEFINE MIN & MAX FREQUENCY IF NECESSARY
+	- freq= 1/winsize, so assume a windowsize
 	********************************************************************************/
 	/* determine minimum frequency if not explicitly defined */
 	if(minfreq<0) {
@@ -361,7 +362,7 @@ int main(int argc, char *argv[]) {
 		if(minfreq<0.1) minfreq=0.1; // prevent very large FFT windows which might cause memory issues, unless requested
 	}
 	/* set maximum frequency to the Nyquist frequency (1/2 sampling-rate) */
-	if(maxfreq<0) maxfreq=setsfreq/2.0;
+	if(maxfreq<0) maxfreq= setsfreq/2.0;
 	if(maxfreq>(0.5*setsfreq)) { fprintf(stderr,"\n--- Error [%s]: -max [%g] cannot be greater 1/2 the  sample freq. [%g]\n\n",thisprog,maxfreq,setsfreq);exit(1);}
 	if(minfreq<=0)             { fprintf(stderr,"\n--- Error [%s]: -min [%g] must greater than zero\n\n",thisprog,minfreq);exit(1);}
 	if(minfreq>maxfreq)        { fprintf(stderr,"\n--- Error [%s]: -min [%g] must be less than -max [%g]\n\n",thisprog,minfreq,maxfreq);exit(1);}
