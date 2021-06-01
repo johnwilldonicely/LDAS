@@ -42,6 +42,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *infile=NULL;
 	int setverb=0;
+	double setsfact=1.0;
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -86,12 +87,24 @@ int main (int argc, char *argv[]) {
 	if(strcmp(infile,"stdin")==0) {fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
 
 	/********************************************************************************
-	STORE DATA
+	STORE ACTIVITY DATA
 	********************************************************************************/
-	if(setverb>0) fprintf(stderr,"...reading data...");
+	if(setverb>0) fprintf(stderr,"...reading data...\n");
 	data1= xf_readtable1_d(infile,"\t",&ncols,&nrows,&header,message);
 	if(data1==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= data1+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
+
+	// DETERMINE TIME ZERO
+
+	// DETERMINE RECORDING DURATION AND NUMBER OF EPOCHS BEFORE AND AFTER ZERO
+
+	//FOR EACH SUBJECT
+		// SAVE ACTIVITY EPOCHS
+		// READ EMG DATA & SAVE EPOCHDATA FOR POWER & NOISE
+		// READ EEG DATA & SAVE EPOCHDATA FOR DELTA & GAMMA & NOISE
+
+		// variables eatot[] eanoise[] eedelta[] eetheta[] eenoise empow[] emnoise[]]
+
 
 
 goto END;
@@ -99,7 +112,7 @@ goto END;
 	/* CLEANUP AND EXIT */
 	/********************************************************************************/
 END:
-	if(setverb>0) fprintf(stderr,"...complete!");
+	if(setverb>0) fprintf(stderr,"...complete!\n");
 
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
