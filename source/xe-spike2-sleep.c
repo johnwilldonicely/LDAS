@@ -88,6 +88,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	STORE DATA
 	********************************************************************************/
+	if(setverb>0) fprintf(stderr,"...reading data...");
 	data1= xf_readtable1_d(infile,"\t",&ncols,&nrows,&header,message);
 	if(data1==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= data1+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
@@ -98,6 +99,8 @@ goto END;
 	/* CLEANUP AND EXIT */
 	/********************************************************************************/
 END:
+	if(setverb>0) fprintf(stderr,"...complete!");
+
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
 	if(data1!=NULL) free(data1);
