@@ -35,7 +35,7 @@ int main (int argc, char *argv[]) {
 	double aa,bb,cc;
 	FILE *fpin,*fpout;
 	/* program-specific variables */
-	char *header;
+	char *header=NULL,*pchar=NULL,*basename=NULL;
 	int sizeofdata;
 	long *iword=NULL,nwords,nrows,ncols;
 	double *data1=NULL,*pdata;
@@ -84,7 +84,24 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
-	if(strcmp(infile,"stdin")==0) {fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
+	if(strcmp(infile,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
+
+
+	/********************************************************************************
+	CHECK FILENAME AND GENERATE BASENAME FOR READING OTHER FILES
+	********************************************************************************/
+	pchar= strstr(infile,"activity.txt"); // infile must contain the word "activity.txt"
+	if(pchar==NULL) { fprintf(stderr,"\n--- Error[%s]: invalid infile [%s] - must end in \"activity.txt\"\n\n",thisprog,infile);exit(1);}
+
+	ii= pchar-infile; // the position at which "activity" is found in the filename
+	basename= realloc(basename,strlen(infile));
+	if(basename==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
+	strncpy(basename,infile,ii);
+
+	printf("infile= %s\n",infile);
+	printf("basename= %s\n",basename);
+	exit(0);
+
 
 	/********************************************************************************
 	STORE ACTIVITY DATA
@@ -114,6 +131,7 @@ goto END;
 END:
 	if(setverb>0) fprintf(stderr,"...complete!\n");
 
+	if(basename!=NULL) free(basename);
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
 	if(data1!=NULL) free(data1);
