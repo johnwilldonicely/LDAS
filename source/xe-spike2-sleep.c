@@ -1,11 +1,13 @@
 #define thisprog "xe-spike2-sleep"
 #define TITLE_STRING thisprog" 1.June.2021 [JRH]"
 #define MAXLINELEN 1000
+/*  define and include required (in this order!) for time functions */
+#define __USE_XOPEN // required specifically for strptime()
+#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#define N 20
 /*
 <TAGS> SPIKE2 </TAGS>
 
@@ -22,7 +24,7 @@ long *xf_lineparse2(char *line, char *delimiters, long *nwords);
 long xf_scale1_l(long data, long min, long max);
 int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
 double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message);
-
+int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *sec2);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -34,11 +36,18 @@ int main (int argc, char *argv[]) {
 	float a,b,c;
 	double aa,bb,cc;
 	FILE *fpin,*fpout;
+	/* date and time variables */
+	char timestring[256];
+	time_t t1,t2;
+	struct tm *tstruct1;
+	int days,hours,minutes;
+	double seconds;
 	/* program-specific variables */
 	char *header=NULL,*pchar=NULL,*basename=NULL;
 	int sizeofdata;
 	long *iword=NULL,nwords,nrows,ncols;
 	double *data1=NULL,*pdata;
+	double duract;
 	/* arguments */
 	char *infile=NULL;
 	int setverb=0;
@@ -92,16 +101,13 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 	pchar= strstr(infile,"activity.txt"); // infile must contain the word "activity.txt"
 	if(pchar==NULL) { fprintf(stderr,"\n--- Error[%s]: invalid infile [%s] - must end in \"activity.txt\"\n\n",thisprog,infile);exit(1);}
-
 	ii= pchar-infile; // the position at which "activity" is found in the filename
 	basename= realloc(basename,strlen(infile));
 	if(basename==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	strncpy(basename,infile,ii);
-
-	printf("infile= %s\n",infile);
-	printf("basename= %s\n",basename);
-	exit(0);
-
+	printf("\n");
+	printf("...infile= %s\n",infile);
+	printf("...basename= %s\n",basename);
 
 	/********************************************************************************
 	STORE ACTIVITY DATA
@@ -110,6 +116,22 @@ int main (int argc, char *argv[]) {
 	data1= xf_readtable1_d(infile,"\t",&ncols,&nrows,&header,message);
 	if(data1==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= data1+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
+
+	/* find duration n seconds and report */
+	duract= nrows/setsfact;
+	z= xf_timeconv1(duract,&days,&hours,&minutes,&seconds);
+
+
+	printf("        ncols= %ld\n",ncols);
+	printf("        nrows= %ld\n",nrows);
+	printf("        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
+
+	printf("header: %s",header);
+
+	// get list of columns for activity - use lineparse2 and xf_strkey1
+
+	exit(0);
+
 
 	// DETERMINE TIME ZERO
 
