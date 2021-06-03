@@ -24,7 +24,7 @@ setverb="0"
 setclean="1"
 setfilegnames=""
 sethead="0"
-
+setcheck="1"
 
 ################################################################################
 # PRINT INSTRUCTIONS IF NO ARGUMENTS ARE GIVEN
@@ -49,6 +49,7 @@ if [ $# -lt 1 ]; then
 	echo "VALID OPTIONS (defaults in []):"
 	echo "    --head: number of header lines to skip [$sethead]"
 	echo "    --names: file defining \"group\" and \"name\" to replace group-number [$setfilegnames]"
+	echo "    --check: check for balanced design (0=NO 1=YES) [$setcheck]"
 	echo ""
 	echo "EXAMPLE: "
 	echo -e "    cut -f 1-4 data.txt > new.txt \n    $thisprog new.txt --head 1"
@@ -76,7 +77,7 @@ infile=$1 ; shift
 if [ ! -e "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: missing file $infile\n" >&2 ;  exit; } ; fi
 if [ ! -s "$infile" ] ; then { echo -e "\n--- Error ["$thisprog"]: $infile is empty\n" >&2 ;  exit; } ; fi
 
-vs="v:c:" ; vl="verb:,clean:,head:,names:"
+vs="v:c:" ; vl="verb:,clean:,head:,names:,check:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo -e "\n--- Error ["$thisprog"]"$y"\n" >&2 ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -86,6 +87,7 @@ while [ $# -gt 0 ] ; do
 		-c | --clean ) setclean=$2 ; shift ;;
 		--head ) sethead=$2 ; shift ;;
 		--names ) setfilegnames=$2 ; shift ;;
+		--check ) setcheck=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -93,6 +95,8 @@ while [ $# -gt 0 ] ; do
 done
 if [ "$setverb" != "0" ] && [ "$setverb" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --verb ($setverb) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
 if [ "$setclean" != "0" ] && [ "$setclean" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --clean ($setclean) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
+if [ "$setcheck" != "0" ] && [ "$setcheck" != "1" ] ; then { echo -e "\n--- Error ["$thisprog"]: invalid --check ($setcheck) -  must be 0 or 1\n" >&2 ;  exit; } ; fi
+
 if [ "$setclean" == "1" ] ; then
 	if [ "$tempfile" != "" ] ; then rm -f $tempfile* ; fi
 fi
@@ -135,8 +139,10 @@ listtimes=$(cut -f 3 $tempfile".1" | sort -nu)
 ################################################################################
 # RUN REPEATED_MEASURES INTEGRITY-CHECK
 ################################################################################
-xe-checkreplicate1 $tempfile".1" -head 0 -cg1 1 -cg2 2 -cg3 3 -cy 4 2> $tempfile".error"
-if [ -s $tempfile".error" ] ; then cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 ; exit ; fi
+if [ "$setcheck" == "1" ] ; then
+	xe-checkreplicate1 $tempfile".1" -head 0 -cg1 1 -cg2 2 -cg3 3 -cy 4 2> $tempfile".error"
+	if [ -s $tempfile".error" ] ; then cat $tempfile".error" | sed "s/xe-checkreplicate1/$thisprog/g" >&2 ; exit ; fi
+fi
 
 ################################################################################
 # TRANSPOSE THE DATA SO THAT SUBJECTS APPEAR ON A SINGLE LINE (SUBJECT=REPEATED MEASURE)
