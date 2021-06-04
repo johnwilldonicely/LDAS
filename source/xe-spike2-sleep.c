@@ -18,9 +18,13 @@
 
 
 /* external functions start */
-double *xf_readtable1_d(char *infile, char *delimiters, long *ncols, long *nrows, char **header, char *message);
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse2(char *line, char *delimiters, long *nwords);
+double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
+int xf_smoothgauss1_d(double *original,size_t arraysize,int smooth);
+
+int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
+
 long xf_scale1_l(long data, long min, long max);
 int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
 double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message);
@@ -45,13 +49,14 @@ int main (int argc, char *argv[]) {
 	/* program-specific variables */
 	char *header=NULL,*pchar=NULL,*basename=NULL;
 	int sizeofdata;
-	long *iword=NULL,nwords,nrows,ncols;
+	long *iword=NULL,nwords,binsamps,zero1,zero2;
 	double *data1=NULL,*pdata;
-	double duract;
+	double sampintact,samprateact,duract,binsize=10.0;
+
 	/* arguments */
 	char *infile=NULL;
 	int setverb=0;
-	double setsfact=1.0;
+	double setzero=0.0;
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -63,16 +68,16 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Read Spike2 exported-data to perform sleep-stage analysis\n");
 		fprintf(stderr,"- requires Activity, EMG, and EEG output - scripts from XTP library:\n");
-		fprintf(stderr,"    - activity: s2_export_activity.s2s\n");
-		fprintf(stderr,"    - EMG:      s2_eeg2bin.s2s\n");
-		fprintf(stderr,"    - EEG:      s2_emg2bin.s2s\n");
+		fprintf(stderr,"    - ACT:  s2_export_activity_perchannel.s2s\n");
+		fprintf(stderr,"    - EMG:  s2_eeg2bin.s2s\n");
+		fprintf(stderr,"    - EEG:  s2_emg2bin.s2s\n");
 		fprintf(stderr,"    - \n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: filename for activity record\n");
-		fprintf(stderr,"        - assumes data is exported at 1 Hz and includes a header\n");
 		fprintf(stderr,"        - the base-name will be used to detect matching EMG/EEG files\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"    -verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
+		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"    %s data.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -90,6 +95,7 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-zero")==0) setzero= atof(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
@@ -99,50 +105,61 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	CHECK FILENAME AND GENERATE BASENAME FOR READING OTHER FILES
 	********************************************************************************/
-	pchar= strstr(infile,"activity.txt"); // infile must contain the word "activity.txt"
-	if(pchar==NULL) { fprintf(stderr,"\n--- Error[%s]: invalid infile [%s] - must end in \"activity.txt\"\n\n",thisprog,infile);exit(1);}
+	pchar= strstr(infile,"ACT_"); // infile must contain the word "activity.txt"
+	if(pchar==NULL) { fprintf(stderr,"\n--- Error[%s]: invalid infile [%s] - must include the keyword \"ACT_\"\n\n",thisprog,infile);exit(1);}
 	ii= pchar-infile; // the position at which "activity" is found in the filename
 	basename= realloc(basename,strlen(infile));
 	if(basename==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
 	strncpy(basename,infile,ii);
-	printf("\n");
-	printf("...infile= %s\n",infile);
-	printf("...basename= %s\n",basename);
+	fprintf(stderr,"\n");
+	fprintf(stderr,"...infile= %s\n",infile);
+	fprintf(stderr,"...basename= %s\n",basename);
+
 
 	/********************************************************************************
 	STORE ACTIVITY DATA
+	- probably collected at 1Hz
+	- immobility is registered as zero
+	- max mobility is probably ~6
 	********************************************************************************/
-	if(setverb>0) fprintf(stderr,"...reading data...\n");
-	data1= xf_readtable1_d(infile,"\t",&ncols,&nrows,&header,message);
+	if(setverb>0) fprintf(stderr,"...reading ACTIVITY data...\n");
+//	data1= xf_readtable1_d(infile,"\t",&ncols,&nrows,&header,message);
+	data1= xf_readspike2_text_d(infile,&nn,&sampintact,message);
 	if(data1==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	samprateact= 1.0/sampintact;
 	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= data1+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
 
-	/* find duration n seconds and report */
-	duract= nrows/setsfact;
+	/* FIND DURATION N SECONDS AND REPORT */
+	duract= nn*sampintact;
 	z= xf_timeconv1(duract,&days,&hours,&minutes,&seconds);
+	fprintf(stderr,"        label= %s\n",message);
+	fprintf(stderr,"        records= %ld\n",nn);
+	fprintf(stderr,"        samplerate= %g Hz\n",samprateact);
+	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
+
+	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
+	for(ii=0;ii<nn;ii++) if(data1[ii]<0.0) data1[ii]*=-1.0;
+
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	zero1= (long)(setzero*samprateact);
+	z= xf_bin1b_d(data1,&nn,&zero1,binsize,message);
 
 
-	printf("        ncols= %ld\n",ncols);
-	printf("        nrows= %ld\n",nrows);
-	printf("        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
-
-	printf("header: %s",header);
-
-	// get list of columns for activity - use lineparse2 and xf_strkey1
+	for(ii=0;ii<nn;ii++) {
+		printf("%g\n",data1[ii]);
+	}
 
 	exit(0);
 
 
 	// DETERMINE TIME ZERO
-
 	// DETERMINE RECORDING DURATION AND NUMBER OF EPOCHS BEFORE AND AFTER ZERO
 
-	//FOR EACH SUBJECT
-		// SAVE ACTIVITY EPOCHS
-		// READ EMG DATA & SAVE EPOCHDATA FOR POWER & NOISE
-		// READ EEG DATA & SAVE EPOCHDATA FOR DELTA & GAMMA & NOISE
+	// SAVE ACTIVITY EPOCHS
+	// READ EMG DATA & SAVE EPOCHDATA FOR POWER & NOISE
+	// READ EEG DATA & SAVE EPOCHDATA FOR DELTA & GAMMA & NOISE
 
-		// variables eatot[] eanoise[] eedelta[] eetheta[] eenoise empow[] emnoise[]]
+	// variables eatot[] eanoise[] eedelta[] eetheta[] eenoise empow[] emnoise[]]
 
 
 
