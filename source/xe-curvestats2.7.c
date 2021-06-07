@@ -1,5 +1,5 @@
 #define thisprog "xe-curvestats2"
-#define TITLE_STRING thisprog" v 7: 7.February.2021 [JRH]"
+#define TITLE_STRING thisprog" v 7: 7.June.2021 [JRH]"
 #define MAXLINELEN 1000
 
 #include <stdio.h>
@@ -10,6 +10,10 @@
 
 /*
 <TAGS>stats signal_processing</TAGS>
+
+
+v 7: 7.June.2021 [JRH]
+	- bugfix: if no indices are specified, now does not exclude the last value on the line
 
 v 7: 7.February.2021 [JRH]
 	- bugfix: if no indices are specified, now does not exclude the last value on the line
@@ -118,29 +122,30 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"NOTE: extra delimiters are interpreted as missing values (NAN)\n");
 		fprintf(stderr,"NOTE: all input lines processed (including comments, etc)\n");
 		fprintf(stderr,"USAGE:\n");
-		fprintf(stderr,"	%s [input] [options]\n",thisprog);
-		fprintf(stderr,"	[input]: file name or \"stdin\"\n");
+		fprintf(stderr,"    %s [input] [options]\n",thisprog);
+		fprintf(stderr,"    [input]: file name or \"stdin\"\n");
 		fprintf(stderr,"VALID OPTIONS:\n");
-		fprintf(stderr,"	-min: presumed minimum x-value of first item on each line [0]\n");
-		fprintf(stderr,"	-max: presumed maximum x-value of last item on each line [1]\n");
-		fprintf(stderr,"		- delta inferred as (max - min)/(items_on_line - 1)\n");
-		fprintf(stderr,"	-d: fixed AUC delta for interation on each line [unset by default]\n");
-		fprintf(stderr,"		- if set, overrides -max\n");
-		fprintf(stderr,"		- new max = min + delta x items_on_line\n");
-		fprintf(stderr,"	-index: comma-separated start/stop index pairs [unset by default]\n");
-		fprintf(stderr,"		- stop for each pair is excluded\n");
-		fprintf(stderr,"		- indices must be >=min and <=(max+1)\n");
-		fprintf(stderr,"		- if unset, uses min and max+delta \n");
-		fprintf(stderr,"		- note that AUC calculation requires at least two points\n");
-		fprintf(stderr,"	-avg: divide AUC values by number of values (0=NO 1=YES)  [%d]\n",setavg);
-		fprintf(stderr,"		- use this for normalized values like coherence\n");
-		fprintf(stderr,"	-f: output format: 1=line per zone, 2=all zones on one line [%d]\n",setformat);
+		fprintf(stderr,"    -min: presumed minimum x-value of first item on each line [0]\n");
+		fprintf(stderr,"    -max: presumed maximum x-value of last item on each line [1]\n");
+		fprintf(stderr,"        - delta inferred as (max - min)/(items_on_line - 1)\n");
+		fprintf(stderr,"    -d: fixed AUC delta for interation on each line [unset by default]\n");
+		fprintf(stderr,"        - if set, overrides -max\n");
+		fprintf(stderr,"        - new max = min + delta x items_on_line\n");
+		fprintf(stderr,"    -index: comma-separated start/stop index pairs [unset by default]\n");
+		fprintf(stderr,"        - stop for each pair is excluded\n");
+		fprintf(stderr,"        - indices must be >=min and <=(max+1)\n");
+		fprintf(stderr,"        - if unset, uses min and max+delta \n");
+		fprintf(stderr,"        - NOTE: AUC normally requires 2 or more points\n");
+		fprintf(stderr,"            - for single-point index-pairs, AUC= data * 0.5 * delta\n");
+		fprintf(stderr,"    -avg: divide AUC values by number of values (0=NO 1=YES)  [%d]\n",setavg);
+		fprintf(stderr,"        - use this for normalized values like coherence\n");
+		fprintf(stderr,"    -f: output format: 1=line per zone, 2=all zones on one line [%d]\n",setformat);
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"	%s data.txt -int .001 -off -5 -d 1 -index 0,.05,.05,.17\n",thisprog);
-		fprintf(stderr,"	cat temp.txt | %s stdin -sf 1000 -pre 0\n",thisprog);
+		fprintf(stderr,"    %s data.txt -int .001 -off -5 -d 1 -index 0,.05,.05,.17\n",thisprog);
+		fprintf(stderr,"    cat temp.txt | %s stdin -sf 1000 -pre 0\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
-		fprintf(stderr,"	format1: <line><zone><start><stop><n><AUC>\n");
-		fprintf(stderr,"	format2: <line><AUC0><AUC1><AUC2>... etc.\n");
+		fprintf(stderr,"    format1: <line><zone><start><stop><n><AUC>\n");
+		fprintf(stderr,"    format2: <line><AUC0><AUC1><AUC2>... etc.\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -283,11 +288,17 @@ int main (int argc, char *argv[]) {
 				/* calculate size of chunk to process - this will exclude stop-sample kk */
 				nn= (kk-jj);
 				// TEST: fprintf(stderr,"aa=%g\tbb=%g\tjj=%ld\tkk=%ld\tnn=%ld\n",aa,bb,jj,kk,nn);
-				/* calculate the AUC after imposing an offset (jj) on the data */
-				x= xf_auc1_d((data1+jj),nn,setdelta,setref,result_d,message);
-				if(x!=0) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message); exit(1);}
-				if(setavg==0) auc=result_d[0];
-				else auc=result_d[0]/nn;
+
+				/* calculate AUC for special case where there is only one data-point */
+				if(nn==1)  auc= data1[jj]; //* 0.5 * setdelta; 
+				/* calculate AUC using trapezoid method after imposing an offset (jj) on the data */
+				else {
+					x= xf_auc1_d((data1+jj),nn,setdelta,setref,result_d,message);
+					if(x!=0) {fprintf(stderr,"\n--- Error[%s]: %s\n\n",thisprog,message); exit(1);}
+					if(setavg==0) auc=result_d[0];
+					else auc=result_d[0]/nn;
+
+				}
 			}
 			/* output the AUC results */
 			if(setformat==1) printf("%ld\t%ld\t%g\t%g\t%ld\t%g\n", nlines,zone,aa,bb,nn,auc);
