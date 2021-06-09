@@ -30,8 +30,8 @@ ARGUMENTS:
 	char *header    - output[256]: header for the current matrix
 	char *message   - output[256]: header for next matrix, or error message, if any
 
-	NOTE: calling function must allocate at least 256-byetes each for header[] and message[]
-	NOTE: header[] and message[] should be initialized to '\n\0' before first call to this function
+	NOTE: calling function must allocate at least 256-bytes each for header[] and message[]
+	NOTE: header[] and message[256] should be initialized to '\n\0' before first call to this function
 
 RETURN VALUE:
 	- on success:
@@ -106,7 +106,7 @@ double *xf_matrixread3_d(FILE *fpin, long *ncols, long *nrows, char *header, cha
 			/* if data has been NOT been found, just carry on */
 			if(nlinesmatrix==0) { continue;	}
 			/* if data HAS been found, message[] is reset to '\n\0'for the NEXT call */
-			else { 	message[0]='\n'; message[1]='\0'; break; }
+			else { message[0]='\n'; message[1]='\0'; break; }
 		}
 
 		/* DEAL WITH EVERYTHING ELSE - THIS ROW MUST CONTAIN MATRIX VALUES */
