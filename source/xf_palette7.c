@@ -12,7 +12,7 @@ ARGUMENTS:
 	float *green  : as above for green
 	float *blue   : as above for blue
 	long nn       : size of the array to fill (number of colours)
-	char *palette : name of the palette (grey,black2grey,rainbow,viridis,plasma,magma,inferno)
+	char *palette : name of the palette (grey,black2grey,rainbow,viridis,plasma,magma,inferno,vangough,turbo)
 	int rev       : reverse the order of palette colours (1=YES,0-NO)
 
 RETURN VALUE:
@@ -125,6 +125,15 @@ int xf_palette7(float *red, float *green, float *blue, long nn, char *palette, i
 		ct[12]=0.937; ct[13]=0.337; ct[14]=0.459;
 		ct[15]=1.00; ct[16]=0.463; ct[17]=0.290;
 		ct[18]=1.00; ct[19]=0.651; ct[20]=0.00;
+	}
+	else if(strcmp(palette,"turbo")==0) {
+		ct[0]=0.18995; ct[1]=0.07176; ct[2]=0.23217;
+		ct[3]=0.27469; ct[4]=0.51094; ct[5]=0.97275;
+		ct[6]=0.09958; ct[7]=0.89040; ct[8]=0.72393;
+		ct[9]=0.63323; ct[10]=0.99195; ct[11]=0.23937;
+		ct[12]=0.97679; ct[13]=0.73842; ct[14]=0.22369;
+		ct[15]=0.89888; ct[16]=0.27824; ct[17]=0.04243;
+		ct[18]=0.47960; ct[19]=0.01583; ct[20]=0.01055;
 	}
 
 	else return(-1);
