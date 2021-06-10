@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define thisprog "xe-matrixbox"
+#define thisprog "xe-matrixbox-inprogress"
 #define TITLE_STRING thisprog" 9.June.2021 [JRH]"
 
 /*
@@ -18,7 +18,8 @@
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse1(char *line,long *nwords);
 double *xf_matrixread3_d(FILE *fpin, long *ncols, long *nrows, char *header, char *message);
-double xf_matrixbox1_d(double *matrix1, long nx, long ny, double *range, double *box, char *message);
+long xf_getindex1_d(double min, double max, long n, double value, char *message);
+double xf_matrixbox1_d(double *matrix1, long nx, long ny, double *range, double *box, int mode, char *message);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -92,10 +93,6 @@ range[1]= 20; // x-max
 range[2]= 30; // y-min
 range[3]= 130; // y-max
 
-// define box dimensions
-box[0]= 4; box[1]= 10; box[2]= 30; box[3]= 50;
-
-
 	while(1) {
 
 		data1= xf_matrixread3_d(fpin,&ncols1,&nrows1,header,message);
@@ -103,10 +100,12 @@ box[0]= 4; box[1]= 10; box[2]= 30; box[3]= 50;
 		if(data1==NULL) break;
 		printf("header: %s",header); // header ends in a newline
 
-		aa= xf_matrixbox1_d(data1,ncols1,nrows1,range,box,message);
+		// get the mean for each box
+		box[0]= 4; box[1]= 10; box[2]= 30; box[3]= 50;
+
+		aa= xf_matrixbox1_d(data1,ncols1,nrows1,range,box,2,message);
 		if(!isfinite(aa))  { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
 		printf("result= %f\n",aa);
-
 
 	}
 

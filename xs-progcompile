@@ -20,6 +20,7 @@ out_package=""
 set_opt="3"
 set_warn="2"
 set_compiler="gcc"
+set_extra=""
 
 # REDUCE WARN LEVEL IF OS IS RED HAT VERSION 6 OR EARLIER
 x=$(lsb_release -a | grep "Red Hat")
@@ -52,6 +53,7 @@ if [ $# -lt 1 ]; then
 	echo "	--opt optimization-level [0-3] ["$set_opt"]"
 	echo "	--warn warning level (0=low,1=high,2=all) ["$set_warn"]"
 	echo "	--pack package output into folder name ["$out_package"]"
+	echo "	--extra compiler options to add - should be quoted []"
 	echo
 	echo "EXAMPLES:"
 	echo "- make executable \"xe-anova\" in current dir: "
@@ -66,7 +68,7 @@ fi
 
 ################################################################################
 # READ INPUT FILE LIST. SHIFT IS NECESSARY FOR ARGUMENT HANDLING (BELOW)
-cd $progdir 
+cd $progdir
 listinfiles=$(ls 2>/dev/null $1)
 let ninfiles=$(echo $listinfiles | wc -w)
 if [ $ninfiles -lt 1 ] ; then { echo ; echo "--- Error ["$thisprog"]: no source-code files found matching \"$1\"" ; echo ; exit; } ; fi
@@ -74,7 +76,7 @@ shift
 
 ################################################################################
 # OPTIONAL ARGUMENT HANDLING
-vs="k:" ; vl="comp:,func:,dest:,prefix:,opt:,warn:,pack:"
+vs="k:" ; vl="comp:,func:,dest:,prefix:,opt:,warn:,pack:,extra:"
 y=$(getopt -o $vs -l $vl -n "" -- "$@" 2>&1 > /dev/null)
 if [ "$y" != "" ] ; then { echo "" ; echo "--- Error ["$thisprog"]"$y ; echo ; exit ; }
 else eval set -- $(getopt -o $vs -l $vl -n "" -- "$@") ; fi
@@ -87,6 +89,7 @@ while [ $# -gt 0 ] ; do
 		--opt) set_opt=$2 ; shift ;;
 		--warn) set_warn=$2 ; shift ;;
 		--pack) out_package=$2 ; shift ;;
+		--pack) set_extra=$2 ; shift ;;
 		-- ) shift ; break ;;
 		* ) ;;
 	esac
@@ -100,9 +103,9 @@ if [ "$set_compiler" != "gcc" ] && [ "$set_compiler" != "g++" ] ; then { echo ; 
 # SET UP WARNING FLAGS
 case $set_warn in
 	0) warnval="-w";;
-	1) warnval="-Wno-unused-variable -Wformat -Wno-format-zero-length -Wparentheses";;
+	1) warnval="-Wno-unused-variable -Wno-unused-result -Wformat -Wno-format-zero-length -Wparentheses";;
 	2) warnval="-Wno-unused-variable -Wmaybe-uninitialized -Wunused-value -Wformat -Wunsafe-loop-optimizations";;
-	3) warnval="-Wall -Wno-unused-variable";;
+	3) warnval="-Wall";;
 esac
 
 ################################################################################
@@ -174,7 +177,7 @@ for infile in $listinfiles ; do
 	fi
 
 	# DEFINE THE COMPILE JOB
-	job="$compval $warnval $infile $listfunc2 -o $out_path$outfile -lm"
+	job="$compval $warnval $infile $listfunc2 -o $out_path$outfile -lm $set_extra"
 
 	# REPORT AND RUN THE JOB
 	{ echo ; echo $infile ; echo $job ; $job ; } &>> $logfile

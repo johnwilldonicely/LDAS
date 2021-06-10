@@ -11,6 +11,8 @@
 /*
 <TAGS>signal_processing</TAGS>
 
+??? TO DO: deceide whether to keep -o (output) option - right now it does nothing so I took it out of the instructions (10 June 2021)
+
 v 2: 21.March.2018 [JRH]
 	- bugfix: make sure there are at least TWO arguments on command line
 	- for verbose output high-frequency bounds as well
@@ -146,63 +148,64 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"--------------------------------------------------------------------------------\n");
 		fprintf(stderr,"Calculate coherence between two signals using FFT (Kiss-FFT)\n");
-		fprintf(stderr,"Assumes data consists of real values only\n");
+		fprintf(stderr,"    1. calculate energy envelope for 100 frequencies spanning min2-max2 in [inB]\n");
+		fprintf(stderr,"    2. calculate spectral coherence between [inA] and each energy envelope\n");
 		fprintf(stderr,"FFT is performed on overlapping windows in which data is de-meaned and tapered\n");
 		fprintf(stderr,"USAGE:	%s [inA] [inB] [options] \n",thisprog);
-		fprintf(stderr,"	[inA]: file containing the low, modulating frequency\n");
-		fprintf(stderr,"	[inB]: file containing the high, modulated frequency (can be inA)\n");
-		fprintf(stderr,"VALID OPTIONS (defaults in [])\n");
-		fprintf(stderr,"	-dt: data type (-1=ASCII, 0-9=BINARY) [%d]\n",setdatatype);
-		fprintf(stderr,"		* dt -1: input is assumed to be 1 column\n");
-		fprintf(stderr,"		* dt 0-9: uchar,char,ushort,short,uint,int,ulong,long,float,or double\n");
-		fprintf(stderr,"	-sf: sampling frequency of the input, in Hz [%g]\n",setsfreq);
-		fprintf(stderr,"	-min1: bottom of low freq. range [-1 = default= 800/datalength]\n");
-		fprintf(stderr,"	-max1: top of low freq. range [-1 = default= sr/2]\n");
-		fprintf(stderr,"	-min2: bottom of high-freq range [-1=default = min1]\n");
-		fprintf(stderr,"	-max2: top of high-freq range [-1=default = min1]\n");
-		fprintf(stderr,"	-res: Butterworth filter resonance (0.1 to sqrt(2)=1.4142) [%g]\n",setresonance);
-		fprintf(stderr,"		NOTE: low values = sharper cutoff but produces ringing\n");
-		fprintf(stderr,"		NOTE: high values = gentle rolloff and dampened signal\n");
-		fprintf(stderr,"	-Ft: FIR filter number of taps [%d]\n",FIRntaps);
-		fprintf(stderr,"	-Fw: FIR filter bandwidth [%g]\n",FIRwidth1);
-		fprintf(stderr,"	-Fb: FIR filter beta (edge bandwidth 0-10, lower=sharper but more ringing) [%g]\n",FIRbeta);
-		fprintf(stderr,"	-Fs: FIR corection for phase-shift (0=NO 1=YES) [%d]\n",FIRshift);
-		fprintf(stderr,"	-Fy: FIR window type (none,kaiser,sync) [%s]\n",FIRWindow);
-		fprintf(stderr,"	-f: file containing start-samples for windows\n");
-		fprintf(stderr,"		* this will override the -s option\n");
-		fprintf(stderr,"		* if unset, windows are automatically defined to span the data \n");
-		fprintf(stderr,"	-w: length of data windows passed to FFT function) (0 = auto) [%d]\n",setnbuff);
-		fprintf(stderr,"		* must be an even number, not necessarily a power of two\n");
-		fprintf(stderr,"		* by default, auto = 2*(sr/min)\n");
-		fprintf(stderr,"		* larger window = more detailed output but lower temporal resolution\n");
-		fprintf(stderr,"		* frequency resolution = sample_frequency / buffer_size\n");
-		fprintf(stderr,"	-s: number of steps for the sliding window to span one buffer length [%d]\n",setstep);
-		fprintf(stderr,"		* e.g. if -b 8 -s 2, the buffer moves by 8/2=4 samples per FFT\n");
-		fprintf(stderr,"		* note: more steps = more data overlap (artificially high coherence)\n");
-		fprintf(stderr,"	-t: tapering, 0=NO, 1=YES (Hann taper) [%d]\n",setntapers);
-		fprintf(stderr,"		* note: tapering inflates coherence (same taper applied to both inputs)\n");
-		fprintf(stderr,"	-p: power calculation method (0=Goertzel, 1=Butterworth+RMS, 2=FIR+RMS) [%d]\n",setpow);
-		fprintf(stderr,"	-m: multiplier for high-freq. energy vector window (wavelengths) [%g]\n",setmult);
-		fprintf(stderr,"	-a: windows accumulated before calculating coherence (0 = auto) [%ld]\n",setaccumulate);
-		fprintf(stderr,"		* note: if not 0, must be at least 2\n");
-		fprintf(stderr,"		* note: if -o 0 (avg.spectrum), auto value is \"all windows\"\n");
-		fprintf(stderr,"		* note: if -o 1 or 2, auto value is smallest of 8 or \"all windows\"\n");
-		fprintf(stderr,"	-adj: adjust coherence to correct for accumulation (0=NO 1=YES) [%d]\n",setadja);
-		fprintf(stderr,"	-o: output style (0,1, or 2) [%d]\n",setmatrix);
-		fprintf(stderr,"		* 0=average spectrum, 1=time_v_freq matrix, 2=list of columns\n");
-		fprintf(stderr,"		* note: if set to 1, each line is the coherence for two buffers\n");
-		fprintf(stderr,"	-g: apply Gaussian smoothing to output (avg.spectrum only) (0= none) [%d]\n",setgauss);
-		fprintf(stderr,"		* note: -g must be 0 or an odd number 3 or larger)\n");
-		fprintf(stderr,"		: low values vive sharper cutoffs\n");
-		fprintf(stderr,"	-v: set verbocity of output to quiet (0) or report (1) [%d]\n",setverb);
+		fprintf(stderr,"    [inA]: file containing the low, modulating frequency\n");
+		fprintf(stderr,"    [inB]: file containing the high, modulated frequency (can be inA)\n");
+		fprintf(stderr,"GENERAL OPTIONS (defaults in [])\n");
+		fprintf(stderr,"    -dt: data type (-1=ASCII, 0-9=BINARY) [%d]\n",setdatatype);
+		fprintf(stderr,"        * dt -1: input is assumed to be 1 column\n");
+		fprintf(stderr,"        * dt 0-9: uchar,char,ushort,short,uint,int,ulong,long,float,or double\n");
+		fprintf(stderr,"    -sf: sampling frequency of the input, in Hz [%g]\n",setsfreq);
+		fprintf(stderr,"    -min1: bottom of low freq. range [-1 = default= 800/datalength]\n");
+		fprintf(stderr,"    -max1: top of low freq. range [-1 = default= sr/2]\n");
+		fprintf(stderr,"    -min2: bottom of high-freq range [-1=default = min1]\n");
+		fprintf(stderr,"    -max2: top of high-freq range [-1=default = min1]\n");
+		fprintf(stderr,"    -p: power calculation method (0=Goertzel, 1=Butterworth+RMS, 2=FIR+RMS) [%d]\n",setpow);
+		fprintf(stderr,"        0: best results, but slowest\n");
+		fprintf(stderr,"        1: fastest, but diagonal artefacts are unavoidable\n");
+		fprintf(stderr,"        2: currently not recommended - may be better with tweaking\n");
+		fprintf(stderr,"    -f: file containing start-samples for windows\n");
+		fprintf(stderr,"        * this will override the -s option\n");
+		fprintf(stderr,"        * if unset, windows are automatically defined to span the data \n");
+		fprintf(stderr,"    -w: length of data windows passed to FFT function) (0 = auto) [%d]\n",setnbuff);
+		fprintf(stderr,"        * must be an even number, not necessarily a power of two\n");
+		fprintf(stderr,"        * by default, auto = 2*(sr/min)\n");
+		fprintf(stderr,"        * larger window = more detailed output but lower temporal resolution\n");
+		fprintf(stderr,"        * frequency resolution = sample_frequency / buffer_size\n");
+		fprintf(stderr,"    -s: number of steps for the sliding window to span one buffer length [%d]\n",setstep);
+		fprintf(stderr,"        * e.g. if -b 8 -s 2, the buffer moves by 8/2=4 samples per FFT\n");
+		fprintf(stderr,"        * note: more steps = more data overlap (artificially high coherence)\n");
+		fprintf(stderr,"    -t: tapering, 0=NO, 1=YES (Hann taper) [%d]\n",setntapers);
+		fprintf(stderr,"        * note: tapering inflates coherence (same taper applied to both inputs)\n");
+		fprintf(stderr,"    -m: multiplier for high-freq. energy vector window (wavelengths) [%g]\n",setmult);
+		fprintf(stderr,"    -a: windows accumulated before calculating coherence (0 = auto) [%ld]\n",setaccumulate);
+		fprintf(stderr,"        * note: if not 0, must be at least 2\n");
+		fprintf(stderr,"        * note: if -o 0 (avg.spectrum), auto value is \"all windows\"\n");
+		fprintf(stderr,"        * note: if -o 1 or 2, auto value is smallest of 8 or \"all windows\"\n");
+		fprintf(stderr,"    -adj: adjust coherence to correct for accumulation (0=NO 1=YES) [%d]\n",setadja);
+		fprintf(stderr,"    -g: apply Gaussian smoothing to output (avg.spectrum only) (0= none) [%d]\n",setgauss);
+		fprintf(stderr,"        * note: -g must be 0 or an odd number 3 or larger)\n");
+		fprintf(stderr,"        : low values vive sharper cutoffs\n");
+		fprintf(stderr,"    -v: set verbocity of output to quiet (0) or report (1) [%d]\n",setverb);
+		fprintf(stderr,"OPTIONS FOR POWER METHOD 1\n");
+		fprintf(stderr,"    -res: Butterworth filter resonance (0.1 to sqrt(2)=1.4142) [%g]\n",setresonance);
+		fprintf(stderr,"        NOTE: low values = sharper cutoff but produces ringing\n");
+		fprintf(stderr,"        NOTE: high values = gentle rolloff and dampened signal\n");
+		fprintf(stderr,"OPTIONS FOR POWER METHOD 2\n");
+		fprintf(stderr,"    -Ft: FIR filter number of taps [%d]\n",FIRntaps);
+		fprintf(stderr,"    -Fw: FIR filter bandwidth [%g]\n",FIRwidth1);
+		fprintf(stderr,"    -Fb: FIR filter beta (edge bandwidth 0-10, low=sharp but more ringing) [%g]\n",FIRbeta);
+		fprintf(stderr,"    -Fs: FIR corection for phase-shift (0=NO 1=YES) [%d]\n",FIRshift);
+		fprintf(stderr,"    -Fy: FIR window type (none,kaiser,sync) [%s]\n",FIRWindow);
+		fprintf(stderr,"\n");
 		fprintf(stderr,"EXAMPLES: %s [input] [options] \n",thisprog);
-		fprintf(stderr,"	%s data.txt -sf 24000 \n",thisprog);
-		fprintf(stderr,"	cat data.bin | %s stdin -sf 1000 -s 8\n",thisprog);
+		fprintf(stderr,"    %s data1.txt data2.txt -sf 24000 \n",thisprog);
 		fprintf(stderr,"OUTPUT: \n");
-		fprintf(stderr,"	if -out 0:  <frequency> <coherence>\n");
-		fprintf(stderr,"	if -out 1:  matrix of coherence values, row=buffer (time), column=frequency\n");
-		fprintf(stderr,"	if -out 2:  <time1> <time2> <frequency> <coherence>\n");
-		fprintf(stderr,"		<time1> and <time2> bound the window in which coherence is calculated\n");
+		fprintf(stderr,"    coherence matrix: lowfreq x highfreq\n");
+		fprintf(stderr,"        - NOTE that high-frequency (y-axis) is always scaled to 100 values\n");
 		fprintf(stderr,"\n");
 		exit(0);
 	}
@@ -274,7 +277,7 @@ int main(int argc, char *argv[]) {
 	/********************************************************************************/
 	if(setverb>0) {
 		fprintf(stderr,"%s\n",thisprog);
-		fprintf(stderr,"	* Reading data...\n");
+		fprintf(stderr,"    * Reading data...\n");
 	}
 
 	nbad_a=0;
@@ -448,7 +451,7 @@ int main(int argc, char *argv[]) {
 	/********************************************************************************/
 	/* INITIALIZE KISS-FFT CONFIGURATION AND OTHER VARIABLES */
 	/********************************************************************************/
-	if(setverb>0) fprintf(stderr,"	* Initializing Kiss-FFT variables...\n");
+	if(setverb>0) fprintf(stderr,"    * Initializing Kiss-FFT variables...\n");
 	/* initialize kiss-fft variables: cfgr, ffta_a, fft_b */
 	kiss_fftr_cfg cfgr = kiss_fftr_alloc( setnbuff ,0,0,0 );
 	/* allocate memory for fft_a, fft_b  and work some Kiss-FFT magic */
@@ -520,7 +523,7 @@ int main(int argc, char *argv[]) {
 	ANALYZE THE DATA
 	********************************************************************************/
 	/********************************************************************************/
-	if(setverb>0) fprintf(stderr,"	* Analyzing the data...\n");
+	if(setverb>0) fprintf(stderr,"    * Analyzing the data...\n");
 
 	/* FOR EACH FREQUENCY, FILTER THE DATA AND PROCESS THE WINDOWS */
 	freq2step= ((maxfreq2-minfreq2)+1.0)/100.0;
@@ -673,27 +676,27 @@ END2:
 	if(setverb==1) {
 		if(setpow==1) n=n-npad-npad; /* because for Butterworth filtering, padding may have been applied */
 		fprintf(stderr,"\n");
-		fprintf(stderr,"	input_length= %ld samples\n",n);
-		fprintf(stderr,"	sample_rate= %g\n",setsfreq);
-		fprintf(stderr,"	duration= %g seconds\n",(n/setsfreq));
-		fprintf(stderr,"	minfreq1= %g\n",minfreq1);
-		fprintf(stderr,"	maxfreq1= %g\n",maxfreq1);
-		fprintf(stderr,"	minfreq2= %g\n",minfreq2);
-		fprintf(stderr,"	maxfreq2= %g\n",maxfreq2);
-		fprintf(stderr,"	indexa= %d\n",indexa);
-		fprintf(stderr,"	indexb= %d\n",indexb);
+		fprintf(stderr,"    input_length= %ld samples\n",n);
+		fprintf(stderr,"    sample_rate= %g\n",setsfreq);
+		fprintf(stderr,"    duration= %g seconds\n",(n/setsfreq));
+		fprintf(stderr,"    minfreq1= %g\n",minfreq1);
+		fprintf(stderr,"    maxfreq1= %g\n",maxfreq1);
+		fprintf(stderr,"    minfreq2= %g\n",minfreq2);
+		fprintf(stderr,"    maxfreq2= %g\n",maxfreq2);
+		fprintf(stderr,"    indexa= %d\n",indexa);
+		fprintf(stderr,"    indexb= %d\n",indexb);
 		// calculate window overlap
 		a=100*(1.0-1.0/setstep);
-		fprintf(stderr,"	fft_window= %d samples\n",setnbuff);
-		fprintf(stderr,"	fft_step= %d \n",setstep);
-		fprintf(stderr,"	fft_overlap= %g %%\n",a);
-		fprintf(stderr,"	setaccumulate= %ld\n",setaccumulate);
-		fprintf(stderr,"	setntapers= %d\n",setntapers);
-		fprintf(stderr,"	frequency_resolution= %g Hz\n",freqres);
-		fprintf(stderr,"	temporal_resolution= %g seconds\n",(partnbuff/setsfreq));
-		fprintf(stderr,"	temporal_shift= %g seconds\n",((setnbuff/2.0)/setsfreq));
-		fprintf(stderr,"	nwin= %ld\n",nwin);
-		fprintf(stderr,"	nout= %ld\n",nout);
+		fprintf(stderr,"    fft_window= %d samples\n",setnbuff);
+		fprintf(stderr,"    fft_step= %d \n",setstep);
+		fprintf(stderr,"    fft_overlap= %g %%\n",a);
+		fprintf(stderr,"    setaccumulate= %ld\n",setaccumulate);
+		fprintf(stderr,"    setntapers= %d\n",setntapers);
+		fprintf(stderr,"    frequency_resolution= %g Hz\n",freqres);
+		fprintf(stderr,"    temporal_resolution= %g seconds\n",(partnbuff/setsfreq));
+		fprintf(stderr,"    temporal_shift= %g seconds\n",((setnbuff/2.0)/setsfreq));
+		fprintf(stderr,"    nwin= %ld\n",nwin);
+		fprintf(stderr,"    nout= %ld\n",nout);
 
 		fprintf(stderr,"\n");
 	}
