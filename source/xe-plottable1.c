@@ -173,7 +173,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"        plasma: blue-purple-yellow\n");
 		fprintf(stderr,"        magma: black-purple-cream\n");
 		fprintf(stderr,"        inferno: black-purple-orange-paleyellow\n");
-		fprintf(stderr,"        vangough: blue-purple-pink-gold\n");
+		fprintf(stderr,"	vangough: blue-purple-pink-gold\n");
+		fprintf(stderr,"	turbo: similar to rainbow, but a more continuous\n");
 		fprintf(stderr,"        *.txt: a palette-file with an RGB triplet on each line\n");
 		fprintf(stderr,"            - values are 0-1, example:  .75  0.0  1.0\n");
 		fprintf(stderr,"            - assigned to groups in ascendng order (from zero)\n");
@@ -312,6 +313,7 @@ int main (int argc, char *argv[]) {
 		&& strcmp(setpal,"magma")!=0
 		&& strcmp(setpal,"inferno")!=0
 		&& strcmp(setpal,"vangough")!=0
+		&& strcmp(setpal,"turbo")!=0
 		) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setpal);exit(1);}
 	}
 	else setpal="default";

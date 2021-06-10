@@ -133,7 +133,7 @@ xe-norm2 $tempfile".0" -cy 4 -n -1 | # keep the option for log10 transform
 xe-cut1 $tempfile".0" $setscol,$setxcol,$setgcol,$setycol |
 	sort -k1n -k2n -k3n |
 	xe-repeated1 stdin $setscol,$setxcol $setgcol $setycol -norm 4 -n1 0 -n2 0 |
-	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 |
+	xe-statsgrp2 stdin -cg1 3 -cg2 2 -cy 4 | 
 	xe-plottable1 stdin $plotopts -xlabel "$xl" -ylabel "Mean $yl (ratio)" -title "Normalised to $refgroupname" -legend 1 -hline 1 $setB -out $tempfile"_b.ps"
 if [ "$settable" != "" ] ; then
 	xs-plotmod1 $tempfile"_b.ps" --out 1 --legend $settable

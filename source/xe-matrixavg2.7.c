@@ -4,14 +4,17 @@
 #include <string.h>
 
 #define thisprog "xe-matrixavg2"
-#define TITLE_STRING thisprog" v 1: 22.January.2019 [JRH]"
+#define TITLE_STRING thisprog" v 1: 10.June.2021 [JRH]"
 
 /*
 <TAGS>math dt.matrix noise</TAGS>
 
+v 1: 10.June.2021 [JRH]
+	- add Gaussian smoothing option
+
 v 1: 8.September.2019 [JRH]
 	- add row-normalization capabilities
-	- simplify coding workflow 
+	- simplify coding workflow
 
 v 1: 22.January.2019 [JRH]
 	- add clipping capabilities
@@ -60,6 +63,7 @@ double *xf_matrixrotate1_d(double *data1, long *width, long *height, int r);
 long xf_norm3_d(double *data,long ndata,int normtype,long start,long stop,char *message);
 long xf_interp3_d(double *data, long ndata);
 int xf_filter_bworth_matrix1_d(double *matrix1, size_t width, size_t height, float sample_freq, float low_freq, float high_freq, float res, char *message);
+int xf_smoothgauss2_d(double *data,int xbintot,int ybintot,int xsmooth,int ysmooth);
 /* external functions end */
 
 int main (int argc, char *argv[]) {
@@ -76,7 +80,7 @@ int main (int argc, char *argv[]) {
 	double *data1=NULL,*pmatrix=NULL,*pmatrix2=NULL,*mean1=NULL;
 	/* arguments */
 	char *infile1=NULL;
-	int setsign=0,setrotate=0,setnorm=-1;
+	int setsign=0,setrotate=0,setnorm=-1,setsmx =0,setsmy=0;
 	long setn1=-1,setn2=-1;
 	float setflo=0.0,setfhi=0.0,setfsr=1.0;
 	double setclip=-1.0,setz=NAN,setp=25.0;
@@ -110,7 +114,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		- use for if input column=freq and row=time\n");
 		fprintf(stderr,"		- matrix will be rotated back for output\n");
 		fprintf(stderr,"\n");
-		fprintf(stderr,"NORMALIZATION OPTIONS (applied to rows): defaults in []\n");
+		fprintf(stderr,"NORMALIZATION OPTIONS (applied to rows): \n");
 		fprintf(stderr,"	-norm: normalization type: [%d]\n",setnorm);
 		fprintf(stderr,"		-1: no normalization \n");
 		fprintf(stderr,"		 0: 0-1 range\n");
@@ -122,11 +126,14 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"	-n2: end of normalization zone (sample) [%ld]\n",setn2);
 		fprintf(stderr,"		- set n1|n2 to -1 to signify first|last valid sample\n");
 		fprintf(stderr,"\n");
-		fprintf(stderr,"FILTER OPTIONS (applied to rows): defaults in []\n");
+		fprintf(stderr,"FILTER OPTIONS (applied to rows): \n");
 		fprintf(stderr,"	-fsr: sample-rate (Hz) [%g]\n",setfsr);
 		fprintf(stderr,"	-flo: low-frequency cut (0=NONE) [%g]\n",setflo);
 		fprintf(stderr,"	-fhi: high-frequency cut (0=NONE) [%g]\n",setfhi);
 		fprintf(stderr,"\n");
+		fprintf(stderr,"SMOOTHING OPTIONS (applied in 2D): \n");
+		fprintf(stderr,"	-smx: horizontal smoothing (samples) [%d]\n",setsmx );
+		fprintf(stderr,"	-smy: vertical smoothing (samples) [%d]\n",setsmy);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s matrix.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -152,6 +159,8 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-fsr")==0)  setfsr=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-flo")==0)  setflo=atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-fhi")==0)  setfhi=atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-smx")==0)  setsmx=atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-smy")==0)  setsmx=atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error[%s]: invalid command line argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setsign<-1||setsign>1) {fprintf(stderr,"\n--- Error[%s]: invalid -s [%d] must be -1, 0 or 1\n\n",thisprog,setsign);exit(1);}
@@ -206,12 +215,17 @@ int main (int argc, char *argv[]) {
 					for(kk=0;kk<ncols1;kk++) pmatrix2[kk]= NAN;
 		}}}
 
-		/* APPLY FILTERING IF REQUIRED */
+		/* APPLY FILTERING ON EACH ROW  */
 		if(setflo>0.0 || setfhi>0.0) {
 			z= xf_filter_bworth_matrix1_d(pmatrix,ncols1,nrows1,setfsr,setflo,setfhi,1.4142,message);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
 		}
 
+		/* APPLY GAUSSIAN SMOOTHING IN 2-DIMENSIONS */
+		if(setsmx >0.0 || setsmy>0.0) {
+			z= xf_smoothgauss2_d(pmatrix,ncols1,nrows1,setsmx,setsmy);
+			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+		}
 
 		if(setrotate==1) {z= xf_matrixrotate2_d(pmatrix,&ncols1,&nrows1,90); if(z<0){ fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }}
 	}

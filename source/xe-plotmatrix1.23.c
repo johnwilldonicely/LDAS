@@ -134,6 +134,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"		plasma: blue-purple-yellow\n");
 		fprintf(stderr,"		magma: black-purple-cream\n");
 		fprintf(stderr,"		inferno: black-purple-orange-paleyellow\n");
+		fprintf(stderr,"		vangough: blue-purple-pink-gold\n");
+		fprintf(stderr,"		turbo: similar to rainbow, but a more continuous\n");
 		fprintf(stderr,"	-paln: number of colours in the palette [%ld]\n",setrgbn);
 		fprintf(stderr,"	-palrev: reverse order of pallette colours (1=YES,0=NO) [%d]\n",setpalrev);
 		fprintf(stderr,"	-xstep -ystep: set interval between matrix values [%g,%g]\n",setxstep,setystep);
@@ -232,6 +234,8 @@ int main (int argc, char *argv[]) {
 		&& strcmp(setrgbpal,"plasma")!=0
 		&& strcmp(setrgbpal,"magma")!=0
 		&& strcmp(setrgbpal,"inferno")!=0
+		&& strcmp(setrgbpal,"vangough")!=0
+		&& strcmp(setrgbpal,"turbo")!=0
 	) {fprintf(stderr,"\n\a--- Error[%s]: illegal -pal (%s)\n\n",thisprog,setrgbpal);exit(1);}
 
 	if(xlabel==NULL) xlabel="\0";
