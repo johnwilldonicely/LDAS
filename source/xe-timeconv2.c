@@ -101,7 +101,7 @@ int main (int argc, char *argv[]) {
 		// convert string to broken-down-time structure (Y/M/D etc)
 		// assumes input format is %d/%m/%Y %H:%M:%S
 		pline= strptime(pword,"%d/%m/%Y %H:%M:%S", tstruct1);
-		if(pline==NULL) {fprintf(stderr,"\n--- Error[%s]: nvalid date format on line %ld\n\n",thisprog,mm);exit(1);};
+		if(pline==NULL) {fprintf(stderr,"\n--- Error[%s]: invalid date format on line %ld\n\n",thisprog,mm);exit(1);};
 		// convert broken-down-time to seconds-since-1970
 		t1 = mktime(tstruct1);
 		// if this is the first timestamp and elapsed-time is required, make t1 the reference time
