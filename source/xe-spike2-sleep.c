@@ -18,19 +18,26 @@
 
 
 /* external functions start */
+
+double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
+float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
+char* xf_strsub1 (char *source, char *str1, char *str2);
+long xf_interp3_f(float *data, long ndata);
+
+int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *sec2);
+int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
+int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *message);
+int xf_filter_bworth1_f(float *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
+int xf_rms2_f(float *input, float *output, size_t nn, size_t nwin1, char *message);
+
+
 char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse2(char *line, char *delimiters, long *nwords);
-double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
 int xf_smoothgauss1_d(double *original,size_t arraysize,int smooth);
-
-int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
-
 long xf_scale1_l(long data, long min, long max);
 int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
 double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message);
-int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *sec2);
 
-char* xf_strsub1 (char *source, char *str1, char *str2);
 
 /* external functions end */
 
@@ -52,11 +59,14 @@ int main (int argc, char *argv[]) {
 
 	/* program-specific variables */
 	char *header=NULL,*pchar=NULL;
-	char *infileeeg=NULL,*infileemg=NULL;
+	char *infileeeg=NULL,*infileemg=NULL,*infiletemp=NULL;
 	int sizeofdata;
-	long *iword=NULL,nwords,binsamps,zero1,zero2;
+	long *iword=NULL,nwords,binsamps,zero1act,zero1emg,zero1eeg;
+	long nnact,nnemg,nneeg;
+	off_t parameters[8]; // parameters for xf_readbin2_f()
+	float *datemg=NULL,*dateeg=NULL;
 	double *datact=NULL,*pdata;
-	double sampintact,samprateact,duract,binsize=10.0;
+	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,binsize=10.0;
 
 	/* arguments */
 	char *infileact=NULL;
@@ -112,13 +122,13 @@ int main (int argc, char *argv[]) {
 	********************************************************************************/
 	pchar= strstr(infileact,"ACT_"); // infileact must contain the word "activity.txt"
 	if(pchar==NULL) { fprintf(stderr,"\n--- Error[%s]: invalid infileact [%s] - must include the keyword \"ACT_\"\n\n",thisprog,infileact);exit(1);}
-	infileeeg= xf_strsub1(infileact,"ACT","EEG"); if(infileeeg==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-	infileemg= xf_strsub1(infileact,"ACT","EMG"); if(infileemg==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-
+	infiletemp= xf_strsub1(infileact,".txt",".bin");
+	infileemg= xf_strsub1(infiletemp,"ACT","EMG");
+	infileeeg= xf_strsub1(infiletemp,"ACT","EEG");
 	fprintf(stderr,"\n");
 	fprintf(stderr,"...activity file= %s\n",infileact);
-	fprintf(stderr,"...matching EEG=  %s\n",infileeeg);
 	fprintf(stderr,"...matching EMG=  %s\n",infileemg);
+	fprintf(stderr,"...matching EEG=  %s\n",infileeeg);
 
 	/********************************************************************************/
 	/********************************************************************************
@@ -128,40 +138,97 @@ int main (int argc, char *argv[]) {
 	- max mobility is probably ~6
 	********************************************************************************/
 	/********************************************************************************/
-
-	if(setverb>0) fprintf(stderr,"...reading ACTIVITY data...\n");
+	fprintf(stderr,"...reading ACTIVITY data...\n");
 //	datact= xf_readtable1_d(infileact,"\t",&ncols,&nrows,&header,message);
-	datact= xf_readspike2_text_d(infileact,&nn,&sampintact,message);
+	datact= xf_readspike2_text_d(infileact,&nnact,&siact,message);
 	if(datact==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-	samprateact= 1.0/sampintact;
+	sfact= 1.0/siact;
 	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= datact+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
-
 	/* FIND DURATION N SECONDS AND REPORT */
-	duract= nn*sampintact;
+	duract= (double)nnact/sfact;
 	z= xf_timeconv1(duract,&days,&hours,&minutes,&seconds);
 	fprintf(stderr,"        label= %s\n",message);
-	fprintf(stderr,"        records= %ld\n",nn);
-	fprintf(stderr,"        samplerate= %g Hz\n",samprateact);
+	fprintf(stderr,"        records= %ld\n",nnact);
+	fprintf(stderr,"        samplerate= %g Hz\n",sfact);
 	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
-
 	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
-	for(ii=0;ii<nn;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
-
+	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
 	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	zero1= (long)(setzero*samprateact);
-	z= xf_bin1b_d(datact,&nn,&zero1,binsize,message);
+	aa= binsize*sfact;
+	zero1act= (long)(setzero*sfact);
+	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
+	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
+
 
 	/********************************************************************************/
 	/********************************************************************************/
 	/* EMG DATA: STORE AND PROCESS */
 	/********************************************************************************/
 	/********************************************************************************/
+	fprintf(stderr,"...reading EMG data...\n");
+	parameters[0]= 8; /// data-type
+	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
+	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
+	parameters[3]= 0; // number of numbers to be read (0=all)
+	datemg= xf_readbin2_f(infileemg,parameters,message);
+	if(datemg==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	nnemg= parameters[3];
+	/* FIND DURATION N SECONDS AND REPORT */
+	duremg= (double)nnemg/sfemg;
+	z= xf_timeconv1(duremg,&days,&hours,&minutes,&seconds);
+	fprintf(stderr,"        records= %ld\n",nnemg);
+	fprintf(stderr,"        samplerate= %g Hz\n",sfemg);
+	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_f(datemg,nnemg);
+	/* APPLY A 70Hz LOW PASS FILTER */
+	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
+	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+
+	/* RECTIFY: because the signal is centred o zero */
+	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
+
+	//??? alernatively here we could calculate RMS POWER
+	//??? we could also apply diagnostics based on fft
 
 
 
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	aa= binsize * sfemg; // binsize in samples
+	zero1emg= (long)(setzero*sfemg);
+	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,aa,message);
+
+	/********************************************************************************/
+	/********************************************************************************/
+	/* EMG DATA: STORE AND PROCESS */
+	/********************************************************************************/
+	/********************************************************************************/
+	fprintf(stderr,"...reading EEG data...\n");
+	parameters[0]= 8; /// data-type
+	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
+	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
+	parameters[3]= 0; // number of numbers to be read (0=all)
+	dateeg= xf_readbin2_f(infileeeg,parameters,message);
+	if(dateeg==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	nneeg= parameters[3];
+	/* FIND DURATION N SECONDS AND REPORT */
+	dureeg= (double)nneeg/sfeeg;
+	z= xf_timeconv1(dureeg,&days,&hours,&minutes,&seconds);
+	fprintf(stderr,"        records= %ld\n",nneeg);
+	fprintf(stderr,"        samplerate= %g Hz\n",sfeeg);
+	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_f(datemg,nnemg);
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	aa= binsize * sfeeg; // binsize in samples
+	zero1eeg= (long)(setzero*sfeeg);
+	z= xf_bin1b_f(dateeg,&nneeg,&zero1eeg,aa,message);
+
+	//TEST
+	fprintf(stderr,"testing!\n");
+	for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
 
-	//TEST for(ii=0;ii<nn;ii++) { printf("%g\n",datact[ii]); }
 
 	exit(0);
 
@@ -189,6 +256,8 @@ END:
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
 	if(datact!=NULL) free(datact);
+	if(datemg!=NULL) free(datemg);
+	if(dateeg!=NULL) free(dateeg);
 	if(header!=NULL) free(header);
 	exit(0);
 }
