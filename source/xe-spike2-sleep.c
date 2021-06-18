@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "kiss_fftr.h"
 /*
 <TAGS> SPIKE2 </TAGS>
 
@@ -18,11 +19,18 @@
 
 
 /* external functions start */
-
 double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
 float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 char* xf_strsub1 (char *source, char *str1, char *str2);
 long xf_interp3_f(float *data, long ndata);
+long xf_interp3_d(double *data, long ndata);
+
+// NOTE: the following function declarations are commented out to avoid re-initialization in kiss headers,
+/*
+void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata);
+void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
+*/
+double *xf_taperhann_d(long setn, int setnorm, float setpow, char *message);
 
 int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *sec2);
 int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
@@ -62,11 +70,13 @@ int main (int argc, char *argv[]) {
 	char *infileeeg=NULL,*infileemg=NULL,*infiletemp=NULL;
 	int sizeofdata;
 	long *iword=NULL,nwords,binsamps,zero1act,zero1emg,zero1eeg;
-	long nnact,nnemg,nneeg;
+	long nnact,nnemg,nneeg,nwinfft;
 	off_t parameters[8]; // parameters for xf_readbin2_f()
-	float *datemg=NULL,*dateeg=NULL;
-	double *datact=NULL,*pdata;
+	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
+	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,binsize=10.0;
+	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
+	float *buff2=NULL,scaling1,sum,mean;
 
 	/* arguments */
 	char *infileact=NULL;
@@ -116,7 +126,6 @@ int main (int argc, char *argv[]) {
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(strcmp(infileact,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
 
-
 	/********************************************************************************
 	CHECK ACTIVITY FILENAME AND GENERATE FILENAMES FOR EEG AND EMG
 	********************************************************************************/
@@ -130,20 +139,18 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"...matching EMG=  %s\n",infileemg);
 	fprintf(stderr,"...matching EEG=  %s\n",infileeeg);
 
-	/********************************************************************************/
 	/********************************************************************************
 	STORE ACTIVITY DATA
 	- probably collected at 1Hz
 	- immobility is registered as zero
 	- max mobility is probably ~6
 	********************************************************************************/
-	/********************************************************************************/
 	fprintf(stderr,"...reading ACTIVITY data...\n");
 //	datact= xf_readtable1_d(infileact,"\t",&ncols,&nrows,&header,message);
 	datact= xf_readspike2_text_d(infileact,&nnact,&siact,message);
 	if(datact==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	sfact= 1.0/siact;
-	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdata= datact+(ii*ncols); printf("%g",pdata[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdata[jj]); printf("\n"); }
+	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdatad= datact+(ii*ncols); printf("%g",pdatad[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdatad[jj]); printf("\n"); }
 	/* FIND DURATION N SECONDS AND REPORT */
 	duract= (double)nnact/sfact;
 	z= xf_timeconv1(duract,&days,&hours,&minutes,&seconds);
@@ -151,19 +158,11 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        records= %ld\n",nnact);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfact);
 	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
-	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
-	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize*sfact;
-	zero1act= (long)(setzero*sfact);
-	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
-	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
-
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_d(datact,nnact);
 
 	/********************************************************************************/
-	/********************************************************************************/
-	/* EMG DATA: STORE AND PROCESS */
-	/********************************************************************************/
+	/* STORE EMG DATA */
 	/********************************************************************************/
 	fprintf(stderr,"...reading EMG data...\n");
 	parameters[0]= 8; /// data-type
@@ -181,27 +180,9 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(datemg,nnemg);
-	/* APPLY A 70Hz LOW PASS FILTER */
-	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
-	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-
-	/* RECTIFY: because the signal is centred o zero */
-	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
-
-	//??? alernatively here we could calculate RMS POWER
-	//??? we could also apply diagnostics based on fft
-
-
-
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize * sfemg; // binsize in samples
-	zero1emg= (long)(setzero*sfemg);
-	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,aa,message);
 
 	/********************************************************************************/
-	/********************************************************************************/
-	/* EMG DATA: STORE AND PROCESS */
-	/********************************************************************************/
+	/* STORE EEG DATA */
 	/********************************************************************************/
 	fprintf(stderr,"...reading EEG data...\n");
 	parameters[0]= 8; /// data-type
@@ -219,19 +200,40 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(datemg,nnemg);
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize * sfeeg; // binsize in samples
-	zero1eeg= (long)(setzero*sfeeg);
-	z= xf_bin1b_f(dateeg,&nneeg,&zero1eeg,aa,message);
 
-	//TEST
-	fprintf(stderr,"testing!\n");
-	for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
+	//TEST	fprintf(stderr,"testing!\n");
+	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
+	/********************************************************************************
+	SET-UP FFT MODEL AND TAPER
+	********************************************************************************/
+	nwinfft= (long)(binsize*sfeeg*1.0);
+	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
+	// setup taper
+	taper= xf_taperhann_d(nwinfft,1,1,message);
+	if(taper==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+	// setup fft configuration
+	kiss_fftr_cfg cfgr = kiss_fftr_alloc( nwinfft ,0,0,0 ); /* configuration structure: memory assigned using malloc - needs to be freed at end */
+	kiss_fft_cpx fft[nwinfft]; /* holds fft results: memory assigned explicitly, so does not need to be freed */
+	/* allocate memory for working variables */
+	if((buff2= (float*)calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
+	if((spect= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
+	if((spectmean= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
 
+// for each window or epoch...
 
-	exit(0);
+	// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
+	pdataf= dateeg+0; /* set index to data */
+	sum=0; for(ii=0;ii<nwinfft;ii++) sum+=pdataf[ii]; mean=sum*scaling1; /* calculate the mean-correction to window */
+	for(ii=0;ii<nwinfft;ii++) buff2[ii]= (pdataf[ii]-mean) * taper[ii]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
+	// run the FFT
+	kiss_fftr(cfgr,buff2,fft);
+	// generate the scaled amplitude spectrum
+	aa=2.0 * scaling1;
+	kk= nwinfft/2; // defines highest index in FFT result for which unique information can be obtained
+	for(ii=0;ii<kk;ii++) { ar= fft[ii].r; ai= fft[ii].i; spect[ii]= aa * sqrtf( ar*ar + ai*ai ); }
 
+exit(0);
 
 	// DETERMINE TIME ZERO
 	// DETERMINE RECORDING DURATION AND NUMBER OF EPOCHS BEFORE AND AFTER ZERO
@@ -241,6 +243,29 @@ int main (int argc, char *argv[]) {
 	// READ EEG DATA & SAVE EPOCHDATA FOR DELTA & GAMMA & NOISE
 
 	// variables eatot[] eanoise[] eedelta[] eetheta[] eenoise empow[] emnoise[]]
+
+
+
+
+	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
+	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	aa= binsize*sfact;
+	zero1act= (long)(setzero*sfact);
+	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
+	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
+
+
+	/* APPLY A 70Hz LOW PASS FILTER */
+	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
+	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	/* RECTIFY: because the signal is centred on zero */
+	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	aa= binsize * sfemg; // binsize in samples
+	zero1emg= (long)(setzero*sfemg);
+	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,aa,message);
+
 
 
 
