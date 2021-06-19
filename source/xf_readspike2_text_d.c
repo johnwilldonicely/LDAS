@@ -83,7 +83,7 @@ double *xf_readspike2_text_d(char *infile, long *ndata, double *sampint, char *m
 	sizeofdata1= sizeof(*data1);
 
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
-	else if((fpin=fopen(infile,"r"))==0) {sprintf(message," %s: file \"%s\" not found\n\n",thisfunc,infile);goto ERROR;}
+	else if((fpin=fopen(infile,"r"))==0) { sprintf(message," %s: file \"%s\" not found",thisfunc,infile);goto ERROR;}
 
 	while((line=xf_lineread1(line,&maxlinelen,fpin))!=NULL) {
 		if(maxlinelen==-1)  {sprintf(message," %s: memory allocation error",thisfunc);goto ERROR;}
@@ -121,15 +121,22 @@ double *xf_readspike2_text_d(char *infile, long *ndata, double *sampint, char *m
 		else data1[ndata2]= NAN;
 		ndata2++;
 	}
+
 	goto FINISH;
 
+
 ERROR:
-	if(data1!=NULL) free(data1);
+	if(strcmp(infile,"stdin")!=0 && fpin!=NULL) fclose(fpin);
+	if(line!=NULL) free(line);
+	if(start!=NULL) free(start);
+	*ndata=-1;
+	*sampint=-1;
+	return(NULL);
+
 FINISH:
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	if(line!=NULL) free(line);
 	if(start!=NULL) free(start);
-
 	*ndata= ndata2;
 	*sampint= sampint2;
 	return(data1);

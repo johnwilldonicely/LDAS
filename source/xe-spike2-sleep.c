@@ -24,6 +24,11 @@ float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 char* xf_strsub1 (char *source, char *str1, char *str2);
 long xf_interp3_f(float *data, long ndata);
 long xf_interp3_d(double *data, long ndata);
+int xf_norm2_f(float *data,long ndata,int normtype);
+
+int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
+int xf_compare1_d(const void *a, const void *b);
+
 
 // NOTE: the following function declarations are commented out to avoid re-initialization in kiss headers,
 /*
@@ -206,7 +211,9 @@ int main (int argc, char *argv[]) {
 
 	/********************************************************************************
 	SET-UP FFT MODEL AND TAPER
+	- this is done after reading the EEG/EMG data to determine appropriate window-size
 	********************************************************************************/
+	fprintf(stderr,"...setting up FFT model and taper...\n");
 	nwinfft= (long)(binsize*sfeeg*1.0);
 	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
 	// setup taper
@@ -220,6 +227,71 @@ int main (int argc, char *argv[]) {
 	if((spect= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
 	if((spectmean= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
 
+
+	/********************************************************************************
+	PROCESS ACTIVITY
+	********************************************************************************/
+	fprintf(stderr,"...processing activity...\n");
+	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
+	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
+	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
+	aa= binsize*sfact;
+	zero1act= (long)(setzero*sfact);
+	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
+	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
+
+	/********************************************************************************
+	PROCESS EMG
+	- use method of Silvani et.al. (2017)
+		- rectify
+		- avg. in 0.5s window
+		- trim upper and lower 0.5% (this was artbitrary)
+		- normalise: val= 1-- * (val-min) / (max-min)
+	********************************************************************************/
+	fprintf(stderr,"...processing EMG...\n");
+	/* APPLY A 70Hz LOW PASS FILTER */
+//	fprintf(stderr,"    - filtering...\n");
+//	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
+//	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	/* RECTIFY: because the signal is centred on zero */
+	fprintf(stderr,"    - rectifying...\n");
+	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
+	/* AVERAGE THE DATA IN 0.5s BINS (note these are not epochs) */
+	fprintf(stderr,"    - binning...\n");
+	zero1emg= (long)(setzero*sfemg);
+	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,(0.5*sfemg),message);
+	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
+	fprintf(stderr,"    - getting percentiles...\n");
+	z= xf_percentile2_f(datemg,nnemg,.5,&aa,&bb,message);
+	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	/* TRIM AND NORMALIZE THE DATA */
+	for(ii=0;ii<nnemg;ii++) {
+		cc= datemg[ii];
+		if(cc<aa) datemg[ii]= NAN;
+		else if(cc>=bb) datemg[ii]= NAN;
+		else datemg[ii]= 100.0 * (cc-aa) / (bb-aa);
+	}
+/*
+ ??? there is a problem here
+- basically, zero in our data appears to be a data-loss value, and other values represent "very little movement"
+- this is difficult to prove, but either wa sometimes "zero" is included after trimming because there is a lot of missing ddta 
+
+
+ */
+
+
+	//TEST:
+	fprintf(stderr,"    - outputting...\n");
+
+	for(ii=0;ii<nnemg;ii++) printf("%f\n",datemg[ii]);
+
+goto END;
+
+
+
+	/********************************************************************************
+	PROCESS EEG
+	********************************************************************************/
 // for each window or epoch...
 
 	// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
@@ -243,29 +315,6 @@ exit(0);
 	// READ EEG DATA & SAVE EPOCHDATA FOR DELTA & GAMMA & NOISE
 
 	// variables eatot[] eanoise[] eedelta[] eetheta[] eenoise empow[] emnoise[]]
-
-
-
-
-	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
-	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize*sfact;
-	zero1act= (long)(setzero*sfact);
-	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
-	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
-
-
-	/* APPLY A 70Hz LOW PASS FILTER */
-	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
-	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-	/* RECTIFY: because the signal is centred on zero */
-	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize * sfemg; // binsize in samples
-	zero1emg= (long)(setzero*sfemg);
-	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,aa,message);
-
 
 
 
