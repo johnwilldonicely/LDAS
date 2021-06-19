@@ -247,6 +247,10 @@ int main (int argc, char *argv[]) {
 		- avg. in 0.5s window
 		- trim upper and lower 0.5% (this was artbitrary)
 		- normalise: val= 1-- * (val-min) / (max-min)
+
+	- alternative: Z-score data
+	- alternative - apply 70Hz low-pass (assumes noise is high-frequency
+	
 	********************************************************************************/
 	fprintf(stderr,"...processing EMG...\n");
 	/* APPLY A 70Hz LOW PASS FILTER */
@@ -274,7 +278,7 @@ int main (int argc, char *argv[]) {
 /*
  ??? there is a problem here
 - basically, zero in our data appears to be a data-loss value, and other values represent "very little movement"
-- this is difficult to prove, but either wa sometimes "zero" is included after trimming because there is a lot of missing ddta 
+- this is difficult to prove, but either wa sometimes "zero" is included after trimming because there is a lot of missing ddta
 
 
  */
