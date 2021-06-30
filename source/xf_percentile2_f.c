@@ -14,7 +14,7 @@ ARGUMENTS:
 	float *data   : array holding the input data
 	long nn       : number of elements in the array
 	double setper : the percentile cutoff desired (0-1)
-	double *per1  : the result (passs as address to variable)
+	double *per1  : the result (pass as address to variable)
 	double *per2  : as above, but the mirror-image percentile (e.g. 95% for 5%, 99% for 1%, and so on)
 	char *message : pre-allocated array to hold error message
 

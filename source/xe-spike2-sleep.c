@@ -25,6 +25,8 @@ char* xf_strsub1 (char *source, char *str1, char *str2);
 long xf_interp3_f(float *data, long ndata);
 long xf_interp3_d(double *data, long ndata);
 int xf_norm2_f(float *data,long ndata,int normtype);
+int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
+
 
 int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
 int xf_compare1_d(const void *a, const void *b);
@@ -59,7 +61,7 @@ int main (int argc, char *argv[]) {
 	/* general variables */
 	char *line=NULL,message[MAXLINELEN];
 	int x,y,z,vector[] = {1,2,3,4,5,6,7};
-	long ii,jj,kk,nn,maxlinelen=0;
+	long ii,jj,kk,nn,mm,maxlinelen=0;
 	float a,b,c;
 	double aa,bb,cc;
 	FILE *fpin,*fpout;
@@ -75,13 +77,15 @@ int main (int argc, char *argv[]) {
 	char *infileeeg=NULL,*infileemg=NULL,*infiletemp=NULL;
 	int sizeofdata;
 	long *iword=NULL,nwords,binsamps,zero1act,zero1emg,zero1eeg;
-	long nnact,nnemg,nneeg,nwinfft;
+	long nwinfft,nnact,nnemg,nneeg,nscores;
 	off_t parameters[8]; // parameters for xf_readbin2_f()
 	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
 	double *datact=NULL,*pdatad=NULL;
-	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,binsize=10.0;
+	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
 	float *buff2=NULL,scaling1,sum,mean;
+
+	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scorebeta=NULL;
 
 	/* arguments */
 	char *infileact=NULL;
@@ -144,6 +148,16 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"...matching EMG=  %s\n",infileemg);
 	fprintf(stderr,"...matching EEG=  %s\n",infileeeg);
 
+
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+	/* STEP 1: STORE DATA
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+
+
 	/********************************************************************************
 	STORE ACTIVITY DATA
 	- probably collected at 1Hz
@@ -162,9 +176,7 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        label= %s\n",message);
 	fprintf(stderr,"        records= %ld\n",nnact);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfact);
-	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_d(datact,nnact);
+	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
 
 	/********************************************************************************/
 	/* STORE EMG DATA */
@@ -182,9 +194,7 @@ int main (int argc, char *argv[]) {
 	z= xf_timeconv1(duremg,&days,&hours,&minutes,&seconds);
 	fprintf(stderr,"        records= %ld\n",nnemg);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfemg);
-	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(datemg,nnemg);
+	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
 
 	/********************************************************************************/
 	/* STORE EEG DATA */
@@ -202,19 +212,134 @@ int main (int argc, char *argv[]) {
 	z= xf_timeconv1(dureeg,&days,&hours,&minutes,&seconds);
 	fprintf(stderr,"        records= %ld\n",nneeg);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfeeg);
-	fprintf(stderr,"        duration= %g seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(datemg,nnemg);
+	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
 
 	//TEST	fprintf(stderr,"testing!\n");
 	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
+
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+	/* STEP 2: MAKE 1-SECOND SCORED FOR EACH DATA-TYPE
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+
+
 	/********************************************************************************
-	SET-UP FFT MODEL AND TAPER
+	ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES
+	- 10 sub-scores generate an epoch-score (sub-scores will become epoch-scores)
+	- use duract to calculate number of seconds in record, and hence number of epochs
+	********************************************************************************/
+	if(duract<duremg) {
+		if(duract<dureeg) aa= duract; else aa=dureeg;
+	}
+	else {
+		if(duremg<dureeg) aa= duremg; else aa=dureeg;
+	}
+	nscores= (long)aa; // total number of 1s-scores for activity, EMG and EEG
+
+	scoreact= malloc(nscores * sizeof(*scoreact));
+	scoreemg= malloc(nscores * sizeof(*scoreemg));
+	scoredelta= malloc(nscores * sizeof(*scoredelta));
+	scoretheta= malloc(nscores * sizeof(*scoretheta));
+	scorebeta= malloc(nscores * sizeof(*scorebeta));
+
+	/********************************************************************************
+	SCORE: ACTIVITY
+	- DON'T rectify because the DSI system creates brief negativities either side of periods of activity - these appear to be filtering artefacts
+	- instead, treat these negativities as invalid and interpolate across them
+	********************************************************************************/
+	fprintf(stderr,"...processing activity...\n");
+	/* REMOVE NEGATIVE VALUES (ARTEFACTS OF FILTERING) */
+	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]=NAN;
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_d(datact,nnact);
+	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions which overwrite the */
+	mm= (long)sfact; // binsize
+	sum= 0.0;
+	for(ii=jj=kk=0;ii<nnact;ii++) {
+		sum+= datact[ii];
+		if(++jj==mm) {
+			scoreact[kk]= sum/(double)jj;
+			if(++kk>nscores) break; // do not exceed limits
+			jj=0;
+			sum=0.0;
+	}} // note that partial bins at the end of data are ignored
+
+	/********************************************************************************
+	SCORE: EMG
+	- method based on Silvani et al (2017) but zero is minimum and 1s binning rather than 0.5s
+	 ??? there is a problem here
+	- basically, zero in our data appears to be a data-loss value, and other values represent "very little movement"
+	- this is difficult to prove, but either way sometimes "zero" is included after trimming because there is a lot of missing ddta
+	********************************************************************************/
+	fprintf(stderr,"...processing EMG...\n");
+
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_f(datemg,nnemg);
+	/* APPLY A 70Hz LOW PASS FILTER */
+	// fprintf(stderr,"    - filtering...\n");
+	// z= xf_filter_bworth1_f(datemg,nnemg,sfemg,70.0,100.0,sqrtf(2.0),message);
+	// if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+
+	/* RECTIFY: because the signal is centred on zero */
+	fprintf(stderr,"    - rectifying...\n");
+	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
+
+	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions which overwrite the */
+	fprintf(stderr,"    - binning (1-second)...\n");
+	mm= (long)sfemg; // binsize= 1 second
+	sum= 0.0;
+	for(ii=jj=kk=0;ii<nnemg;ii++) {
+		sum+= datemg[ii];
+		if(++jj==mm) {
+			scoreemg[kk]= sum/(double)jj;
+			if(++kk>nscores) break; // do not exceed limits
+			jj=0;
+			sum=0.0;
+	}} // note that partial bins at the end of data are ignored
+
+	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
+	fprintf(stderr,"    - trim and normalise...\n");
+	z= xf_percentile2_f(scoreemg,nscores,.5,&aa,&bb,message);
+	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	/* TRIM AND NORMALIZE THE DATA */
+	/* - modified from Silvani 2017 - assume lower limit is zero */
+	for(ii=0;ii<nscores;ii++) {
+		cc= scoreemg[ii];
+		if(cc>=bb) scoreemg[ii]= NAN;
+		// else if(cc<aa) scoreemg[ii]= NAN; // original method sets lower limit - for outrpurposes it is useful not to exclude zero, which can have special meaning
+		// else scoreemg[ii]= 100.0 * (cc-aa) / (bb-aa);
+		else scoreemg[ii]= 100.0 * (cc / bb);
+	}
+
+//	zero1emg= (long)(setzero*sfemg);
+//	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,(binemg*sfemg),message);
+
+/// ??? EVENTUALLY MOVE THIS TO THE EPOCH SECTION
+
+	/* FOR EACH EPOCH (20 VALUES), SAVE MEDIAN */
+	mm= (long)(epochsize);
+	kk= 0; // new epoch-counter
+	for(ii=0;ii<nscores;ii+=mm) {
+		pdataf= scoreemg+ii;
+		z= xf_percentile2_f(pdataf,mm,50.0,&aa,&bb,message);
+		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+		scoreemg[kk++]= aa;
+	}
+	//TEST:
+	fprintf(stderr,"    - outputting...\n");
+	for(ii=0;ii<kk;ii++) printf("%f\n",scoreemg[ii]);
+
+
+	/********************************************************************************
+	SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
 	- this is done after reading the EEG/EMG data to determine appropriate window-size
 	********************************************************************************/
 	fprintf(stderr,"...setting up FFT model and taper...\n");
-	nwinfft= (long)(binsize*sfeeg*1.0);
+	nwinfft= (long)(epochsize*sfeeg*1.0);
 	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
 	// setup taper
 	taper= xf_taperhann_d(nwinfft,1,1,message);
@@ -223,73 +348,13 @@ int main (int argc, char *argv[]) {
 	kiss_fftr_cfg cfgr = kiss_fftr_alloc( nwinfft ,0,0,0 ); /* configuration structure: memory assigned using malloc - needs to be freed at end */
 	kiss_fft_cpx fft[nwinfft]; /* holds fft results: memory assigned explicitly, so does not need to be freed */
 	/* allocate memory for working variables */
-	if((buff2= (float*)calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
-	if((spect= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
-	if((spectmean= (double*)calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
+	if((buff2= calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
+	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
+	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
 
-
-	/********************************************************************************
-	PROCESS ACTIVITY
-	********************************************************************************/
-	fprintf(stderr,"...processing activity...\n");
-	/* RECTIFY: because the DSI receiver system creates brief 1s negativities either side of periods of activity */
-	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]*=-1.0;
-	/* AVERAGE THE DATA IN 10 SECOND BINS (EPOCHS) */
-	aa= binsize*sfact;
-	zero1act= (long)(setzero*sfact);
-	z= xf_bin1b_d(datact,&nnact,&zero1act,binsize,message);
-	//TEST:	for(ii=0;ii<nnact;ii++) printf("%f\n",datact[ii]);
-
-	/********************************************************************************
-	PROCESS EMG
-	- use method of Silvani et.al. (2017)
-		- rectify
-		- avg. in 0.5s window
-		- trim upper and lower 0.5% (this was artbitrary)
-		- normalise: val= 1-- * (val-min) / (max-min)
-
-	- alternative: Z-score data
-	- alternative - apply 70Hz low-pass (assumes noise is high-frequency
-	
-	********************************************************************************/
-	fprintf(stderr,"...processing EMG...\n");
-	/* APPLY A 70Hz LOW PASS FILTER */
-//	fprintf(stderr,"    - filtering...\n");
-//	z= xf_filter_bworth1_f(datemg,nnemg,sfemg,0.0,70.0,sqrtf(2.0),message);
-//	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-	/* RECTIFY: because the signal is centred on zero */
-	fprintf(stderr,"    - rectifying...\n");
-	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
-	/* AVERAGE THE DATA IN 0.5s BINS (note these are not epochs) */
-	fprintf(stderr,"    - binning...\n");
-	zero1emg= (long)(setzero*sfemg);
-	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,(0.5*sfemg),message);
-	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
-	fprintf(stderr,"    - getting percentiles...\n");
-	z= xf_percentile2_f(datemg,nnemg,.5,&aa,&bb,message);
-	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-	/* TRIM AND NORMALIZE THE DATA */
-	for(ii=0;ii<nnemg;ii++) {
-		cc= datemg[ii];
-		if(cc<aa) datemg[ii]= NAN;
-		else if(cc>=bb) datemg[ii]= NAN;
-		else datemg[ii]= 100.0 * (cc-aa) / (bb-aa);
-	}
-/*
- ??? there is a problem here
-- basically, zero in our data appears to be a data-loss value, and other values represent "very little movement"
-- this is difficult to prove, but either wa sometimes "zero" is included after trimming because there is a lot of missing ddta
-
-
- */
-
-
-	//TEST:
-	fprintf(stderr,"    - outputting...\n");
-
-	for(ii=0;ii<nnemg;ii++) printf("%f\n",datemg[ii]);
 
 goto END;
+
 
 
 
@@ -297,10 +362,13 @@ goto END;
 	PROCESS EEG
 	********************************************************************************/
 // for each window or epoch...
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_f(dateeg,nneeg);
 
 	// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
 	pdataf= dateeg+0; /* set index to data */
-	sum=0; for(ii=0;ii<nwinfft;ii++) sum+=pdataf[ii]; mean=sum*scaling1; /* calculate the mean-correction to window */
+	sum=0; for(ii=0;ii<nwinfft;ii++) sum+=pdataf[ii];
+	mean= sum*scaling1; /* calculate the mean-correction to window */
 	for(ii=0;ii<nwinfft;ii++) buff2[ii]= (pdataf[ii]-mean) * taper[ii]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
 	// run the FFT
 	kiss_fftr(cfgr,buff2,fft);
@@ -337,5 +405,11 @@ END:
 	if(datemg!=NULL) free(datemg);
 	if(dateeg!=NULL) free(dateeg);
 	if(header!=NULL) free(header);
+	if(scoreact!=NULL) free(scoreact);
+	if(scoreemg!=NULL) free(scoreemg);
+	if(scoredelta!=NULL) free(scoredelta);
+	if(scoretheta!=NULL) free(scoretheta);
+	if(scorebeta!=NULL) free(scorebeta);
+
 	exit(0);
 }
