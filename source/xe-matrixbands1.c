@@ -151,7 +151,6 @@ int main (int argc, char *argv[]) {
 	/* build arrays to hold matrix-indices for bands */
 	if((bstart2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
 	if((bstop2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-
 	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
 
 	/********************************************************************************

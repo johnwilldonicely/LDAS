@@ -26,6 +26,7 @@ long xf_interp3_f(float *data, long ndata);
 long xf_interp3_d(double *data, long ndata);
 int xf_norm2_f(float *data,long ndata,int normtype);
 int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
+long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
 
 
 int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
@@ -87,8 +88,14 @@ int main (int argc, char *argv[]) {
 
 	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scorebeta=NULL;
 
+	/* band definition */
+	char setbandsdefault[]= "delta,.5,4,theta,4,12,beta,12,30,gamma,30,100"; // delta= Buzsaki, theta= Whishaw, beta= Magill (20Hz mean), gamma= mixedreferences
+	long btot=0,*ibands=NULL;
+	float bstart1[16],bstop1[16];
+	long *bstart2=NULL,*bstop2=NULL,band,bandmax=-1;
+
 	/* arguments */
-	char *infileact=NULL;
+	char *infileact=NULL,*setbands=NULL;
 	int setverb=0;
 	double setzero=0.0;
 
@@ -112,6 +119,8 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"    -verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
 		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
+		fprintf(stderr,"    -bands: CSV band-triplets: name,start,stop\n");
+		fprintf(stderr,"        - default: %s\n",setbandsdefault);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"    %s data.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -130,6 +139,7 @@ int main (int argc, char *argv[]) {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
 			else if(strcmp(argv[ii],"-zero")==0) setzero= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-bands")==0) setbands= argv[++ii];
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
@@ -149,6 +159,18 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"...matching EEG=  %s\n",infileeeg);
 
 
+	/********************************************************************************
+	PROCESS THE SETBANDS STRING - MAKE NEW LIST OF NAMES, STARTS, STOPS
+	********************************************************************************/
+	if(setbands==NULL) setbands= setbandsdefault;
+	ibands= xf_definebands1(setbands,bstart1,bstop1,&btot,message);
+	if(ibands==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	/* build arrays to hold matrix-indices for bands */
+	if((bstart2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+	if((bstop2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
+	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
+
+
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
@@ -159,7 +181,7 @@ int main (int argc, char *argv[]) {
 
 
 	/********************************************************************************
-	STORE ACTIVITY DATA
+	A. STORE ACTIVITY DATA
 	- probably collected at 1Hz
 	- immobility is registered as zero
 	- max mobility is probably ~6
@@ -178,9 +200,9 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        samplerate= %g Hz\n",sfact);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duract,days,hours,minutes,seconds);
 
-	/********************************************************************************/
-	/* STORE EMG DATA */
-	/********************************************************************************/
+	/********************************************************************************
+	B. STORE EMG DATA
+	********************************************************************************/
 	fprintf(stderr,"...reading EMG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
@@ -196,9 +218,9 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        samplerate= %g Hz\n",sfemg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
 
-	/********************************************************************************/
-	/* STORE EEG DATA */
-	/********************************************************************************/
+	/********************************************************************************
+	C.  STORE EEG DATA
+	********************************************************************************/
 	fprintf(stderr,"...reading EEG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
@@ -218,77 +240,88 @@ int main (int argc, char *argv[]) {
 	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
 
-	/******************************************************************************/
-	/******************************************************************************/
-	/******************************************************************************/
-	/* STEP 2: MAKE 1-SECOND SCORED FOR EACH DATA-TYPE
-	/******************************************************************************/
-	/******************************************************************************/
-	/******************************************************************************/
 
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+	/* STEP 2. ALLOCATE MEMORY /
+	/* - this is done after reading the EEG/EMG data to determine appropriate window-size */
+	/******************************************************************************/
+	/******************************************************************************/
 
 	/********************************************************************************
-	ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES
-	- 10 sub-scores generate an epoch-score (sub-scores will become epoch-scores)
-	- use duract to calculate number of seconds in record, and hence number of epochs
+	A. ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES (10 per epoch)
 	********************************************************************************/
-	if(duract<duremg) {
-		if(duract<dureeg) aa= duract; else aa=dureeg;
-	}
-	else {
-		if(duremg<dureeg) aa= duremg; else aa=dureeg;
-	}
+	if(duract<duremg) { if(duract<dureeg) aa= duract; else aa=dureeg; }
+	else { if(duremg<dureeg) aa= duremg; else aa=dureeg; }
 	nscores= (long)aa; // total number of 1s-scores for activity, EMG and EEG
-
+	fprintf(stderr,"...total 1-second scores (minimum of activity,emg,eeg): %ld\n",nscores);
+	fprintf(stderr,"\n");
 	scoreact= malloc(nscores * sizeof(*scoreact));
 	scoreemg= malloc(nscores * sizeof(*scoreemg));
 	scoredelta= malloc(nscores * sizeof(*scoredelta));
 	scoretheta= malloc(nscores * sizeof(*scoretheta));
 	scorebeta= malloc(nscores * sizeof(*scorebeta));
 
+	/******************************************************************************
+	B. SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
+	******************************************************************************/
+	fprintf(stderr,"...setting up FFT model and taper...\n");
+	nwinfft= (long)(sfeeg*1.0);
+	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
+	// setup taper
+	taper= xf_taperhann_d(nwinfft,1,1,message);
+	if(taper==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
+	// setup fft configuration
+	kiss_fftr_cfg cfgr = kiss_fftr_alloc( nwinfft ,0,0,0 ); /* configuration structure: memory assigned using malloc - needs to be freed at end */
+	kiss_fft_cpx fft[nwinfft]; /* holds fft results: memory assigned explicitly, so does not need to be freed */
+	/* allocate memory for working variables */
+	if((buff2= calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
+	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
+	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
+
+
+
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+	/* STEP 3: MAKE 1-SECOND SCORED FOR EACH DATA-TYPE
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+
 	/********************************************************************************
-	SCORE: ACTIVITY
-	- DON'T rectify because the DSI system creates brief negativities either side of periods of activity - these appear to be filtering artefacts
-	- instead, treat these negativities as invalid and interpolate across them
+	A. SCORE ACTIVITY - DON'T rectify because the DSI system creates brief negativities either side of periods of activity - these appear to be filtering artefacts. Instead, treat these negativities as invalid and interpolate across them
 	********************************************************************************/
 	fprintf(stderr,"...processing activity...\n");
 	/* REMOVE NEGATIVE VALUES (ARTEFACTS OF FILTERING) */
 	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]=NAN;
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_d(datact,nnact);
-	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions which overwrite the */
+	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions (they overwrite the original array) */
 	mm= (long)sfact; // binsize
 	sum= 0.0;
 	for(ii=jj=kk=0;ii<nnact;ii++) {
 		sum+= datact[ii];
 		if(++jj==mm) {
 			scoreact[kk]= sum/(double)jj;
-			if(++kk>nscores) break; // do not exceed limits
-			jj=0;
-			sum=0.0;
+			if(kk>=nscores) break; // do not exceed limits
+			kk++; jj=0; sum=0.0;
 	}} // note that partial bins at the end of data are ignored
 
 	/********************************************************************************
-	SCORE: EMG
-	- method based on Silvani et al (2017) but zero is minimum and 1s binning rather than 0.5s
+	B SCORE EMG - method based on Silvani et al (2017) but zero is minimum and 1s binning rather than 0.5s
 	 ??? there is a problem here
-	- basically, zero in our data appears to be a data-loss value, and other values represent "very little movement"
+	- basically, zero in our data appears to be a data-loss value, and other values represent "very little muscular activity"
 	- this is difficult to prove, but either way sometimes "zero" is included after trimming because there is a lot of missing ddta
 	********************************************************************************/
 	fprintf(stderr,"...processing EMG...\n");
-
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(datemg,nnemg);
-	/* APPLY A 70Hz LOW PASS FILTER */
-	// fprintf(stderr,"    - filtering...\n");
-	// z= xf_filter_bworth1_f(datemg,nnemg,sfemg,70.0,100.0,sqrtf(2.0),message);
-	// if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-
 	/* RECTIFY: because the signal is centred on zero */
 	fprintf(stderr,"    - rectifying...\n");
 	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
-
-	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions which overwrite the */
+	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions (they overwrite the original array) */
 	fprintf(stderr,"    - binning (1-second)...\n");
 	mm= (long)sfemg; // binsize= 1 second
 	sum= 0.0;
@@ -296,11 +329,9 @@ int main (int argc, char *argv[]) {
 		sum+= datemg[ii];
 		if(++jj==mm) {
 			scoreemg[kk]= sum/(double)jj;
-			if(++kk>nscores) break; // do not exceed limits
-			jj=0;
-			sum=0.0;
+			if(kk>=nscores) break; // do not exceed limits
+			kk++; jj=0; sum=0.0;
 	}} // note that partial bins at the end of data are ignored
-
 	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
 	fprintf(stderr,"    - trim and normalise...\n");
 	z= xf_percentile2_f(scoreemg,nscores,.5,&aa,&bb,message);
@@ -315,12 +346,67 @@ int main (int argc, char *argv[]) {
 		else scoreemg[ii]= 100.0 * (cc / bb);
 	}
 
-//	zero1emg= (long)(setzero*sfemg);
-//	z= xf_bin1b_f(datemg,&nnemg,&zero1emg,(binemg*sfemg),message);
+	/********************************************************************************
+	PROCESS EEG
+	- assume a 1-second window (nwinfft= sfeeg)
+	- only process 1-100 Hz data
+	********************************************************************************/
+	fprintf(stderr,"...processing EEG...\n");
+	/* APPLY INTERPOLATION */
+	ii= xf_interp3_f(dateeg,nneeg);
 
-/// ??? EVENTUALLY MOVE THIS TO THE EPOCH SECTION
+fprintf(stderr,"mm= %ld\n",mm);
+fprintf(stderr,"nneeg= %ld\n",nneeg);
+fprintf(stderr,"nwinfft= %ld\n",nwinfft);
+fprintf(stderr,"ncores= %ld\n",(nneeg/nwinfft));
 
-	/* FOR EACH EPOCH (20 VALUES), SAVE MEDIAN */
+	for (ii=0;ii<nneeg;ii+=nwinfft) {
+		// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
+		pdataf= dateeg+ii; /* set index to data */
+		sum=0; for(jj=0;jj<nwinfft;jj++) sum+= pdataf[jj]; /* sum the values in the window */
+		mean= sum*scaling1; /* calculate the mean-correction to window */
+		for(jj=0;jj<nwinfft;jj++) buff2[jj]= (pdataf[jj]-mean) * taper[jj]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
+		// run the FFT
+		kiss_fftr(cfgr,buff2,fft);
+		// generate the scaled amplitude spectrum
+		aa=2.0 * scaling1;
+		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
+		for(jj=0;jj<kk;jj++) {
+			ar= fft[jj].r;
+			ai= fft[jj].i;
+			spect[jj]= aa * sqrtf( ar*ar + ai*ai );
+		}
+
+		//if(spect[0]>0) {for(jj=0;jj<kk;jj++) printf("%g\n",spect[jj]);goto END;}
+		//for(jj=0;jj<kk;jj++) printf("%g ",spect[jj]); printf("\n"); // ouput for matrix plot
+		for(jj=0;jj<kk;jj++) {
+			printf("%g ",spect[jj]); printf("\n"); // ouput for matrix plot
+		}
+
+
+	}
+
+	goto END;
+
+	//TEST:
+	fprintf(stderr,"    - outputting 1-sscores (not epochs)...\n");
+	for(ii=0;ii<nscores;ii++) printf("%f\t%f\n",scoreact[ii],scoreemg[ii]);
+
+
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+	/* STEP 3: CALCULATE 10-SECOND EPOCH VALUES
+	/******************************************************************************/
+	/******************************************************************************/
+	/******************************************************************************/
+
+
+	/********************************************************************************
+	EMG EPOCHS
+	********************************************************************************/
+
+	/* FOR EACH EPOCH SAVE MEDIAN */
 	mm= (long)(epochsize);
 	kk= 0; // new epoch-counter
 	for(ii=0;ii<nscores;ii+=mm) {
@@ -329,53 +415,9 @@ int main (int argc, char *argv[]) {
 		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 		scoreemg[kk++]= aa;
 	}
-	//TEST:
-	fprintf(stderr,"    - outputting...\n");
-	for(ii=0;ii<kk;ii++) printf("%f\n",scoreemg[ii]);
-
-
-	/********************************************************************************
-	SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
-	- this is done after reading the EEG/EMG data to determine appropriate window-size
-	********************************************************************************/
-	fprintf(stderr,"...setting up FFT model and taper...\n");
-	nwinfft= (long)(epochsize*sfeeg*1.0);
-	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
-	// setup taper
-	taper= xf_taperhann_d(nwinfft,1,1,message);
-	if(taper==NULL) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); exit(1); }
-	// setup fft configuration
-	kiss_fftr_cfg cfgr = kiss_fftr_alloc( nwinfft ,0,0,0 ); /* configuration structure: memory assigned using malloc - needs to be freed at end */
-	kiss_fft_cpx fft[nwinfft]; /* holds fft results: memory assigned explicitly, so does not need to be freed */
-	/* allocate memory for working variables */
-	if((buff2= calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
-	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
-	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
-
-
-goto END;
 
 
 
-
-	/********************************************************************************
-	PROCESS EEG
-	********************************************************************************/
-// for each window or epoch...
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(dateeg,nneeg);
-
-	// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
-	pdataf= dateeg+0; /* set index to data */
-	sum=0; for(ii=0;ii<nwinfft;ii++) sum+=pdataf[ii];
-	mean= sum*scaling1; /* calculate the mean-correction to window */
-	for(ii=0;ii<nwinfft;ii++) buff2[ii]= (pdataf[ii]-mean) * taper[ii]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
-	// run the FFT
-	kiss_fftr(cfgr,buff2,fft);
-	// generate the scaled amplitude spectrum
-	aa=2.0 * scaling1;
-	kk= nwinfft/2; // defines highest index in FFT result for which unique information can be obtained
-	for(ii=0;ii<kk;ii++) { ar= fft[ii].r; ai= fft[ii].i; spect[ii]= aa * sqrtf( ar*ar + ai*ai ); }
 
 exit(0);
 

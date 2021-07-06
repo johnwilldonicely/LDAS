@@ -43,7 +43,7 @@ int main (int argc, char *argv[]) {
 	int setverb=0;
 
 	/********************************************************************************
-	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
+	PRINT INSTRUCTIONS IF THERE IS NO INPUT SPECIFIED
 	********************************************************************************/
 	if(argc<2) {
 		fprintf(stderr,"\n");
