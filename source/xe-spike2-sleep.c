@@ -89,7 +89,7 @@ int main (int argc, char *argv[]) {
 	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scorebeta=NULL;
 
 	/* band definition */
-	char setbandsdefault[]= "delta,.5,4,theta,4,12,beta,12,30,gamma,30,100"; // delta= Buzsaki, theta= Whishaw, beta= Magill (20Hz mean), gamma= mixedreferences
+	char setbandsdefault[]= "delta,1,4,theta,4,10,alpha,8,12,beta,12,30,gamma,30,100"; // delta= Buzsaki, theta= Whishaw, beta= Magill (20Hz mean), gamma= mixedreferences
 	long btot=0,*ibands=NULL;
 	float bstart1[16],bstop1[16];
 	long *bstart2=NULL,*bstop2=NULL,band,bandmax=-1;
@@ -145,6 +145,9 @@ int main (int argc, char *argv[]) {
 	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(strcmp(infileact,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
 
+
+// CHECK VALIDITY OF BAND NAMES  MUST BE Delta,Theta,Sigma,Beta,Gamma
+
 	/********************************************************************************
 	CHECK ACTIVITY FILENAME AND GENERATE FILENAMES FOR EEG AND EMG
 	********************************************************************************/
@@ -170,7 +173,6 @@ int main (int argc, char *argv[]) {
 	if((bstop2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
 	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
 
-
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
@@ -187,7 +189,6 @@ int main (int argc, char *argv[]) {
 	- max mobility is probably ~6
 	********************************************************************************/
 	fprintf(stderr,"...reading ACTIVITY data...\n");
-//	datact= xf_readtable1_d(infileact,"\t",&ncols,&nrows,&header,message);
 	datact= xf_readspike2_text_d(infileact,&nnact,&siact,message);
 	if(datact==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	sfact= 1.0/siact;
@@ -235,7 +236,6 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        records= %ld\n",nneeg);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfeeg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
-
 	//TEST	fprintf(stderr,"testing!\n");
 	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
@@ -262,6 +262,11 @@ int main (int argc, char *argv[]) {
 	scoredelta= malloc(nscores * sizeof(*scoredelta));
 	scoretheta= malloc(nscores * sizeof(*scoretheta));
 	scorebeta= malloc(nscores * sizeof(*scorebeta));
+
+// DETERMINE FFTWIN SIZE
+// BASED ON SAMPLE RATE DETERMINE BAND START-STOPS
+// CHECK VALIDITY
+
 
 	/******************************************************************************
 	B. SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
@@ -355,11 +360,6 @@ int main (int argc, char *argv[]) {
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(dateeg,nneeg);
 
-fprintf(stderr,"mm= %ld\n",mm);
-fprintf(stderr,"nneeg= %ld\n",nneeg);
-fprintf(stderr,"nwinfft= %ld\n",nwinfft);
-fprintf(stderr,"ncores= %ld\n",(nneeg/nwinfft));
-
 	for (ii=0;ii<nneeg;ii+=nwinfft) {
 		// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
 		pdataf= dateeg+ii; /* set index to data */
@@ -377,13 +377,15 @@ fprintf(stderr,"ncores= %ld\n",(nneeg/nwinfft));
 			spect[jj]= aa * sqrtf( ar*ar + ai*ai );
 		}
 
-		//if(spect[0]>0) {for(jj=0;jj<kk;jj++) printf("%g\n",spect[jj]);goto END;}
-		//for(jj=0;jj<kk;jj++) printf("%g ",spect[jj]); printf("\n"); // ouput for matrix plot
-		for(jj=0;jj<kk;jj++) {
-			printf("%g ",spect[jj]); printf("\n"); // ouput for matrix plot
-		}
+// # for each bands
+// # define start and n
+// # set pointer to spect
+// # collect auc
+// # check validity
 
+		aa= xf_auc1_d(spect,kk,1.0,0,result,message);
 
+		// printf("%g ",spect[0]); for(jj=1;jj<kk;jj++) { printf(" %g",spect[jj]); printf("\n"); // ouput for matrix plot
 	}
 
 	goto END;
