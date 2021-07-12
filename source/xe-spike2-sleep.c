@@ -307,7 +307,7 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	fftmaxindex= (nwinfft/2)-1; // the actual max-allowable index, not the Nyquist limit of nwinfft/2
 	fftmaxfreq= fftfreq[fftmaxindex]; // ... so this is actually the maximum allowable frequency
 
-	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("FFT[%ld] frequency= %g\n",ii,fftfreq[ii]); goto END;
+	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("____ FFT[%ld] frequency= %g\n",ii,fftfreq[ii]); 
 
 	/* FOR EACH BAND DETERMINE THE START-STOP INDICES */
 	for(ii=0;ii<btot;ii++) {
