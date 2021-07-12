@@ -84,6 +84,7 @@ int main (int argc, char *argv[]) {
 	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
 
+	long fftmaxindex=-1;
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
@@ -282,6 +283,9 @@ int main (int argc, char *argv[]) {
 	******************************************************************************/
 	fprintf(stderr,"...setting up FFT model and taper...\n");
 	nwinfft= 2.0*(long)(sfeeg*1.0);
+	fftmaxindex= (nwinfft/2);
+
+fprintf(stderr,"fftmaxindex= %ld\n",fftmaxindex);
 
 // MAKE SURE THIS IS EVEN !!!
 
@@ -300,12 +304,15 @@ int main (int argc, char *argv[]) {
 	/* define frequencies for each FFT output, starting from zero, which is just the DC offset in each window */
 	/* note that we only really need the first half of these values, due to the Nyquist limit*/
 	if((fftfreq=(float*)calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds pre-caluclated frequencies associated with each FFT index
-	aa= 1.0/(double)nwinfft;
-	for(ii=0;ii<nwinfft;ii++) fftfreq[ii]= (float) ( (double)ii * sfeeg * aa ) ;
-	//TEST: for(ii=0;ii<nwinfft;ii++) fprintf(stderr,"%ld\t%g\n",ii,fftfreq[ii]); ; goto END;
 
-long fftmaxindex= (nwinfft/2)-1;
-double fftmaxfreq= fftfreq[fftmaxindex]; //TEST printf("fftmaxindex=%ld\n",fftmaxindex); printf("fftmaxfreq=%g\n",fftmaxfreq);
+	aa= 2.0 * (double)fftmaxindex;
+	for(ii=0;ii<nwinfft;ii++) fftfreq[ii]= -1.0 ;
+	for(ii=0;ii<=fftmaxindex;ii++) fftfreq[ii]= (float) ( (double)ii * (sfeeg / aa) ) ;
+	//TEST:
+	for(ii=0;ii<=fftmaxindex;ii++) fprintf(stderr,"%ld\t%g\n",ii,fftfreq[ii]); ; goto END;
+
+	double fftmaxfreq= fftfreq[fftmaxindex]; //TEST printf("fftmaxindex=%ld\n",fftmaxindex); printf("fftmaxfreq=%g\n",fftmaxfreq);
+	fprintf(stderr,"fftmaxfreq= %g\n",fftmaxfreq);
 
 	/* for each band determine the start-stop indices */
 	for(ii=0;ii<btot;ii++) {
