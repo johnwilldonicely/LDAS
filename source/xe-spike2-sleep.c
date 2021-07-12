@@ -85,7 +85,7 @@ int main (int argc, char *argv[]) {
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
 
 	long fftmaxindex=-1;
-	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
+	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
 	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scoresigma=NULL,*scorebeta=NULL,*scoregamma=NULL;
@@ -153,7 +153,7 @@ int main (int argc, char *argv[]) {
 			else if(strcmp(argv[ii],"-bands")==0) setbands= argv[++ii];
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
-	if(setverb!=0 && setverb!=1) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
+	if(setverb!=0 && setverb!=1 && setverb!=999) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(strcmp(infileact,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
 
 
@@ -279,16 +279,11 @@ int main (int argc, char *argv[]) {
 // CHECK VALIDITY
 
 	/******************************************************************************
-	B. SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
+	B. SET-UP FFT MODEL, TAPER, AND BANDS
 	******************************************************************************/
 	fprintf(stderr,"...setting up FFT model and taper...\n");
-	nwinfft= 2.0*(long)(sfeeg*1.0);
-	fftmaxindex= (nwinfft/2);
-
-fprintf(stderr,"fftmaxindex= %ld\n",fftmaxindex);
-
-// MAKE SURE THIS IS EVEN !!!
-
+nwinfft= 1.0*(long)(sfeeg*1.0);
+	if(nwinfft%2 != 0) { fprintf(stderr,"\t--- Warning [%s]: FFT window-length (%ld) cannot be odd. Adjusting to %ld\n",thisprog,nwinfft,(nwinfft+1)); nwinfft++; }
 	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
 	// setup taper
 	taper= xf_taperhann_d(nwinfft,1,1,message);
@@ -301,30 +296,28 @@ fprintf(stderr,"fftmaxindex= %ld\n",fftmaxindex);
 	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);} // holds amplitude of the FFT results
 	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);} // holds per-block mean FFT results (power) from multiple buff2-s
 
-	/* define frequencies for each FFT output, starting from zero, which is just the DC offset in each window */
+	/* DEFINE FREQUENCIES FOR EACH FFT OUTPUT, STARTING FROM ZERO, WHICH IS JUST THE DC OFFSET IN EACH WINDOW */
 	/* note that we only really need the first half of these values, due to the Nyquist limit*/
 	if((fftfreq=(float*)calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds pre-caluclated frequencies associated with each FFT index
+	aa= sfeeg/(double)nwinfft;
+	kk= nwinfft/2;
+	for(ii=0;ii<=nwinfft;ii++) {
+		if(ii<kk) fftfreq[ii]= (float) ( (double)ii * aa ) ; else fftfreq[ii]= -1.0;
+	}
+	fftmaxindex= (nwinfft/2)-1; // the actual max-allowable index, not the Nyquist limit of nwinfft/2
+	fftmaxfreq= fftfreq[fftmaxindex]; // ... so this is actually the maximum allowable frequency
 
-	aa= 2.0 * (double)fftmaxindex;
-	for(ii=0;ii<nwinfft;ii++) fftfreq[ii]= -1.0 ;
-	for(ii=0;ii<=fftmaxindex;ii++) fftfreq[ii]= (float) ( (double)ii * (sfeeg / aa) ) ;
-	//TEST:
-	for(ii=0;ii<=fftmaxindex;ii++) fprintf(stderr,"%ld\t%g\n",ii,fftfreq[ii]); ; goto END;
+	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("FFT[%ld] frequency= %g\n",ii,fftfreq[ii]); goto END;
 
-	double fftmaxfreq= fftfreq[fftmaxindex]; //TEST printf("fftmaxindex=%ld\n",fftmaxindex); printf("fftmaxfreq=%g\n",fftmaxfreq);
-	fprintf(stderr,"fftmaxfreq= %g\n",fftmaxfreq);
-
-	/* for each band determine the start-stop indices */
+	/* FOR EACH BAND DETERMINE THE START-STOP INDICES */
 	for(ii=0;ii<btot;ii++) {
 		bstart2[ii]= xf_getindex1_d( 0.00,fftmaxfreq,(nwinfft/2),bstart1[ii],message) ;
 	 	if(bstart2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 		bstop2[ii]= xf_getindex1_d( 0.00,fftmaxfreq,(nwinfft/2),bstop1[ii],message) ;
 	 	if(bstop2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-
 		if(bstart2[ii]>fftmaxindex || bstop2[ii]>fftmaxindex) { fprintf(stderr,"\n--- Error [%s]: invalid band %s (%g-%g) - out of range for sample-rate or fft window size\n\n",thisprog,(setbands+ibands[ii]),bstart1[ii],bstop1[ii]); exit(1); }
 	}
-	//TEST:
-	for(ii=0;ii<btot;ii++) printf("%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]); exit(0);
+	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]); exit(0);
 
 
 	/******************************************************************************/
@@ -401,8 +394,11 @@ fprintf(stderr,"fftmaxindex= %ld\n",fftmaxindex);
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(dateeg,nneeg);
 
+printf("total EEG points: %ld\n",nneeg);
+
 	for (ii=0;ii<nneeg;ii+=nwinfft) {
 		// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
+		printf("index= %ld\n",ii);
 		pdataf= dateeg+ii; /* set index to data */
 		sum=0; for(jj=0;jj<nwinfft;jj++) sum+= pdataf[jj]; /* sum the values in the window */
 		mean= sum*scaling1; /* calculate the mean-correction to window */
@@ -412,23 +408,20 @@ fprintf(stderr,"fftmaxindex= %ld\n",fftmaxindex);
 		// generate the scaled amplitude spectrum
 		aa=2.0 * scaling1;
 		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
-		for(jj=0;jj<kk;jj++) {
-			ar= fft[jj].r;
-			ai= fft[jj].i;
-			spect[jj]= aa * sqrtf( ar*ar + ai*ai );
-		}
+		for(jj=0;jj<kk;jj++) { ar= fft[jj].r; ai= fft[jj].i; spect[jj]= aa * sqrtf( ar*ar + ai*ai ); }
 
 		for(jj=0;jj<btot;jj++) {
-			z=0;
+
+			//printf("\t%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[jj]),bstart1[jj],bstop1[jj],bstart2[jj],bstop2[jj]);
+
+			z= xf_auc1_d( (spect+bstart2[jj]) , (bstop2[jj]-bstart2[ii]+1) ,1.0 , 0 ,resultd,message);
+			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
 		}
 // # for each bands
 // # define start and n
 // # set pointer to spect
 // # collect auc
 // # check validity
-
-		z= xf_auc1_d(spect,kk,1.0,0,resultd,message);
-//		int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
 
 		// printf("%g ",spect[0]); for(jj=1;jj<kk;jj++) { printf(" %g",spect[jj]); printf("\n"); // ouput for matrix plot
 	}
