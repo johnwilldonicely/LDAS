@@ -84,17 +84,17 @@ int main (int argc, char *argv[]) {
 	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
 
-	long fftmaxindex=-1;
+	long fftmaxindex=-1,window;
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
-	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scoresigma=NULL,*scorebeta=NULL,*scoregamma=NULL;
+	float *scoreact=NULL,*scoreemg=NULL,*scoreeeg=NULL;
 
 	/* BAND DEFINITION */
 
 	// Sandor Kantor / Sleepsign sleep-detection band definitions
 	// NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
-	// char setbandsdefault[]= "delta,0.6,4.5,spindle-alpha,6,15,theta,6,10,beta,12,25,gamma,30,100";
+	// char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100";
 
 	// Gyorgi Buzsaki band definitions
 	// char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
@@ -265,13 +265,9 @@ int main (int argc, char *argv[]) {
 	nscores= (long)aa; // total number of 1s-scores for activity, EMG and EEG
 	fprintf(stderr,"...total 1-second scores (minimum of activity,emg,eeg): %ld\n",nscores);
 	fprintf(stderr,"\n");
-	scoreact= malloc(nscores * sizeof(*scoreact));      if(scoreact==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoreemg= malloc(nscores * sizeof(*scoreemg));      if(scoreemg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoredelta= malloc(nscores * sizeof(*scoredelta));  if(scoredelta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoretheta= malloc(nscores * sizeof(*scoretheta));  if(scoredelta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoresigma= malloc(nscores * sizeof(*scoresigma));  if(scoretheta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scorebeta= malloc(nscores * sizeof(*scorebeta));    if(scoresigma==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoregamma= malloc(nscores * sizeof(*scoregamma));  if(scoregamma==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoreact= malloc(nscores * sizeof(*scoreact)); if(scoreact==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoreemg= malloc(nscores * sizeof(*scoreemg)); if(scoreemg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoreeeg= malloc(nscores * sizeof(*scoreeeg) * btot); if(scoreeeg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
 
 
 // DETERMINE FFTWIN SIZE
@@ -307,7 +303,7 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	fftmaxindex= (nwinfft/2)-1; // the actual max-allowable index, not the Nyquist limit of nwinfft/2
 	fftmaxfreq= fftfreq[fftmaxindex]; // ... so this is actually the maximum allowable frequency
 
-	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("____ FFT[%ld] frequency= %g\n",ii,fftfreq[ii]); 
+	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("____ FFT[%ld] frequency= %g\n",ii,fftfreq[ii]);
 
 	/* FOR EACH BAND DETERMINE THE START-STOP INDICES */
 	for(ii=0;ii<btot;ii++) {
@@ -315,9 +311,12 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	 	if(bstart2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 		bstop2[ii]= xf_getindex1_d( 0.00,fftmaxfreq,(nwinfft/2),bstop1[ii],message) ;
 	 	if(bstop2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-		if(bstart2[ii]>fftmaxindex || bstop2[ii]>fftmaxindex) { fprintf(stderr,"\n--- Error [%s]: invalid band %s (%g-%g) - out of range for sample-rate or fft window size\n\n",thisprog,(setbands+ibands[ii]),bstart1[ii],bstop1[ii]); exit(1); }
+		if(bstart2[ii]>fftmaxindex || bstop2[ii]>fftmaxindex) {
+			fprintf(stderr,"\n--- Error [%s]: invalid band %s (%g-%g) - out of range for sample-rate or fft window size\n\n",thisprog,(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
+			exit(1);
+		}
 	}
-	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]); exit(0);
+	if(setverb==999) for(ii=0;ii<btot;ii++) printf("____ BAND: %s : %g-%g Hz : indices %ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]);
 
 
 	/******************************************************************************/
@@ -392,45 +391,51 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	fprintf(stderr,"...processing EEG...\n");
 
 	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(dateeg,nneeg);
+// ???	ii= xf_interp3_f(dateeg,nneeg);
 
-printf("total EEG points: %ld\n",nneeg);
-
+	window= -1;
 	for (ii=0;ii<nneeg;ii+=nwinfft) {
-		// convert a window of data to a de-meaned, tapered data-buffe rfor FFT
-		printf("index= %ld\n",ii);
-		pdataf= dateeg+ii; /* set index to data */
+		window++;
+		if(window>=nscores) { fprintf(stderr,"\t Warning [%s]: exceeding max scores - stopping at window %ld\n",thisprog,window); break; }
+
+		// CONVERT A WINDOW OF DATA TO A DE-MEANED, TAPERED DATA-BUFFE RFOR FFT
+		pdataf= (dateeg+ii); /* set index to data */
 		sum=0; for(jj=0;jj<nwinfft;jj++) sum+= pdataf[jj]; /* sum the values in the window */
 		mean= sum*scaling1; /* calculate the mean-correction to window */
 		for(jj=0;jj<nwinfft;jj++) buff2[jj]= (pdataf[jj]-mean) * taper[jj]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
-		// run the FFT
+
+		// RUN THE FFT
 		kiss_fftr(cfgr,buff2,fft);
-		// generate the scaled amplitude spectrum
+
+		// GENERATE THE SCALED AMPLITUDE SPECTRUM
 		aa=2.0 * scaling1;
 		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
 		for(jj=0;jj<kk;jj++) { ar= fft[jj].r; ai= fft[jj].i; spect[jj]= aa * sqrtf( ar*ar + ai*ai ); }
 
+		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX
 		for(jj=0;jj<btot;jj++) {
-
-			//printf("\t%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[jj]),bstart1[jj],bstop1[jj],bstart2[jj],bstop2[jj]);
-
-			z= xf_auc1_d( (spect+bstart2[jj]) , (bstop2[jj]-bstart2[ii]+1) ,1.0 , 0 ,resultd,message);
+			z= xf_auc1_d( (spect+bstart2[jj]) , (bstop2[jj]-bstart2[jj]+1) ,1.0 , 0 ,resultd,message);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
+			scoreeeg[window*btot+jj] = resultd[0]; // total AUC, positive + negative
 		}
-// # for each bands
-// # define start and n
-// # set pointer to spect
-// # collect auc
-// # check validity
-
-		// printf("%g ",spect[0]); for(jj=1;jj<kk;jj++) { printf(" %g",spect[jj]); printf("\n"); // ouput for matrix plot
 	}
 
-	goto END;
 
 	//TEST:
 	fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
-	for(ii=0;ii<nscores;ii++) printf("%f\t%f\n",scoreact[ii],scoreemg[ii]);
+	printf("ACT\tEMG"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
+	for(ii=0;ii<nscores;ii++) {
+		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
+		kk= ii*btot;
+		for(jj=0;jj<btot;jj++) printf("\t%f",scoreeeg[kk+jj]);
+		printf("\n");
+
+	}
+
+
+// ??? NORMALISE EEG SCORES SIMILARLY TO EMG - 0-100 range
+
+	goto END;
 
 
 	/******************************************************************************/
@@ -491,9 +496,7 @@ END:
 
 	if(scoreact!=NULL) free(scoreact);
 	if(scoreemg!=NULL) free(scoreemg);
-	if(scoredelta!=NULL) free(scoredelta);
-	if(scoretheta!=NULL) free(scoretheta);
-	if(scorebeta!=NULL) free(scorebeta);
+	if(scoreeeg!=NULL) free(scoreeeg);
 
 	if(taper!=NULL) free(taper);
 	if(spect!=NULL) free(spect);
