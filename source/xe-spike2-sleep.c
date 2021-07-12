@@ -29,8 +29,8 @@ long xf_interp3_d(double *data, long ndata);
 int xf_norm2_f(float *data,long ndata,int normtype);
 int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
 long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
+long xf_getindex1_d(double min, double max, long n, double value, char *message);
 int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
-
 
 int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
 int xf_compare1_d(const void *a, const void *b);
@@ -83,8 +83,9 @@ int main (int argc, char *argv[]) {
 	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
 	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
+
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
-	float *buff2=NULL,scaling1,sum,mean;
+	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
 	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scoresigma=NULL,*scorebeta=NULL,*scoregamma=NULL;
 
@@ -100,7 +101,7 @@ int main (int argc, char *argv[]) {
 	// Functional bands for test dataset (TPEEG054):
 	// char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
 	char setbandsdefault[]= "delta,1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80";
-	long *ibands=NULL,*bstart2=NULL,*bstop2=NULL,band,btot=0,bandmax=-1;
+	long *ibands=NULL,band,btot=0,bstart2[16],bstop2[16];
 	float bstart1[16],bstop1[16];
 
 	/* arguments */
@@ -177,10 +178,7 @@ int main (int argc, char *argv[]) {
 	if(setbands==NULL) setbands= setbandsdefault;
 	ibands= xf_definebands1(setbands,bstart1,bstop1,&btot,message);
 	if(ibands==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
-	/* build arrays to hold matrix-indices for bands */
-	if((bstart2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	if((bstop2= (long*)calloc(btot,sizeof(long)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);};
-	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]);
+	//TEST:	for(ii=0;ii<btot;ii++) printf("%s\t%g\t%g\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii]); exit(0);
 
 	/******************************************************************************/
 	/******************************************************************************/
@@ -259,31 +257,34 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 
 	/********************************************************************************
-	A. ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES (10 per epoch)
+	A. ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES (10 per epoch) and band indices
 	********************************************************************************/
 	if(duract<duremg) { if(duract<dureeg) aa= duract; else aa=dureeg; }
 	else { if(duremg<dureeg) aa= duremg; else aa=dureeg; }
 	nscores= (long)aa; // total number of 1s-scores for activity, EMG and EEG
 	fprintf(stderr,"...total 1-second scores (minimum of activity,emg,eeg): %ld\n",nscores);
 	fprintf(stderr,"\n");
-	scoreact= malloc(nscores * sizeof(*scoreact));
-	scoreemg= malloc(nscores * sizeof(*scoreemg));
-	scoredelta= malloc(nscores * sizeof(*scoredelta));
-	scoretheta= malloc(nscores * sizeof(*scoretheta));
-	scoresigma= malloc(nscores * sizeof(*scoresigma));
-	scorebeta= malloc(nscores * sizeof(*scorebeta));
-	scoregamma= malloc(nscores * sizeof(*scoregamma));
+	scoreact= malloc(nscores * sizeof(*scoreact));      if(scoreact==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoreemg= malloc(nscores * sizeof(*scoreemg));      if(scoreemg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoredelta= malloc(nscores * sizeof(*scoredelta));  if(scoredelta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoretheta= malloc(nscores * sizeof(*scoretheta));  if(scoredelta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoresigma= malloc(nscores * sizeof(*scoresigma));  if(scoretheta==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scorebeta= malloc(nscores * sizeof(*scorebeta));    if(scoresigma==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	scoregamma= malloc(nscores * sizeof(*scoregamma));  if(scoregamma==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+
 
 // DETERMINE FFTWIN SIZE
 // BASED ON SAMPLE RATE DETERMINE BAND START-STOPS
 // CHECK VALIDITY
 
-
 	/******************************************************************************
 	B. SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
 	******************************************************************************/
 	fprintf(stderr,"...setting up FFT model and taper...\n");
-	nwinfft= (long)(sfeeg*1.0);
+	nwinfft= 1.0*(long)(sfeeg*1.0);
+
+// MAKE SURE THIS IS EVEN !!!
+
 	scaling1=1.0/(float)nwinfft; /* defining this way permits multiplication instead of (slower) division */
 	// setup taper
 	taper= xf_taperhann_d(nwinfft,1,1,message);
@@ -292,10 +293,31 @@ int main (int argc, char *argv[]) {
 	kiss_fftr_cfg cfgr = kiss_fftr_alloc( nwinfft ,0,0,0 ); /* configuration structure: memory assigned using malloc - needs to be freed at end */
 	kiss_fft_cpx fft[nwinfft]; /* holds fft results: memory assigned explicitly, so does not need to be freed */
 	/* allocate memory for working variables */
-	if((buff2= calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // buffer which is passed to the FFT function, copied from pdataf
-	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds amplitude of the FFT results
-	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds per-block mean FFT results (power) from multiple buff2-s
+	if((buff2= calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);} // buffer which is passed to the FFT function, copied from pdataf
+	if((spect= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);} // holds amplitude of the FFT results
+	if((spectmean= calloc(nwinfft,sizeof(double)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);} // holds per-block mean FFT results (power) from multiple buff2-s
 
+	/* define frequencies for each FFT output, starting from zero, which is just the DC offset in each window */
+	/* note that we only really need the first half of these values, due to the Nyquist limit*/
+	if((fftfreq=(float*)calloc(nwinfft,sizeof(float)))==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}; // holds pre-caluclated frequencies associated with each FFT index
+	aa= 1.0/(double)nwinfft;
+	for(ii=0;ii<nwinfft;ii++) fftfreq[ii]= (float) ( (double)ii * sfeeg * aa ) ;
+	//TEST: for(ii=0;ii<nwinfft;ii++) fprintf(stderr,"%ld\t%g\n",ii,fftfreq[ii]); ; goto END;
+
+long fftmaxindex= (nwinfft/2)-1;
+double fftmaxfreq= fftfreq[fftmaxindex]; //TEST printf("fftmaxindex=%ld\n",fftmaxindex); printf("fftmaxfreq=%g\n",fftmaxfreq);
+
+	/* for each band determine the start-stop indices */
+	for(ii=0;ii<btot;ii++) {
+		bstart2[ii]= xf_getindex1_d( 0.00,fftmaxfreq,(nwinfft/2),bstart1[ii],message) ;
+	 	if(bstart2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+		bstop2[ii]= xf_getindex1_d( 0.00,fftmaxfreq,(nwinfft/2),bstop1[ii],message) ;
+	 	if(bstop2[ii]<0) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+
+		if(bstart2[ii]>fftmaxindex || bstop2[ii]>fftmaxindex) { fprintf(stderr,"\n--- Error [%s]: invalid band %s (%g-%g) - out of range for sample-rate or fft window size\n\n",thisprog,(setbands+ibands[ii]),bstart1[ii],bstop1[ii]); exit(1); }
+	}
+	//TEST:
+	for(ii=0;ii<btot;ii++) printf("%s\t%g-%g\t%ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]); exit(0);
 
 
 	/******************************************************************************/
@@ -368,6 +390,7 @@ int main (int argc, char *argv[]) {
 	- only process 1-100 Hz data
 	********************************************************************************/
 	fprintf(stderr,"...processing EEG...\n");
+
 	/* APPLY INTERPOLATION */
 	ii= xf_interp3_f(dateeg,nneeg);
 
@@ -388,6 +411,9 @@ int main (int argc, char *argv[]) {
 			spect[jj]= aa * sqrtf( ar*ar + ai*ai );
 		}
 
+		for(jj=0;jj<btot;jj++) {
+			z=0;
+		}
 // # for each bands
 // # define start and n
 // # set pointer to spect
@@ -403,7 +429,7 @@ int main (int argc, char *argv[]) {
 	goto END;
 
 	//TEST:
-	fprintf(stderr,"    - outputting 1-sscores (not epochs)...\n");
+	fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
 	for(ii=0;ii<nscores;ii++) printf("%f\t%f\n",scoreact[ii],scoreemg[ii]);
 
 
@@ -457,15 +483,23 @@ END:
 	if(infileemg!=NULL) free(infileemg);
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
+
 	if(datact!=NULL) free(datact);
 	if(datemg!=NULL) free(datemg);
 	if(dateeg!=NULL) free(dateeg);
 	if(header!=NULL) free(header);
+
 	if(scoreact!=NULL) free(scoreact);
 	if(scoreemg!=NULL) free(scoreemg);
 	if(scoredelta!=NULL) free(scoredelta);
 	if(scoretheta!=NULL) free(scoretheta);
 	if(scorebeta!=NULL) free(scorebeta);
+
+	if(taper!=NULL) free(taper);
+	if(spect!=NULL) free(spect);
+	if(spectmean!=NULL) free(spectmean);
+	if(buff2!=NULL) free(buff2);
+	if(fftfreq!=NULL) free(fftfreq);
 
 	exit(0);
 }

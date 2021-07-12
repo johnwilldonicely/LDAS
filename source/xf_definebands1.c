@@ -12,8 +12,8 @@ DEPENDENCIES:
 
 ARGUMENTS:
 	char *setbands   : input string of CSV triplets e.g. "delta,0.5,4,theta,4,12" - will be modified
-	float[16] bstart : output, preallocated array to hold 64 band start-values
-	float[16] bstop  : output, preallocated array to hold 64 band start-values
+	float[16] bstart : output, preallocated array to hold 16 band start-values
+	float[16] bstop  : output, preallocated array to hold 16 band start-values
 	long *btot       : output, value holding the number of bands (max 16)
 	char *message    : pre-allocated array to hold error message
 
