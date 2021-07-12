@@ -158,7 +158,7 @@ for group in $listgroups ; do
 
 	for subject in $listsubjects ; do
 		let count=$count+1
-		out1=$tempfile"_grp"$name"_sub_"$subject".txt"
+		out1=$tempfile"_grp"$group"_sub_"$subject".txt"
 		list1=$list1" "$out1
 		echo -e $name"\nsubject:"$subject > $out1
 		xe-dbmatch1 $tempfile".1" 1 $subject -cn 1 |

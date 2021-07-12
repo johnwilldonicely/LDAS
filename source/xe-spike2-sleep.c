@@ -19,6 +19,8 @@
 
 
 /* external functions start */
+char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
+long *xf_lineparse2(char *line, char *delimiters, long *nwords);
 double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
 float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
 char* xf_strsub1 (char *source, char *str1, char *str2);
@@ -27,6 +29,7 @@ long xf_interp3_d(double *data, long ndata);
 int xf_norm2_f(float *data,long ndata,int normtype);
 int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
 long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
+int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
 
 
 int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
@@ -44,11 +47,7 @@ int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *se
 int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
 int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *message);
 int xf_filter_bworth1_f(float *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
-int xf_rms2_f(float *input, float *output, size_t nn, size_t nwin1, char *message);
 
-
-char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
-long *xf_lineparse2(char *line, char *delimiters, long *nwords);
 int xf_smoothgauss1_d(double *original,size_t arraysize,int smooth);
 long xf_scale1_l(long data, long min, long max);
 int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
@@ -64,8 +63,9 @@ int main (int argc, char *argv[]) {
 	int x,y,z,vector[] = {1,2,3,4,5,6,7};
 	long ii,jj,kk,nn,mm,maxlinelen=0;
 	float a,b,c;
-	double aa,bb,cc;
+	double aa,bb,cc,resultd[16];
 	FILE *fpin,*fpout;
+
 	/* date and time variables */
 	char timestring[256];
 	time_t t1,t2;
@@ -86,13 +86,22 @@ int main (int argc, char *argv[]) {
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,freqres;
 	float *buff2=NULL,scaling1,sum,mean;
 
-	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scorebeta=NULL;
+	float *scoreact=NULL,*scoreemg=NULL,*scoredelta=NULL,*scoretheta=NULL,*scoresigma=NULL,*scorebeta=NULL,*scoregamma=NULL;
 
-	/* band definition */
-	char setbandsdefault[]= "delta,1,4,theta,4,10,alpha,8,12,beta,12,30,gamma,30,100"; // delta= Buzsaki, theta= Whishaw, beta= Magill (20Hz mean), gamma= mixedreferences
-	long btot=0,*ibands=NULL;
+	/* BAND DEFINITION */
+
+	// Sandor Kantor / Sleepsign sleep-detection band definitions
+	// NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
+	// char setbandsdefault[]= "delta,0.6,4.5,spindle-alpha,6,15,theta,6,10,beta,12,25,gamma,30,100";
+
+	// Gyorgi Buzsaki band definitions
+	// char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
+
+	// Functional bands for test dataset (TPEEG054):
+	// char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
+	char setbandsdefault[]= "delta,1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80";
+	long *ibands=NULL,*bstart2=NULL,*bstop2=NULL,band,btot=0,bandmax=-1;
 	float bstart1[16],bstop1[16];
-	long *bstart2=NULL,*bstop2=NULL,band,bandmax=-1;
 
 	/* arguments */
 	char *infileact=NULL,*setbands=NULL;
@@ -261,7 +270,9 @@ int main (int argc, char *argv[]) {
 	scoreemg= malloc(nscores * sizeof(*scoreemg));
 	scoredelta= malloc(nscores * sizeof(*scoredelta));
 	scoretheta= malloc(nscores * sizeof(*scoretheta));
+	scoresigma= malloc(nscores * sizeof(*scoresigma));
 	scorebeta= malloc(nscores * sizeof(*scorebeta));
+	scoregamma= malloc(nscores * sizeof(*scoregamma));
 
 // DETERMINE FFTWIN SIZE
 // BASED ON SAMPLE RATE DETERMINE BAND START-STOPS
@@ -290,7 +301,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
-	/* STEP 3: MAKE 1-SECOND SCORED FOR EACH DATA-TYPE
+	/* STEP 3: MAKE 1-SECOND SCORES FOR EACH DATA-TYPE
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
@@ -352,7 +363,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	/********************************************************************************
-	PROCESS EEG
+	C. SCORE EEG - scores for each band
 	- assume a 1-second window (nwinfft= sfeeg)
 	- only process 1-100 Hz data
 	********************************************************************************/
@@ -383,7 +394,8 @@ int main (int argc, char *argv[]) {
 // # collect auc
 // # check validity
 
-		aa= xf_auc1_d(spect,kk,1.0,0,result,message);
+		z= xf_auc1_d(spect,kk,1.0,0,resultd,message);
+//		int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
 
 		// printf("%g ",spect[0]); for(jj=1;jj<kk;jj++) { printf(" %g",spect[jj]); printf("\n"); // ouput for matrix plot
 	}
