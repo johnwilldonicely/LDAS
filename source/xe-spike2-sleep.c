@@ -389,36 +389,29 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	- only process 1-100 Hz data
 	********************************************************************************/
 	fprintf(stderr,"...processing EEG...\n");
-
 	/* APPLY INTERPOLATION */
-// ???	ii= xf_interp3_f(dateeg,nneeg);
-
+	ii= xf_interp3_f(dateeg,nneeg);
 	window= -1;
 	for (ii=0;ii<nneeg;ii+=nwinfft) {
 		window++;
 		if(window>=nscores) { fprintf(stderr,"\t Warning [%s]: exceeding max scores - stopping at window %ld\n",thisprog,window); break; }
-
 		// CONVERT A WINDOW OF DATA TO A DE-MEANED, TAPERED DATA-BUFFE RFOR FFT
 		pdataf= (dateeg+ii); /* set index to data */
 		sum=0; for(jj=0;jj<nwinfft;jj++) sum+= pdataf[jj]; /* sum the values in the window */
 		mean= sum*scaling1; /* calculate the mean-correction to window */
 		for(jj=0;jj<nwinfft;jj++) buff2[jj]= (pdataf[jj]-mean) * taper[jj]; /* copy real data from pdata to buff2, and apply mean-correction + taper */
-
 		// RUN THE FFT
 		kiss_fftr(cfgr,buff2,fft);
-
 		// GENERATE THE SCALED AMPLITUDE SPECTRUM
 		aa=2.0 * scaling1;
 		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
 		for(jj=0;jj<kk;jj++) { ar= fft[jj].r; ai= fft[jj].i; spect[jj]= aa * sqrtf( ar*ar + ai*ai ); }
-
 		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX
 		for(jj=0;jj<btot;jj++) {
 			z= xf_auc1_d( (spect+bstart2[jj]) , (bstop2[jj]-bstart2[jj]+1) ,1.0 , 0 ,resultd,message);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
 			scoreeeg[window*btot+jj] = resultd[0]; // total AUC, positive + negative
-		}
-	}
+	}}
 
 
 	//TEST:
