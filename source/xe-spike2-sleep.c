@@ -281,7 +281,7 @@ int main (int argc, char *argv[]) {
 	B. SET-UP FFT MODEL AND TAPER FOR 1-SECOND WINDOW
 	******************************************************************************/
 	fprintf(stderr,"...setting up FFT model and taper...\n");
-	nwinfft= 1.0*(long)(sfeeg*1.0);
+	nwinfft= 2.0*(long)(sfeeg*1.0);
 
 // MAKE SURE THIS IS EVEN !!!
 
