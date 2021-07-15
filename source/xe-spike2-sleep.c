@@ -252,7 +252,7 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
-	/* STEP 2. ALLOCATE MEMORY /
+	/* STEP 2. ALLOCATE MEMORY & SET UP BANDS & SUCH /
 	/* - this is done after reading the EEG/EMG data to determine appropriate window-size */
 	/******************************************************************************/
 	/******************************************************************************/
@@ -271,8 +271,6 @@ int main (int argc, char *argv[]) {
 
 
 // DETERMINE FFTWIN SIZE
-// BASED ON SAMPLE RATE DETERMINE BAND START-STOPS
-// CHECK VALIDITY
 
 	/******************************************************************************
 	B. SET-UP FFT MODEL, TAPER, AND BANDS
@@ -302,7 +300,6 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	}
 	fftmaxindex= (nwinfft/2)-1; // the actual max-allowable index, not the Nyquist limit of nwinfft/2
 	fftmaxfreq= fftfreq[fftmaxindex]; // ... so this is actually the maximum allowable frequency
-
 	if(setverb==999) for(ii=0;ii<nwinfft;ii++) printf("____ FFT[%ld] frequency= %g\n",ii,fftfreq[ii]);
 
 	/* FOR EACH BAND DETERMINE THE START-STOP INDICES */
