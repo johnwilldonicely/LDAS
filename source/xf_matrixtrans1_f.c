@@ -3,7 +3,7 @@
 DESCRIPTION:
 	Transpose a 1-dimensional array of numbers meant to be interpreted as a 2-dimensional matrix
 	Note that this differs from rotation, because low columns become low rows ( & vice versa)
-	This version deals with double-precision floating-point numbers
+	This version deals with floating-point numbers
 
 	Example: this matrix...
 
@@ -28,12 +28,12 @@ DEPENDENCY TREE:
 
 ARGUMENTS:
 
-	double *data1	: pointer to array of numbers representing the original matrix
-						- sufficient memory must be allocated by calling program
-						- this original memory will be freed
-	long width		: width of the matrix
+	float *data1	: pointer to array of numbers representing the original matrix
+				- sufficient memory must be allocated by calling program
+				- this original memory will be freed
+	long width	: width of the matrix
 	long height 	: height of the matrix
-						- width and height must accurately reflect the total size of the data1 array
+				- width and height must accurately reflect the total size of the data1 array
 
 	NOTE: width and height are not swapped by this function, so if the calling function uses these
 	variables after transposition, it is the responsibility of the calling function to do the swap
@@ -46,18 +46,18 @@ RETURN VALUE:
 
 SAMPLE CALL :
 
-		matrix= xf_matrixtrans1_d(matrix, &width, &height);
+		matrix= xf_matrixtrans1_f(matrix, &width, &height);
 
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-double *xf_matrixtrans1_d(double *data1, long *width, long *height) {
+float *xf_matrixtrans1_f(float *data1, long *width, long *height) {
 
 
 	long h,i,j,k,nx,ny;
-	double *data2=NULL;
+	float *data2=NULL;
 
 	nx = (*width);
 	ny = (*height);

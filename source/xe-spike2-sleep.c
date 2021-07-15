@@ -31,6 +31,7 @@ int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
 long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
 long xf_getindex1_d(double min, double max, long n, double value, char *message);
 int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
+float *xf_matrixtrans1_f(float *data1, long *width, long *height);
 
 int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
 int xf_compare1_d(const void *a, const void *b);
@@ -81,6 +82,7 @@ int main (int argc, char *argv[]) {
 	long nwinfft,nnact,nnemg,nneeg,nscores;
 	off_t parameters[8]; // parameters for xf_readbin2_f()
 	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
+	float *scoreact=NULL,*scoreemg=NULL,*scoreeeg=NULL;
 	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
 
@@ -88,19 +90,14 @@ int main (int argc, char *argv[]) {
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
-	float *scoreact=NULL,*scoreemg=NULL,*scoreeeg=NULL;
-
-	/* BAND DEFINITION */
-
 	// Sandor Kantor / Sleepsign sleep-detection band definitions
 	// NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
-	// char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100";
-
+	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100";
 	// Gyorgi Buzsaki band definitions
-	// char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
-
+	// 	char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
 	// Functional bands for test dataset (TPEEG054):
-	// char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
+	//	 char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
+	/* band definition */
 	char setbandsdefault[]= "delta,1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80";
 	long *ibands=NULL,band,btot=0,bstart2[16],bstop2[16];
 	float bstart1[16],bstop1[16];
@@ -126,10 +123,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    - \n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: filename for activity record\n");
+		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
 		fprintf(stderr,"        - the base-name will be used to detect matching EMG/EEG files\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"    -verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
-		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
 		fprintf(stderr,"    -bands: CSV band-triplets: name,start,stop\n");
 		fprintf(stderr,"        - default: %s\n",setbandsdefault);
 		fprintf(stderr,"EXAMPLES:\n");
@@ -403,12 +400,35 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 		aa=2.0 * scaling1;
 		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
 		for(jj=0;jj<kk;jj++) { ar= fft[jj].r; ai= fft[jj].i; spect[jj]= aa * sqrtf( ar*ar + ai*ai ); }
-		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX
-		for(jj=0;jj<btot;jj++) {
-			z= xf_auc1_d( (spect+bstart2[jj]) , (bstop2[jj]-bstart2[jj]+1) ,1.0 , 0 ,resultd,message);
+		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX (band x window)
+		for(band=0;band<btot;band++) {
+			z= xf_auc1_d( (spect+bstart2[band]) , (bstop2[band]-bstart2[band]+1),1.0,0,resultd,message);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
-			scoreeeg[window*btot+jj] = resultd[0]; // total AUC, positive + negative
-	}}
+			scoreeeg[window*btot+band]= (float)resultd[0]; // total AUC, positive + negative
+		}
+	}
+	/* TRANSPOSE EEG BAND-MATRIX SO ROW=BAND, COLUMN=TIME */
+	ii=btot; jj=nscores; // width and height - use temp values to avoid overwriting btot and nscores
+	scoreeeg= xf_matrixtrans1_f(scoreeeg,&ii,&jj);
+	if(scoreeeg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}
+
+
+	/* NOW TRIM AND NORMALISE EEG BLIKE WE DID EMG */
+	// for(band=0;band<btot;band++) {
+	// 	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
+	// 	fprintf(stderr,"    - trim and normalise...\n");
+	// 	z= xf_percentile2_f(scoreemg,nscores,.5,&aa,&bb,message);
+	// 	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+	// 	/* TRIM AND NORMALIZE THE DATA */
+	// 	/* - modified from Silvani 2017 - assume lower limit is zero */
+	// 	for(ii=0;ii<nscores;ii++) {
+	// 		cc= scoreemg[ii];
+	// 		if(cc>=bb) scoreemg[ii]= NAN;
+	// 		// else if(cc<aa) scoreemg[ii]= NAN; // original method sets lower limit - for outrpurposes it is useful not to exclude zero, which can have special meaning
+	// 		// else scoreemg[ii]= 100.0 * (cc-aa) / (bb-aa);
+	// 		else scoreemg[ii]= 100.0 * (cc / bb);
+	// 	}
+	// }
 
 
 	//TEST:
@@ -416,8 +436,7 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	printf("ACT\tEMG"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
 	for(ii=0;ii<nscores;ii++) {
 		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
-		kk= ii*btot;
-		for(jj=0;jj<btot;jj++) printf("\t%f",scoreeeg[kk+jj]);
+		for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
 		printf("\n");
 
 	}
