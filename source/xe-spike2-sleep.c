@@ -83,9 +83,9 @@ int main (int argc, char *argv[]) {
 	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
 	float *scoreact=NULL,*scoreemg=NULL,*scoreeeg=NULL;
 	double *datact=NULL,*pdatad=NULL;
-	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0,epochsize=10.0;
+	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0;
 
-	long fftmaxindex=-1,window;
+	long fftmaxindex=-1,window,epoch,epochsamps,nepochs;
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
@@ -104,7 +104,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *infileact=NULL,*setbands=NULL;
 	int setverb=0;
-	double setzero=0.0,settrim=99.5;
+	double setzero=0.0,settrim=99.5,setepoch=10.0;
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -409,8 +409,7 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
 			scoreeeg[band*nscores+window]= (float)resultd[0]; // total AUC, positive + negative
 	}}
-
-	/* NOW TRIM AND NORMALISE EEG BLIKE WE DID EMG */
+	/* NOW TRIM AND NORMALISE EEG LIKE WE DID FOR EMG */
 	fprintf(stderr,"    - trim top %g%% and normalise...\n",settrim);
 	for(band=0;band<btot;band++) {
 		fprintf(stderr,"        - %s\n",(setbands+ibands[band]));
@@ -430,21 +429,16 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 		}
 	}
 
-
-	//TEST:
+	/* TEST:
 	fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
-	printf("ACT\tEMG"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
+	printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
 	for(ii=0;ii<nscores;ii++) {
 		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
 		for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
-		printf("\n");
-
-	}
-
-
-// ??? NORMALISE EEG SCORES SIMILARLY TO EMG - 0-100 range
-
+		printf("\n");}
 	goto END;
+	//*/
+
 
 
 	/******************************************************************************/
@@ -454,26 +448,43 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
+	epochsamps= (long)(setepoch);
+	epoch= 0; // new epoch-counter
+	for(ii=0;ii<nscores;ii+=epochsamps) {
 
+		if( (ii+epochsamps)>nscores ) break; // end processing if ii is not the start of a complete epoch
 
-	/********************************************************************************
-	EMG EPOCHS
-	********************************************************************************/
-
-	/* FOR EACH EPOCH SAVE MEDIAN */
-	mm= (long)(epochsize);
-	kk= 0; // new epoch-counter
-	for(ii=0;ii<nscores;ii+=mm) {
-		pdataf= scoreemg+ii;
-		z= xf_percentile3_f(pdataf,mm,50.0,&aa,&bb,message);
+		z= xf_percentile3_f((scoreact+ii),epochsamps,50,&aa,&bb,message);
 		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-		scoreemg[kk++]= aa;
+		scoreact[epoch]= (float)aa;
+
+		z= xf_percentile3_f((scoreemg+ii),epochsamps,50,&aa,&bb,message);
+		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+		scoreemg[epoch]= (float)aa;
+
+		for(band=0;band<btot;band++) {
+			pdataf= scoreeeg+(band*nscores);
+			z= xf_percentile3_f((pdataf+ii),epochsamps,50,&aa,&bb,message);
+			if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+			pdataf[epoch]= aa;
+		}
+
+		epoch++;
 	}
+	nepochs= epoch;
+
+
+	/* TEST: */
+	fprintf(stderr,"    - outputting epochs...\n");
+	printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
+	for(ii=0;ii<nepochs;ii++) {
+		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
+		for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
+		printf("\n");}
+	goto END;
 
 
 
-
-exit(0);
 
 	// DETERMINE TIME ZERO
 	// DETERMINE RECORDING DURATION AND NUMBER OF EPOCHS BEFORE AND AFTER ZERO
