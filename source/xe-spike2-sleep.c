@@ -31,9 +31,8 @@ int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
 long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
 long xf_getindex1_d(double min, double max, long n, double value, char *message);
 int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
-float *xf_matrixtrans1_f(float *data1, long *width, long *height);
 
-int xf_percentile2_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
+int xf_percentile3_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
 int xf_compare1_d(const void *a, const void *b);
 
 
@@ -105,7 +104,7 @@ int main (int argc, char *argv[]) {
 	/* arguments */
 	char *infileact=NULL,*setbands=NULL;
 	int setverb=0;
-	double setzero=0.0;
+	double setzero=0.0,settrim=99.5;
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -123,6 +122,7 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"    - \n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: filename for activity record\n");
+		fprintf(stderr,"    -trim: outlier definition for EMG & EEG (percentile) [%g]\n",settrim);
 		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
 		fprintf(stderr,"        - the base-name will be used to detect matching EMG/EEG files\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
@@ -146,12 +146,14 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
+			else if(strcmp(argv[ii],"-trim")==0) settrim= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-zero")==0) setzero= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-bands")==0) setbands= argv[++ii];
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1 && setverb!=999) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(strcmp(infileact,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
+	if(settrim<0||settrim>100) { fprintf(stderr,"\n--- Error[%s]: invalid -trim [%g] must be 0-100\n\n",thisprog,settrim);exit(1);}
 
 
 // CHECK VALIDITY OF BAND NAMES  MUST BE Delta,Theta,Sigma,Beta,Gamma
@@ -341,7 +343,8 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	}} // note that partial bins at the end of data are ignored
 
 	/********************************************************************************
-	B SCORE EMG - method based on Silvani et al (2017) but zero is minimum and 1s binning rather than 0.5s
+	B SCORE EMG - method based on Silvani et al (2017): https://academic.oup.com/sleep/article/40/4/zsx029/3044361
+	- but zero is minimum and 1s binning rather than 0.5s
 	 ??? there is a problem here
 	- basically, zero in our data appears to be a data-loss value, and other values represent "very little muscular activity"
 	- this is difficult to prove, but either way sometimes "zero" is included after trimming because there is a lot of missing ddta
@@ -363,9 +366,9 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 			if(kk>=nscores) break; // do not exceed limits
 			kk++; jj=0; sum=0.0;
 	}} // note that partial bins at the end of data are ignored
-	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
-	fprintf(stderr,"    - trim and normalise...\n");
-	z= xf_percentile2_f(scoreemg,nscores,.5,&aa,&bb,message);
+	/* GET THE LOWER AND UPPER PERCENTILE CUTOFFS - 0.5% and 99.5% according to Silvani et.al. */
+	fprintf(stderr,"    - trim above %g%%-ile and normalise...\n",settrim);
+	z= xf_percentile3_f(scoreemg,nscores,(100.0-settrim),&aa,&bb,message);
 	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	/* TRIM AND NORMALIZE THE DATA */
 	/* - modified from Silvani 2017 - assume lower limit is zero */
@@ -400,35 +403,32 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 		aa=2.0 * scaling1;
 		kk= nwinfft/2; if(kk>100) kk=100; // with an upper limit of 100 (Hz), defines highest index in FFT result for which unique information can be obtained
 		for(jj=0;jj<kk;jj++) { ar= fft[jj].r; ai= fft[jj].i; spect[jj]= aa * sqrtf( ar*ar + ai*ai ); }
-		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX (band x window)
+		// CALCULATE THE BAND SCORES - SAVE IN THE scoreeeg MATRIX (row=band, column=window)
 		for(band=0;band<btot;band++) {
 			z= xf_auc1_d( (spect+bstart2[band]) , (bstop2[band]-bstart2[band]+1),1.0,0,resultd,message);
 			if(z!=0) { fprintf(stderr,"\n\t--- %s/%s\n\n",thisprog,message); goto END; }
-			scoreeeg[window*btot+band]= (float)resultd[0]; // total AUC, positive + negative
-		}
-	}
-	/* TRANSPOSE EEG BAND-MATRIX SO ROW=BAND, COLUMN=TIME */
-	ii=btot; jj=nscores; // width and height - use temp values to avoid overwriting btot and nscores
-	scoreeeg= xf_matrixtrans1_f(scoreeeg,&ii,&jj);
-	if(scoreeeg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1);}
-
+			scoreeeg[band*nscores+window]= (float)resultd[0]; // total AUC, positive + negative
+	}}
 
 	/* NOW TRIM AND NORMALISE EEG BLIKE WE DID EMG */
-	// for(band=0;band<btot;band++) {
-	// 	/* GET THE UPPER AND LOWER PERCENTILE CUTOFFS - 0.5% and 99.5% */
-	// 	fprintf(stderr,"    - trim and normalise...\n");
-	// 	z= xf_percentile2_f(scoreemg,nscores,.5,&aa,&bb,message);
-	// 	if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-	// 	/* TRIM AND NORMALIZE THE DATA */
-	// 	/* - modified from Silvani 2017 - assume lower limit is zero */
-	// 	for(ii=0;ii<nscores;ii++) {
-	// 		cc= scoreemg[ii];
-	// 		if(cc>=bb) scoreemg[ii]= NAN;
-	// 		// else if(cc<aa) scoreemg[ii]= NAN; // original method sets lower limit - for outrpurposes it is useful not to exclude zero, which can have special meaning
-	// 		// else scoreemg[ii]= 100.0 * (cc-aa) / (bb-aa);
-	// 		else scoreemg[ii]= 100.0 * (cc / bb);
-	// 	}
-	// }
+	fprintf(stderr,"    - trim top %g%% and normalise...\n",settrim);
+	for(band=0;band<btot;band++) {
+		fprintf(stderr,"        - %s\n",(setbands+ibands[band]));
+		/* set pointer to timeseries for this band */
+		pdataf= scoreeeg+(band*nscores);
+		/* get the upper and lower percentile cutoffs - 0.5% and 99.5% */
+		z= xf_percentile3_f(pdataf,nscores,(100-settrim),&aa,&bb,message);
+		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+		/* TRIM AND NORMALIZE THE DATA */
+		/* - modified from Silvani 2017 - assume lower limit is zero */
+		for(ii=0;ii<nscores;ii++) {
+			cc= pdataf[ii];
+			if(cc>=bb) pdataf[ii]= NAN;
+			// else if(cc<aa) scoreemg[ii]= NAN; // original method sets lower limit - for outrpurposes it is useful not to exclude zero, which can have special meaning
+			// else scoreemg[ii]= 100.0 * (cc-aa) / (bb-aa);
+			else pdataf[ii]= 100.0 * (cc / bb);
+		}
+	}
 
 
 	//TEST:
@@ -465,7 +465,7 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	kk= 0; // new epoch-counter
 	for(ii=0;ii<nscores;ii+=mm) {
 		pdataf= scoreemg+ii;
-		z= xf_percentile2_f(pdataf,mm,50.0,&aa,&bb,message);
+		z= xf_percentile3_f(pdataf,mm,50.0,&aa,&bb,message);
 		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 		scoreemg[kk++]= aa;
 	}

@@ -13,7 +13,7 @@ DEPENDENCIES:
 ARGUMENTS:
 	double *data  : array holding the input data
 	long nn       : number of elements in the array
-	double setper : the percentile cutoff desired (0-1)
+	double setper : the percentile cutoff desired (0-100)
 	char *message : pre-allocated array to hold error message
 
 RETURN VALUE:
