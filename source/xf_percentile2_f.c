@@ -3,7 +3,7 @@
 
 DESCRIPTION:
 	Calculate a percentile cutoff for an array of double-precision float values
-
+	- note that temp array and sort functions use double-precision, regardless of float input
 USES:
 	Getting the median, finding outliers in a distribution
 
@@ -11,7 +11,7 @@ DEPENDENCIES:
 	xf_compare1_d
 
 ARGUMENTS:
-	double *data  : array holding the input data
+	float *data   : array holding the input data
 	long nn       : number of elements in the array
 	double setper : the percentile cutoff desired (0-100)
 	char *message : pre-allocated array to hold error message
@@ -31,9 +31,9 @@ SAMPLE CALL:
 /* external compare function required by qsort - in this instance, comparing type double */
 int xf_compare1_d(const void *a, const void *b);
 
-double xf_percentile2_d(double *data, long nn, double setper, char *message) {
+float xf_percentile2_f(float *data, long nn, double setper, char *message) {
 
-	char *thisfunc="xf_percentile2_d\0";
+	char *thisfunc="xf_percentile2_f\0";
 	long int ii,jj,kk,n2;
 	double aa,bb, *temp=NULL;
 
@@ -56,5 +56,5 @@ double xf_percentile2_d(double *data, long nn, double setper, char *message) {
 
 END:
 	if(temp!=NULL) free(temp);
-	return(bb);
+	return((float)bb);
 }

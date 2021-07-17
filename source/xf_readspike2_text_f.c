@@ -18,7 +18,7 @@ ARGUMENTS:
 
 RETURN VALUE:
 	- on success:
-		- returns pointer to an array of values (64-bit float)
+		- returns pointer to an array of values (32-bit float)
 		- ndata updated
 		- sampint updated
 		- message[256] holds the chandata2el label
@@ -52,9 +52,9 @@ SAMPLE INPUT
 SAMPLE CALL:
 	char infile="data.txt",message[256];
 	long ndata2;
-	double *data1=NULL,sampint;
+	float *data1=NULL,sampint;
 
-	data1= xf_readspike2_text_d(infile,&ndata2,&sampint,message);
+	data1= xf_readspike2_text_f(infile,&ndata2,&sampint,message);
 	if(data1==NULL) { fprintf(stderr,"\n---Error: %s\n\n",message); exit(1); }
 
 
@@ -70,14 +70,15 @@ char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
 long *xf_lineparse2(char *line, char *delimiters, long *nwords);
 /* external functions end */
 
-double *xf_readspike2_text_d(char *infile, long *ndata, double *sampint, char *message) {
+float *xf_readspike2_text_f(char *infile, long *ndata, double *sampint, char *message) {
 
 	FILE *fpin=NULL;
-	char *thisfunc= "xf_readspike2_text_d\0";
+	char *thisfunc= "xf_readspike2_text_f\0";
 	char *line=NULL,*templine=NULL,*pchar=NULL;
 	int foundsummary=0,foundstart=0;
 	long *start=NULL,nwords,ndata2=0,nlines=0,maxlinelen=0;
-	double *data1=NULL,aa,sampint2=0;
+	float *data1=NULL;
+	double aa,sampint2=0;
 	size_t sizeofdata1;
 
 	sizeofdata1= sizeof(*data1);
@@ -117,7 +118,7 @@ double *xf_readspike2_text_d(char *infile, long *ndata, double *sampint, char *m
 
  		data1= realloc(data1,(ndata2+1)*sizeofdata1);
 		if(data1==NULL) {sprintf(message,"%s: memory allocation error storing data1",thisfunc);goto ERROR;}
-		if(sscanf(line,"%lf",&aa)==1 && isfinite(aa)) data1[ndata2]= aa;
+		if(sscanf(line,"%lf",&aa)==1 && isfinite(aa)) data1[ndata2]= (float)aa;
 		else data1[ndata2]= NAN;
 		ndata2++;
 	}

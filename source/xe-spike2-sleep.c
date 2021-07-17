@@ -13,48 +13,51 @@
 <TAGS> SPIKE2 </TAGS>
 
 1.June.2021 [JRH]
+- Reads data exported from Spike2 recording using the following Spike2 scripts:
+	- Activity (text)     : s2_export_act2txt.s2s - missing data = 999999
+	- EMG (binary float)  : s2_export_eeg2bin.s2s - missing data = 999999
+	- EEG (binary float)  : s2_export_emg2bin.s2s - missing data = 999999
+
+- Activity
+	- normally minimum is zero, but negative values occur due to filtering in Spike2
+	- these negative values rarely exceed -1, and occur around "true" positive activity as a result of ringing in the filter
+- EEG/EMG
+	- -999 will represent missing data at the start and end of recording
+	- if the data was collected with DSI transmitters, "0" may also represent missing data when the transmitter is out of range
+	- these zeros are also potentially valid data and cannot be used to assume missing data
+	- however, multiple consecutive values of exactly zero are highly unlikely
+	-
+
 
 */
 
 
 
 /* external functions start */
-char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
-long *xf_lineparse2(char *line, char *delimiters, long *nwords);
-double *xf_readspike2_text_d(char *infile, long *nn, double *samprate, char *message);
-float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
-char* xf_strsub1 (char *source, char *str1, char *str2);
-long xf_interp3_f(float *data, long ndata);
-long xf_interp3_d(double *data, long ndata);
-int xf_norm2_f(float *data,long ndata,int normtype);
-int xf_smoothgauss1_f(float *original,size_t arraysize,int smooth);
-long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
-long xf_getindex1_d(double min, double max, long n, double value, char *message);
-int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
-
-int xf_percentile3_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
-int xf_compare1_d(const void *a, const void *b);
-
-
 // NOTE: the following function declarations are commented out to avoid re-initialization in kiss headers,
 /*
 void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata);
 void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 */
+char *xf_lineread1(char *line, long *maxlinelen, FILE *fpin);
+long *xf_lineparse2(char *line, char *delimiters, long *nwords);
+float *xf_readspike2_text_f(char *infile, long *ndata, double *sampint, char *message);
+float *xf_readbin2_f(char *infile, off_t *parameters, char *message);
+char* xf_strsub1 (char *source, char *str1, char *str2);
+long xf_interp3_f(float *data, long ndata);
+
+float *xf_bin_simple_f(float *data1, long n1, long binsize, int type, long *nbins, char *message);
+float xf_percentile2_f(float *data, long nn, double setper, char *message);
+int xf_percentile3_f(float *data, long nn, double setper, double *per1, double *per2, char *message);
+int xf_compare1_d(const void *a, const void *b);
+
+long *xf_definebands1(char *setbands,float *bstart1,float *bstop1, long *btot, char *messsage);
+long xf_getindex1_d(double min, double max, long n, double value, char *message);
+int xf_auc1_d(double *curvey, long nn, double interval, int ref, double *result ,char *message);
 double *xf_taperhann_d(long setn, int setnorm, float setpow, char *message);
-
 int xf_timeconv1(double seconds, int *days, int *hours, int *minutes, double *sec2);
-int xf_bin1b_d(double *data, long *setn, long *setz, double setbinsize, char *message);
-int xf_bin1b_f(float *data, long *setn, long *setz, double setbinsize, char *message);
-int xf_filter_bworth1_f(float *X, size_t nn, float sample_freq, float low_freq, float high_freq, float res, char *message);
-
-int xf_smoothgauss1_d(double *original,size_t arraysize,int smooth);
-long xf_scale1_l(long data, long min, long max);
-int xf_bin3_d(double *data, short *flag, long setn, long setz, double setbinsize, char *message);
-double xf_bin1a_d(double *data, size_t *setn, size_t *setz, size_t setbins, char *message);
-
-
 /* external functions end */
+
 
 int main (int argc, char *argv[]) {
 
@@ -80,9 +83,8 @@ int main (int argc, char *argv[]) {
 	long *iword=NULL,nwords,binsamps,zero1act,zero1emg,zero1eeg;
 	long nwinfft,nnact,nnemg,nneeg,nscores;
 	off_t parameters[8]; // parameters for xf_readbin2_f()
-	float *datemg=NULL,*dateeg=NULL,*pdataf=NULL;
+	float *datact=NULL,*datemg=NULL,*dateeg=NULL,*pdataf=NULL;
 	float *scoreact=NULL,*scoreemg=NULL,*scoreeeg=NULL;
-	double *datact=NULL,*pdatad=NULL;
 	double siact,sfact,duract,duremg,dureeg,sfemg=500.0,sfeeg=500.0;
 
 	long fftmaxindex=-1,window,epoch,epochsamps,nepochs;
@@ -103,8 +105,8 @@ int main (int argc, char *argv[]) {
 
 	/* arguments */
 	char *infileact=NULL,*setbands=NULL;
-	int setverb=0;
-	double setzero=0.0,settrim=99.5,setepoch=10.0;
+	int setverb=0,setout=1;
+	double setzero=0.0,settrim=99.5,setepoch=10.0,setmissing=999999.0;
 
 	/********************************************************************************
 	PRINT INSTRUCTIONS IF THERE IS NO FILENAME SPECIFIED
@@ -116,19 +118,18 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"Read Spike2 exported-data to perform sleep-stage analysis\n");
 		fprintf(stderr,"- requires Activity, EMG, and EEG output - scripts from XTP library:\n");
-		fprintf(stderr,"    - ACT:  s2_export_activity_perchannel.s2s\n");
-		fprintf(stderr,"    - EMG:  s2_eeg2bin.s2s\n");
-		fprintf(stderr,"    - EEG:  s2_emg2bin.s2s\n");
+		fprintf(stderr,"    - ACT:  s2_export_act2txt.s2s\n");
+		fprintf(stderr,"    - EMG:  s2_export_eeg2bin.s2s\n");
+		fprintf(stderr,"    - EEG:  s2_export_emg2bin.s2s\n");
 		fprintf(stderr,"    - \n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: filename for activity record\n");
-		fprintf(stderr,"    -trim: outlier definition for EMG & EEG (percentile) [%g]\n",settrim);
-		fprintf(stderr,"    -zero: time (seconds) to take as \"zero\" in the recording [%g]\n",setzero);
-		fprintf(stderr,"        - the base-name will be used to detect matching EMG/EEG files\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
 		fprintf(stderr,"    -verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
 		fprintf(stderr,"    -bands: CSV band-triplets: name,start,stop\n");
 		fprintf(stderr,"        - default: %s\n",setbandsdefault);
+		fprintf(stderr,"    -trim: outlier definition for EMG & EEG (percentile) [%g]\n",settrim);
+		fprintf(stderr,"    -out: output (1=epochs, 2=1s_scores [%d]\n",setout);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"    %s data.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -146,14 +147,15 @@ int main (int argc, char *argv[]) {
 		if( *(argv[ii]+0) == '-') {
 			if((ii+1)>=argc) {fprintf(stderr,"\n--- Error[%s]: missing value for argument \"%s\"\n\n",thisprog,argv[ii]); exit(1);}
 			else if(strcmp(argv[ii],"-verb")==0) setverb= atoi(argv[++ii]);
-			else if(strcmp(argv[ii],"-trim")==0) settrim= atof(argv[++ii]);
-			else if(strcmp(argv[ii],"-zero")==0) setzero= atof(argv[++ii]);
 			else if(strcmp(argv[ii],"-bands")==0) setbands= argv[++ii];
+			else if(strcmp(argv[ii],"-trim")==0) settrim= atof(argv[++ii]);
+			else if(strcmp(argv[ii],"-out")==0) setout= atoi(argv[++ii]);
 			else {fprintf(stderr,"\n--- Error [%s]: invalid command line argument [%s]\n\n",thisprog,argv[ii]); exit(1);}
 	}}
 	if(setverb!=0 && setverb!=1 && setverb!=999) { fprintf(stderr,"\n--- Error[%s]: invalid -verb [%d] must be 0 or 1\n\n",thisprog,setverb);exit(1);}
 	if(strcmp(infileact,"stdin")==0) { fprintf(stderr,"\n--- Error[%s]: this program does not accept \"stdin\" as an input. Please specify a filename\n\n",thisprog);exit(1);}
 	if(settrim<0||settrim>100) { fprintf(stderr,"\n--- Error[%s]: invalid -trim [%g] must be 0-100\n\n",thisprog,settrim);exit(1);}
+	if(setout<0||setout>100) { fprintf(stderr,"\n--- Error[%s]: invalid -out [%d] must be 1-2\n\n",thisprog,setout);exit(1);}
 
 
 // CHECK VALIDITY OF BAND NAMES  MUST BE Delta,Theta,Sigma,Beta,Gamma
@@ -196,10 +198,10 @@ int main (int argc, char *argv[]) {
 	- max mobility is probably ~6
 	********************************************************************************/
 	fprintf(stderr,"...reading ACTIVITY data...\n");
-	datact= xf_readspike2_text_d(infileact,&nnact,&siact,message);
+	datact= xf_readspike2_text_f(infileact,&nnact,&siact,message);
 	if(datact==NULL) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 	sfact= 1.0/siact;
-	//TEST:	printf("header: %s",header); for(ii=0;ii<nrows;ii++) { pdatad= datact+(ii*ncols); printf("%g",pdatad[0]); for(jj=1;jj<ncols;jj++) printf("\t%g",pdatad[jj]); printf("\n"); }
+	if(sfact<1) { fprintf(stderr,"\n--- Error[%s]: activity sample-frequency (%g) is less than 1 - scores cannot be generated\n\n",thisprog,sfact);exit(1);}
 	/* FIND DURATION N SECONDS AND REPORT */
 	duract= (double)nnact/sfact;
 	z= xf_timeconv1(duract,&days,&hours,&minutes,&seconds);
@@ -257,16 +259,16 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 
 	/********************************************************************************
-	A. ALLOCATE MEMORY FOR 1-SECOND SUB-SCORES (10 per epoch) and band indices
+	A. DETERMINE THE ALLOWABLE NUMBER OF SCORES & ALLOCATE EEG MEMORY
+	- minimum duration (seconds) between act,emg,eeg
 	********************************************************************************/
 	if(duract<duremg) { if(duract<dureeg) aa= duract; else aa=dureeg; }
 	else { if(duremg<dureeg) aa= duremg; else aa=dureeg; }
 	nscores= (long)aa; // total number of 1s-scores for activity, EMG and EEG
 	fprintf(stderr,"...total 1-second scores (minimum of activity,emg,eeg): %ld\n",nscores);
-	fprintf(stderr,"\n");
-	scoreact= malloc(nscores * sizeof(*scoreact)); if(scoreact==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoreemg= malloc(nscores * sizeof(*scoreemg)); if(scoreemg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
-	scoreeeg= malloc(nscores * sizeof(*scoreeeg) * btot); if(scoreeeg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
+	/* allocate EEM memory because this will NOT be done by a call to xf_bin_simple_f() as per activity and emg */
+	scoreeeg= malloc(nscores * sizeof(*scoreeeg) * btot);
+	if(scoreeeg==NULL) {fprintf(stderr,"\n--- Error [%s]: insufficient memory\n\n",thisprog); exit(1); }
 
 
 // DETERMINE FFTWIN SIZE
@@ -324,23 +326,20 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	/******************************************************************************/
 
 	/********************************************************************************
-	A. SCORE ACTIVITY - DON'T rectify because the DSI system creates brief negativities either side of periods of activity - these appear to be filtering artefacts. Instead, treat these negativities as invalid and interpolate across them
+	A. SCORE ACTIVITY
+	- DON'T rectify because the DSI system creates brief negativities either side of periods of activity - these appear to be filtering artefacts. Instead, treat these negativities as invalid and interpolate across them
+	- however replace invalid values with NAN
 	********************************************************************************/
 	fprintf(stderr,"...processing activity...\n");
-	/* REMOVE NEGATIVE VALUES (ARTEFACTS OF FILTERING) */
-	for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0) datact[ii]=NAN;
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_d(datact,nnact);
-	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions (they overwrite the original array) */
-	mm= (long)sfact; // binsize
-	sum= 0.0;
-	for(ii=jj=kk=0;ii<nnact;ii++) {
-		sum+= datact[ii];
-		if(++jj==mm) {
-			scoreact[kk]= sum/(double)jj;
-			if(kk>=nscores) break; // do not exceed limits
-			kk++; jj=0; sum=0.0;
-	}} // note that partial bins at the end of data are ignored
+	/* replace negative and missing-values with NAN */
+	fprintf(stderr,"    - detecting invalid values: ");
+	kk=0; for(ii=0;ii<nnact;ii++) if(datact[ii]<0.0 || datact[ii]==setmissing) {datact[ii]=NAN;kk++;}
+	fprintf(stderr,"%ld/%ld = %.3f%%\n",kk,nnact,(100*(double)kk/(double)nnact));
+	/* average the data in non-overlapping 1 second bins - binsize is sample-frequency */
+	fprintf(stderr,"    - binning (1-second)...\n");
+	scoreact= xf_bin_simple_f(datact,nnact,(long)sfact,2,&kk,message);
+	if(scoreact==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); goto END; }
+
 
 	/********************************************************************************
 	B SCORE EMG - method based on Silvani et al (2017): https://academic.oup.com/sleep/article/40/4/zsx029/3044361
@@ -350,22 +349,18 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	- this is difficult to prove, but either way sometimes "zero" is included after trimming because there is a lot of missing ddta
 	********************************************************************************/
 	fprintf(stderr,"...processing EMG...\n");
-	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(datemg,nnemg);
-	/* RECTIFY: because the signal is centred on zero */
+	/* replace missing-values with NAN */
+	fprintf(stderr,"    - detecting invalid values: ");
+	kk=0; for(ii=0;ii<nnemg;ii++) if(datemg[ii]==setmissing) {datemg[ii]=NAN;kk++;}
+	fprintf(stderr,"%ld/%ld = %.3f%%\n",kk,nnemg,(100*(double)kk/(double)nnemg));
+	/* rectify: because the signal is centred on zero and we want total "power" */
 	fprintf(stderr,"    - rectifying...\n");
-	for(ii=0;ii<nnemg;ii++) if(datemg[ii]<0.0) datemg[ii]*=-1.0;
-	/* AVERAGE THE DATA IN NON-OVERLAPPING 1 SECOND BINS - do not use binning functions (they overwrite the original array) */
+	for(ii=0;ii<nnemg;ii++) if(isfinite(datemg[ii]) && datemg[ii]<0.0) datemg[ii]*=-1.0;
+	/* average the data in non-overlapping 1 second bins - binsize is sample-frequency */
 	fprintf(stderr,"    - binning (1-second)...\n");
-	mm= (long)sfemg; // binsize= 1 second
-	sum= 0.0;
-	for(ii=jj=kk=0;ii<nnemg;ii++) {
-		sum+= datemg[ii];
-		if(++jj==mm) {
-			scoreemg[kk]= sum/(double)jj;
-			if(kk>=nscores) break; // do not exceed limits
-			kk++; jj=0; sum=0.0;
-	}} // note that partial bins at the end of data are ignored
+	scoreemg= xf_bin_simple_f(datemg,nnemg,(long)sfemg,2,&kk,message);
+	if(scoreemg==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); goto END; }
+
 	/* GET THE LOWER AND UPPER PERCENTILE CUTOFFS - 0.5% and 99.5% according to Silvani et.al. */
 	fprintf(stderr,"    - trim above %g%%-ile and normalise...\n",settrim);
 	z= xf_percentile3_f(scoreemg,nscores,(100.0-settrim),&aa,&bb,message);
@@ -382,12 +377,16 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 
 	/********************************************************************************
 	C. SCORE EEG - scores for each band
-	- assume a 1-second window (nwinfft= sfeeg)
+	- assume a 1-second window (nwinfft= sfeeg) - FFT itself does the binning here
 	- only process 1-100 Hz data
 	********************************************************************************/
 	fprintf(stderr,"...processing EEG...\n");
+	/* replace missing-values with NAN */
+	fprintf(stderr,"    - detecting invalid values: ");
+	kk=0; for(ii=0;ii<nneeg;ii++) if(dateeg[ii]==setmissing) {dateeg[ii]=NAN;kk++;}
+	fprintf(stderr,"%ld/%ld = %.3f%%\n",kk,nneeg,(100*(double)kk/(double)nneeg));
 	/* APPLY INTERPOLATION */
-	ii= xf_interp3_f(dateeg,nneeg);
+//	ii= xf_interp3_f(dateeg,nneeg);
 	window= -1;
 	for (ii=0;ii<nneeg;ii+=nwinfft) {
 		window++;
@@ -429,16 +428,20 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 		}
 	}
 
-	/* TEST:
-	fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
-	printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
-	for(ii=0;ii<nscores;ii++) {
-		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
-		for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
-		printf("\n");}
-	goto END;
-	//*/
+// ??? ADD DATA-CHECK HERE - IF EEG AND EMG ARE 0 FOR 2+ SAMPLES, DATA IS MISSING (SET TO NAN)
 
+// ??? INSERT SECTION HERE FOR EEG AND EMG DATA-TYPES - TRIM AND NORMALISE
+
+
+	if(setout==2) {
+		fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
+		printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
+		for(ii=0;ii<nscores;ii++) {
+			printf("%f\t%f",scoreact[ii],scoreemg[ii]);
+			for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
+			printf("\n");}
+		goto END;
+	}
 
 
 	/******************************************************************************/
@@ -480,7 +483,8 @@ nwinfft= 1.0*(long)(sfeeg*1.0);
 	for(ii=0;ii<nepochs;ii++) {
 		printf("%f\t%f",scoreact[ii],scoreemg[ii]);
 		for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
-		printf("\n");}
+		printf("\n");
+	}
 	goto END;
 
 
