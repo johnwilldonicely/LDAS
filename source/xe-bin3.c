@@ -7,7 +7,7 @@
 #include <math.h>
 
 /*
-<TAGS>stats signal_processing</TAGS>
+<TAGS> signal_processing transform </TAGS>
 
 4.July.2021 [JRH]
 	- simplified (if not the speediest) binning program with options for mean, median, peak
@@ -115,11 +115,6 @@ int main (int argc, char *argv[]) {
 		if(z<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
 	}
 	else if(setout==2) {
-		jj= xf_binpeak1_d(data1,nn,setbin,message);
-		if(jj<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
-		nn= jj;
-	}
-	else if(setout==3) {
 		kk= (long)(setbin+0.5); // long version of binsize
 		mm= 0; // counter for new number of bins
 		binstart= 0.0;
@@ -142,6 +137,12 @@ int main (int argc, char *argv[]) {
 		}
 		nn= mm;
 	}
+	else if(setout==3) {
+		jj= xf_binpeak1_d(data1,nn,setbin,message);
+		if(jj<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
+		nn= jj;
+	}
+
 	else goto END;
 
 	/********************************************************************************

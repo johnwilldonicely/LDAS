@@ -146,6 +146,7 @@ cd LDAS
 
 - view the change history of a file
 	$ git log -p filename
+	$ git log -p filename | grep -E 'commit|Date:'
 
 - compare comitted local changes with remote master
 	$ xs-proggit1 diff

@@ -99,7 +99,7 @@ let n=$(cat $tempfile | wc -l) ; if [ $n -lt 1 ] ; then { echo ; echo ; echo "--
 
 # CALCULATE THE 5th AND 95th PERCENTILES IN RMS POWER VALUES - TO REMOVE OUTLIERS FOR THE CORRECTED MEAN
 # NOTE THAT AN EXTRA COLUMN HAS BEEN ADDED TO THE FILE
-cut -f 5 $tempfile | awk 'NF>0{print$0}' | xe-trimoutliers1 stdin -l 0 -u 99 | xe-statsd1 stdin  > $tempfile".1"
+cut -f 5 $tempfile | awk 'NF>0{print$0}' | xe-trimoutliers1 stdin -low 0 -high 99 | xe-statsd1 stdin  > $tempfile".1"
 
 # CALCULATE THE THRESHOLD FOR SUSPICIOUS CHANNELS
 n=$(cat $tempfile".1" | awk '{if($1=="N") {print$2;exit}}' )

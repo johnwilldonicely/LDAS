@@ -385,7 +385,7 @@ int main (int argc, char *argv[]) {
 		/* if all columns found, store data and indicate this line is not a line-break */
 		if(w==0) {
 			if(setxcol==-1) aa=(double)linecount; /* -f -cx is "-1", sets x to sample-number */
-			/* convert NAN or INF values to zero - except x-values, which MUST be defined */
+			/* convert NAN or INF error-bar values to zero. Note that x- and y-values MUST be finite numbers  */
 			if(!isfinite(aa)) continue;
 			if(!isfinite(bb)) continue;
 			if(setecol>0 && !isfinite(cc)) cc= 0.0;

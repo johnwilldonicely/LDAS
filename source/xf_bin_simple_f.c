@@ -14,7 +14,7 @@ ARGUMENTS:
 	float *data    : input: pointer to input array
 	long n1        : input: number of elements in data array
 	long binsize   : input: desired bin-width (samples - can be a fraction)
-	int type       : input: desired result-type, 1=SUM, 2=MEAN, 3=MEADIAN
+	int type       : input: desired result-type, 1=SUM, 2=MEAN, 3=MEDIAN
 	long *nbins    : output: total bins generated - will be (long)(n1/binsize)
 	char *message  : output: array to hold error message
 

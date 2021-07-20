@@ -3,7 +3,7 @@
 <TAGS>stats</TAGS>
 
 DESCRIPTION:
-	Calculate summary statistics on an array of numbers (single-precision floating-point)
+	Calculate mean for an array of numbers (single-precision floating-point)
 	This is the fastest of the stats family of functions - mean only is calculated
 	Uses high-precision calculation for large datasets
 		- here the mean is first calculated by breaking the float-values into integer and fractional parts

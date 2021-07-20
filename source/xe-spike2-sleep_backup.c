@@ -1,5 +1,5 @@
-#define thisprog "xe-spike2-sleep2"
-#define TITLE_STRING thisprog" 18.June.2021 [JRH]"
+#define thisprog "xe-spike2-sleep"
+#define TITLE_STRING thisprog" 1.June.2021 [JRH]"
 #define MAXLINELEN 1000
 /*  define and include required (in this order!) for time functions */
 #define __USE_XOPEN // required specifically for strptime()
@@ -97,12 +97,11 @@ int main (int argc, char *argv[]) {
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
+	// Sandor Kantor / Sleepsign sleep-detection band definitions
+	// NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
+	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100";
 	// Gyorgi Buzsaki band definitions
 	// 	char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
-	// Sandor Kantor / Sleepsign sleep-detection band definitions
-	// 	NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
-	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100"; // Sandor
-	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,4,10,beta,12,25,gamma,30,100"; // My Sleepsign screenshot
 	// Functional bands for test dataset (TPEEG054):
 	//	 char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
 	/* band definition */
@@ -220,7 +219,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	B. STORE EMG DATA
 	********************************************************************************/
-	fprintf(stderr,"...reading EMG (%s)\n",infileemg);
+	fprintf(stderr,"...reading EMG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
 	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
@@ -235,11 +234,10 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        samplerate= %g Hz\n",sfemg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
 
-
 	/********************************************************************************
 	C.  STORE EEG DATA
 	********************************************************************************/
-	fprintf(stderr,"...reading EEG (%s)\n",infileeeg);
+	fprintf(stderr,"...reading EEG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
 	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
@@ -253,10 +251,8 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        records= %ld\n",nneeg);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfeeg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
-
 	//TEST	fprintf(stderr,"testing!\n");
-//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
-//for(ii=0;ii<nnemg;ii++) printf("%g\n",datemg[ii]); exit(0);
+	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
 
 	/******************************************************************************/
@@ -363,6 +359,12 @@ int main (int argc, char *argv[]) {
 	/* average the data in non-overlapping 1 second bins - binsize is sample-frequency - it's ok if kk>nscores - extras can be ignored */
 	scoreemg= xf_bin_simple_f(datemg,nnemg,(long)sfemg,2,&kk,message);
 	if(scoreemg==NULL) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); goto END; }
+	/* trim outliers - pre-existing NANs will also be preserved */
+	kk= xf_outlier1_f(scoreemg,nscores,0.1,99.9,message);
+	if(kk<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
+	else fprintf(stderr,"    - removed %ld outliers (%.3f%%)\n",kk,(100*(double)kk/(double)nscores));
+	/* normalise 0-1 */
+	z= xf_norm2_f(scoreemg,nscores,0);
 
 
 	/********************************************************************************
@@ -403,10 +405,17 @@ int main (int argc, char *argv[]) {
 			scoreeeg[band*nscores+window]= (float)resultd[0]; // total AUC, positive + negative
 		}
 	}
+	/* TRIM AND NORMALISE BAND-SCORES RESULTS TO 0-1 */
+	for(band=0;band<btot;band++) {
+		pdataf= scoreeeg+(band*nscores); /* set index to data */
+		/* trim outliers - pre-existing NANs will also be preserved */
+		kk= xf_outlier1_f(scoreeeg,nscores,0.1,99.9,message);
+		if(kk<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
+		/* normalise 0-1 */
+		z= xf_norm2_f(scoreeeg,nscores,0);
+	}
 
-	/********************************************************************************
-	D. OUTPUT SCORES IF REQUIRED
-	********************************************************************************/
+	/* OUTPUT SCORES IF REQUIRED */
 	if(setout==2) {
 		fprintf(stderr,"    - outputting 1-second scores (not epochs)...\n");
 		printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
@@ -425,59 +434,29 @@ int main (int argc, char *argv[]) {
 	/******************************************************************************/
 	/******************************************************************************/
 	/******************************************************************************/
-
-	/* TRIM OUTLIERS - PRE-EXISTING NANS WILL ALSO BE PRESERVED */
-	fprintf(stderr,"... removing outliers ...\n");
-	kk= xf_outlier1_f(scoreemg,nscores,0.1,99.9,message);
-	if(kk<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
-	else fprintf(stderr,"    - EMG: %ld outliers (%.3f%%)\n",kk,(100*(double)kk/(double)nscores));
-	/* trim outliers for each band */
-	for(band=0;band<btot;band++) {
-		pdataf= scoreeeg+(band*nscores); /* set index to data */
-		/* trim outliers - pre-existing NANs will also be preserved */
-		kk= xf_outlier1_f(scoreeeg,nscores,0.1,99.9,message);
-		if(kk<0) { fprintf(stderr,"\n\t%s/%s\n\n",thisprog,message); exit(1); }
-		else fprintf(stderr,"    - %s: %ld outliers (%.3f%%)\n",(setbands+ibands[band]),kk,(100*(double)kk/(double)nscores));
-	}
-	if(setout==3) {
-		fprintf(stderr,"    - outputting scores after trimming outliers...\n");
-		printf("act\temg"); for(jj=0;jj<btot;jj++) printf("\t%s",(setbands+ibands[jj])); printf("\n");
-		for(ii=0;ii<nscores;ii++) {
-			printf("%f\t%f",scoreact[ii],scoreemg[ii]);
-			for(band=0;band<btot;band++) printf("\t%f",scoreeeg[(band*nscores)+ii]);
-			printf("\n");}
-		goto END;
-	}
-
-	/* NOW GENERATE ACTIVITY, EMG AND EEG-BAND SCORES FOR EACH EPOCH */
-	/* - mean for activity, and median for EMG & EEG */
 	epochsamps= (long)(setepoch);
 	nepochs= nscores/epochsamps;
+
 	for(epoch=0;epoch<nepochs;epoch++) {
 
-		/* ACTIVITY - JUST TAKE MEAN (NOT MEDIAN) FOR THIS EPOCH - NO TRIM OR NORMALISATION */
 		pdataf= scoreact+(epoch*epochsamps);
-		sum=0; for(ii=kk=0;ii<epochsamps;ii++) { if(isfinite(pdataf[ii])) {sum+= pdataf[ii];kk++;}}
-		if(kk>0) scoreact[epoch]= sum/(double)kk;
-		else scoreact[epoch]=NAN;
+		z= xf_percentile3_f(pdataf,epochsamps,50,&aa,&bb,message);
+		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
+		scoreact[epoch]= (float)aa;
 
-		/* EMG - TAKE MEDIAN OF SCORES FOR THIS EPOCH */
 		pdataf= scoreemg+(epoch*epochsamps);
 		z= xf_percentile3_f(pdataf,epochsamps,50,&aa,&bb,message);
 		if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
 		scoreemg[epoch]= (float)aa;
 
-		/* EEG - TAKE MEDIAN OF SCORES FOR THIS EPOCH */
 		for(band=0;band<btot;band++) {
-			pdataf= scoreeeg+(band*nscores)+(epoch*epochsamps);
-			z= xf_percentile3_f(pdataf,epochsamps,50,&aa,&bb,message);
+			pdataf= scoreeeg+(band*nscores);
+			z= xf_percentile3_f((pdataf+(epoch*epochsamps)),epochsamps,50,&aa,&bb,message);
 			if(z==-1) { fprintf(stderr,"\n--- Error: %s/%s\n\n",thisprog,message); exit(1); }
-			scoreeeg[(band*nscores)+epoch]= aa;
+			pdataf[epoch]= aa;
 		}
 	}
-	//
-	// /* normalise 0-1 */
-	// z= xf_norm2_f(scoreemg,nscores,0);
+	nepochs= epoch;
 
 
 	/* TEST: */

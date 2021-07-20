@@ -1,5 +1,5 @@
-#define thisprog "xe-template"
-#define TITLE_STRING thisprog" DAY.MONTH.2020 [JRH]"
+#define thisprog "xe-rectify"
+#define TITLE_STRING thisprog" 19.July.2021 [JRH]"
 #define MAXLINELEN 1000
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,10 +7,9 @@
 #include <math.h>
 #define N 20
 /*
-<TAGS> LDAS </TAGS>
+<TAGS> signal_processing transform </TAGS>
 
-v 1: DAY.MONTH.YEAR [JRH]
-	- bugfix - changed use of fscanf to read data with fgets/sscanf, to avoid problems related to "-" and "."
+19.July.2021 [JRH] - version 1
 */
 
 
@@ -50,11 +49,10 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"%s\n",TITLE_STRING);
 		fprintf(stderr,"----------------------------------------------------------------------\n");
-		fprintf(stderr,"Template program source-code\n");
+		fprintf(stderr,"Rectify a data-stream\n");
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
-		fprintf(stderr,"	[in]: file name or \"stdin\"\n");
+		fprintf(stderr,"	[in]: file name or \"stdin\", single column\n");
 		fprintf(stderr,"VALID OPTIONS: defaults in []\n");
-		fprintf(stderr,"	-verb: verbose output (0=NO 1=YES 999=DEBUG) [%d]\n",setverb);
 		fprintf(stderr,"EXAMPLES:\n");
 		fprintf(stderr,"	%s data.txt\n",thisprog);
 		fprintf(stderr,"OUTPUT:\n");
@@ -79,6 +77,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	STORE DATA - ASSUME WE DON'T KNOW THE LENGTH OF EACH INPUT LINE
 	********************************************************************************/
+
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\n--- Error[%s]: file \"%s\" not found\n\n",thisprog,infile);exit(1);}
 	sizeofdata= sizeof(*data2);
@@ -87,12 +86,13 @@ int main (int argc, char *argv[]) {
 		if(maxlinelen==-1)  {fprintf(stderr,"\n--- Error[%s]: readline function encountered insufficient memory\n\n",thisprog);exit(1);}
 		iword= xf_lineparse2(line,"\t",&nwords);
 		if(nwords<0) {fprintf(stderr,"\n--- Error[%s]: lineparse function encountered insufficient memory\n\n",thisprog);exit(1);};
-		if(nwords<1) continue;
-		if(sscanf(line+iword[0],"%lf",&aa)!=1 || !isfinite(a)) continue;
-		data2= realloc(data2,(nn+1)*sizeofdata);
-		if(data2==NULL) {fprintf(stderr,"\n--- Error[%s]: insufficient memory\n\n",thisprog);exit(1);};
-		data2[nn]= aa;
-		nn++;
+		if(nwords<1) { printf("\n"); continue; }
+		if(sscanf(line+iword[0],"%lf",&aa)!=1) { printf("%s\n",line+iword[0]); continue; }
+
+		if(isfinite(aa)) {
+			if(aa<0) aa= 0.0-aa;
+		}
+		printf("%f\n",aa);
 	}
 	if(strcmp(infile,"stdin")!=0) fclose(fpin);
 	//TEST
@@ -105,7 +105,5 @@ goto END;
 END:
 	if(line!=NULL) free(line);
 	if(iword!=NULL) free(iword);
-	if(data1!=NULL) free(data1);
-	if(data2!=NULL) free(data2);
 	exit(0);
 }

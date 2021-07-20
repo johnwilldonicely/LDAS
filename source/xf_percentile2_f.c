@@ -43,7 +43,7 @@ float xf_percentile2_f(float *data, long nn, double setper, char *message) {
 
 	/* build a temporary array - omit non-finite numbers */
 	temp= malloc((nn+1)*sizeof(*temp));
-	if(temp==NULL) return(NAN);
+	if(temp==NULL) {sprintf(message,"%s [ERROR]: insufficient memory",thisfunc); bb=NAN; goto END; }
 	for(ii=n2=0;ii<nn;ii++) if(isfinite(data[ii])) temp[n2++]= data[ii];
 
 	/* sort the temporary array */

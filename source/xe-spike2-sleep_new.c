@@ -97,12 +97,11 @@ int main (int argc, char *argv[]) {
 	double *taper=NULL,*spect=NULL,*spectmean=NULL,*spectmean2=NULL,ar,ai,fftmaxfreq=-1.0,freqres;
 	float *buff2=NULL,*fftfreq=NULL,scaling1,sum,mean;
 
+	// Sandor Kantor / Sleepsign sleep-detection band definitions
+	// NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
+	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100";
 	// Gyorgi Buzsaki band definitions
 	// 	char setbandsdefault[]= "delta,2,4,theta,4,8,alpha,8,12,beta,12,20,gamma1,20,90,gamma2,90,13,ripple,130,160";
-	// Sandor Kantor / Sleepsign sleep-detection band definitions
-	// 	NOTE "traditional" sigma (10-15Hz) is subsumed by Sandor's "spindle-alpha" (6,15)
-	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,6,10,beta,12,25,gamma,30,100"; // Sandor
-	// 	char setbandsdefault[]= "delta,0.6,4.5,spinalph,6,15,theta,4,10,beta,12,25,gamma,30,100"; // My Sleepsign screenshot
 	// Functional bands for test dataset (TPEEG054):
 	//	 char setbandsdefault[]= "delta 1,5,theta,5,10,sigma,10,18,beta,18,35,gamma,35,80"
 	/* band definition */
@@ -220,7 +219,7 @@ int main (int argc, char *argv[]) {
 	/********************************************************************************
 	B. STORE EMG DATA
 	********************************************************************************/
-	fprintf(stderr,"...reading EMG (%s)\n",infileemg);
+	fprintf(stderr,"...reading EMG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
 	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
@@ -235,11 +234,10 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        samplerate= %g Hz\n",sfemg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",duremg,days,hours,minutes,seconds);
 
-
 	/********************************************************************************
 	C.  STORE EEG DATA
 	********************************************************************************/
-	fprintf(stderr,"...reading EEG (%s)\n",infileeeg);
+	fprintf(stderr,"...reading EEG data...\n");
 	parameters[0]= 8; /// data-type
 	parameters[1]= 0; // number of bytes at the top of the file (header) to ignore
 	parameters[2]= 0; // number of numbers to skip (bytes skipped calculated based on size of data type)
@@ -253,10 +251,8 @@ int main (int argc, char *argv[]) {
 	fprintf(stderr,"        records= %ld\n",nneeg);
 	fprintf(stderr,"        samplerate= %g Hz\n",sfeeg);
 	fprintf(stderr,"        duration=\033[0;32m %.3f\033[0m seconds (%02d:%02d:%02d:%.3f)\n",dureeg,days,hours,minutes,seconds);
-
 	//TEST	fprintf(stderr,"testing!\n");
-//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
-//for(ii=0;ii<nnemg;ii++) printf("%g\n",datemg[ii]); exit(0);
+	//for(ii=0;ii<nnact;ii++) { if(ii>=nnemg || ii>=nneeg) break ; printf("%g\t%g\t%g\n",datact[ii],datemg[ii],dateeg[ii]); }
 
 
 	/******************************************************************************/
@@ -321,6 +317,12 @@ int main (int argc, char *argv[]) {
 		}
 	}
 	if(setverb==999) for(ii=0;ii<btot;ii++) printf("____ BAND: %s : %g-%g Hz : indices %ld-%ld\n",(setbands+ibands[ii]),bstart1[ii],bstop1[ii],bstart2[ii],bstop2[ii]);
+
+
+//TEST
+for(ii=0;ii<nnemg;ii++) printf("%g\n",datemg[ii]); goto END;
+
+
 
 
 	/******************************************************************************/
