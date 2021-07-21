@@ -2,9 +2,9 @@
 <TAGS>signal_processing transform</TAGS>
 
 DESCRIPTION:
-	- remove outliers (lower and upper) from a dataset (convert to NAN)
+	- remove outliers (lower and/or higher) from a dataset (convert to NAN)
 	- NAN and INF values are left unchanged
-
+	- just like the double version of this function but the input is 32-bit float (the calculations are all 64-bit)
 
 DEPENDENCIES:
 	int xf_compare1_d(const void *a, const void *b)
@@ -12,8 +12,8 @@ DEPENDENCIES:
 ARGUMENTS:
 	float *data    : input: data array
 	long nn        : input: length of data
-	float setlow   : input: low-percentile cutoff (0-100)
-	float sethigh  : input: high-percentile cutoff (0-100)
+	float setlow   : input: low-percentile cutoff (0-100, or -1 to skip)
+	float sethigh  : input: high-percentile cutoff (0-100, or -1 to skip)
 	char *message) : character array holding error message, if any, for return value of -1 (see below)
 
 RETURN VALUE:
@@ -35,10 +35,11 @@ int xf_compare1_d(const void *a, const void *b);
 
 long xf_outlier1_f(float *data, long nn, float setlow, float sethigh, char *message) {
 
-	char *thisfunc="xf_outlier1_f\0";
+	char *thisfunc="xf_outlier1_d\0";
 	long ii,jj,kk,n2;
 	double aa,bb,lowval,highval, *temp=NULL;
 
+	if(setlow==0.00 && sethigh==100.0) return(0);
 	/* CHECK VALIDITY OF ARGUMENTS */
 	if(nn==0) { sprintf(message,"%s [ERROR]: invalid size of input (%ld)",thisfunc,nn); return(-1); }
 	if(setlow<0.0||setlow>100.0) { sprintf(message,"%s [ERROR]: invalid low-percentile (%g), must be 0-100",thisfunc,setlow); return(-1); }
@@ -50,24 +51,33 @@ long xf_outlier1_f(float *data, long nn, float setlow, float sethigh, char *mess
 	temp= malloc((nn+1)*sizeof(*temp));
 	if(temp==NULL) {sprintf(message,"%s [ERROR]: insufficient memory",thisfunc); return(-1); }
 	for(ii=n2=0;ii<nn;ii++) if(isfinite(data[ii])) temp[n2++]= data[ii];
-	/* sort the temporary array */
+	if(n2<1) return(0); // no error, just don't do anything
+
+	/* SORT THE TEMPORARY ARRAY */
 	qsort(temp,n2,sizeof(double),xf_compare1_d);
 
-	/* GET VALUES REPRESENTING THE LOWER AND UPPER LIMITS - THIS CODE DERIVED FROM xf-percentile2_f */
-	aa= n2*(setlow/100);
-	jj= (long)aa;
-	if(aa!=(double)jj) lowval= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
-	else lowval= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
+	/* GET VALUES REPRESENTING THE LOW AND HIGH LIMITS - THIS CODE DERIVED FROM xf-percentile2_f */
+	if(setlow==0.0) lowval=temp[0];
+	else if(setlow==100.0) lowval=temp[(n2-1)];
+	else {
+		aa= n2*(setlow/100);
+		jj= (long)aa;
+		if(aa!=(double)jj) lowval= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
+		else lowval= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
+	}
+	if(sethigh==0.0) highval=temp[0];
+	else if(sethigh==100.0) highval=temp[(n2-1)];
+	else {
+		aa= n2*(sethigh/100);
+		jj= (long)aa;
+		if(aa!=(double)jj) highval= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
+		else highval= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
+	}
 
-	aa= n2*(sethigh/100);
-	jj= (long)aa;
-	if(aa!=(double)jj) highval= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
-	else highval= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
-
-
-	/* NOW SET OUTLIERS IN THE ORIGINAL DATASET TO NAN */
+	/* SET OUTLIERS IN THE ORIGINAL DATASET TO NAN */
 	for(ii=kk=0;ii<nn;ii++) if(data[ii]<lowval || data[ii]>highval) {data[ii]= NAN; kk++;}
 
+	/* CLEANUP AND RETURN NUMBER OF OUTLIERS SET TO NAN  */
 	if(temp!=NULL) free(temp);
 	return(kk);
 }

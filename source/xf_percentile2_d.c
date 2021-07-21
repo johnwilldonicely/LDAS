@@ -43,17 +43,20 @@ double xf_percentile2_d(double *data, long nn, double setper, char *message) {
 
 	/* build a temporary array - omit non-finite numbers */
 	temp= malloc((nn+1)*sizeof(*temp));
-	if(temp==NULL) return(NAN);
+	if(temp==NULL) {sprintf(message,"%s [ERROR]: insufficient memory",thisfunc); bb=NAN; goto END; }
 	for(ii=n2=0;ii<nn;ii++) if(isfinite(data[ii])) temp[n2++]= data[ii];
 
 	/* sort the temporary array */
 	qsort(temp,n2,sizeof(double),xf_compare1_d);
 
-	aa= n2*(setper/100); /* find the position in the array corresponding to the percentile */
-	jj= (long)aa;  /* convert this to an integer element-number */
-	if(aa!=(double)jj) bb= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
-	else bb= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
-
+	if(setper==0.0) bb= temp[0];
+	else if(setper==100.0) bb= temp[(n2-1)];
+	else {
+		aa= n2*(setper/100); /* find the position in the array corresponding to the percentile */
+		jj= (long)aa;  /* convert this to an integer element-number */
+		if(aa!=(double)jj) bb= temp[jj]; /* if the percentile limit does not fall exactly on an item, cutoff is unchanged */
+		else bb= (temp[jj]+temp[jj-1])/2.0; /* otherwise if the cutoff is exactly an item number, take the avergage of this point and the previous item */
+	}
 END:
 	if(temp!=NULL) free(temp);
 	return(bb);

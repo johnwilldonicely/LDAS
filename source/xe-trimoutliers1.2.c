@@ -53,12 +53,12 @@ int main (int argc, char *argv[]) {
 		fprintf(stderr,"USAGE: %s [in] [options]\n",thisprog);
 		fprintf(stderr,"    [in]: input file-name or \"stdin\", single column\n");
 		fprintf(stderr,"VALID OPTIONS ( defaults in [] ):\n");
-		fprintf(stderr,"    -low: low percentile cutoff [%g]\n",setlow);
-		fprintf(stderr,"    -high: high percentile cutoff [%g]\n",sethigh);
+		fprintf(stderr,"    -low: low percentile cutoff (-1 to skip) [%g]\n",setlow);
+		fprintf(stderr,"    -high: high percentile cutoff (-1 to skip) [%g]\n",sethigh);
 		fprintf(stderr,"EXAMPLES:\n");
-		fprintf(stderr,"    %s data.txt -l 10 -u 90\n",thisprog);
-		fprintf(stderr,"    cat temp.txt | %s stdin -l 25 -u 75\n",thisprog);
-		fprintf(stderr,"OUTPUT: trimmed dataset\n");
+		fprintf(stderr,"    %s data.txt -low 5 -high 95\n",thisprog);
+		fprintf(stderr,"    %s data.txt -low -1 -high 99.5\n",thisprog);
+		fprintf(stderr,"OUTPUT: data with outliers set to NAN\n");
 		fprintf(stderr,"----------------------------------------------------------------------\n");
 		fprintf(stderr,"\n");
 		exit(0);
@@ -76,15 +76,23 @@ int main (int argc, char *argv[]) {
 			else {fprintf(stderr,"\t\aError[%s]: invalid command line argument \"%s\"\n",thisprog,argv[ii]); exit(1);}
 	}}
 	/* check validity of arguments */
-	if(setlow<0||setlow>100) {fprintf(stderr,"\n--- Error[%s]: -low (%g) out of range - must be 0-100\n\n",thisprog,setlow); exit(1);}
-	if(sethigh<0||sethigh>100) {fprintf(stderr,"\n--- Error[%s]: -high (%g) out of range - must be 0-100\n\n",thisprog,sethigh); exit(1);}
-	if(setlow>=sethigh) {fprintf(stderr,"\n--- Error[%s]: -low (%g) must be less than -high (%g)\n\n",thisprog,setlow,sethigh); exit(1);}
+	/* NOTE: low and high passed straight to outlier function - this will check validity */
+
+	/* straight pass-through option */
+	if(sethigh==-1.0 && setlow==-1.0) {
+		if(strcmp(infile,"stdin")==0) fpin=stdin;
+		else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\t\aError[%s]: file \"%s\" not found\n",thisprog,infile);exit(1);}
+		while(fgets(line,MAXLINELEN,fpin)!=NULL) printf("%s",line);
+		if(strcmp(infile,"stdin")!=0) fclose(fpin);
+		exit(0);
+	}
 
 	/********************************************************************************
 	STORE DATA - TAKE FIRST COLUMN ONLY
 	********************************************************************************/
 	if(strcmp(infile,"stdin")==0) fpin=stdin;
 	else if((fpin=fopen(infile,"r"))==0) {fprintf(stderr,"\t\aError[%s]: file \"%s\" not found\n",thisprog,infile);exit(1);}
+
 	sizeofdata= sizeof(*data);
 	nn= 0;
 	while(fgets(line,MAXLINELEN,fpin)!=NULL) {
